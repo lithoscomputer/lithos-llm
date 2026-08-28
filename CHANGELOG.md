@@ -47,6 +47,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Bedrock uses one HTTP transport and codec for bearer and SigV4 requests.
 - `reqwest` moved from 0.12 to 0.13.
 
+### Fixed
+
+- Audio, documents, and other content a provider protocol cannot carry now fail
+  before dispatch instead of being dropped or replaced with placeholder text.
+- A truncated stream reports an incomplete finish reason rather than `stop`.
+- Parallel tool results merge into one turn for the protocols that alternate
+  roles, instead of being sent as consecutive same-role turns.
+- Bedrock `error` stream frames fail the stream instead of being ignored.
+- Token counting refuses the same requests completion refuses.
+- Sampling controls keep the decimal the caller wrote.
+
 ### Removed
 
 - The `aws-sdk-bedrockruntime` dependency and its request, response, and stream
