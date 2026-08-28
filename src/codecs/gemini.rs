@@ -5,8 +5,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, merge_options, plain_text, system_text, unsupported_capability,
-    wire_options,
+    endpoint, finish_reason, flattens_tool_result_content, merge_options, plain_text, sampling,
+    system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -46,6 +46,9 @@ impl Codec for GeminiGenerateCodec {
         .with_timeout(call.request().timeout());
         if !call.request().metadata().is_empty() {
             encoded = encoded.unsupported_control("request metadata");
+        }
+        if flattens_tool_result_content(call.request()) {
+            encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)
     }
@@ -172,7 +175,7 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
         );
     }
 
-    let mut contents = Vec::new();
+    let mut contents: Vec<Value> = Vec::new();
     for message in request.messages() {
         if matches!(message.role(), Role::System | Role::Developer) {
             continue;
@@ -186,7 +189,18 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
         } else {
             "user"
         };
-        contents.push(json!({ "role": role, "parts": parts }));
+        // Parallel tool results arrive as one canonical message each but all
+        // answer a single model turn, so consecutive same-role messages merge
+        // into one turn. Gemini's documented shape puts every
+        // `functionResponse` for a turn in one `user` entry.
+        match contents.last_mut() {
+            Some(last) if last.get("role").and_then(Value::as_str) == Some(role) => {
+                if let Some(Value::Array(existing)) = last.get_mut("parts") {
+                    existing.extend(parts);
+                }
+            }
+            _ => contents.push(json!({ "role": role, "parts": parts })),
+        }
     }
     body.insert("contents".to_owned(), Value::Array(contents));
 
@@ -195,10 +209,10 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
         generation.insert("maxOutputTokens".to_owned(), max_tokens.into());
     }
     if let Some(temperature) = request.temperature() {
-        generation.insert("temperature".to_owned(), temperature.into());
+        generation.insert("temperature".to_owned(), sampling(temperature));
     }
     if let Some(top_p) = request.top_p() {
-        generation.insert("topP".to_owned(), top_p.into());
+        generation.insert("topP".to_owned(), sampling(top_p));
     }
     if !request.stop_sequences().is_empty() {
         generation.insert(
@@ -727,12 +741,15 @@ mod tests {
             encoded.body["contents"][0]["parts"][1]["fileData"],
             json!({ "fileUri": "https://example.com/cat.png" })
         );
+        // The media message and the tool result both map to the `user` role,
+        // so they merge into one turn rather than two consecutive ones.
+        assert_eq!(encoded.body["contents"].as_array().map(Vec::len), Some(1));
         assert_eq!(
-            encoded.body["contents"][1]["parts"][0]["functionResponse"]["id"],
+            encoded.body["contents"][0]["parts"][2]["functionResponse"]["id"],
             "call-1"
         );
         assert_eq!(
-            encoded.body["contents"][1]["parts"][0]["functionResponse"]["name"],
+            encoded.body["contents"][0]["parts"][2]["functionResponse"]["name"],
             "weather"
         );
         Ok(())

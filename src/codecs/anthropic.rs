@@ -12,8 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, merge_options, plain_text, system_text, unsupported_capability,
-    wire_options,
+    endpoint, finish_reason, flattens_tool_result_content, merge_options, plain_text,
+    reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -62,6 +62,11 @@ pub(crate) struct AnthropicMessagesCodec;
 impl Codec for AnthropicMessagesCodec {
     fn encode(&self, call: &ResolvedCall, stream: bool) -> Result<EncodedRequest, Error> {
         reject_custom_tools(call)?;
+        // Anthropic Messages carries no audio. Dropping it silently would let
+        // the model answer a prompt the caller never sent.
+        reject_unencodable(call.route(), call.request(), |part| {
+            matches!(part, ContentPart::Audio(_)).then_some("audio content")
+        })?;
 
         let request = call.request();
         let (options, controls) = wire_options(call);
@@ -76,13 +81,17 @@ impl Codec for AnthropicMessagesCodec {
         body.insert("stream".to_owned(), stream.into());
         merge_options(&mut body, options);
 
-        Ok(EncodedRequest::new(
+        let mut encoded = EncodedRequest::new(
             Method::POST,
             endpoint(call.route().provider().base_url(), "/v1/messages"),
             Value::Object(body),
         )
         .with_headers(version_headers())
-        .with_timeout(request.timeout()))
+        .with_timeout(request.timeout());
+        if flattens_tool_result_content(request) {
+            encoded = encoded.unsupported_control("non-text tool result content");
+        }
+        Ok(encoded)
     }
 
     fn decode_response(&self, route: &ResolvedRoute, value: Value) -> Result<Response, Error> {
@@ -164,6 +173,11 @@ fn reject_custom_tools(call: &ResolvedCall) -> Result<(), Error> {
 /// Encodes the count-token request, which narrows the generation body.
 fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
     reject_custom_tools(call)?;
+    // Counting refuses exactly what completion refuses. A request the provider
+    // would not accept must not come back with a token count.
+    reject_unencodable(call.route(), call.request(), |part| {
+        matches!(part, ContentPart::Audio(_)).then_some("audio content")
+    })?;
 
     let (options, controls) = wire_options(call);
     let mut body = message_body(call, controls.auto_cache);
@@ -214,10 +228,10 @@ fn message_body(call: &ResolvedCall, auto_cache: bool) -> Map<String, Value> {
     );
 
     if let Some(temperature) = request.temperature() {
-        body.insert("temperature".to_owned(), temperature.into());
+        body.insert("temperature".to_owned(), sampling(temperature));
     }
     if let Some(top_p) = request.top_p() {
-        body.insert("top_p".to_owned(), top_p.into());
+        body.insert("top_p".to_owned(), sampling(top_p));
     }
     if !request.stop_sequences().is_empty() {
         body.insert("stop_sequences".to_owned(), json!(request.stop_sequences()));
@@ -357,18 +371,30 @@ impl WireMessage {
 /// whose parts all encode to nothing is dropped, because Anthropic rejects a
 /// message with empty content.
 fn wire_messages(messages: &[Message]) -> Vec<WireMessage> {
-    messages
+    let mut wire: Vec<WireMessage> = Vec::new();
+    for message in messages
         .iter()
         .filter(|message| !matches!(message.role(), Role::System | Role::Developer))
-        .map(|message| WireMessage {
-            role:   match message.role() {
-                Role::Assistant => "assistant",
-                _ => "user",
-            },
-            blocks: message.content().iter().filter_map(content_block).collect(),
-        })
-        .filter(|message| !message.blocks.is_empty())
-        .collect()
+    {
+        let role = match message.role() {
+            Role::Assistant => "assistant",
+            _ => "user",
+        };
+        let blocks: Vec<Value> = message.content().iter().filter_map(content_block).collect();
+        if blocks.is_empty() {
+            continue;
+        }
+        // This protocol alternates roles. Several canonical messages can map
+        // to one wire role — parallel tool results are the common case, since
+        // each result is its own message but they all answer one assistant
+        // turn — so consecutive same-role messages merge into one turn rather
+        // than being sent as a run the provider rejects.
+        match wire.last_mut() {
+            Some(last) if last.role == role => last.blocks.extend(blocks),
+            _ => wire.push(WireMessage { role, blocks }),
+        }
+    }
+    wire
 }
 
 /// Marks the conversation prefix so the next agent-loop turn reuses it.
@@ -459,6 +485,7 @@ fn content_block(part: &ContentPart) -> Option<Value> {
             Some(_) | None => None,
         },
         // The Messages API has no audio input.
+        // Rejected before dispatch by `reject_unencodable`.
         ContentPart::Audio(_) => None,
     }
 }

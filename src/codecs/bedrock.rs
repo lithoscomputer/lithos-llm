@@ -15,8 +15,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, merge_options, plain_text, system_text, unsupported_capability,
-    wire_options,
+    endpoint, finish_reason, merge_options, plain_text, reject_unencodable, sampling, system_text,
+    unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -40,6 +40,11 @@ impl Codec for BedrockConverseCodec {
         let request = call.request();
         let route = call.route();
         reject_custom_tools(request, route)?;
+        // Bedrock Converse carries no audio. Dropping it silently would let
+        // the model answer a prompt the caller never sent.
+        reject_unencodable(route, request, |part| {
+            matches!(part, ContentPart::Audio(_)).then_some("audio content")
+        })?;
         let (options, controls) = wire_options(call);
 
         let mut body = Map::new();
@@ -155,6 +160,11 @@ fn encode_count_tokens(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
     let request = call.request();
     let route = call.route();
     reject_custom_tools(request, route)?;
+    // Counting refuses exactly what completion refuses. A request the provider
+    // would not accept must not come back with a token count.
+    reject_unencodable(route, request, |part| {
+        matches!(part, ContentPart::Audio(_)).then_some("audio content")
+    })?;
     let (_, controls) = wire_options(call);
 
     let mut converse = Map::new();
@@ -231,7 +241,7 @@ fn conversation(
     route: &ResolvedRoute,
     auto_cache: bool,
 ) -> Result<Vec<Value>, Error> {
-    let mut messages = Vec::new();
+    let mut messages: Vec<Value> = Vec::new();
     for message in request.messages() {
         if matches!(message.role(), Role::System | Role::Developer) {
             continue;
@@ -262,7 +272,18 @@ fn conversation(
             // Converse has no tool role; tool results ride in user messages.
             "user"
         };
-        messages.push(json!({ "role": role, "content": blocks }));
+        // Converse alternates roles. Parallel tool results arrive as one
+        // canonical message each but all answer a single assistant turn, so
+        // consecutive same-role messages merge into one turn rather than
+        // being sent as a run the provider rejects.
+        match messages.last_mut() {
+            Some(last) if last.get("role").and_then(Value::as_str) == Some(role) => {
+                if let Some(Value::Array(content)) = last.get_mut("content") {
+                    content.extend(blocks);
+                }
+            }
+            _ => messages.push(json!({ "role": role, "content": blocks })),
+        }
     }
 
     if auto_cache {
@@ -339,7 +360,12 @@ fn encode_content_part(part: &ContentPart, route: &ResolvedRoute) -> Result<Opti
         ContentPart::Opaque { data, .. } if part.opaque_namespace() == Some(NAMESPACE) => {
             Some(data.clone())
         }
-        ContentPart::Audio(_) | ContentPart::Json { .. } | ContentPart::Opaque { .. } => None,
+        // Structured JSON has no Converse block of its own, so it rides as
+        // text the way every other dialect encodes it.
+        ContentPart::Json { value } => Some(json!({ "text": value.to_string() })),
+        // Audio is rejected before dispatch. An opaque part in another
+        // provider's namespace is skipped so failover can still send.
+        ContentPart::Audio(_) | ContentPart::Opaque { .. } => None,
     };
     Ok(block)
 }
@@ -456,10 +482,10 @@ fn inference_config(request: &Request) -> Map<String, Value> {
         inference.insert("maxTokens".to_owned(), max_tokens.into());
     }
     if let Some(temperature) = request.temperature() {
-        inference.insert("temperature".to_owned(), temperature.into());
+        inference.insert("temperature".to_owned(), sampling(temperature));
     }
     if let Some(top_p) = request.top_p() {
-        inference.insert("topP".to_owned(), top_p.into());
+        inference.insert("topP".to_owned(), sampling(top_p));
     }
     if !request.stop_sequences().is_empty() {
         inference.insert("stopSequences".to_owned(), json!(request.stop_sequences()));

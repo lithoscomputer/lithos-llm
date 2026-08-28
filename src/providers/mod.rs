@@ -781,11 +781,10 @@ pub(super) mod http {
 
             let completed = events
                 .into_iter()
-                .filter_map(|event| match event {
+                .find_map(|event| match event {
                     Ok(StreamEvent::Completed { response }) => Some(response),
                     _ => None,
                 })
-                .next()
                 .ok_or("the stream must complete")?;
             let warning = completed
                 .warnings

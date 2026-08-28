@@ -20,12 +20,27 @@ use futures_core::Stream;
 use futures_util::StreamExt as _;
 use futures_util::stream::iter;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::{Client, Method, Response as HttpResponse};
+use reqwest::{Client, Method, RequestBuilder, Response as HttpResponse};
 use serde_json::Value;
 
 use crate::catalog::{AuthScheme, CatalogProvider, ProviderId};
 use crate::credentials::{CredentialHeader, Credentials, HttpAuthentication, SecretValue};
 use crate::types::{Error, ErrorKind, RateLimits, RetryClassification, Warning};
+
+/// A request whose headers and body bytes are already final.
+///
+/// AWS SigV4 signs the exact method, URL, headers, and bytes that reach the
+/// wire, so a signed request cannot be assembled by the transport the way an
+/// [`EncodedRequest`] is. The caller prepares everything, signs it, and hands
+/// the result here unchanged.
+#[cfg(feature = "bedrock-aws")]
+pub(crate) struct PreparedRequest {
+    pub method:  Method,
+    pub url:     String,
+    pub headers: HeaderMap,
+    pub body:    Vec<u8>,
+    pub timeout: Option<Duration>,
+}
 
 pub(crate) struct EncodedRequest {
     pub method:   Method,
@@ -116,16 +131,18 @@ impl HttpTransport {
         credentials: Credentials,
     ) -> Result<JsonResponse, Error> {
         let response = self.send(request, provider, credentials).await?;
-        let rate_limits = rate_limits(response.headers());
-        let body = response.json().await.map_err(|source| {
-            Error::new(
-                ErrorKind::Provider,
-                format!("provider {} returned invalid JSON", provider.id()),
-            )
-            .with_provider(provider.id().clone())
-            .with_source(source)
-        })?;
-        Ok(JsonResponse { body, rate_limits })
+        json_response(response, provider).await
+    }
+
+    /// Executes an already-signed request and decodes a JSON body.
+    #[cfg(feature = "bedrock-aws")]
+    pub(crate) async fn execute_json_prepared(
+        &self,
+        request: PreparedRequest,
+        provider: &CatalogProvider,
+    ) -> Result<JsonResponse, Error> {
+        let response = self.send_prepared(request, provider).await?;
+        json_response(response, provider).await
     }
 
     #[cfg(any(
@@ -180,36 +197,36 @@ impl HttpTransport {
         credentials: Credentials,
     ) -> Result<EventResponse, Error> {
         let response = self.send(request, provider, credentials).await?;
-        let rate_limits = rate_limits(response.headers());
-        let provider_id = provider.id().clone();
-        let read_provider = provider_id.clone();
-        let chunks = response.bytes_stream().map(move |result| {
-            result.map_err(|source| {
-                Error::new(
-                    ErrorKind::Network,
-                    "reading the Bedrock response stream failed",
-                )
-                .with_provider(read_provider.clone())
-                .with_retry(RetryClassification::Safe)
-                .with_source(source)
-            })
-        });
-        let frames = chunks
-            .scan(Vec::new(), move |buffer, chunk| {
-                let parsed = match chunk {
-                    Ok(chunk) => {
-                        buffer.extend_from_slice(&chunk);
-                        event_stream_events_from(buffer, &provider_id)
-                    }
-                    Err(error) => vec![Err(error)],
-                };
-                ready(Some(parsed))
-            })
-            .flat_map(iter);
-        Ok(EventResponse {
-            events: Box::pin(frames),
-            rate_limits,
-        })
+        Ok(event_stream_response(response, provider))
+    }
+
+    /// Opens an already-signed AWS event stream.
+    #[cfg(feature = "bedrock-aws")]
+    pub(crate) async fn event_stream_events_prepared(
+        &self,
+        request: PreparedRequest,
+        provider: &CatalogProvider,
+    ) -> Result<EventResponse, Error> {
+        let response = self.send_prepared(request, provider).await?;
+        Ok(event_stream_response(response, provider))
+    }
+
+    /// Sends a request whose headers and bytes are already final.
+    #[cfg(feature = "bedrock-aws")]
+    async fn send_prepared(
+        &self,
+        request: PreparedRequest,
+        provider: &CatalogProvider,
+    ) -> Result<HttpResponse, Error> {
+        let mut builder = self
+            .client
+            .request(request.method, &request.url)
+            .headers(request.headers)
+            .body(request.body);
+        if let Some(timeout) = request.timeout {
+            builder = builder.timeout(timeout);
+        }
+        finish(builder, provider).await
     }
 
     async fn send(
@@ -233,25 +250,84 @@ impl HttpTransport {
         if let Some(timeout) = request.timeout {
             builder = builder.timeout(timeout);
         }
+        finish(builder, provider).await
+    }
+}
 
-        let response = builder.send().await.map_err(|source| {
-            let kind = if source.is_timeout() {
-                ErrorKind::Timeout
-            } else {
-                ErrorKind::Network
-            };
+/// Sends one built request and turns a non-success status into an error.
+async fn finish(
+    builder: RequestBuilder,
+    provider: &CatalogProvider,
+) -> Result<HttpResponse, Error> {
+    let response = builder.send().await.map_err(|source| {
+        let kind = if source.is_timeout() {
+            ErrorKind::Timeout
+        } else {
+            ErrorKind::Network
+        };
+        Error::new(
+            kind,
+            format!("request to provider {} failed", provider.id()),
+        )
+        .with_provider(provider.id().clone())
+        .with_retry(RetryClassification::Safe)
+        .with_source(source)
+    })?;
+    if response.status().is_success() {
+        return Ok(response);
+    }
+    Err(http_error(response, provider).await)
+}
+
+/// Reads rate limits and decodes a JSON success body.
+async fn json_response(
+    response: HttpResponse,
+    provider: &CatalogProvider,
+) -> Result<JsonResponse, Error> {
+    let rate_limits = rate_limits(response.headers());
+    let body = response.json().await.map_err(|source| {
+        Error::new(
+            ErrorKind::ResponseDecode,
+            format!("provider {} returned invalid JSON", provider.id()),
+        )
+        .with_provider(provider.id().clone())
+        .with_source(source)
+    })?;
+    Ok(JsonResponse { body, rate_limits })
+}
+
+/// Reads rate limits and decodes AWS event-stream frames.
+#[cfg(feature = "bedrock")]
+fn event_stream_response(response: HttpResponse, provider: &CatalogProvider) -> EventResponse {
+    let rate_limits = rate_limits(response.headers());
+    let provider_id = provider.id().clone();
+    let read_provider = provider_id.clone();
+    let chunks = response.bytes_stream().map(move |result| {
+        result.map_err(|source| {
             Error::new(
-                kind,
-                format!("request to provider {} failed", provider.id()),
+                ErrorKind::Network,
+                "reading the Bedrock response stream failed",
             )
-            .with_provider(provider.id().clone())
+            .with_provider(read_provider.clone())
             .with_retry(RetryClassification::Safe)
             .with_source(source)
-        })?;
-        if response.status().is_success() {
-            return Ok(response);
-        }
-        Err(http_error(response, provider).await)
+        })
+    });
+    let frames = chunks
+        .scan(Vec::new(), move |buffer, chunk| {
+            let parsed = match chunk {
+                Ok(chunk) => {
+                    buffer.extend_from_slice(&chunk);
+                    event_stream_events_from(buffer, &provider_id)
+                }
+                Err(error) => vec![Err(error)],
+            };
+            ready(Some(parsed))
+        })
+        .flat_map(iter);
+    EventResponse {
+        events: Box::pin(frames),
+        rate_limits,
     }
 }
 
@@ -615,10 +691,14 @@ fn event_stream_events_from(
                 .with_provider(provider.clone())
                 .with_source(source)
             })?;
-            if frame.is_exception() {
+            if frame.is_failure() {
                 let body = serde_json::from_str::<Value>(&data).ok();
                 let (message, code) = classify::extract(body.as_ref());
-                let code = code.or_else(|| frame.exception_type().map(ToOwned::to_owned));
+                // An `error` frame carries its diagnostics in the frame
+                // headers rather than the payload, so the header values are
+                // the fallback for both fields.
+                let code = code.or_else(|| frame.failure_code().map(ToOwned::to_owned));
+                let message = message.or_else(|| frame.error_message().map(ToOwned::to_owned));
                 let failure = classify::classify(None, code.as_deref(), message.as_deref(), None);
                 let mut error = Error::new(
                     failure.kind,
@@ -626,7 +706,7 @@ fn event_stream_events_from(
                         "provider {provider} {}",
                         failure
                             .message
-                            .unwrap_or_else(|| "returned a stream exception".to_owned())
+                            .unwrap_or_else(|| "returned a stream failure".to_owned())
                     ),
                 )
                 .with_provider(provider.clone())
@@ -651,9 +731,16 @@ fn event_stream_events_from(
 mod tests {
     use std::collections::BTreeMap;
 
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    use super::extract_frames;
     use super::{
         AuthScheme, CredentialHeader, Credentials, ErrorKind, HeaderMap, HeaderValue,
-        HttpAuthentication, ProviderId, SecretValue, extract_frames, merge_headers, rate_limits,
+        HttpAuthentication, ProviderId, SecretValue, merge_headers, rate_limits,
     };
     use crate::credentials::HttpCredentials;
     use crate::types::Error;
@@ -771,6 +858,12 @@ mod tests {
         assert_eq!(error.kind(), ErrorKind::Authentication);
     }
 
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
     #[test]
     fn parses_frames_across_chunks() {
         let mut buffer = b"event: delta\ndata: {\"text\":\"hel".to_vec();

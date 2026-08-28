@@ -306,8 +306,19 @@ fn public_identity_types_remain_open() {
 fn from_env_builds_without_reading_credentials() -> Result<(), Box<dyn StdError>> {
     let build = Client::from_env()?;
 
-    assert!(build.issues.is_empty());
     assert!(build.client.available_providers().iter().next().is_some());
+    // The built-in catalog names every built-in provider, including ones whose
+    // adapter feature this build disables. Those are reported rather than
+    // hidden, so the contract is that no OTHER kind of issue appears.
+    for issue in &build.issues {
+        assert!(
+            matches!(
+                issue.cause,
+                ProviderBuildCause::AdapterFeatureDisabled { .. }
+            ),
+            "unexpected provider build issue: {issue:?}"
+        );
+    }
     Ok(())
 }
 

@@ -20,8 +20,8 @@ use serde_json::{Map, Value, json, to_string};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, merge_options, parse_arguments, plain_text, unsupported_capability,
-    wire_options,
+    endpoint, finish_reason, flattens_tool_result_content, merge_options, parse_arguments,
+    plain_text, reject_unencodable, sampling, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -59,6 +59,14 @@ impl Codec for OpenAiChatCodec {
         if request.tools().iter().any(ToolDefinition::is_custom) {
             return Err(unsupported_capability(route, "custom tools"));
         }
+        // This dialect encodes neither audio nor documents. Dropping them
+        // silently would return a successful response for a prompt that never
+        // carried the caller's attachment.
+        reject_unencodable(route, request, |part| match part {
+            ContentPart::Audio(_) => Some("audio content"),
+            ContentPart::Document(_) => Some("document content"),
+            _ => None,
+        })?;
 
         let (options, _controls) = wire_options(call);
         let mut body = Map::new();
@@ -80,10 +88,10 @@ impl Codec for OpenAiChatCodec {
             body.insert("max_tokens".to_owned(), max_tokens.into());
         }
         if let Some(temperature) = request.temperature() {
-            body.insert("temperature".to_owned(), temperature.into());
+            body.insert("temperature".to_owned(), sampling(temperature));
         }
         if let Some(top_p) = request.top_p() {
-            body.insert("top_p".to_owned(), top_p.into());
+            body.insert("top_p".to_owned(), sampling(top_p));
         }
         if !request.stop_sequences().is_empty() {
             let stop = request
@@ -116,12 +124,27 @@ impl Codec for OpenAiChatCodec {
         // anything encoded above.
         merge_options(&mut body, options);
 
-        Ok(EncodedRequest::new(
+        let mut encoded = EncodedRequest::new(
             Method::POST,
             endpoint(route.provider().base_url(), "/v1/chat/completions"),
             Value::Object(body),
         )
-        .with_timeout(request.timeout()))
+        .with_timeout(request.timeout());
+        // A `tool` message has no error marker in this protocol, so a failed
+        // tool result reaches the model looking like a successful one. The
+        // content still arrives, so this is a warning rather than a refusal.
+        if request
+            .messages()
+            .iter()
+            .flat_map(Message::content)
+            .any(|part| matches!(part, ContentPart::ToolResult(result) if result.is_error))
+        {
+            encoded = encoded.unsupported_control("the tool result error flag");
+        }
+        if flattens_tool_result_content(request) {
+            encoded = encoded.unsupported_control("non-text tool result content");
+        }
+        Ok(encoded)
     }
 
     fn decode_response(&self, route: &ResolvedRoute, value: Value) -> Result<Response, Error> {
@@ -418,6 +441,8 @@ fn encode_content_part(part: &ContentPart) -> Option<Value> {
         ContentPart::Text { text } => Some(json!({ "type": "text", "text": text })),
         ContentPart::Json { value } => Some(json!({ "type": "text", "text": value.to_string() })),
         ContentPart::Image(image) => Some(encode_image(image)),
+        // Audio and documents are rejected before dispatch by
+        // `reject_unencodable`.
         ContentPart::Audio(_)
         | ContentPart::Document(_)
         | ContentPart::Reasoning(_)

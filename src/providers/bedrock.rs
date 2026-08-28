@@ -18,6 +18,8 @@ use async_trait::async_trait;
 use futures_core::Stream;
 use futures_util::StreamExt as _;
 use futures_util::stream::{iter, unfold};
+#[cfg(feature = "bedrock-aws")]
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 
 use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
@@ -25,10 +27,14 @@ use crate::adapter::{
 };
 #[cfg(not(feature = "bedrock-aws"))]
 use crate::catalog::AuthScheme;
+#[cfg(feature = "bedrock-aws")]
+use crate::catalog::ProviderId;
 use crate::catalog::{AdapterId, CatalogProvider, codec_ids};
 use crate::codecs::bedrock::BedrockConverseCodec;
 use crate::codecs::{Codec as _, StreamDecoder};
 use crate::credentials::{CredentialProvider, Credentials};
+#[cfg(feature = "bedrock-aws")]
+use crate::transport::PreparedRequest;
 #[cfg(feature = "bedrock-aws")]
 use crate::transport::aws::AwsSigner;
 use crate::transport::{EncodedRequest, EventResponse, HttpTransport, JsonResponse, SseEvent};
@@ -64,8 +70,6 @@ impl AdapterFactory for Factory {
             id: provider.adapter().clone(),
             codec: BedrockConverseCodec,
             transport: HttpTransport::new(context.http().clone()),
-            #[cfg(feature = "bedrock-aws")]
-            http: context.http().clone(),
             credentials: context.credentials().clone(),
             #[cfg(feature = "bedrock-aws")]
             signer: AwsSigner::new(provider.id().clone()),
@@ -77,10 +81,6 @@ struct BedrockAdapter {
     id:          AdapterId,
     codec:       BedrockConverseCodec,
     transport:   HttpTransport,
-    /// The same client the transport holds, used by the signed path, which
-    /// must attach headers that cover the exact bytes it sends.
-    #[cfg(feature = "bedrock-aws")]
-    http:        reqwest::Client,
     credentials: Arc<dyn CredentialProvider>,
     /// One signer per adapter. It loads the AWS credential chain on the first
     /// signed request and then resolves credentials per request, so temporary
@@ -164,7 +164,9 @@ impl BedrockAdapter {
             #[cfg(feature = "bedrock-aws")]
             Credentials::AwsDefaultChain { region } => {
                 let prepared = self.sign(provider, encoded, region.as_deref()).await?;
-                signed::execute_json(&self.http, prepared, provider).await
+                self.transport
+                    .execute_json_prepared(prepared, provider)
+                    .await
             }
             #[cfg(not(feature = "bedrock-aws"))]
             Credentials::AwsDefaultChain { .. } => Err(missing_feature(provider)),
@@ -188,7 +190,9 @@ impl BedrockAdapter {
             #[cfg(feature = "bedrock-aws")]
             Credentials::AwsDefaultChain { region } => {
                 let prepared = self.sign(provider, encoded, region.as_deref()).await?;
-                signed::event_stream_events(&self.http, prepared, provider).await
+                self.transport
+                    .event_stream_events_prepared(prepared, provider)
+                    .await
             }
             #[cfg(not(feature = "bedrock-aws"))]
             Credentials::AwsDefaultChain { .. } => Err(missing_feature(provider)),
@@ -225,8 +229,8 @@ impl BedrockAdapter {
         provider: &CatalogProvider,
         encoded: EncodedRequest,
         credential_region: Option<&str>,
-    ) -> Result<signed::PreparedRequest, Error> {
-        let mut prepared = signed::prepare(provider, encoded)?;
+    ) -> Result<PreparedRequest, Error> {
+        let mut prepared = prepare(provider, encoded)?;
         let region = self
             .signer
             .resolve_region(credential_region, provider.auth(), provider.base_url())
@@ -317,302 +321,68 @@ fn scheme_mismatch(provider: &CatalogProvider) -> Error {
     .with_provider(provider.id().clone())
 }
 
-/// Dispatch for requests whose headers and bytes are already final.
+/// Builds the final headers and bytes for one encoded request.
 ///
-/// TRANSPORT GAP, TEMPORARY. SigV4 signs the exact bytes and headers that go
-/// on the wire, so it cannot use [`HttpTransport::send`], which assembles
-/// headers from credentials itself. `HttpTransport` has no entry point that
-/// accepts a prepared request, so the two dispatch functions and their two
-/// helpers live here for now. They are copies, not new behavior: response
-/// error classification already comes from
-/// [`crate::transport::provider_error`], and event-stream framing already
-/// comes from [`crate::transport::event_stream`]. Once `HttpTransport` gains
-/// `execute_json_prepared` and `event_stream_events_prepared`, this whole
-/// module is deleted and the two call sites above point at those.
+/// SigV4 signs the exact method, URL, headers, and bytes that reach the wire,
+/// so a signed request is assembled here rather than by the transport. Header
+/// precedence matches [`HttpTransport`]: the JSON content type first, then
+/// codec headers, then the provider's catalog default headers. Authentication
+/// is applied last, by the caller, so it wins every collision.
 #[cfg(feature = "bedrock-aws")]
-mod signed {
-    use std::future::ready;
-    use std::time::Duration;
-
-    use futures_util::StreamExt as _;
-    use futures_util::stream::iter;
-    use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
-    use reqwest::{Client, Method, Response as HttpResponse};
-    use serde_json::Value;
-
-    use crate::catalog::{CatalogProvider, ProviderId};
-    use crate::transport::{
-        EncodedRequest, EventResponse, JsonResponse, SseEvent, classify, event_stream,
-        provider_error,
-    };
-    use crate::types::{Error, ErrorKind, RateLimits, RetryClassification};
-
-    /// A request whose URL, headers, and bytes are final.
-    pub(super) struct PreparedRequest {
-        pub method:  Method,
-        pub url:     String,
-        pub headers: HeaderMap,
-        pub body:    Vec<u8>,
-        pub timeout: Option<Duration>,
+fn prepare(provider: &CatalogProvider, encoded: EncodedRequest) -> Result<PreparedRequest, Error> {
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    for (name, value) in &encoded.headers {
+        insert_header(&mut headers, provider.id(), name, value)?;
     }
-
-    /// Builds the final headers and bytes for one encoded request.
-    ///
-    /// Header precedence matches [`HttpTransport::send`]: the JSON content
-    /// type first, then codec headers, then the provider's catalog default
-    /// headers. Authentication is applied last, by the caller, so it wins
-    /// every collision.
-    pub(super) fn prepare(
-        provider: &CatalogProvider,
-        encoded: EncodedRequest,
-    ) -> Result<PreparedRequest, Error> {
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        for (name, value) in &encoded.headers {
-            insert(&mut headers, provider.id(), name, value)?;
-        }
-        for (name, value) in provider.default_headers() {
-            insert(&mut headers, provider.id(), name, value)?;
-        }
-        let body = serde_json::to_vec(&encoded.body).map_err(|source| {
-            Error::new(
-                ErrorKind::InvalidRequest,
-                format!(
-                    "the request for provider {} could not be serialized",
-                    provider.id()
-                ),
-            )
-            .with_provider(provider.id().clone())
-            .with_source(source)
-        })?;
-        Ok(PreparedRequest {
-            method: encoded.method,
-            url: encoded.url,
-            headers,
-            body,
-            timeout: encoded.timeout,
-        })
+    for (name, value) in provider.default_headers() {
+        insert_header(&mut headers, provider.id(), name, value)?;
     }
+    let body = serde_json::to_vec(&encoded.body).map_err(|source| {
+        Error::new(
+            ErrorKind::InvalidRequest,
+            format!(
+                "the request for provider {} could not be serialized",
+                provider.id()
+            ),
+        )
+        .with_provider(provider.id().clone())
+        .with_source(source)
+    })?;
+    Ok(PreparedRequest {
+        method: encoded.method,
+        url: encoded.url,
+        headers,
+        body,
+        timeout: encoded.timeout,
+    })
+}
 
-    pub(super) async fn execute_json(
-        client: &Client,
-        request: PreparedRequest,
-        provider: &CatalogProvider,
-    ) -> Result<JsonResponse, Error> {
-        let response = send(client, request, provider).await?;
-        let rate_limits = rate_limits(response.headers());
-        let body = response.json().await.map_err(|source| {
-            Error::new(
-                ErrorKind::Provider,
-                format!("provider {} returned invalid JSON", provider.id()),
-            )
-            .with_provider(provider.id().clone())
-            .with_source(source)
-        })?;
-        Ok(JsonResponse { body, rate_limits })
-    }
-
-    pub(super) async fn event_stream_events(
-        client: &Client,
-        request: PreparedRequest,
-        provider: &CatalogProvider,
-    ) -> Result<EventResponse, Error> {
-        let response = send(client, request, provider).await?;
-        let rate_limits = rate_limits(response.headers());
-        let provider_id = provider.id().clone();
-        let read_provider = provider_id.clone();
-        let chunks = response.bytes_stream().map(move |result| {
-            result.map_err(|source| {
-                Error::new(
-                    ErrorKind::Network,
-                    "reading the Bedrock response stream failed",
-                )
-                .with_provider(read_provider.clone())
-                .with_retry(RetryClassification::Safe)
-                .with_source(source)
-            })
-        });
-        let frames = chunks
-            .scan(Vec::new(), move |buffer, chunk| {
-                let parsed = match chunk {
-                    Ok(chunk) => {
-                        buffer.extend_from_slice(&chunk);
-                        events_from(buffer, &provider_id)
-                    }
-                    Err(error) => vec![Err(error)],
-                };
-                ready(Some(parsed))
-            })
-            .flat_map(iter);
-        Ok(EventResponse {
-            events: Box::pin(frames),
-            rate_limits,
-        })
-    }
-
-    async fn send(
-        client: &Client,
-        request: PreparedRequest,
-        provider: &CatalogProvider,
-    ) -> Result<HttpResponse, Error> {
-        let mut builder = client
-            .request(request.method, &request.url)
-            .headers(request.headers)
-            .body(request.body);
-        if let Some(timeout) = request.timeout {
-            builder = builder.timeout(timeout);
-        }
-        let response = builder.send().await.map_err(|source| {
-            let kind = if source.is_timeout() {
-                ErrorKind::Timeout
-            } else {
-                ErrorKind::Network
-            };
-            Error::new(
-                kind,
-                format!("request to provider {} failed", provider.id()),
-            )
-            .with_provider(provider.id().clone())
-            .with_retry(RetryClassification::Safe)
-            .with_source(source)
-        })?;
-        if response.status().is_success() {
-            return Ok(response);
-        }
-        let status = response.status().as_u16();
-        let retry_after = response
-            .headers()
-            .get("retry-after")
-            .and_then(|value| value.to_str().ok())
-            .map(ToOwned::to_owned);
-        let data = response.json::<Value>().await.ok();
-        Err(provider_error(
-            provider,
-            Some(status),
-            data,
-            retry_after.as_deref(),
-        ))
-    }
-
-    fn events_from(buffer: &mut Vec<u8>, provider: &ProviderId) -> Vec<Result<SseEvent, Error>> {
-        event_stream::extract_frames(buffer)
-            .into_iter()
-            .map(|frame| {
-                let frame = frame?;
-                let data = String::from_utf8(frame.payload.clone()).map_err(|source| {
-                    Error::new(
-                        ErrorKind::StreamDecode,
-                        "a Bedrock event payload was not UTF-8",
-                    )
-                    .with_provider(provider.clone())
-                    .with_source(source)
-                })?;
-                if frame.is_exception() {
-                    let body = serde_json::from_str::<Value>(&data).ok();
-                    let (message, code) = classify::extract(body.as_ref());
-                    let code = code.or_else(|| frame.exception_type().map(ToOwned::to_owned));
-                    let failure =
-                        classify::classify(None, code.as_deref(), message.as_deref(), None);
-                    let mut error = Error::new(
-                        failure.kind,
-                        format!(
-                            "provider {provider} {}",
-                            failure
-                                .message
-                                .unwrap_or_else(|| "returned a stream exception".to_owned())
-                        ),
-                    )
-                    .with_provider(provider.clone())
-                    .with_retry(failure.retry);
-                    if let Some(code) = failure.code {
-                        error = error.with_provider_code(code);
-                    }
-                    if let Some(body) = body {
-                        error = error.with_raw_data(body);
-                    }
-                    return Err(error);
-                }
-                Ok(SseEvent {
-                    event: frame.event_type().map(ToOwned::to_owned),
-                    data,
-                })
-            })
-            .collect()
-    }
-
-    fn rate_limits(headers: &HeaderMap) -> Option<RateLimits> {
-        let limits = RateLimits {
-            request_limit:     header_u64(headers, &[
-                "x-ratelimit-limit-requests",
-                "anthropic-ratelimit-requests-limit",
-            ]),
-            request_remaining: header_u64(headers, &[
-                "x-ratelimit-remaining-requests",
-                "anthropic-ratelimit-requests-remaining",
-            ]),
-            request_reset:     header_string(headers, &[
-                "x-ratelimit-reset-requests",
-                "anthropic-ratelimit-requests-reset",
-            ]),
-            token_limit:       header_u64(headers, &[
-                "x-ratelimit-limit-tokens",
-                "anthropic-ratelimit-tokens-limit",
-            ]),
-            token_remaining:   header_u64(headers, &[
-                "x-ratelimit-remaining-tokens",
-                "anthropic-ratelimit-tokens-remaining",
-            ]),
-            token_reset:       header_string(headers, &[
-                "x-ratelimit-reset-tokens",
-                "anthropic-ratelimit-tokens-reset",
-            ]),
-        };
-        (limits != RateLimits::default()).then_some(limits)
-    }
-
-    fn header_u64(headers: &HeaderMap, names: &[&str]) -> Option<u64> {
-        names.iter().find_map(|name| {
-            headers
-                .get(*name)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.parse().ok())
-        })
-    }
-
-    fn header_string(headers: &HeaderMap, names: &[&str]) -> Option<String> {
-        names.iter().find_map(|name| {
-            headers
-                .get(*name)
-                .and_then(|value| value.to_str().ok())
-                .map(ToOwned::to_owned)
-        })
-    }
-
-    fn insert(
-        headers: &mut HeaderMap,
-        provider: &ProviderId,
-        name: &str,
-        value: &str,
-    ) -> Result<(), Error> {
-        let name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
-            Error::new(
-                ErrorKind::Configuration,
-                format!("provider {provider} has an invalid HTTP header name"),
-            )
-            .with_provider(provider.clone())
-            .with_source(source)
-        })?;
-        let value = HeaderValue::from_str(value).map_err(|source| {
-            Error::new(
-                ErrorKind::Configuration,
-                format!("provider {provider} has an invalid HTTP header value"),
-            )
-            .with_provider(provider.clone())
-            .with_source(source)
-        })?;
-        headers.insert(name, value);
-        Ok(())
-    }
+#[cfg(feature = "bedrock-aws")]
+fn insert_header(
+    headers: &mut HeaderMap,
+    provider: &ProviderId,
+    name: &str,
+    value: &str,
+) -> Result<(), Error> {
+    let name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
+        Error::new(
+            ErrorKind::Configuration,
+            format!("provider {provider} has an invalid HTTP header name"),
+        )
+        .with_provider(provider.clone())
+        .with_source(source)
+    })?;
+    let value = HeaderValue::from_str(value).map_err(|source| {
+        Error::new(
+            ErrorKind::Configuration,
+            format!("provider {provider} has an invalid HTTP header value"),
+        )
+        .with_provider(provider.clone())
+        .with_source(source)
+    })?;
+    headers.insert(name, value);
+    Ok(())
 }
 
 #[cfg(all(test, feature = "builtin-catalog"))]
@@ -627,10 +397,8 @@ mod tests {
 
     use super::Factory;
     #[cfg(feature = "bedrock-aws")]
-    use super::{BedrockConverseCodec, signed};
-    use crate::adapter::{
-        AdapterBuildError, AdapterContext, AdapterFactory as _, ProviderAdapter as _, ResolvedCall,
-    };
+    use super::{BedrockConverseCodec, prepare};
+    use crate::adapter::{AdapterBuildError, AdapterContext, AdapterFactory as _, ResolvedCall};
     use crate::catalog::{Catalog, CatalogProvider, ProviderId};
     #[cfg(feature = "bedrock-aws")]
     use crate::codecs::Codec as _;
@@ -761,7 +529,7 @@ mod tests {
         let url = encoded.url.clone();
         let body = encoded.body.clone();
 
-        let prepared = signed::prepare(provider(&catalog)?, encoded)?;
+        let prepared = prepare(provider(&catalog)?, encoded)?;
 
         assert_eq!(prepared.method, method);
         assert_eq!(prepared.url, url);

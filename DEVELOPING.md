@@ -26,7 +26,8 @@ mise run setup
 | `mise run fmt` | Format Rust code |
 | `mise run fmt:check` | Check formatting without changing files |
 | `mise run lint` | Run Clippy with warnings denied |
-| `mise run test` | Run the test suite |
+| `mise run test` | Run the test suite with all features |
+| `mise run test:default-features` | Run the test suite with default features |
 | `mise run check` | Run the routine verification gate |
 | `mise run check:nightly` | Run the extended verification gate |
 | `mise run check:catalog-only` | Verify the catalog-only feature boundary |
@@ -44,6 +45,11 @@ The project uses Rust 2024 and declares Rust 1.85 as its minimum supported
 version. Mise pins the development compiler and the nightly formatter.
 
 ## Feature checks
+
+The gate runs the tests twice: once with every feature and once with the
+default set. Running only `--all-features` hides failures that appear when a
+provider feature is off, such as a built-in catalog entry whose adapter is not
+compiled.
 
 The routine gate checks every feature. It also verifies that a catalog-only
 build has no normal dependency on Tokio, reqwest, or an AWS crate.

@@ -1,12 +1,12 @@
 //! Helpers shared by every provider codec.
 
-use serde_json::{Map, Value, json};
+use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
-use crate::types::{ContentPart, Error, ErrorKind, FinishReason};
 #[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
-use crate::types::{Message, Role};
+use crate::types::Role;
+use crate::types::{ContentPart, Error, ErrorKind, FinishReason, Message, Request};
 
 /// Raw provider option keys a codec consumes as behavior controls.
 ///
@@ -104,6 +104,78 @@ pub(crate) fn merge_options(body: &mut Map<String, Value>, options: Map<String, 
     }
 }
 
+/// Fails the call when a request carries content this protocol cannot encode.
+///
+/// Silently omitting content is the worst available outcome: the provider
+/// answers a prompt the caller never sent, and the caller sees a successful
+/// response with no indication that their attachment was discarded. Refusing
+/// before dispatch is the same rule the crate applies to custom tools.
+///
+/// `unencodable` names the capability for a part the codec drops, or returns
+/// `None` for a part it can encode.
+///
+/// # Errors
+///
+/// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
+/// naming the first unsupported capability found.
+pub(crate) fn reject_unencodable(
+    route: &ResolvedRoute,
+    request: &Request,
+    unencodable: fn(&ContentPart) -> Option<&'static str>,
+) -> Result<(), Error> {
+    let unsupported = request
+        .messages()
+        .iter()
+        .flat_map(Message::content)
+        .find_map(unencodable);
+    match unsupported {
+        Some(capability) => Err(unsupported_capability(route, capability)),
+        None => Ok(()),
+    }
+}
+
+/// Whether any tool result carries content this codec flattens to text.
+///
+/// Several protocols accept only a string for a tool result, so a tool that
+/// returns an image or a document loses it. The text still reaches the model,
+/// so this is a warning rather than a refusal — unlike message content, where
+/// the caller's own attachment would vanish.
+pub(crate) fn flattens_tool_result_content(request: &Request) -> bool {
+    request
+        .messages()
+        .iter()
+        .flat_map(Message::content)
+        .filter_map(|part| match part {
+            ContentPart::ToolResult(result) => Some(result),
+            _ => None,
+        })
+        .flat_map(|result| result.content.iter())
+        .any(|part| {
+            matches!(
+                part,
+                ContentPart::Image(_) | ContentPart::Audio(_) | ContentPart::Document(_)
+            )
+        })
+}
+
+/// Encodes a sampling parameter without its binary32 rounding error.
+///
+/// `Request` carries `temperature` and `top_p` as `f32`. Widening one to `f64`
+/// keeps the binary32 value, so a caller's `0.7` reaches the wire as
+/// `0.699999988079071`. Round-tripping through the shortest decimal that
+/// identifies the `f32` sends back what the caller wrote.
+///
+/// Request construction rejects a non-finite value, so the fallback is
+/// unreachable in practice and simply widens rather than inventing a number.
+pub(crate) fn sampling(value: f32) -> Value {
+    value
+        .to_string()
+        .parse::<f64>()
+        .ok()
+        .and_then(Number::from_f64)
+        .map_or_else(|| Value::from(f64::from(value)), Value::Number)
+}
+
 /// Parses a provider tool-argument string, falling back to an empty object.
 ///
 /// A tool call that takes no arguments streams no argument fragments, which
@@ -171,6 +243,15 @@ pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn sampling_sends_the_decimal_the_caller_wrote() {
+        // `f32::into::<f64>()` would send 0.699999988079071 here.
+        assert_eq!(super::sampling(0.7), serde_json::json!(0.7));
+        assert_eq!(super::sampling(1.0), serde_json::json!(1.0));
+        assert_eq!(super::sampling(0.0), serde_json::json!(0.0));
+        assert_eq!(super::sampling(0.05), serde_json::json!(0.05));
+    }
+
     use std::error::Error as StdError;
 
     use serde_json::{Map, Value, json};

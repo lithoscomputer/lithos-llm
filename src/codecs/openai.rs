@@ -11,7 +11,10 @@ use reqwest::Method;
 use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
-use super::common::{endpoint, merge_options, parse_arguments, plain_text, wire_options};
+use super::common::{
+    endpoint, flattens_tool_result_content, merge_options, parse_arguments, plain_text,
+    reject_unencodable, sampling, wire_options,
+};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
@@ -65,6 +68,12 @@ pub(crate) struct OpenAiResponsesCodec {
 impl Codec for OpenAiResponsesCodec {
     fn encode(&self, call: &ResolvedCall, stream: bool) -> Result<EncodedRequest, Error> {
         let request = call.request();
+        // This protocol carries no audio input. Refusing here is deliberate:
+        // substituting a text placeholder would put words the caller never
+        // wrote into the prompt, which is worse than a clear failure.
+        reject_unencodable(call.route(), request, |part| {
+            matches!(part, ContentPart::Audio(_)).then_some("audio content")
+        })?;
         let (options, _controls) = wire_options(call);
         let mut body = self.generation_body(call, stream);
         merge_options(&mut body, options);
@@ -75,6 +84,22 @@ impl Codec for OpenAiResponsesCodec {
             Value::Object(body),
         )
         .with_timeout(request.timeout());
+
+        // Reasoning text has no input item in this protocol; only an
+        // `openai.reasoning` opaque part replays. Dropping it is correct, but
+        // it must not be silent.
+        if request
+            .messages()
+            .iter()
+            .flat_map(Message::content)
+            .any(|part| matches!(part, ContentPart::Reasoning(_)))
+        {
+            encoded = encoded.unsupported_control("replaying reasoning text");
+        }
+
+        if flattens_tool_result_content(request) {
+            encoded = encoded.unsupported_control("non-text tool result content");
+        }
 
         if self.codex {
             for (present, control) in [
@@ -204,10 +229,10 @@ impl OpenAiResponsesCodec {
                 body.insert("max_output_tokens".to_owned(), tokens.into());
             }
             if let Some(temperature) = request.temperature() {
-                body.insert("temperature".to_owned(), temperature.into());
+                body.insert("temperature".to_owned(), sampling(temperature));
             }
             if let Some(top_p) = request.top_p() {
-                body.insert("top_p".to_owned(), top_p.into());
+                body.insert("top_p".to_owned(), sampling(top_p));
             }
         }
 
@@ -462,23 +487,35 @@ fn message_content(message: &Message) -> Vec<Value> {
                 }
                 Some(item)
             }
-            // This protocol takes no audio input and takes documents only
-            // through the files API, so both become a text placeholder rather
-            // than disappearing from the conversation.
-            ContentPart::Audio(_) => Some(json!({
-                "type": text_type,
-                "text": "[audio content is not supported by this provider]",
-            })),
-            ContentPart::Document(document) => Some(json!({
-                "type": text_type,
-                "text": format!(
-                    "[document content is not supported by this provider: {}]",
-                    document.name.as_deref().unwrap_or("unnamed"),
-                ),
-            })),
+            // Documents ride inline, either as a base64 data URL or as a
+            // fetchable URL.
+            ContentPart::Document(document) => {
+                let mut item = json!({ "type": "input_file" });
+                if let Some(object) = item.as_object_mut() {
+                    match &document.source {
+                        MediaSource::Url { url } => {
+                            object.insert("file_url".to_owned(), Value::String(url.clone()));
+                        }
+                        MediaSource::Base64 { .. } => {
+                            object.insert(
+                                "file_data".to_owned(),
+                                Value::String(media_url(&document.source)),
+                            );
+                        }
+                    }
+                    if let Some(name) = document.name.as_ref() {
+                        object.insert("filename".to_owned(), Value::String(name.clone()));
+                    }
+                }
+                Some(item)
+            }
+            // Audio never reaches here: `encode` rejects it before dispatch
+            // rather than substituting a placeholder, because injecting
+            // invented text into a caller's prompt is worse than refusing.
             // Reasoning replays through its opaque item, and calls and results
             // are separate input items.
-            ContentPart::Reasoning(_)
+            ContentPart::Audio(_)
+            | ContentPart::Reasoning(_)
             | ContentPart::ToolCall(_)
             | ContentPart::ToolResult(_)
             | ContentPart::Opaque { .. } => None,

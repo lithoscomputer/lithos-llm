@@ -39,6 +39,11 @@ run = "cargo clippy --locked --all-targets --all-features -- -D warnings"
 description = "Run all Rust tests with Nextest"
 run = "cargo nextest run --locked --all-targets --all-features --no-tests=pass"
 
+[tasks."test:default-features"]
+description = "Run the tests with the default feature set"
+env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
+run = "cargo nextest run --locked --all-targets --no-tests=pass"
+
 [tasks."test:release"]
 description = "Run all Rust tests in release mode"
 run = "cargo nextest run --locked --release --all-targets --all-features --no-tests=pass"
@@ -89,7 +94,7 @@ run = ["git diff --check", "git diff --cached --check"]
 
 [tasks.check]
 description = "Run the complete routine verification gate"
-depends = ["fmt:check", "lint", "test", "check:actions", "check:catalog-only", "check:features", "check:whitespace"]
+depends = ["fmt:check", "lint", "test", "test:default-features", "check:actions", "check:catalog-only", "check:features", "check:whitespace"]
 
 [tasks."check:nightly"]
 description = "Run the extended nightly verification gate"

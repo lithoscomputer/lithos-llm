@@ -109,7 +109,7 @@ pub(crate) struct StreamAssembler {
     /// Assembled parts, in the order their blocks were closed.
     parts:         Vec<ContentPart>,
     usage:         TokenCounts,
-    finish_reason: FinishReason,
+    finish_reason: Option<FinishReason>,
     response_id:   Option<String>,
     cost:          Option<Cost>,
     warnings:      Vec<Warning>,
@@ -131,7 +131,7 @@ impl StreamAssembler {
             blocks:        Vec::new(),
             parts:         Vec::new(),
             usage:         TokenCounts::default(),
-            finish_reason: FinishReason::Stop,
+            finish_reason: None,
             response_id:   None,
             cost:          None,
             warnings:      Vec::new(),
@@ -344,7 +344,7 @@ impl StreamAssembler {
 
     /// Records why the model stopped.
     pub(crate) fn set_finish_reason(&mut self, reason: FinishReason) {
-        self.finish_reason = reason;
+        self.finish_reason = Some(reason);
     }
 
     /// Records the provider's response id.
@@ -400,7 +400,13 @@ impl StreamAssembler {
             self.parts.clone(),
         );
         response.id.clone_from(&self.response_id);
-        response.finish_reason.clone_from(&self.finish_reason);
+        // A provider that never reported why it stopped did not stop: the
+        // stream was cut short. Reporting `Stop` here would be
+        // indistinguishable from a model that finished its answer.
+        response.finish_reason = self
+            .finish_reason
+            .clone()
+            .unwrap_or_else(|| FinishReason::Other("incomplete".to_owned()));
         response.usage = self.usage;
         response.cost = self.cost;
         response.warnings.clone_from(&self.warnings);
@@ -505,6 +511,27 @@ mod tests {
             .iter()
             .filter(|event| matches!(event, StreamEvent::Completed { .. }))
             .collect()
+    }
+
+    #[test]
+    fn a_stream_that_never_reported_a_finish_reason_is_not_reported_as_stop()
+    -> Result<(), Box<dyn StdError>> {
+        let mut assembler = assembler()?;
+        let id = ContentBlockId::new("block-0");
+        assembler.text(&id, "partial");
+
+        let events = assembler.complete();
+
+        let Some(StreamEvent::Completed { response }) = events.last() else {
+            panic!("the stream should complete once");
+        };
+        // A truncated stream must stay distinguishable from a model that
+        // finished its answer.
+        assert_eq!(
+            response.finish_reason,
+            FinishReason::Other("incomplete".to_owned())
+        );
+        Ok(())
     }
 
     #[test]

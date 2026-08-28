@@ -47,12 +47,32 @@ impl EventStreamFrame {
         self.header(":exception-type")
     }
 
-    /// Whether the frame reports a modeled failure instead of an event.
+    /// The stable code carried by an `error` frame.
+    pub(crate) fn error_code(&self) -> Option<&str> {
+        self.header(":error-code")
+    }
+
+    /// The human-readable message carried by an `error` frame.
+    pub(crate) fn error_message(&self) -> Option<&str> {
+        self.header(":error-message")
+    }
+
+    /// Whether the frame reports a failure instead of an event.
     ///
     /// Bedrock sends these after a successful HTTP status, so a stream can
-    /// fail long after its response headers arrived.
-    pub(crate) fn is_exception(&self) -> bool {
-        self.message_type() == Some("exception")
+    /// fail long after its response headers arrived. Two frame classes report
+    /// a failure: a modeled `exception`, which names itself in
+    /// `:exception-type`, and an unmodeled `error`, which carries
+    /// `:error-code` and `:error-message` instead. Both must fail the stream;
+    /// an `error` frame in particular has no `:event-type`, so treating it as
+    /// an event would silently drop it.
+    pub(crate) fn is_failure(&self) -> bool {
+        matches!(self.message_type(), Some("exception" | "error"))
+    }
+
+    /// The stable code for a failure frame, from either class.
+    pub(crate) fn failure_code(&self) -> Option<&str> {
+        self.exception_type().or_else(|| self.error_code())
     }
 
     fn header(&self, name: &str) -> Option<&str> {
@@ -239,6 +259,16 @@ mod tests {
         bytes
     }
 
+    /// Builds an `error` frame, which carries its diagnostics in the headers
+    /// and has no `:event-type`.
+    fn error_frame(code: &str, message: &str, payload: &[u8]) -> Vec<u8> {
+        let mut headers = Vec::new();
+        push_string_header(&mut headers, ":message-type", "error");
+        push_string_header(&mut headers, ":error-code", code);
+        push_string_header(&mut headers, ":error-message", message);
+        frame(&headers, payload)
+    }
+
     fn event_frame(event_type: &str, payload: &[u8]) -> Vec<u8> {
         let mut headers = Vec::new();
         push_string_header(&mut headers, ":message-type", "event");
@@ -289,7 +319,7 @@ mod tests {
             frame.headers.get(":content-type").map(String::as_str),
             Some("application/json")
         );
-        assert!(!frame.is_exception());
+        assert!(!frame.is_failure());
     }
 
     #[test]
@@ -353,6 +383,22 @@ mod tests {
     }
 
     #[test]
+    fn identifies_an_error_frame_and_reads_its_headers() {
+        let mut buffer = error_frame("ThrottlingException", "Too many requests", b"{}");
+
+        let frames = extract_frames(&mut buffer);
+        let frame = expect_frame(&frames);
+
+        assert!(frame.is_failure());
+        assert_eq!(frame.message_type(), Some("error"));
+        // An error frame carries no `:event-type`, which is exactly why
+        // treating it as an ordinary event would silently drop it.
+        assert_eq!(frame.event_type(), None);
+        assert_eq!(frame.failure_code(), Some("ThrottlingException"));
+        assert_eq!(frame.error_message(), Some("Too many requests"));
+    }
+
+    #[test]
     fn identifies_an_exception_frame() {
         let mut headers = Vec::new();
         push_string_header(&mut headers, ":message-type", "exception");
@@ -362,7 +408,7 @@ mod tests {
         let frames = extract_frames(&mut buffer);
         let frame = expect_frame(&frames);
 
-        assert!(frame.is_exception());
+        assert!(frame.is_failure());
         assert_eq!(frame.exception_type(), Some("throttlingException"));
         assert_eq!(frame.event_type(), None);
         assert_eq!(frame.payload, br#"{"message":"Too many requests"}"#);
