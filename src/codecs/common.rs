@@ -4,6 +4,7 @@ use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
+use crate::transport::classify;
 #[cfg(any(
     feature = "anthropic",
     feature = "bedrock",
@@ -19,6 +20,12 @@ use crate::types::{ContentPart, Error, ErrorKind, FinishReason, Message, Request
 /// are merged into a request body, so a control never reaches the wire. Adding
 /// a control means adding its key here and reading it in [`Controls`].
 pub(crate) const CONTROL_KEYS: &[&str] = &["auto_cache"];
+
+/// The provider code a codec sets when a call ends in a model refusal.
+///
+/// [`classify`](crate::transport::classify) registers this code among the
+/// content-filter codes, which is what makes a refusal failover-eligible.
+const REFUSAL_CODE: &str = "refusal";
 
 /// Codec behavior selected by control keys in the raw provider options.
 ///
@@ -41,13 +48,51 @@ impl Default for Controls {
     }
 }
 
+/// API version segments a codec's operation path may repeat from a base URL.
+///
+/// Codecs own the version segment: they ask for `/v1/messages` or
+/// `/v1beta/models/...`. The older convention put the version in the catalog
+/// base URL instead, and gateways still publish mounts that end with one, so a
+/// base URL ending in one of these segments is common. [`endpoint`] joins the
+/// two without repeating the segment.
+const VERSION_SEGMENTS: &[&str] = &["v1", "v1beta"];
+
 /// Joins a provider base URL and a request path.
+///
+/// A base URL whose path already ends with the version segment the request
+/// path starts with keeps that segment once: base `https://api.moonshot.ai/v1`
+/// and path `/v1/chat/completions` join as
+/// `https://api.moonshot.ai/v1/chat/completions`, not `/v1/v1/...`. Only an
+/// exact repeat of the same segment is collapsed, so a `/v1` base URL still
+/// keeps a Gemini `/v1beta` path intact, and a gateway mounted at
+/// `/gateway` keeps its own prefix.
 pub(crate) fn endpoint(base_url: &str, path: &str) -> String {
-    format!(
-        "{}/{}",
-        base_url.trim_end_matches('/'),
-        path.trim_start_matches('/')
-    )
+    let base = base_url.trim_end_matches('/');
+    let path = path.trim_start_matches('/');
+    let path = match repeated_version(base, path) {
+        Some(segment) => path[segment.len()..].trim_start_matches('/'),
+        None => path,
+    };
+
+    if path.is_empty() {
+        return base.to_owned();
+    }
+    format!("{base}/{path}")
+}
+
+/// The version segment `base` and `path` both carry, when they share one.
+///
+/// `base` has already lost its trailing slashes and `path` its leading ones.
+fn repeated_version<'a>(base: &str, path: &'a str) -> Option<&'a str> {
+    let host_and_path = base.split_once("://").map_or(base, |(_, rest)| rest);
+    let base_tail = host_and_path.split('/').next_back()?;
+    let path_head = path.split('/').next()?;
+
+    // A bare host has no path segment to repeat, so its final label — which
+    // could in principle read `v1` — is not a version segment.
+    let has_path = host_and_path.contains('/');
+    (has_path && path_head == base_tail && VERSION_SEGMENTS.contains(&path_head))
+        .then_some(path_head)
 }
 
 /// The raw provider options for the selected route, with controls removed.
@@ -262,16 +307,68 @@ pub(crate) fn flattens_system_content(request: &Request) -> bool {
 }
 
 /// Maps a provider stop reason onto the normalized finish reason.
+///
+/// `stop_sequence` is a normal stop: the model ended on a sequence the caller
+/// asked it to stop at. Gemini's `RECITATION` is a content block, reported
+/// separately from `SAFETY` because the blocked material is quoted source
+/// rather than unsafe content.
 pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
     match value {
-        None | Some("stop" | "end_turn" | "STOP") => FinishReason::Stop,
+        None | Some("stop" | "end_turn" | "stop_sequence" | "STOP") => FinishReason::Stop,
         Some("length" | "max_tokens" | "MAX_TOKENS") => FinishReason::Length,
         Some("tool_calls" | "tool_use") => FinishReason::ToolCall,
-        Some("content_filter" | "SAFETY" | "BLOCKLIST" | "PROHIBITED_CONTENT") => {
+        Some("content_filter" | "SAFETY" | "RECITATION" | "BLOCKLIST" | "PROHIBITED_CONTENT") => {
             FinishReason::ContentFilter
         }
         Some(other) => FinishReason::Other(other.to_owned()),
     }
+}
+
+/// The error a codec returns when a response or stream ends in a refusal.
+///
+/// A refusal is a failure, not a short answer: the model declined the request
+/// and produced no usable content. Returning it as a successful empty response
+/// hides that from the caller and from the retry and failover middleware, so
+/// the codec fails the call instead.
+///
+/// The provider code is `refusal`, which
+/// [`classify`](crate::transport::classify::classify) already lists among the
+/// content-filter codes, so the shared classifier — not this helper — decides
+/// the kind and the retry classification. `explanation` is the provider's own
+/// account of the refusal, when the payload carried one, and `raw` is the
+/// payload the codec decoded.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "the codecs are wired to this helper in a later change"
+    )
+)]
+pub(crate) fn refusal(
+    route: &ResolvedRoute,
+    explanation: Option<&str>,
+    raw: Option<Value>,
+) -> Error {
+    let detail = match explanation {
+        Some(explanation) => format!("refused the request: {explanation}"),
+        None => "refused the request".to_owned(),
+    };
+    // The code alone decides the classification here. The refusal explanation
+    // is the model's prose, and running the message heuristics over it would
+    // let a phrase such as "not found" rewrite the kind.
+    let failure = classify::classify(None, Some(REFUSAL_CODE), None, None);
+
+    let mut error = Error::new(
+        failure.kind,
+        format!("provider {} {detail}", route.provider().id()),
+    )
+    .with_provider(route.provider().id().clone())
+    .with_provider_code(REFUSAL_CODE)
+    .with_retry(failure.retry);
+    if let Some(raw) = raw {
+        error = error.with_raw_data(raw);
+    }
+    error
 }
 
 #[cfg(test)]
@@ -290,10 +387,11 @@ mod tests {
     use serde_json::{Map, Value, json};
 
     use super::{
-        CONTROL_KEYS, merge_options, parse_arguments, unsupported_capability, wire_options,
+        CONTROL_KEYS, endpoint, finish_reason, merge_options, parse_arguments, refusal,
+        unsupported_capability, wire_options,
     };
     use crate::codecs::test_support;
-    use crate::types::{ErrorKind, Request};
+    use crate::types::{ErrorKind, FinishReason, Request, RetryClassification};
 
     fn object(value: Value) -> Result<Map<String, Value>, Box<dyn StdError>> {
         match value {
@@ -408,5 +506,108 @@ mod tests {
         assert_eq!(error.provider_code(), Some("unsupported_capability"));
         assert!(error.message().contains("custom tools"));
         Ok(())
+    }
+
+    #[test]
+    fn a_stop_sequence_is_a_normal_stop() {
+        assert_eq!(finish_reason(Some("stop_sequence")), FinishReason::Stop);
+    }
+
+    #[test]
+    fn recitation_is_a_content_filter() {
+        assert_eq!(
+            finish_reason(Some("RECITATION")),
+            FinishReason::ContentFilter
+        );
+    }
+
+    #[test]
+    fn an_unknown_stop_reason_keeps_its_provider_spelling() {
+        assert_eq!(
+            finish_reason(Some("guardrail_intervened")),
+            FinishReason::Other("guardrail_intervened".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_refusal_classifies_as_a_content_filter() -> Result<(), Box<dyn StdError>> {
+        let route = test_support::test_route()?;
+
+        let error = refusal(&route, Some("it asks for malware"), None);
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert_eq!(error.retry_classification(), RetryClassification::Never);
+        assert!(error.message().contains("it asks for malware"), "{error}");
+        Ok(())
+    }
+
+    #[test]
+    fn a_refusal_without_an_explanation_still_reports_one() -> Result<(), Box<dyn StdError>> {
+        let route = test_support::test_route()?;
+
+        let error = refusal(&route, None, Some(json!({ "stop_reason": "refusal" })));
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert!(error.message().contains("refused the request"), "{error}");
+        assert_eq!(error.raw_data(), Some(&json!({ "stop_reason": "refusal" })));
+        Ok(())
+    }
+
+    #[test]
+    fn a_bare_host_takes_the_whole_operation_path() {
+        assert_eq!(
+            endpoint("https://api.openai.com", "/v1/responses"),
+            "https://api.openai.com/v1/responses"
+        );
+        assert_eq!(
+            endpoint("https://api.openai.com/", "/v1/responses"),
+            "https://api.openai.com/v1/responses"
+        );
+    }
+
+    #[test]
+    fn a_base_url_ending_in_the_version_does_not_repeat_it() {
+        assert_eq!(
+            endpoint("https://api.moonshot.ai/v1", "/v1/chat/completions"),
+            "https://api.moonshot.ai/v1/chat/completions"
+        );
+        assert_eq!(
+            endpoint("https://api.moonshot.ai/v1/", "/v1/chat/completions"),
+            "https://api.moonshot.ai/v1/chat/completions"
+        );
+        assert_eq!(
+            endpoint(
+                "https://generativelanguage.googleapis.com/v1beta",
+                "/v1beta/models/gemini:generateContent"
+            ),
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini:generateContent"
+        );
+    }
+
+    #[test]
+    fn a_gateway_mount_keeps_its_own_prefix() {
+        assert_eq!(
+            endpoint("https://gw.example.com/gateway", "/v1/chat/completions"),
+            "https://gw.example.com/gateway/v1/chat/completions"
+        );
+        assert_eq!(
+            endpoint("https://gw.example.com/gateway/v1", "/v1/chat/completions"),
+            "https://gw.example.com/gateway/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn only_the_same_version_segment_collapses() {
+        // `v1` and `v1beta` are different APIs, so neither absorbs the other.
+        assert_eq!(
+            endpoint("https://example.com/v1", "/v1beta/models/one:count"),
+            "https://example.com/v1/v1beta/models/one:count"
+        );
+        // An unversioned operation path is never shortened.
+        assert_eq!(
+            endpoint("https://bedrock.example.com/v1", "/model/one/converse"),
+            "https://bedrock.example.com/v1/model/one/converse"
+        );
     }
 }
