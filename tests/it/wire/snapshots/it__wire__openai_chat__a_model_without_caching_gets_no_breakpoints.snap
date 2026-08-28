@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "318"
+      "264"
     ],
     [
       "content-type",
@@ -35,24 +35,19 @@ expression: rendered
     "max_tokens": 128,
     "messages": [
       {
-        "content": [
-          {
-            "cache_control": {
-              "type": "ephemeral"
-            },
-            "text": "Is 91 prime?",
-            "type": "text"
-          }
-        ],
+        "content": "Keep it short.",
+        "role": "system"
+      },
+      {
+        "content": "What is the capital of France?",
         "role": "user"
       },
       {
-        "content": "No, 91 is not prime.",
-        "reasoning_content": "91 is 7 times 13.",
+        "content": "Paris.",
         "role": "assistant"
       },
       {
-        "content": "What about 97?",
+        "content": "And of Spain?",
         "role": "user"
       }
     ],

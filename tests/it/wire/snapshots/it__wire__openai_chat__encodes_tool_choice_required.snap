@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "625"
+      "687"
     ],
     [
       "content-type",
@@ -35,7 +35,15 @@ expression: rendered
     "max_tokens": 128,
     "messages": [
       {
-        "content": "Use the tools when they help.",
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "Use the tools when they help.",
+            "type": "text"
+          }
+        ],
         "role": "system"
       },
       {

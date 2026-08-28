@@ -23,8 +23,8 @@ use std::time::Duration;
 use httpmock::{Method, MockServer};
 use lithos_llm::catalog::{Catalog, adapter_ids, codec_ids};
 use lithos_llm::types::{
-    ContentPart, CostSource, Error, ErrorKind, ImageContent, MediaSource, Message, ResponseFormat,
-    Role, ToolChoice,
+    ContentPart, CostSource, Error, ErrorKind, ImageContent, MediaSource, Message, ReasoningEffort,
+    ResponseFormat, Role, ToolCall, ToolChoice, ToolResult,
 };
 use lithos_llm::{Request, Response};
 use serde_json::{Value, json};
@@ -78,6 +78,14 @@ fn plain_catalog(base_url: &str) -> Catalog {
 /// makes the client refuse those requests up front.
 const TEXT_AND_IMAGE_CAPABILITIES: &str = "{ text = true, images = true, audio = false, \
      documents = false, tools = true, structured_output = true, reasoning = true, caching = true, \
+     sampling = true }";
+
+/// The same set for a model that declares no prompt caching.
+///
+/// The prompt-cache breakpoints are gated on this bit, so a fixture that pins
+/// their absence needs a catalog entry that denies it.
+const NO_CACHING_CAPABILITIES: &str = "{ text = true, images = true, audio = true, \
+     documents = true, tools = true, structured_output = true, reasoning = true, caching = false, \
      sampling = true }";
 
 fn truthful_catalog(base_url: &str) -> Catalog {
@@ -551,11 +559,158 @@ async fn encodes_sampling_controls_and_stop_sequences() {
 }
 
 #[tokio::test]
-async fn encodes_request_metadata() {
+async fn reports_request_metadata_rather_than_sending_it() {
+    // Only OpenAI itself documents `metadata` on this endpoint, and a strict
+    // skin rejects the whole request over one field it does not know. The tags
+    // are dropped and the loss is reported, which is how this crate treats
+    // every control a protocol cannot carry.
     let (wire, response) = exchange(support::metadata_request(&selector()), &text_response()).await;
 
+    assert!(
+        wire.body.get("metadata").is_none(),
+        "metadata must not reach a compatible skin"
+    );
+    let codes: Vec<&str> = response
+        .warnings
+        .iter()
+        .map(|warning| warning.code.as_str())
+        .collect();
+    assert_eq!(codes, ["unsupported_control"]);
     crate::json_snapshot!(wire);
     crate::json_snapshot!(response);
+}
+
+#[tokio::test]
+async fn encodes_reasoning_effort_untranslated() {
+    // The canonical level names are this dialect's own vocabulary, so the
+    // effort passes straight through. Dropping it silently would send a
+    // reasoning request the provider answers at its default depth.
+    let request = Request::builder()
+        .model(selector())
+        .user("Hello")
+        .reasoning_effort(ReasoningEffort::Xhigh)
+        .max_output_tokens(128)
+        .build()
+        .expect("the effort request should build");
+
+    let (wire, _) = exchange(request, &text_response()).await;
+
+    assert_eq!(wire.body["reasoning_effort"], json!("xhigh"));
+    crate::json_snapshot!(wire);
+}
+
+#[tokio::test]
+async fn sends_a_developer_message_as_a_system_message() {
+    // OpenAI itself accepts `developer`; the skins behind this dialect accept
+    // system, user, assistant, and tool, and reject anything else. A developer
+    // instruction therefore travels as the closest role every skin knows.
+    let request = Request::builder()
+        .model(selector())
+        .message(Message::text(Role::Developer, "Keep it short."))
+        .user("Hello")
+        .max_output_tokens(128)
+        .build()
+        .expect("the developer request should build");
+
+    let (wire, _) = exchange(request, &text_response()).await;
+
+    assert_eq!(wire.body["messages"][0]["role"], json!("system"));
+    crate::json_snapshot!(wire);
+}
+
+#[tokio::test]
+async fn a_json_only_tool_result_sends_the_bare_value() {
+    // This protocol takes a string for a tool result. A result made only of
+    // JSON parts sends the value itself; sending the `ContentPart` envelope
+    // would hand the model the crate's own wrapper to reason about.
+    let request = Request::builder()
+        .model(selector())
+        .user("What is the weather in Paris?")
+        .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+            ToolCall::function("call_paris", "get_weather", json!({ "city": "Paris" })),
+        )]))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: "call_paris".to_owned(),
+                name:         Some("get_weather".to_owned()),
+                content:      vec![ContentPart::Json {
+                    value: json!({ "city": "Paris", "temp_c": 18 }),
+                }],
+                is_error:     false,
+            },
+        )]))
+        .max_output_tokens(128)
+        .build()
+        .expect("the json result request should build");
+
+    let (wire, _) = exchange(request, &text_response()).await;
+
+    assert_eq!(
+        wire.body["messages"][2]["content"],
+        json!(r#"{"city":"Paris","temp_c":18}"#)
+    );
+    crate::json_snapshot!(wire);
+}
+
+// ===========================================================================
+// Prompt-cache breakpoints
+// ===========================================================================
+
+#[tokio::test]
+async fn a_cacheable_model_gets_anthropic_style_breakpoints() {
+    // Aggregators forward `cache_control` to an upstream Anthropic model. Two
+    // breakpoints land: the last system message, and the second-to-last user
+    // turn, so each iteration of an agent loop reads the prefix the previous
+    // one wrote. Marking a message converts its plain-string content into the
+    // one-part array form, which is the only shape that can carry the
+    // annotation; every unmarked message keeps the plain string.
+    let (wire, _) = exchange(support::multi_turn_request(&selector()), &text_response()).await;
+
+    let messages = &wire.body["messages"];
+    assert_eq!(
+        messages[0]["content"][0]["cache_control"],
+        json!({ "type": "ephemeral" })
+    );
+    assert_eq!(
+        messages[1]["content"][0]["cache_control"],
+        json!({ "type": "ephemeral" }),
+        "the second-to-last user turn"
+    );
+    assert!(
+        messages[3]["content"].is_string(),
+        "the newest user turn is not a reusable prefix"
+    );
+    // The body itself is pinned by `encodes_a_multi_turn_conversation`, which
+    // sends the same request; a second copy here would pin nothing new.
+}
+
+#[tokio::test]
+async fn a_model_without_caching_gets_no_breakpoints() {
+    // The catalog decides. A model that cannot cache would reject the
+    // annotation, so the request keeps the plain-string content form every
+    // skin accepts.
+    let server = MockServer::start_async().await;
+    let client = support::client_for(
+        provider()
+            .with_capabilities(NO_CACHING_CAPABILITIES)
+            .catalog(&server.base_url()),
+        PROVIDER,
+        support::bearer_credentials(),
+    );
+    let (mock, slot) = support::mount_capture(&server, PATH, &text_response());
+
+    client
+        .complete(support::multi_turn_request(&selector()))
+        .await
+        .expect("the completion should succeed");
+
+    mock.assert_async().await;
+    let wire = support::captured(&slot);
+    assert!(
+        !wire.body.to_string().contains("cache_control"),
+        "a model without caching gets no breakpoints"
+    );
+    crate::json_snapshot!(wire);
 }
 
 #[tokio::test]
@@ -635,6 +790,116 @@ async fn replays_provider_native_content_losslessly() {
     );
     crate::json_snapshot!(wire);
     crate::json_snapshot!(response);
+}
+
+// ===========================================================================
+// The structured reasoning channel
+// ===========================================================================
+
+#[tokio::test]
+async fn reasoning_details_survive_a_complete_response() {
+    // OpenRouter puts signed or encrypted reasoning in `reasoning_details`,
+    // and the upstream model rejects a continued turn that does not send it
+    // back. The array is kept verbatim as one opaque part: only the model that
+    // wrote the encrypted members can read them, so nothing is normalized out.
+    let details = json!([
+        { "type": "reasoning.encrypted", "id": "rs-1", "data": "AQ==", "index": 0 },
+        { "type": "reasoning.text", "text": "Two cities to look up.", "index": 1 },
+    ]);
+    let body = json!({
+        "id": "chatcmpl-details",
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "Hello.",
+                "reasoning_details": details,
+            },
+            "finish_reason": "stop",
+        }],
+        "usage": { "prompt_tokens": 11, "completion_tokens": 5 },
+    });
+
+    let (_, response) = exchange(support::base_request(&selector()), &body).await;
+
+    let part = response.content.first().expect("an opaque part");
+    match part {
+        ContentPart::Opaque { kind, data } => {
+            assert_eq!(kind, "openai_compatible.reasoning_details");
+            assert_eq!(data, &details, "the payload survives byte for byte");
+        }
+        other => panic!("expected an opaque part, got {other:?}"),
+    }
+    crate::json_snapshot!(response);
+}
+
+#[tokio::test]
+async fn a_replayed_reasoning_details_part_returns_to_its_own_field() {
+    // The decode and encode halves are one contract: an opaque part named
+    // after the message field it came from replays into that field. Without
+    // this round trip the aggregator sees an unsigned turn.
+    let details = json!([{ "type": "reasoning.encrypted", "id": "rs-1", "data": "AQ==" }]);
+    let request = Request::builder()
+        .model(selector())
+        .user("What is the weather in Paris?")
+        .message(Message::new(Role::Assistant, [
+            ContentPart::opaque("openai_compatible.reasoning_details", details.clone()),
+            ContentPart::Text {
+                text: "Looking it up.".to_owned(),
+            },
+        ]))
+        .user("Thanks.")
+        .max_output_tokens(128)
+        .build()
+        .expect("the replay request should build");
+
+    let (wire, _) = exchange(request, &text_response()).await;
+
+    assert_eq!(wire.body["messages"][1]["reasoning_details"], details);
+    crate::json_snapshot!(wire);
+}
+
+#[tokio::test]
+async fn streamed_reasoning_details_coalesce_before_the_part_is_built() {
+    // A stream splits each logical detail across chunks and interleaves two of
+    // them. Fragments are matched by `type` and `index`, so the two details
+    // rebuild as two entries rather than four, and the text members
+    // concatenate in wire order. Half a signature replayed upstream is
+    // rejected, so the coalescing is what makes the stream path usable at all.
+    let (_, events) = stream(
+        support::base_request(&selector()),
+        &[
+            r#"{"id":"chatcmpl-stream","choices":[{"index":0,"delta":{"role":"assistant","reasoning_details":[{"type":"reasoning.text","index":0,"text":"Two cities "}]}}]}"#,
+            r#"{"id":"chatcmpl-stream","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"reasoning.text","index":1,"text":"and one "}]}}]}"#,
+            r#"{"id":"chatcmpl-stream","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"reasoning.text","index":0,"text":"to look up."}]}}]}"#,
+            r#"{"id":"chatcmpl-stream","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"reasoning.text","index":1,"text":"time zone.","signature":"sig-1"}]}}]}"#,
+            r#"{"id":"chatcmpl-stream","choices":[{"index":0,"delta":{"content":"Hello."},"finish_reason":"stop"}]}"#,
+            "[DONE]",
+        ],
+    )
+    .await;
+
+    support::assert_stream_contract(&events);
+
+    let response = completed(&events);
+    let content = response["content"]
+        .as_array()
+        .expect("the completed content");
+    assert_eq!(content[0]["type"], "opaque");
+    assert_eq!(content[0]["kind"], "openai_compatible.reasoning_details");
+    assert_eq!(
+        content[0]["data"],
+        json!([
+            { "type": "reasoning.text", "index": 0, "text": "Two cities to look up." },
+            {
+                "type": "reasoning.text",
+                "index": 1,
+                "text": "and one time zone.",
+                "signature": "sig-1",
+            },
+        ])
+    );
+    crate::json_snapshot!(events);
 }
 
 // ===========================================================================
@@ -1030,6 +1295,34 @@ async fn a_stream_error_chunk_ends_the_stream() {
 // ===========================================================================
 // Classified errors
 // ===========================================================================
+
+#[tokio::test]
+async fn a_200_with_no_choices_fails_to_decode() {
+    // Some skins answer a filtered or aborted call with a 200 whose `choices`
+    // array is empty. Decoding that as an empty success would hand the caller
+    // a finished response the model never wrote, so the body fails to decode
+    // and the untouched document rides along for diagnosis.
+    let server = MockServer::start_async().await;
+    let client = support::client_for(
+        plain_catalog(&server.base_url()),
+        PROVIDER,
+        support::bearer_credentials(),
+    );
+    let (mock, _slot) = support::mount_capture(
+        &server,
+        PATH,
+        &json!({ "id": "chatcmpl-empty", "object": "chat.completion", "choices": [] }),
+    );
+
+    let error = client
+        .complete(support::base_request(&selector()))
+        .await
+        .expect_err("an empty choices array is not a successful response");
+
+    mock.assert_async().await;
+    assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+    crate::json_snapshot!(error_json(&error));
+}
 
 #[tokio::test]
 async fn classifies_a_rejected_credential() {

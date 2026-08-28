@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "318"
+      "219"
     ],
     [
       "content-type",
@@ -40,19 +40,14 @@ expression: rendered
             "cache_control": {
               "type": "ephemeral"
             },
-            "text": "Is 91 prime?",
+            "text": "Keep it short.",
             "type": "text"
           }
         ],
-        "role": "user"
+        "role": "system"
       },
       {
-        "content": "No, 91 is not prime.",
-        "reasoning_content": "91 is 7 times 13.",
-        "role": "assistant"
-      },
-      {
-        "content": "What about 97?",
+        "content": "Hello",
         "role": "user"
       }
     ],

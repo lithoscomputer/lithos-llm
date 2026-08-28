@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "264"
+      "388"
     ],
     [
       "content-type",
@@ -35,11 +35,27 @@ expression: rendered
     "max_tokens": 128,
     "messages": [
       {
-        "content": "Keep it short.",
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "Keep it short.",
+            "type": "text"
+          }
+        ],
         "role": "system"
       },
       {
-        "content": "What is the capital of France?",
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "What is the capital of France?",
+            "type": "text"
+          }
+        ],
         "role": "user"
       },
       {
