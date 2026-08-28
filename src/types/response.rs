@@ -1,12 +1,20 @@
-use serde::{Deserialize, Serialize};
+use std::fmt;
+
+use serde::de::{Error as DeError, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use super::ContentPart;
 use crate::catalog::{ModelHandle, ModelId, ProviderId};
 
 /// Why a model stopped producing output.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
+///
+/// Every variant is one JSON string, [`FinishReason::Other`] included: a reason
+/// this crate does not name yet is carried as the provider's own spelling
+/// rather than a different JSON shape. So a stored response keeps loading when
+/// a later version turns one of those strings into a named variant, and a
+/// caller reading the JSON sees one field with one kind of value.
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum FinishReason {
     Stop,
@@ -15,6 +23,76 @@ pub enum FinishReason {
     ContentFilter,
     Error,
     Other(String),
+}
+
+impl FinishReason {
+    /// The canonical string for this reason.
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Stop => "stop",
+            Self::Length => "length",
+            Self::ToolCall => "tool_call",
+            Self::ContentFilter => "content_filter",
+            Self::Error => "error",
+            Self::Other(reason) => reason,
+        }
+    }
+}
+
+impl From<&str> for FinishReason {
+    /// Names the matching variant, keeping any other spelling verbatim.
+    fn from(value: &str) -> Self {
+        match value {
+            "stop" => Self::Stop,
+            "length" => Self::Length,
+            "tool_call" => Self::ToolCall,
+            "content_filter" => Self::ContentFilter,
+            "error" => Self::Error,
+            other => Self::Other(other.to_owned()),
+        }
+    }
+}
+
+impl Serialize for FinishReason {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for FinishReason {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(FinishReasonVisitor)
+    }
+}
+
+/// Reads a finish reason from the bare string this crate writes, or from the
+/// `{"other": "..."}` object an earlier version wrote for
+/// [`FinishReason::Other`].
+struct FinishReasonVisitor;
+
+impl<'de> Visitor<'de> for FinishReasonVisitor {
+    type Value = FinishReason;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a finish reason string")
+    }
+
+    fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(FinishReason::from(value))
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+        let mut reason: Option<String> = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if key != "other" {
+                return Err(DeError::unknown_field(&key, &["other"]));
+            }
+            reason = Some(map.next_value()?);
+        }
+        reason
+            .map(|reason| FinishReason::from(reason.as_str()))
+            .ok_or_else(|| DeError::missing_field("other"))
+    }
 }
 
 /// Token usage reported or estimated for a call.
@@ -191,7 +269,7 @@ mod tests {
 
     use serde_json::json;
 
-    use super::{RateLimits, Response, TokenCounts};
+    use super::{FinishReason, RateLimits, Response, TokenCounts};
     use crate::catalog::{ModelId, ProviderId};
     use crate::types::ContentPart;
 
@@ -201,6 +279,50 @@ mod tests {
                 text: "hello".to_owned(),
             },
         ])
+    }
+
+    #[test]
+    fn every_finish_reason_round_trips_as_one_string() -> Result<(), Box<dyn StdError>> {
+        let reasons = [
+            (FinishReason::Stop, "stop"),
+            (FinishReason::Length, "length"),
+            (FinishReason::ToolCall, "tool_call"),
+            (FinishReason::ContentFilter, "content_filter"),
+            (FinishReason::Error, "error"),
+            (FinishReason::Other("incomplete".to_owned()), "incomplete"),
+        ];
+
+        for (reason, wire) in reasons {
+            assert_eq!(serde_json::to_value(&reason)?, json!(wire));
+            assert_eq!(serde_json::from_value::<FinishReason>(json!(wire))?, reason);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn an_unknown_finish_reason_deserializes_as_other() -> Result<(), Box<dyn StdError>> {
+        let reason = serde_json::from_value::<FinishReason>(json!("guardrail_intervened"))?;
+
+        assert_eq!(
+            reason,
+            FinishReason::Other("guardrail_intervened".to_owned())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn the_earlier_other_object_still_deserializes() -> Result<(), Box<dyn StdError>> {
+        let reason = serde_json::from_value::<FinishReason>(json!({ "other": "incomplete" }))?;
+
+        assert_eq!(reason, FinishReason::Other("incomplete".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn a_finish_reason_object_naming_another_field_is_rejected() {
+        let error = serde_json::from_value::<FinishReason>(json!({ "stop": "yes" })).unwrap_err();
+
+        assert!(error.to_string().contains("stop"), "{error}");
     }
 
     #[test]

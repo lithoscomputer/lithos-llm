@@ -35,9 +35,7 @@ expression: rendered
           "type": "text"
         }
       ],
-      "finish_reason": {
-        "other": "incomplete"
-      },
+      "finish_reason": "incomplete",
       "id": "resp_cut",
       "model": {
         "model": "gpt-5.6-luna",

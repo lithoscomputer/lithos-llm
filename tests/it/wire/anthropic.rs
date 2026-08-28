@@ -1389,7 +1389,7 @@ async fn a_truncated_stream_completes_once_and_says_it_is_incomplete() {
     // Completing is not the same as finishing. The provider never said why it
     // stopped, so the finish reason says the answer is cut off rather than
     // defaulting to `stop` and reading as a model that finished its sentence.
-    assert_eq!(response["finish_reason"], json!({ "other": "incomplete" }));
+    assert_eq!(response["finish_reason"], json!("incomplete"));
 
     crate::json_snapshot!(events);
 }

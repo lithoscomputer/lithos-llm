@@ -45,9 +45,7 @@ expression: rendered
           "type": "text"
         }
       ],
-      "finish_reason": {
-        "other": "incomplete"
-      },
+      "finish_reason": "incomplete",
       "id": "msg_01WireCut",
       "model": {
         "model": "claude",

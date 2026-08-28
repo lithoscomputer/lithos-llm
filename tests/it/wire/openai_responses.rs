@@ -1199,7 +1199,7 @@ async fn a_truncated_stream_completes_as_incomplete() {
         .expect("a truncated stream should still complete");
     assert_eq!(
         completed.pointer("/response/finish_reason"),
-        Some(&json!({ "other": "incomplete" })),
+        Some(&json!("incomplete")),
         "a truncated stream must not report that the model stopped on its own",
     );
     assert_eq!(
