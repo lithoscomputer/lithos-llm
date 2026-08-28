@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: bin/build-release <version>" >&2
+  exit 2
+fi
+
+tag=$1
+version=${tag#v}
+manifest_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+
+if [[ "$version" != "$manifest_version" ]]; then
+  echo "Tag version $version does not match Cargo.toml version $manifest_version" >&2
+  exit 1
+fi
+
+cargo package --locked
+
+package_name="lithos-llm-${version}.crate"
+output_dir="dist-release"
+mkdir -p "$output_dir"
+cp "target/package/$package_name" "$output_dir/$package_name"
+
+(
+  cd "$output_dir"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$package_name" > "$package_name.sha256"
+  else
+    shasum -a 256 "$package_name" > "$package_name.sha256"
+  fi
+)
+
+echo "$output_dir/$package_name"
+echo "$output_dir/$package_name.sha256"
