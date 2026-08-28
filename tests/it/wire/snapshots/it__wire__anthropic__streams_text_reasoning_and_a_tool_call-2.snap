@@ -1,0 +1,154 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "id": "msg_01WireStream",
+    "type": "started"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 1024,
+      "cache_write": 256,
+      "input": 47,
+      "output": 1,
+      "reasoning": 0
+    }
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "reasoning"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "The user wants ",
+    "type": "reasoning_delta"
+  },
+  {
+    "id": "block-0",
+    "text": "today's weather.",
+    "type": "reasoning_delta"
+  },
+  {
+    "id": "block-0",
+    "part": {
+      "signature": "EqQBCgIYAhIM1gbc",
+      "text": "The user wants today's weather.",
+      "type": "reasoning"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "block-1",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-1",
+    "text": "Let me check ",
+    "type": "text_delta"
+  },
+  {
+    "id": "block-1",
+    "text": "the forecast.",
+    "type": "text_delta"
+  },
+  {
+    "id": "block-1",
+    "part": {
+      "text": "Let me check the forecast.",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "block-2",
+    "kind": {
+      "id": "toolu_01Weather",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "arguments": "{\"city\":",
+    "id": "block-2",
+    "type": "tool_call_delta"
+  },
+  {
+    "arguments": " \"Paris\"}",
+    "id": "block-2",
+    "type": "tool_call_delta"
+  },
+  {
+    "id": "block-2",
+    "part": {
+      "arguments": {
+        "city": "Paris"
+      },
+      "id": "toolu_01Weather",
+      "kind": "function",
+      "name": "get_weather",
+      "raw_arguments": "{\"city\": \"Paris\"}",
+      "type": "tool_call"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 1024,
+      "cache_write": 256,
+      "input": 47,
+      "output": 89,
+      "reasoning": 0
+    }
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "signature": "EqQBCgIYAhIM1gbc",
+          "text": "The user wants today's weather.",
+          "type": "reasoning"
+        },
+        {
+          "text": "Let me check the forecast.",
+          "type": "text"
+        },
+        {
+          "arguments": {
+            "city": "Paris"
+          },
+          "id": "toolu_01Weather",
+          "kind": "function",
+          "name": "get_weather",
+          "raw_arguments": "{\"city\": \"Paris\"}",
+          "type": "tool_call"
+        }
+      ],
+      "finish_reason": "tool_call",
+      "id": "msg_01WireStream",
+      "model": {
+        "model": "claude",
+        "provider": "anthropic"
+      },
+      "usage": {
+        "cache_read": 1024,
+        "cache_write": 256,
+        "input": 47,
+        "output": 89,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

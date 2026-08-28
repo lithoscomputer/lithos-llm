@@ -1,0 +1,84 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "anthropic-version",
+      "2023-06-01"
+    ],
+    [
+      "content-length",
+      "460"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "Is 91 prime?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "signature": "sig-abc",
+            "thinking": "91 is 7 times 13.",
+            "type": "thinking"
+          },
+          {
+            "data": "cmVkYWN0ZWQtcGF5bG9hZA==",
+            "type": "redacted_thinking"
+          },
+          {
+            "text": "No, 91 is not prime.",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "What about 97?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false
+  }
+}

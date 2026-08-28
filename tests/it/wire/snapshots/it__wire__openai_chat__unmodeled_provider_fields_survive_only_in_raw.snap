@@ -1,0 +1,50 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "id": "chatcmpl-raw",
+  "model": {
+    "provider": "compat",
+    "model": "compat-chat"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "ok"
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 4,
+    "output": 2,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "message": {
+          "content": "ok",
+          "role": "assistant"
+        },
+        "native_finish_reason": "eos"
+      }
+    ],
+    "id": "chatcmpl-raw",
+    "provider": "Fireworks",
+    "usage": {
+      "completion_tokens": 2,
+      "cost_details": {
+        "upstream_inference_cost": 0.5
+      },
+      "prompt_tokens": 4,
+      "prompt_tokens_details": {
+        "audio_tokens": 3
+      }
+    }
+  }
+}

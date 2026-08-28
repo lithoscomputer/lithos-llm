@@ -1,0 +1,14 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+[
+  {
+    "api_model": "arn:aws:bedrock:us-east-1:123456789012:inference-profile/lithos-shared",
+    "path": "/model/arn:aws:bedrock:us-east-1:123456789012:inference-profile%2Flithos-shared/converse"
+  },
+  {
+    "api_model": "weird%model/v1",
+    "path": "/model/weird%25model%2Fv1/converse"
+  }
+]

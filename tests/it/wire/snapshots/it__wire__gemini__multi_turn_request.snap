@@ -1,0 +1,72 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "content-length",
+      "279"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-goog-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What is the capital of France?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "parts": [
+          {
+            "text": "Paris."
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "parts": [
+          {
+            "text": "And of Spain?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "systemInstruction": {
+      "parts": [
+        {
+          "text": "Keep it short."
+        }
+      ]
+    }
+  }
+}

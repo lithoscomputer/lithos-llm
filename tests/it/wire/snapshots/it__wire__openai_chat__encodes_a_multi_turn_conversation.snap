@@ -1,0 +1,57 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "264"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": "Keep it short.",
+        "role": "system"
+      },
+      {
+        "content": "What is the capital of France?",
+        "role": "user"
+      },
+      {
+        "content": "Paris.",
+        "role": "assistant"
+      },
+      {
+        "content": "And of Spain?",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "stream": false
+  }
+}

@@ -1,0 +1,55 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "content-length",
+      "174"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-goog-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Write one sentence."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128,
+      "stopSequences": [
+        "END",
+        "STOP"
+      ],
+      "temperature": 0.7,
+      "topP": 0.9
+    }
+  }
+}

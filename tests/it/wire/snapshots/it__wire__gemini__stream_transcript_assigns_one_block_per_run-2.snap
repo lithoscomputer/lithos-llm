@@ -1,0 +1,150 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+[
+  {
+    "id": "reasoning-0",
+    "kind": {
+      "type": "reasoning"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "reasoning-0",
+    "text": "Let me check",
+    "type": "reasoning_delta"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 6,
+      "cache_write": 0,
+      "input": 12,
+      "output": 5,
+      "reasoning": 0
+    }
+  },
+  {
+    "id": "reasoning-0",
+    "text": " the forecast.",
+    "type": "reasoning_delta"
+  },
+  {
+    "id": "reasoning-0",
+    "part": {
+      "signature": "sig-stream-think",
+      "text": "Let me check the forecast.",
+      "type": "reasoning"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "text-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "text-0",
+    "text": "Checking",
+    "type": "text_delta"
+  },
+  {
+    "id": "text-0",
+    "text": " now.",
+    "type": "text_delta"
+  },
+  {
+    "id": "text-0",
+    "part": {
+      "text": "Checking now.",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "tool-0",
+    "kind": {
+      "id": "get_weather-0",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "tool-0",
+    "part": {
+      "arguments": {
+        "city": "Paris"
+      },
+      "id": "get_weather-0",
+      "kind": "function",
+      "name": "get_weather",
+      "provider_metadata": {
+        "gemini": {
+          "thoughtSignature": "sig-stream-call"
+        }
+      },
+      "raw_arguments": "{\"city\":\"Paris\"}",
+      "type": "tool_call"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 6,
+      "cache_write": 0,
+      "input": 12,
+      "output": 14,
+      "reasoning": 9
+    }
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "signature": "sig-stream-think",
+          "text": "Let me check the forecast.",
+          "type": "reasoning"
+        },
+        {
+          "text": "Checking now.",
+          "type": "text"
+        },
+        {
+          "arguments": {
+            "city": "Paris"
+          },
+          "id": "get_weather-0",
+          "kind": "function",
+          "name": "get_weather",
+          "provider_metadata": {
+            "gemini": {
+              "thoughtSignature": "sig-stream-call"
+            }
+          },
+          "raw_arguments": "{\"city\":\"Paris\"}",
+          "type": "tool_call"
+        }
+      ],
+      "finish_reason": "stop",
+      "id": null,
+      "model": {
+        "model": "gemini-2.5-pro",
+        "provider": "gemini"
+      },
+      "usage": {
+        "cache_read": 6,
+        "cache_write": 0,
+        "input": 12,
+        "output": 14,
+        "reasoning": 9
+      }
+    },
+    "type": "completed"
+  }
+]

@@ -1,0 +1,54 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "256"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": "Is 91 prime?",
+        "role": "user"
+      },
+      {
+        "content": "No, 91 is not prime.",
+        "reasoning_content": "91 is 7 times 13.",
+        "role": "assistant"
+      },
+      {
+        "content": "What about 97?",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "stream": false
+  }
+}

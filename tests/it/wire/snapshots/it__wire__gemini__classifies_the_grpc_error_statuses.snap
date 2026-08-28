@@ -1,0 +1,108 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+[
+  {
+    "kind": "authentication",
+    "message": "provider gemini API key not valid. Please pass a valid API key.",
+    "provider": "gemini",
+    "provider_code": "UNAUTHENTICATED",
+    "raw_data": {
+      "error": {
+        "code": 401,
+        "message": "API key not valid. Please pass a valid API key.",
+        "status": "UNAUTHENTICATED"
+      }
+    },
+    "retry": {
+      "type": "never"
+    },
+    "status": 401
+  },
+  {
+    "kind": "access_denied",
+    "message": "provider gemini Generative Language API has not been used in this project before.",
+    "provider": "gemini",
+    "provider_code": "PERMISSION_DENIED",
+    "raw_data": {
+      "error": {
+        "code": 403,
+        "message": "Generative Language API has not been used in this project before.",
+        "status": "PERMISSION_DENIED"
+      }
+    },
+    "retry": {
+      "type": "never"
+    },
+    "status": 403
+  },
+  {
+    "kind": "not_found",
+    "message": "provider gemini models/gemini-2.5-pro-002 is not found for API version v1beta.",
+    "provider": "gemini",
+    "provider_code": "NOT_FOUND",
+    "raw_data": {
+      "error": {
+        "code": 404,
+        "message": "models/gemini-2.5-pro-002 is not found for API version v1beta.",
+        "status": "NOT_FOUND"
+      }
+    },
+    "retry": {
+      "type": "never"
+    },
+    "status": 404
+  },
+  {
+    "kind": "rate_limit",
+    "message": "provider gemini Resource has been exhausted (e.g. check quota).",
+    "provider": "gemini",
+    "provider_code": "RESOURCE_EXHAUSTED",
+    "raw_data": {
+      "error": {
+        "code": 429,
+        "message": "Resource has been exhausted (e.g. check quota).",
+        "status": "RESOURCE_EXHAUSTED"
+      }
+    },
+    "retry": {
+      "type": "safe"
+    },
+    "status": 429
+  },
+  {
+    "kind": "invalid_request",
+    "message": "provider gemini Invalid JSON payload received. Unknown name \"foo\".",
+    "provider": "gemini",
+    "provider_code": "INVALID_ARGUMENT",
+    "raw_data": {
+      "error": {
+        "code": 400,
+        "message": "Invalid JSON payload received. Unknown name \"foo\".",
+        "status": "INVALID_ARGUMENT"
+      }
+    },
+    "retry": {
+      "type": "never"
+    },
+    "status": 400
+  },
+  {
+    "kind": "server",
+    "message": "provider gemini The model is overloaded. Please try again later.",
+    "provider": "gemini",
+    "provider_code": "UNAVAILABLE",
+    "raw_data": {
+      "error": {
+        "code": 503,
+        "message": "The model is overloaded. Please try again later.",
+        "status": "UNAVAILABLE"
+      }
+    },
+    "retry": {
+      "type": "safe"
+    },
+    "status": 503
+  }
+]

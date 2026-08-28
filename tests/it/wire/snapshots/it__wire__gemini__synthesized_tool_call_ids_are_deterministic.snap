@@ -1,0 +1,28 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+[
+  {
+    "type": "tool_call",
+    "id": "search-0",
+    "name": "search",
+    "arguments": {
+      "query": "rust"
+    },
+    "kind": "function"
+  },
+  {
+    "type": "text",
+    "text": "and then"
+  },
+  {
+    "type": "tool_call",
+    "id": "search-1",
+    "name": "search",
+    "arguments": {
+      "query": "gemini"
+    },
+    "kind": "function"
+  }
+]

@@ -1,0 +1,46 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "id": "chatcmpl-usage",
+  "model": {
+    "provider": "compat",
+    "model": "compat-chat"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "ok"
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 12,
+    "output": 12,
+    "reasoning": 54,
+    "cache_read": 41,
+    "cache_write": 0
+  },
+  "raw": {
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "message": {
+          "content": "ok",
+          "role": "assistant"
+        }
+      }
+    ],
+    "id": "chatcmpl-usage",
+    "usage": {
+      "completion_tokens": 66,
+      "prompt_cache_hit_tokens": 41,
+      "prompt_cache_miss_tokens": 12,
+      "prompt_tokens": 53,
+      "reasoning_tokens": 54,
+      "total_tokens": 119
+    }
+  }
+}

@@ -1,0 +1,63 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "anthropic-version",
+      "2023-06-01"
+    ],
+    [
+      "content-length",
+      "269"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Give me the city and its population.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "output_config": {
+      "format": {
+        "schema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "json_schema"
+      }
+    },
+    "stream": false
+  }
+}

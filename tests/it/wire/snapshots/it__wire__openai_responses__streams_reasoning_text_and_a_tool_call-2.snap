@@ -1,0 +1,245 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+[
+  {
+    "id": "resp_stream",
+    "type": "started"
+  },
+  {
+    "id": "rs_stream",
+    "kind": {
+      "type": "reasoning"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "rs_stream",
+    "text": "Weighing ",
+    "type": "reasoning_delta"
+  },
+  {
+    "id": "rs_stream",
+    "text": "the options.",
+    "type": "reasoning_delta"
+  },
+  {
+    "id": "rs_stream",
+    "part": {
+      "text": "Weighing the options.",
+      "type": "reasoning"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "rs_stream-item",
+    "kind": {
+      "kind": "openai.reasoning",
+      "type": "opaque"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "rs_stream-item",
+    "part": {
+      "data": {
+        "encrypted_content": "gAAAAAstreamed-reasoning-state",
+        "id": "rs_stream",
+        "summary": [
+          {
+            "text": "Weighing the options.",
+            "type": "summary_text"
+          }
+        ],
+        "type": "reasoning"
+      },
+      "kind": "openai.reasoning",
+      "type": "opaque"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "msg_stream",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "msg_stream",
+    "text": "Looking ",
+    "type": "text_delta"
+  },
+  {
+    "id": "msg_stream",
+    "text": "that up.",
+    "type": "text_delta"
+  },
+  {
+    "id": "msg_stream",
+    "part": {
+      "text": "Looking that up.",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "fc_stream",
+    "kind": {
+      "id": "call_weather",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "arguments": "{\"city\":",
+    "id": "fc_stream",
+    "type": "tool_call_delta"
+  },
+  {
+    "arguments": "\"Paris\"}",
+    "id": "fc_stream",
+    "type": "tool_call_delta"
+  },
+  {
+    "id": "fc_stream",
+    "part": {
+      "arguments": {
+        "city": "Paris"
+      },
+      "id": "call_weather",
+      "kind": "function",
+      "name": "get_weather",
+      "provider_metadata": {
+        "openai": {
+          "item_id": "fc_stream"
+        }
+      },
+      "raw_arguments": "{\"city\":\"Paris\"}",
+      "type": "tool_call"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 8,
+      "cache_write": 0,
+      "input": 33,
+      "output": 8,
+      "reasoning": 19
+    }
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "text": "Weighing the options.",
+          "type": "reasoning"
+        },
+        {
+          "data": {
+            "encrypted_content": "gAAAAAstreamed-reasoning-state",
+            "id": "rs_stream",
+            "summary": [
+              {
+                "text": "Weighing the options.",
+                "type": "summary_text"
+              }
+            ],
+            "type": "reasoning"
+          },
+          "kind": "openai.reasoning",
+          "type": "opaque"
+        },
+        {
+          "text": "Looking that up.",
+          "type": "text"
+        },
+        {
+          "arguments": {
+            "city": "Paris"
+          },
+          "id": "call_weather",
+          "kind": "function",
+          "name": "get_weather",
+          "provider_metadata": {
+            "openai": {
+              "item_id": "fc_stream"
+            }
+          },
+          "raw_arguments": "{\"city\":\"Paris\"}",
+          "type": "tool_call"
+        }
+      ],
+      "finish_reason": "tool_call",
+      "id": "resp_stream",
+      "model": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai"
+      },
+      "raw": {
+        "id": "resp_stream",
+        "model": "gpt-5.6-luna-2026-04-01",
+        "object": "response",
+        "output": [
+          {
+            "encrypted_content": "gAAAAAstreamed-reasoning-state",
+            "id": "rs_stream",
+            "summary": [
+              {
+                "text": "Weighing the options.",
+                "type": "summary_text"
+              }
+            ],
+            "type": "reasoning"
+          },
+          {
+            "content": [
+              {
+                "annotations": [],
+                "text": "Looking that up.",
+                "type": "output_text"
+              }
+            ],
+            "id": "msg_stream",
+            "role": "assistant",
+            "status": "completed",
+            "type": "message"
+          },
+          {
+            "arguments": "{\"city\":\"Paris\"}",
+            "call_id": "call_weather",
+            "id": "fc_stream",
+            "name": "get_weather",
+            "status": "completed",
+            "type": "function_call"
+          }
+        ],
+        "status": "completed",
+        "usage": {
+          "input_tokens": 41,
+          "input_tokens_details": {
+            "cached_tokens": 8
+          },
+          "output_tokens": 27,
+          "output_tokens_details": {
+            "reasoning_tokens": 19
+          },
+          "total_tokens": 68
+        }
+      },
+      "usage": {
+        "cache_read": 8,
+        "cache_write": 0,
+        "input": 33,
+        "output": 8,
+        "reasoning": 19
+      }
+    },
+    "type": "completed"
+  }
+]

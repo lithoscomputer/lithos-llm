@@ -1,0 +1,127 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "case": "authentication",
+    "error": {
+      "kind": "authentication",
+      "message": "provider anthropic invalid x-api-key",
+      "provider": "anthropic",
+      "provider_code": "authentication_error",
+      "raw_data": {
+        "error": {
+          "message": "invalid x-api-key",
+          "type": "authentication_error"
+        },
+        "type": "error"
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 401
+    }
+  },
+  {
+    "case": "access denied",
+    "error": {
+      "kind": "access_denied",
+      "message": "provider anthropic Your API key does not have permission to use the specified resource.",
+      "provider": "anthropic",
+      "provider_code": "permission_error",
+      "raw_data": {
+        "error": {
+          "message": "Your API key does not have permission to use the specified resource.",
+          "type": "permission_error"
+        },
+        "type": "error"
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 403
+    }
+  },
+  {
+    "case": "not found",
+    "error": {
+      "kind": "not_found",
+      "message": "provider anthropic model: claude-does-not-exist",
+      "provider": "anthropic",
+      "provider_code": "not_found_error",
+      "raw_data": {
+        "error": {
+          "message": "model: claude-does-not-exist",
+          "type": "not_found_error"
+        },
+        "type": "error"
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 404
+    }
+  },
+  {
+    "case": "rate limit",
+    "error": {
+      "kind": "rate_limit",
+      "message": "provider anthropic Number of requests has exceeded your rate limit.",
+      "provider": "anthropic",
+      "provider_code": "rate_limit_error",
+      "raw_data": {
+        "error": {
+          "message": "Number of requests has exceeded your rate limit.",
+          "type": "rate_limit_error"
+        },
+        "type": "error"
+      },
+      "retry": {
+        "after_millis": 30000,
+        "type": "after"
+      },
+      "status": 429
+    }
+  },
+  {
+    "case": "overloaded",
+    "error": {
+      "kind": "server",
+      "message": "provider anthropic Overloaded",
+      "provider": "anthropic",
+      "provider_code": "overloaded_error",
+      "raw_data": {
+        "error": {
+          "message": "Overloaded",
+          "type": "overloaded_error"
+        },
+        "type": "error"
+      },
+      "retry": {
+        "type": "safe"
+      },
+      "status": 529
+    }
+  },
+  {
+    "case": "spent credit",
+    "error": {
+      "kind": "quota_exceeded",
+      "message": "provider anthropic Your credit balance is too low to access the Anthropic API.",
+      "provider": "anthropic",
+      "provider_code": "rate_limit_error",
+      "raw_data": {
+        "error": {
+          "message": "Your credit balance is too low to access the Anthropic API.",
+          "type": "rate_limit_error"
+        },
+        "type": "error"
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 429
+    }
+  }
+]

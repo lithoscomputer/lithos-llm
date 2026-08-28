@@ -1,0 +1,59 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/responses",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "277"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Give me the city and its population.",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "max_output_tokens": 128,
+    "model": "gpt-5.6-luna-2026-04-01",
+    "store": false,
+    "stream": false,
+    "text": {
+      "format": {
+        "type": "json_object"
+      }
+    }
+  }
+}

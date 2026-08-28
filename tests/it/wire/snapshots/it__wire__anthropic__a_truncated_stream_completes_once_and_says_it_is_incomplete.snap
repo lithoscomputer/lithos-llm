@@ -1,0 +1,66 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "id": "msg_01WireCut",
+    "type": "started"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 8,
+      "output": 0,
+      "reasoning": 0
+    }
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Half a sen",
+    "type": "text_delta"
+  },
+  {
+    "id": "block-0",
+    "part": {
+      "text": "Half a sen",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "text": "Half a sen",
+          "type": "text"
+        }
+      ],
+      "finish_reason": {
+        "other": "incomplete"
+      },
+      "id": "msg_01WireCut",
+      "model": {
+        "model": "claude",
+        "provider": "anthropic"
+      },
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 8,
+        "output": 0,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

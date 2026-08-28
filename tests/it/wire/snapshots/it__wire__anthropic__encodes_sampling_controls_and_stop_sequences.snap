@@ -1,0 +1,63 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "anthropic-version",
+      "2023-06-01"
+    ],
+    [
+      "content-length",
+      "238"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Write one sentence.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "metadata": {
+      "tenant": "acme"
+    },
+    "model": "claude-sonnet-4-6",
+    "stop_sequences": [
+      "END",
+      "STOP"
+    ],
+    "stream": false,
+    "temperature": 0.7,
+    "top_p": 0.9
+  }
+}

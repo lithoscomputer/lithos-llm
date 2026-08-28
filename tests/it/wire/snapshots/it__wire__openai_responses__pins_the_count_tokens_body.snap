@@ -1,0 +1,48 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/responses/input_tokens",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "124"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Write one sentence.",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-luna-2026-04-01"
+  }
+}

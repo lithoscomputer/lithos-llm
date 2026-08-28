@@ -1,0 +1,97 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "content-length",
+      "641"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-goog-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What is the weather in Paris?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "systemInstruction": {
+      "parts": [
+        {
+          "text": "Use the tools when they help."
+        }
+      ]
+    },
+    "toolConfig": {
+      "functionCallingConfig": {
+        "mode": "AUTO"
+      }
+    },
+    "tools": [
+      {
+        "functionDeclarations": [
+          {
+            "description": "Reads the current weather for a city",
+            "name": "get_weather",
+            "parametersJsonSchema": {
+              "properties": {
+                "city": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "city"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "description": "Reads the current time in a time zone",
+            "name": "get_time",
+            "parametersJsonSchema": {
+              "properties": {
+                "zone": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "zone"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

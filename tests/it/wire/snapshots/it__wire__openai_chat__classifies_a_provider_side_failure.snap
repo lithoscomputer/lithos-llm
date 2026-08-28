@@ -1,0 +1,21 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "kind": "server",
+  "message": "provider compat The server had an error while processing your request",
+  "provider": "compat",
+  "provider_code": "server_error",
+  "raw_data": {
+    "error": {
+      "code": null,
+      "message": "The server had an error while processing your request",
+      "type": "server_error"
+    }
+  },
+  "retry": {
+    "type": "safe"
+  },
+  "status": 500
+}

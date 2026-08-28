@@ -1,0 +1,87 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "600"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": "Use the tools when they help.",
+        "role": "system"
+      },
+      {
+        "content": "What is the weather in Paris?",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "stream": false,
+    "tools": [
+      {
+        "function": {
+          "description": "Reads the current weather for a city",
+          "name": "get_weather",
+          "parameters": {
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Reads the current time in a time zone",
+          "name": "get_time",
+          "parameters": {
+            "properties": {
+              "zone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "zone"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ]
+  }
+}

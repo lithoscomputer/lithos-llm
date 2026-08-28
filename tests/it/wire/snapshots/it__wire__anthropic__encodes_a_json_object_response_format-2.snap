@@ -1,0 +1,43 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "id": "msg_01WireJson",
+  "model": {
+    "provider": "anthropic",
+    "model": "claude"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"city\":\"Paris\",\"population\":2102650}"
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 24,
+    "output": 18,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "content": [
+      {
+        "text": "{\"city\":\"Paris\",\"population\":2102650}",
+        "type": "text"
+      }
+    ],
+    "id": "msg_01WireJson",
+    "model": "claude-sonnet-4-6",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "type": "message",
+    "usage": {
+      "input_tokens": 24,
+      "output_tokens": 18
+    }
+  }
+}

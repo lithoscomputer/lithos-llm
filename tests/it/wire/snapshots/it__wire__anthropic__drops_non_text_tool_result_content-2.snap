@@ -1,0 +1,10 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "code": "unsupported_control",
+    "message": "this provider protocol does not support non-text tool result content"
+  }
+]

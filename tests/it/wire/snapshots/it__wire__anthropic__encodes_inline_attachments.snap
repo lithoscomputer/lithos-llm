@@ -1,0 +1,71 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "anthropic-version",
+      "2023-06-01"
+    ],
+    [
+      "content-length",
+      "370"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Describe both attachments.",
+            "type": "text"
+          },
+          {
+            "source": {
+              "data": "aW1hZ2UtYnl0ZXM=",
+              "media_type": "image/png",
+              "type": "base64"
+            },
+            "type": "image"
+          },
+          {
+            "source": {
+              "data": "cGRmLWJ5dGVz",
+              "media_type": "application/pdf",
+              "type": "base64"
+            },
+            "title": "report.pdf",
+            "type": "document"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false
+  }
+}

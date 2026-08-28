@@ -1,0 +1,176 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+[
+  {
+    "id": "chatcmpl-stream",
+    "type": "started"
+  },
+  {
+    "id": "reasoning-0",
+    "kind": {
+      "type": "reasoning"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "reasoning-0",
+    "text": "Two cities ",
+    "type": "reasoning_delta"
+  },
+  {
+    "id": "reasoning-0",
+    "text": "to look up.",
+    "type": "reasoning_delta"
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Looking ",
+    "type": "text_delta"
+  },
+  {
+    "id": "block-0",
+    "text": "both up.",
+    "type": "text_delta"
+  },
+  {
+    "id": "tool-0",
+    "kind": {
+      "id": "call_paris",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "tool-1",
+    "kind": {
+      "id": "call_madrid",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "arguments": "{\"city\":",
+    "id": "tool-0",
+    "type": "tool_call_delta"
+  },
+  {
+    "arguments": "{\"city\":",
+    "id": "tool-1",
+    "type": "tool_call_delta"
+  },
+  {
+    "arguments": "\"Paris\"}",
+    "id": "tool-0",
+    "type": "tool_call_delta"
+  },
+  {
+    "arguments": "\"Madrid\"}",
+    "id": "tool-1",
+    "type": "tool_call_delta"
+  },
+  {
+    "id": "reasoning-0",
+    "part": {
+      "text": "Two cities to look up.",
+      "type": "reasoning"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "block-0",
+    "part": {
+      "text": "Looking both up.",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "tool-0",
+    "part": {
+      "arguments": {
+        "city": "Paris"
+      },
+      "id": "call_paris",
+      "kind": "function",
+      "name": "get_weather",
+      "raw_arguments": "{\"city\":\"Paris\"}",
+      "type": "tool_call"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "tool-1",
+    "part": {
+      "arguments": {
+        "city": "Madrid"
+      },
+      "id": "call_madrid",
+      "kind": "function",
+      "name": "get_weather",
+      "raw_arguments": "{\"city\":\"Madrid\"}",
+      "type": "tool_call"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "text": "Two cities to look up.",
+          "type": "reasoning"
+        },
+        {
+          "text": "Looking both up.",
+          "type": "text"
+        },
+        {
+          "arguments": {
+            "city": "Paris"
+          },
+          "id": "call_paris",
+          "kind": "function",
+          "name": "get_weather",
+          "raw_arguments": "{\"city\":\"Paris\"}",
+          "type": "tool_call"
+        },
+        {
+          "arguments": {
+            "city": "Madrid"
+          },
+          "id": "call_madrid",
+          "kind": "function",
+          "name": "get_weather",
+          "raw_arguments": "{\"city\":\"Madrid\"}",
+          "type": "tool_call"
+        }
+      ],
+      "finish_reason": "tool_call",
+      "id": "chatcmpl-stream",
+      "model": {
+        "model": "compat-chat",
+        "provider": "compat"
+      },
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 0,
+        "output": 0,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

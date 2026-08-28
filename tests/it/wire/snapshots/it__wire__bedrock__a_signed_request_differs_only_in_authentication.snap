@@ -1,0 +1,100 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "bearer": {
+    "body": {
+      "inferenceConfig": {
+        "maxTokens": 128
+      },
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "Hello"
+            }
+          ],
+          "role": "user"
+        }
+      ]
+    },
+    "headers": [
+      [
+        "accept",
+        "*/*"
+      ],
+      [
+        "authorization",
+        "[redacted]"
+      ],
+      [
+        "content-length",
+        "95"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "host",
+        "[host]"
+      ],
+      [
+        "user-agent",
+        "[user-agent]"
+      ]
+    ],
+    "method": "POST",
+    "path": "/model/anthropic.claude-sonnet-4-6/converse"
+  },
+  "signed": {
+    "body": {
+      "inferenceConfig": {
+        "maxTokens": 128
+      },
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "Hello"
+            }
+          ],
+          "role": "user"
+        }
+      ]
+    },
+    "headers": [
+      [
+        "accept",
+        "*/*"
+      ],
+      [
+        "authorization",
+        "[redacted]"
+      ],
+      [
+        "content-length",
+        "95"
+      ],
+      [
+        "content-type",
+        "application/json"
+      ],
+      [
+        "host",
+        "[host]"
+      ],
+      [
+        "user-agent",
+        "[user-agent]"
+      ],
+      [
+        "x-amz-date",
+        "[amz-date]"
+      ]
+    ],
+    "method": "POST",
+    "path": "/model/anthropic.claude-sonnet-4-6/converse"
+  }
+}

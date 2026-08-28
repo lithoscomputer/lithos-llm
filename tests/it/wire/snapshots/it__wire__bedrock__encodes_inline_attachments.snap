@@ -1,0 +1,66 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "265"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Describe both attachments."
+          },
+          {
+            "image": {
+              "format": "png",
+              "source": {
+                "bytes": "aW1hZ2UtYnl0ZXM="
+              }
+            }
+          },
+          {
+            "document": {
+              "format": "pdf",
+              "name": "report.pdf",
+              "source": {
+                "bytes": "cGRmLWJ5dGVz"
+              }
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  }
+}

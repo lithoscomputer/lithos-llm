@@ -1,0 +1,60 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "id": "msg_01WireTool",
+  "model": {
+    "provider": "anthropic",
+    "model": "claude"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "Looking it up."
+    },
+    {
+      "type": "tool_call",
+      "id": "toolu_01Weather",
+      "name": "get_weather",
+      "arguments": {
+        "city": "Paris"
+      },
+      "kind": "function"
+    }
+  ],
+  "finish_reason": "tool_call",
+  "usage": {
+    "input": 96,
+    "output": 41,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "content": [
+      {
+        "text": "Looking it up.",
+        "type": "text"
+      },
+      {
+        "id": "toolu_01Weather",
+        "input": {
+          "city": "Paris"
+        },
+        "name": "get_weather",
+        "type": "tool_use"
+      }
+    ],
+    "id": "msg_01WireTool",
+    "model": "claude-sonnet-4-6",
+    "role": "assistant",
+    "stop_reason": "tool_use",
+    "stop_sequence": null,
+    "type": "message",
+    "usage": {
+      "input_tokens": 96,
+      "output_tokens": 41
+    }
+  }
+}

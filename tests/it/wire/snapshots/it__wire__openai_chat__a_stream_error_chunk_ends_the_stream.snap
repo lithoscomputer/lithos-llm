@@ -1,0 +1,41 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+[
+  {
+    "id": "chatcmpl-stream",
+    "type": "started"
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Hel",
+    "type": "text_delta"
+  },
+  {
+    "error": {
+      "kind": "rate_limit",
+      "message": "provider compat rate limit reached",
+      "provider": "compat",
+      "provider_code": "rate_limit_exceeded",
+      "raw_data": {
+        "error": {
+          "code": "rate_limit_exceeded",
+          "message": "rate limit reached",
+          "type": "rate_limit_error"
+        }
+      },
+      "retry": {
+        "type": "safe"
+      }
+    },
+    "type": "error"
+  }
+]

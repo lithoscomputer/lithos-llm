@@ -1,0 +1,73 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+[
+  {
+    "id": "chatcmpl-stream",
+    "type": "started"
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Hel",
+    "type": "text_delta"
+  },
+  {
+    "id": "block-0",
+    "text": "lo",
+    "type": "text_delta"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 3,
+      "cache_write": 0,
+      "input": 8,
+      "output": 5,
+      "reasoning": 0
+    }
+  },
+  {
+    "id": "block-0",
+    "part": {
+      "text": "Hello",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "text": "Hello",
+          "type": "text"
+        }
+      ],
+      "cost": {
+        "source": "provider",
+        "usd_micros": 100
+      },
+      "finish_reason": "stop",
+      "id": "chatcmpl-stream",
+      "model": {
+        "model": "compat-chat",
+        "provider": "compat"
+      },
+      "usage": {
+        "cache_read": 3,
+        "cache_write": 0,
+        "input": 8,
+        "output": 5,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

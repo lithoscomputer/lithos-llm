@@ -1,0 +1,80 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "329"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the capital of France?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Paris."
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "And of Spain?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "system": [
+      {
+        "text": "Keep it short."
+      },
+      {
+        "cachePoint": {
+          "type": "default"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "kind": "not_found",
+  "message": "provider compat The model `vendor/compat-chat-v2` does not exist",
+  "provider": "compat",
+  "provider_code": "model_not_found",
+  "raw_data": {
+    "error": {
+      "code": "model_not_found",
+      "message": "The model `vendor/compat-chat-v2` does not exist",
+      "type": "invalid_request_error"
+    }
+  },
+  "retry": {
+    "type": "never"
+  },
+  "status": 404
+}

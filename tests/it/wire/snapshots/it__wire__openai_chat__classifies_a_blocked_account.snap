@@ -1,0 +1,21 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "kind": "access_denied",
+  "message": "provider compat Your account has been deactivated",
+  "provider": "compat",
+  "provider_code": "account_deactivated",
+  "raw_data": {
+    "error": {
+      "code": "account_deactivated",
+      "message": "Your account has been deactivated",
+      "type": "invalid_request_error"
+    }
+  },
+  "retry": {
+    "type": "never"
+  },
+  "status": 403
+}

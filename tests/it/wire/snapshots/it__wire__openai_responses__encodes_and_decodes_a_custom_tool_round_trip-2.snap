@@ -1,0 +1,61 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "id": "resp_custom",
+  "model": {
+    "provider": "openai",
+    "model": "gpt-5.6-luna"
+  },
+  "content": [
+    {
+      "type": "tool_call",
+      "id": "call_patch",
+      "name": "apply_patch",
+      "arguments": "*** Begin Patch\n*** End Patch",
+      "kind": "custom",
+      "raw_arguments": "*** Begin Patch\n*** End Patch",
+      "provider_metadata": {
+        "openai": {
+          "item_id": "ctc_patch"
+        }
+      }
+    }
+  ],
+  "finish_reason": "tool_call",
+  "usage": {
+    "input": 31,
+    "output": 12,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "id": "resp_custom",
+    "model": "gpt-5.6-luna-2026-04-01",
+    "object": "response",
+    "output": [
+      {
+        "call_id": "call_patch",
+        "id": "ctc_patch",
+        "input": "*** Begin Patch\n*** End Patch",
+        "name": "apply_patch",
+        "status": "completed",
+        "type": "custom_tool_call"
+      }
+    ],
+    "status": "completed",
+    "usage": {
+      "input_tokens": 31,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      },
+      "output_tokens": 12,
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "total_tokens": 43
+    }
+  }
+}

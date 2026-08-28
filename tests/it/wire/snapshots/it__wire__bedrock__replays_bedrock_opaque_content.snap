@@ -1,0 +1,115 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "685"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "encrypted_content": "opaque-payload",
+            "id": "rs_replay"
+          },
+          {
+            "toolUse": {
+              "input": {
+                "city": "Paris"
+              },
+              "name": "get_weather",
+              "toolUseId": "call_replay"
+            }
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "toolResult": {
+              "content": [
+                {
+                  "text": "18C and clear"
+                }
+              ],
+              "toolUseId": "call_replay"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "toolConfig": {
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_weather"
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ]
+    }
+  }
+}

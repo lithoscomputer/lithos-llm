@@ -1,0 +1,48 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "141"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": "Hello",
+        "role": "user"
+      }
+    ],
+    "metadata": {
+      "tenant": "acme"
+    },
+    "model": "vendor/compat-chat-v2",
+    "stream": false
+  }
+}

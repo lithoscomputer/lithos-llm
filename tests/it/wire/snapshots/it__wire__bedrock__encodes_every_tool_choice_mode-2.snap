@@ -1,0 +1,218 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+[
+  {
+    "toolConfig": {
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_weather"
+          }
+        },
+        {
+          "toolSpec": {
+            "description": "Reads the current time in a time zone",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "zone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "zone"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_time"
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ]
+    },
+    "tool_choice": "unset"
+  },
+  {
+    "toolConfig": {
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_weather"
+          }
+        },
+        {
+          "toolSpec": {
+            "description": "Reads the current time in a time zone",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "zone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "zone"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_time"
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ]
+    },
+    "tool_choice": "auto"
+  },
+  {
+    "toolConfig": null,
+    "tool_choice": "none"
+  },
+  {
+    "toolConfig": {
+      "toolChoice": {
+        "any": {}
+      },
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_weather"
+          }
+        },
+        {
+          "toolSpec": {
+            "description": "Reads the current time in a time zone",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "zone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "zone"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_time"
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ]
+    },
+    "tool_choice": "required"
+  },
+  {
+    "toolConfig": {
+      "toolChoice": {
+        "tool": {
+          "name": "get_weather"
+        }
+      },
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_weather"
+          }
+        },
+        {
+          "toolSpec": {
+            "description": "Reads the current time in a time zone",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "zone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "zone"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_time"
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ]
+    },
+    "tool_choice": "tool"
+  }
+]

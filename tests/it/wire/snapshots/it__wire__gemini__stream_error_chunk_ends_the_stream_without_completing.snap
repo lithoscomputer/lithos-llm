@@ -1,0 +1,37 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+[
+  {
+    "id": "text-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "text-0",
+    "text": "Partial",
+    "type": "text_delta"
+  },
+  {
+    "error": {
+      "kind": "rate_limit",
+      "message": "provider gemini Resource has been exhausted (e.g. check quota).",
+      "provider": "gemini",
+      "provider_code": "RESOURCE_EXHAUSTED",
+      "raw_data": {
+        "error": {
+          "code": 429,
+          "message": "Resource has been exhausted (e.g. check quota).",
+          "status": "RESOURCE_EXHAUSTED"
+        }
+      },
+      "retry": {
+        "type": "safe"
+      }
+    },
+    "type": "error"
+  }
+]

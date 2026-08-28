@@ -1,0 +1,76 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/responses",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "517"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Screenshot the page.",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "arguments": "{}",
+        "call_id": "call_shot",
+        "name": "screenshot",
+        "type": "function_call"
+      },
+      {
+        "call_id": "call_shot",
+        "output": "captured",
+        "type": "function_call_output"
+      }
+    ],
+    "max_output_tokens": 128,
+    "model": "gpt-5.6-luna-2026-04-01",
+    "store": false,
+    "stream": false,
+    "tools": [
+      {
+        "description": "Captures the current page",
+        "name": "screenshot",
+        "parameters": {
+          "properties": {},
+          "type": "object"
+        },
+        "type": "function"
+      }
+    ]
+  }
+}

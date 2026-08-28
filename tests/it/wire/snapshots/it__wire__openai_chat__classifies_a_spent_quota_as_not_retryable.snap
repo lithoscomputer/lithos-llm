@@ -1,0 +1,21 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "kind": "quota_exceeded",
+  "message": "provider compat You exceeded your current quota, please check your plan and billing details",
+  "provider": "compat",
+  "provider_code": "insufficient_quota",
+  "raw_data": {
+    "error": {
+      "code": "insufficient_quota",
+      "message": "You exceeded your current quota, please check your plan and billing details",
+      "type": "insufficient_quota"
+    }
+  },
+  "retry": {
+    "type": "never"
+  },
+  "status": 429
+}

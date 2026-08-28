@@ -1,0 +1,62 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "id": "chatcmpl-wire",
+  "model": {
+    "provider": "compat",
+    "model": "compat-chat"
+  },
+  "content": [
+    {
+      "type": "tool_call",
+      "id": "call_paris",
+      "name": "get_weather",
+      "arguments": {
+        "city": "Paris"
+      },
+      "kind": "function",
+      "raw_arguments": "{\"city\": \"Paris\"}"
+    }
+  ],
+  "finish_reason": "tool_call",
+  "usage": {
+    "input": 42,
+    "output": 9,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "choices": [
+      {
+        "finish_reason": "tool_calls",
+        "index": 0,
+        "message": {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"city\": \"Paris\"}",
+                "name": "get_weather"
+              },
+              "id": "call_paris",
+              "type": "function"
+            }
+          ]
+        }
+      }
+    ],
+    "created": 1700000000,
+    "id": "chatcmpl-wire",
+    "model": "vendor/compat-chat-v2",
+    "object": "chat.completion",
+    "usage": {
+      "completion_tokens": 9,
+      "prompt_tokens": 42,
+      "total_tokens": 51
+    }
+  }
+}

@@ -1,0 +1,22 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "kind": "rate_limit",
+  "message": "provider compat Rate limit reached for requests",
+  "provider": "compat",
+  "provider_code": "rate_limit_exceeded",
+  "raw_data": {
+    "error": {
+      "code": "rate_limit_exceeded",
+      "message": "Rate limit reached for requests",
+      "type": "rate_limit_error"
+    }
+  },
+  "retry": {
+    "after_millis": "[COUNTDOWN]",
+    "type": "after"
+  },
+  "status": 429
+}

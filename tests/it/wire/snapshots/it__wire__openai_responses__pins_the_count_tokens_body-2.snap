@@ -1,0 +1,11 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "model": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai"
+  },
+  "tokens": 42
+}

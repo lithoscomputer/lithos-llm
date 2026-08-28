@@ -1,0 +1,51 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "id": "msg_01WireFail",
+    "type": "started"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 8,
+      "output": 0,
+      "reasoning": 0
+    }
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Partial",
+    "type": "text_delta"
+  },
+  {
+    "error": {
+      "kind": "server",
+      "message": "provider anthropic Overloaded",
+      "provider": "anthropic",
+      "provider_code": "overloaded_error",
+      "raw_data": {
+        "error": {
+          "message": "Overloaded",
+          "type": "overloaded_error"
+        },
+        "type": "error"
+      },
+      "retry": {
+        "type": "safe"
+      }
+    },
+    "type": "error"
+  }
+]

@@ -1,0 +1,48 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "184"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": "Give me the city and its population.",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "response_format": {
+      "type": "json_object"
+    },
+    "stream": false
+  }
+}

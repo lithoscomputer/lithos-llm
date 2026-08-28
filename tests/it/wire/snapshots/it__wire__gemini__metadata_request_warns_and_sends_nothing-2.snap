@@ -1,0 +1,54 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "id": "resp-gemini-1",
+  "model": {
+    "provider": "gemini",
+    "model": "gemini-2.5-pro"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello there."
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 11,
+    "output": 5,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "warnings": [
+    {
+      "code": "unsupported_control",
+      "message": "this provider protocol does not support request metadata"
+    }
+  ],
+  "raw": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "Hello there."
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "modelVersion": "gemini-2.5-pro-002",
+    "responseId": "resp-gemini-1",
+    "usageMetadata": {
+      "candidatesTokenCount": 5,
+      "promptTokenCount": 11,
+      "totalTokenCount": 16
+    }
+  }
+}

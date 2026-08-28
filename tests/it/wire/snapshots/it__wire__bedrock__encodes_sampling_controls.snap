@@ -1,0 +1,55 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "169"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128,
+      "stopSequences": [
+        "END",
+        "STOP"
+      ],
+      "temperature": 0.7,
+      "topP": 0.9
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Write one sentence."
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  }
+}

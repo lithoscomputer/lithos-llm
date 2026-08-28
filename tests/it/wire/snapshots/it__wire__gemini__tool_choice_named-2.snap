@@ -1,0 +1,72 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "id": "resp-gemini-2",
+  "model": {
+    "provider": "gemini",
+    "model": "gemini-2.5-pro"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "Checking the weather."
+    },
+    {
+      "type": "tool_call",
+      "id": "get_weather-0",
+      "name": "get_weather",
+      "arguments": {
+        "city": "Paris"
+      },
+      "kind": "function",
+      "provider_metadata": {
+        "gemini": {
+          "thoughtSignature": "sig-call"
+        }
+      }
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 42,
+    "output": 12,
+    "reasoning": 7,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "Checking the weather."
+            },
+            {
+              "functionCall": {
+                "args": {
+                  "city": "Paris"
+                },
+                "name": "get_weather"
+              },
+              "thoughtSignature": "sig-call"
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "modelVersion": "gemini-2.5-pro-002",
+    "responseId": "resp-gemini-2",
+    "usageMetadata": {
+      "candidatesTokenCount": 12,
+      "promptTokenCount": 42,
+      "thoughtsTokenCount": 7,
+      "totalTokenCount": 61
+    }
+  }
+}

@@ -1,0 +1,38 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+[
+  {
+    "id": null,
+    "type": "started"
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Chec",
+    "type": "text_delta"
+  },
+  {
+    "error": {
+      "kind": "rate_limit",
+      "message": "provider bedrock Too many requests, please wait before trying again.",
+      "provider": "bedrock",
+      "provider_code": "ThrottlingException",
+      "raw_data": {
+        "__type": "com.amazon.bedrock#ThrottlingException",
+        "message": "Too many requests, please wait before trying again."
+      },
+      "retry": {
+        "type": "safe"
+      }
+    },
+    "type": "error"
+  }
+]

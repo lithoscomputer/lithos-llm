@@ -1,0 +1,13 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "kind": "invalid_request",
+  "message": "provider compat does not support document content",
+  "provider": "compat",
+  "provider_code": "unsupported_capability",
+  "retry": {
+    "type": "never"
+  }
+}

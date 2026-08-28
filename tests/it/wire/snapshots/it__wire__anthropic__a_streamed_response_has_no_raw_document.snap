@@ -1,0 +1,74 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "id": "msg_01WireRaw",
+    "type": "started"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 8,
+      "output": 0,
+      "reasoning": 0
+    }
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Hi",
+    "type": "text_delta"
+  },
+  {
+    "id": "block-0",
+    "part": {
+      "text": "Hi",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 8,
+      "output": 2,
+      "reasoning": 0
+    }
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "text": "Hi",
+          "type": "text"
+        }
+      ],
+      "finish_reason": "stop",
+      "id": "msg_01WireRaw",
+      "model": {
+        "model": "claude",
+        "provider": "anthropic"
+      },
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 8,
+        "output": 2,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

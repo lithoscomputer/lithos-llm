@@ -1,0 +1,13 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "kind": "invalid_request",
+  "message": "provider openai does not support audio content",
+  "provider": "openai",
+  "provider_code": "unsupported_capability",
+  "retry": {
+    "type": "never"
+  }
+}

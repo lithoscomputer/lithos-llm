@@ -22,8 +22,8 @@
 //!
 //! # Adding a dialect
 //!
-//! Uncomment the module below and add `tests/it/wire/<dialect>.rs`. The
-//! agent-facing contract for each module is:
+//! Add `tests/it/wire/<dialect>.rs` and declare it below. The contract for
+//! each module is:
 //!
 //! - Build the catalog with `support::WireProvider`, pointed at the mock
 //!   server's `base_url`, and the client with `support::client_for`, which
@@ -36,9 +36,9 @@
 //! - Never edit a corpus constructor to suit one dialect. Editing one
 //!   invalidates the pinned snapshots in every dialect file.
 
-// TODO(wire-parity): land one module per dialect against the contract above.
-// mod anthropic;
-// mod bedrock;
-// mod gemini;
-// mod openai_chat;
-// mod openai_responses;
+mod anthropic;
+#[cfg(feature = "bedrock")]
+mod bedrock;
+mod gemini;
+mod openai_chat;
+mod openai_responses;

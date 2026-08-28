@@ -1,0 +1,61 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "content-length",
+      "255"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-goog-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Describe both attachments."
+          },
+          {
+            "inlineData": {
+              "data": "aW1hZ2UtYnl0ZXM=",
+              "mimeType": "image/png"
+            }
+          },
+          {
+            "inlineData": {
+              "data": "cGRmLWJ5dGVz",
+              "mimeType": "application/pdf"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    }
+  }
+}

@@ -1,0 +1,12 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "request_limit": 1000,
+  "request_remaining": 999,
+  "request_reset": "[TIMESTAMP]",
+  "token_limit": 80000,
+  "token_remaining": 79904,
+  "token_reset": "[TIMESTAMP]"
+}

@@ -1,0 +1,12 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "request_limit": 10000,
+  "request_remaining": 9999,
+  "request_reset": "6m0s",
+  "token_limit": 2000000,
+  "token_remaining": 1998000,
+  "token_reset": "1.5s"
+}

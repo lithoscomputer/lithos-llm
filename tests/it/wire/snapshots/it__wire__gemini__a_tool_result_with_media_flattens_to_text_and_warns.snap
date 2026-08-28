@@ -1,0 +1,90 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "content-length",
+      "514"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-goog-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What does the chart show?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "parts": [
+          {
+            "functionCall": {
+              "args": {},
+              "id": "call_chart",
+              "name": "read_chart"
+            }
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "parts": [
+          {
+            "functionResponse": {
+              "id": "call_chart",
+              "name": "read_chart",
+              "response": {
+                "is_error": false,
+                "output": "Revenue by quarter."
+              }
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "tools": [
+      {
+        "functionDeclarations": [
+          {
+            "description": "Reads a chart image",
+            "name": "read_chart",
+            "parametersJsonSchema": {
+              "properties": {},
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

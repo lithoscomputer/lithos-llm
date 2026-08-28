@@ -1,0 +1,55 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "id": "msg_01WireUsage",
+  "model": {
+    "provider": "anthropic",
+    "model": "claude"
+  },
+  "content": [
+    {
+      "type": "reasoning",
+      "text": "Long deliberation.",
+      "signature": "sig-usage"
+    },
+    {
+      "type": "text",
+      "text": "Done."
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 50,
+    "output": 1200,
+    "reasoning": 0,
+    "cache_read": 9000,
+    "cache_write": 1000
+  },
+  "raw": {
+    "content": [
+      {
+        "signature": "sig-usage",
+        "thinking": "Long deliberation.",
+        "type": "thinking"
+      },
+      {
+        "text": "Done.",
+        "type": "text"
+      }
+    ],
+    "id": "msg_01WireUsage",
+    "model": "claude-sonnet-4-6",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "type": "message",
+    "usage": {
+      "cache_creation_input_tokens": 1000,
+      "cache_read_input_tokens": 9000,
+      "input_tokens": 50,
+      "output_tokens": 1200
+    }
+  }
+}

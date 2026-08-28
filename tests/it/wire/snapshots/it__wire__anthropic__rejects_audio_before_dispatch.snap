@@ -1,0 +1,13 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "kind": "invalid_request",
+  "message": "provider anthropic does not support audio content",
+  "provider": "anthropic",
+  "provider_code": "unsupported_capability",
+  "retry": {
+    "type": "never"
+  }
+}

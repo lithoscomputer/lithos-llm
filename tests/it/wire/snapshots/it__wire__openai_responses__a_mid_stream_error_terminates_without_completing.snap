@@ -1,0 +1,41 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+[
+  {
+    "id": "resp_failed",
+    "type": "started"
+  },
+  {
+    "id": "msg_failed",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "msg_failed",
+    "text": "Part",
+    "type": "text_delta"
+  },
+  {
+    "error": {
+      "kind": "server",
+      "message": "provider openai the model stream failed",
+      "provider": "openai",
+      "provider_code": "server_error",
+      "raw_data": {
+        "code": "server_error",
+        "message": "the model stream failed",
+        "param": null,
+        "sequence_number": 4,
+        "type": "error"
+      },
+      "retry": {
+        "type": "safe"
+      }
+    },
+    "type": "error"
+  }
+]

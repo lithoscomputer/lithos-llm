@@ -1,0 +1,125 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+[
+  {
+    "error": {
+      "kind": "authentication",
+      "message": "provider bedrock The security token included in the request is invalid.",
+      "provider": "bedrock",
+      "provider_code": "UnrecognizedClientException",
+      "raw_data": {
+        "__type": "UnrecognizedClientException",
+        "message": "The security token included in the request is invalid."
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 401
+    },
+    "status": 401
+  },
+  {
+    "error": {
+      "kind": "access_denied",
+      "message": "provider bedrock You do not have access to the model with the specified model ID.",
+      "provider": "bedrock",
+      "provider_code": "AccessDeniedException",
+      "raw_data": {
+        "Message": "You do not have access to the model with the specified model ID.",
+        "__type": "com.amazon.bedrock#AccessDeniedException"
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 403
+    },
+    "status": 403
+  },
+  {
+    "error": {
+      "kind": "rate_limit",
+      "message": "provider bedrock Too many requests, please wait before trying again.",
+      "provider": "bedrock",
+      "provider_code": "ThrottlingException",
+      "raw_data": {
+        "__type": "com.amazon.bedrock#ThrottlingException",
+        "message": "Too many requests, please wait before trying again."
+      },
+      "retry": {
+        "type": "safe"
+      },
+      "status": 429
+    },
+    "status": 429
+  },
+  {
+    "error": {
+      "kind": "quota_exceeded",
+      "message": "provider bedrock Your request rate exceeds the service quota for your account.",
+      "provider": "bedrock",
+      "provider_code": "ServiceQuotaExceededException",
+      "raw_data": {
+        "__type": "com.amazon.bedrock#ServiceQuotaExceededException",
+        "message": "Your request rate exceeds the service quota for your account."
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 429
+    },
+    "status": 429
+  },
+  {
+    "error": {
+      "kind": "invalid_request",
+      "message": "provider bedrock The value at toolConfig.tools failed to satisfy the constraint.",
+      "provider": "bedrock",
+      "provider_code": "ValidationException",
+      "raw_data": {
+        "__type": "com.amazon.bedrock#ValidationException",
+        "message": "The value at toolConfig.tools failed to satisfy the constraint."
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 400
+    },
+    "status": 400
+  },
+  {
+    "error": {
+      "kind": "not_found",
+      "message": "provider bedrock Could not resolve the foundation model from the provided model id.",
+      "provider": "bedrock",
+      "provider_code": "ResourceNotFoundException",
+      "raw_data": {
+        "__type": "com.amazon.bedrock#ResourceNotFoundException",
+        "message": "Could not resolve the foundation model from the provided model id."
+      },
+      "retry": {
+        "type": "never"
+      },
+      "status": 404
+    },
+    "status": 404
+  },
+  {
+    "error": {
+      "kind": "server",
+      "message": "provider bedrock An internal server error occurred.",
+      "provider": "bedrock",
+      "provider_code": "InternalServerException",
+      "raw_data": {
+        "__type": "com.amazon.bedrock#InternalServerException",
+        "message": "An internal server error occurred."
+      },
+      "retry": {
+        "type": "safe"
+      },
+      "status": 500
+    },
+    "status": 500
+  }
+]

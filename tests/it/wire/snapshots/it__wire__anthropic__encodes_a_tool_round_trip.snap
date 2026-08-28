@@ -1,0 +1,119 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "anthropic-version",
+      "2023-06-01"
+    ],
+    [
+      "content-length",
+      "886"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "What is the weather in Paris and Madrid?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Looking both up.",
+            "type": "text"
+          },
+          {
+            "id": "call_paris",
+            "input": {
+              "city": "Paris"
+            },
+            "name": "get_weather",
+            "type": "tool_use"
+          },
+          {
+            "id": "call_madrid",
+            "input": {
+              "city": "Madrid"
+            },
+            "name": "get_weather",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": "18C and clear",
+            "is_error": false,
+            "tool_use_id": "call_paris",
+            "type": "tool_result"
+          },
+          {
+            "content": "the city is unknown",
+            "is_error": true,
+            "tool_use_id": "call_madrid",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "tools": [
+      {
+        "cache_control": {
+          "type": "ephemeral"
+        },
+        "description": "Reads the current weather for a city",
+        "input_schema": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        },
+        "name": "get_weather"
+      }
+    ]
+  }
+}

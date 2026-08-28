@@ -1,0 +1,98 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/responses",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "719"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Use the tools when they help.",
+            "type": "input_text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "max_output_tokens": 128,
+    "model": "gpt-5.6-luna-2026-04-01",
+    "store": false,
+    "stream": false,
+    "tool_choice": "auto",
+    "tools": [
+      {
+        "description": "Reads the current weather for a city",
+        "name": "get_weather",
+        "parameters": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        },
+        "type": "function"
+      },
+      {
+        "description": "Reads the current time in a time zone",
+        "name": "get_time",
+        "parameters": {
+          "properties": {
+            "zone": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "zone"
+          ],
+          "type": "object"
+        },
+        "type": "function"
+      }
+    ]
+  }
+}

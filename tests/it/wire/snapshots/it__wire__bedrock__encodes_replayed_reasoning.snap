@@ -1,0 +1,83 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "413"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Is 91 prime?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "reasoningContent": {
+              "reasoningText": {
+                "signature": "sig-abc",
+                "text": "91 is 7 times 13."
+              }
+            }
+          },
+          {
+            "reasoningContent": {
+              "redactedContent": "cmVkYWN0ZWQtcGF5bG9hZA=="
+            }
+          },
+          {
+            "text": "No, 91 is not prime."
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "What about 97?"
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  }
+}

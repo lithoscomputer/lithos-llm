@@ -1,0 +1,47 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "id": "resp-gemini-3",
+  "model": {
+    "provider": "gemini",
+    "model": "gemini-2.5-pro"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"city\":\"Paris\",\"population\":2102650}"
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 9,
+    "output": 14,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "{\"city\":\"Paris\",\"population\":2102650}"
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "modelVersion": "gemini-2.5-pro-002",
+    "responseId": "resp-gemini-3",
+    "usageMetadata": {
+      "candidatesTokenCount": 14,
+      "promptTokenCount": 9
+    }
+  }
+}

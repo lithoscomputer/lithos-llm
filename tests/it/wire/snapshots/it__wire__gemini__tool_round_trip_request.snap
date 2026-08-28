@@ -1,0 +1,121 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "content-length",
+      "836"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-goog-api-key",
+      "[redacted]"
+    ]
+  ],
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What is the weather in Paris and Madrid?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "parts": [
+          {
+            "text": "Looking both up."
+          },
+          {
+            "functionCall": {
+              "args": {
+                "city": "Paris"
+              },
+              "id": "call_paris",
+              "name": "get_weather"
+            }
+          },
+          {
+            "functionCall": {
+              "args": {
+                "city": "Madrid"
+              },
+              "id": "call_madrid",
+              "name": "get_weather"
+            }
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "parts": [
+          {
+            "functionResponse": {
+              "id": "call_paris",
+              "name": "get_weather",
+              "response": {
+                "is_error": false,
+                "output": "18C and clear"
+              }
+            }
+          },
+          {
+            "functionResponse": {
+              "id": "call_madrid",
+              "name": "get_weather",
+              "response": {
+                "is_error": true,
+                "output": "the city is unknown"
+              }
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "tools": [
+      {
+        "functionDeclarations": [
+          {
+            "description": "Reads the current weather for a city",
+            "name": "get_weather",
+            "parametersJsonSchema": {
+              "properties": {
+                "city": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "city"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,139 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+[
+  {
+    "id": null,
+    "type": "started"
+  },
+  {
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": "Checking",
+    "type": "text_delta"
+  },
+  {
+    "id": "block-2",
+    "kind": {
+      "id": "tooluse_paris",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-0",
+    "text": " Paris.",
+    "type": "text_delta"
+  },
+  {
+    "arguments": "{\"city\":",
+    "id": "block-2",
+    "type": "tool_call_delta"
+  },
+  {
+    "id": "block-1",
+    "kind": {
+      "type": "reasoning"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "block-1",
+    "text": "Paris is in France.",
+    "type": "reasoning_delta"
+  },
+  {
+    "arguments": " \"Paris\"}",
+    "id": "block-2",
+    "type": "tool_call_delta"
+  },
+  {
+    "id": "block-0",
+    "part": {
+      "text": "Checking Paris.",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "block-1",
+    "part": {
+      "signature": "sig-stream",
+      "text": "Paris is in France.",
+      "type": "reasoning"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "id": "block-2",
+    "part": {
+      "arguments": {
+        "city": "Paris"
+      },
+      "id": "tooluse_paris",
+      "kind": "function",
+      "name": "get_weather",
+      "raw_arguments": "{\"city\": \"Paris\"}",
+      "type": "tool_call"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 1024,
+      "cache_write": 512,
+      "input": 30,
+      "output": 628,
+      "reasoning": 0
+    }
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "text": "Checking Paris.",
+          "type": "text"
+        },
+        {
+          "signature": "sig-stream",
+          "text": "Paris is in France.",
+          "type": "reasoning"
+        },
+        {
+          "arguments": {
+            "city": "Paris"
+          },
+          "id": "tooluse_paris",
+          "kind": "function",
+          "name": "get_weather",
+          "raw_arguments": "{\"city\": \"Paris\"}",
+          "type": "tool_call"
+        }
+      ],
+      "finish_reason": "tool_call",
+      "id": null,
+      "model": {
+        "model": "sonnet",
+        "provider": "bedrock"
+      },
+      "usage": {
+        "cache_read": 1024,
+        "cache_write": 512,
+        "input": 30,
+        "output": 628,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

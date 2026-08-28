@@ -1,0 +1,13 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "kind": "invalid_request",
+  "message": "provider bedrock does not support audio content",
+  "provider": "bedrock",
+  "provider_code": "unsupported_capability",
+  "retry": {
+    "type": "never"
+  }
+}
