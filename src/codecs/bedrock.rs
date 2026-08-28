@@ -15,8 +15,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, flattens_tool_result_content, merge_options, plain_text,
-    reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
+    endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
+    plain_text, reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -106,6 +106,12 @@ impl Codec for BedrockConverseCodec {
         // by parsing.
         if request.response_format().is_some() {
             encoded = encoded.unsupported_control("response formats");
+        }
+        // The system field of this protocol takes text only, so anything else
+        // a system message carries is dropped. The text still reaches the
+        // model, so it is reported rather than refused.
+        if flattens_system_content(request) {
+            encoded = encoded.unsupported_control("non-text system content");
         }
         if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
             encoded = encoded.unsupported_control("non-text tool result content");
@@ -421,10 +427,17 @@ fn encode_reasoning(reasoning: &ReasoningContent) -> Value {
 ///
 /// Converse requires `toolUse.input` to be a JSON object document and rejects
 /// a no-argument call whose input is null, so any other value becomes `{}`.
+/// Encodes a tool call as a `toolUse` block.
+///
+/// `toolUse.input` is a document, not an object, so an array or a scalar is a
+/// legal value. Replacing anything that is not an object with `{}` discarded
+/// the arguments of a replayed call whose tool takes a list. `Null` still
+/// becomes `{}`, because a call with no arguments is canonically an empty
+/// object rather than a null.
 fn encode_tool_call(call: &ToolCall) -> Value {
     let input = match &call.arguments {
-        Value::Object(_) => call.arguments.clone(),
-        _ => json!({}),
+        Value::Null => json!({}),
+        arguments => arguments.clone(),
     };
     json!({
         "toolUse": { "toolUseId": call.id, "name": call.name, "input": input }
@@ -902,7 +915,7 @@ mod tests {
     use crate::types::{
         ContentPart, DocumentContent, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
         ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat, Role, Speed,
-        StreamEvent, ToolDefinition, ToolResult,
+        StreamEvent, ToolCall, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "bedrock/anthropic.claude-sonnet-4-6";
@@ -1673,6 +1686,66 @@ mod tests {
             body["toolConfig"]["tools"][0]["toolSpec"]["name"],
             "mcp_server_tool-2"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_call_keeps_arguments_that_are_not_an_object() -> Result<(), Box<dyn StdError>> {
+        // `toolUse.input` is a document, so an array is a legal value. The old
+        // object-only guard replaced it with `{}` and lost the arguments of a
+        // replayed call whose tool takes a list.
+        let request = Request::builder()
+            .model(MODEL)
+            .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                ToolCall::function("call-1", "sum", json!([1, 2, 3])),
+            )]))
+            .build()?;
+
+        let body = encoded(request)?;
+
+        assert_eq!(
+            body["messages"][0]["content"][0]["toolUse"]["input"],
+            json!([1, 2, 3])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_call_with_no_arguments_still_sends_an_object() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                ToolCall::function("call-1", "ping", Value::Null),
+            )]))
+            .build()?;
+
+        let body = encoded(request)?;
+
+        assert_eq!(
+            body["messages"][0]["content"][0]["toolUse"]["input"],
+            json!({})
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn non_text_system_content_is_reported() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .message(Message::new(Role::System, [
+                ContentPart::Text {
+                    text: "Be brief.".to_owned(),
+                },
+                ContentPart::Json {
+                    value: json!({ "style": "terse" }),
+                },
+            ]))
+            .user("Hello")
+            .build()?;
+
+        let codes = warnings_for(request)?;
+
+        assert_eq!(codes, ["unsupported_control"]);
         Ok(())
     }
 }

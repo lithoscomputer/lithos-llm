@@ -4,7 +4,12 @@ use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
-#[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
+#[cfg(any(
+    feature = "anthropic",
+    feature = "bedrock",
+    feature = "gemini",
+    feature = "openai"
+))]
 use crate::types::Role;
 use crate::types::{ContentPart, Error, ErrorKind, FinishReason, Message, Request};
 
@@ -232,6 +237,28 @@ pub(crate) fn system_text(messages: &[Message]) -> String {
         .filter(|text| !text.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
+}
+
+/// Whether a system message carries content the system field cannot hold.
+///
+/// [`system_text`] joins the text of every system and developer message, so
+/// anything else in one is dropped. The system fields of these protocols take
+/// text and nothing else, which makes the drop correct — but silent, and the
+/// caller put that content somewhere deliberately. The text still reaches the
+/// model, so this is a warning rather than a refusal.
+#[cfg(any(
+    feature = "anthropic",
+    feature = "bedrock",
+    feature = "gemini",
+    feature = "openai"
+))]
+pub(crate) fn flattens_system_content(request: &Request) -> bool {
+    request
+        .messages()
+        .iter()
+        .filter(|message| matches!(message.role(), Role::System | Role::Developer))
+        .flat_map(Message::content)
+        .any(|part| !matches!(part, ContentPart::Text { .. }))
 }
 
 /// Maps a provider stop reason onto the normalized finish reason.

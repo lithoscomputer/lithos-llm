@@ -5,8 +5,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, flattens_tool_result_content, merge_options, plain_text, sampling,
-    system_text, unsupported_capability, wire_options,
+    endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
+    plain_text, sampling, system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -46,6 +46,12 @@ impl Codec for GeminiGenerateCodec {
         .with_timeout(call.request().timeout());
         if !call.request().metadata().is_empty() {
             encoded = encoded.unsupported_control("request metadata");
+        }
+        // The system field of this protocol takes text only, so anything else
+        // a system message carries is dropped. The text still reaches the
+        // model, so it is reported rather than refused.
+        if flattens_system_content(call.request()) {
+            encoded = encoded.unsupported_control("non-text system content");
         }
         if flattens_tool_result_content(call.request(), |part| {
             matches!(part, ContentPart::Text { .. })
@@ -281,10 +287,17 @@ fn encode_part(part: &ContentPart) -> Option<Value> {
         ContentPart::Json { value } => Some(json!({ "text": value.to_string() })),
         // A part this codec wrote is replayed verbatim; one another provider
         // wrote is dropped, so a conversation can still fail over to Gemini.
+        //
+        // Every Gemini `Part` is a JSON object, so a payload that is not one
+        // could never be a `Part` and is dropped rather than sent for the API
+        // to reject. This does not validate that an object IS a valid `Part` —
+        // only the provider can say that — it rules out the shapes that
+        // certainly are not.
         ContentPart::Opaque { kind, data } => kind
             .split_once('.')
             .is_some_and(|(namespace, _)| namespace == NAMESPACE)
-            .then(|| data.clone()),
+            .then(|| data.clone())
+            .filter(Value::is_object),
     }
 }
 
@@ -1095,6 +1108,49 @@ mod tests {
         assert!(
             response.get("is_error").is_none(),
             "a boolean flag beside `output` reads to the model as ordinary output"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn an_opaque_payload_that_cannot_be_a_part_is_dropped() -> Result<(), Box<dyn StdError>> {
+        // Every Gemini `Part` is an object, so a string payload could never be
+        // one. Dropping it beats sending the API something it must reject.
+        let request = Request::builder()
+            .model("gemini/gemini-2.5-pro")
+            .user("Hello")
+            .message(Message::new(Role::Assistant, [
+                ContentPart::opaque("gemini.thought", json!("not a part")),
+                ContentPart::Text {
+                    text: "Hi.".to_owned(),
+                },
+            ]))
+            .build()?;
+
+        let encoded = GeminiGenerateCodec.encode(&resolved(request)?, false)?;
+
+        let parts = &encoded.body["contents"][1]["parts"];
+        assert_eq!(parts.as_array().map(Vec::len), Some(1));
+        assert_eq!(parts[0]["text"], "Hi.");
+        Ok(())
+    }
+
+    #[test]
+    fn an_opaque_object_still_replays() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model("gemini/gemini-2.5-pro")
+            .user("Hello")
+            .message(Message::new(Role::Assistant, [ContentPart::opaque(
+                "gemini.thought",
+                json!({ "text": "kept", "thought": true }),
+            )]))
+            .build()?;
+
+        let encoded = GeminiGenerateCodec.encode(&resolved(request)?, false)?;
+
+        assert_eq!(
+            encoded.body["contents"][1]["parts"][0],
+            json!({ "text": "kept", "thought": true })
         );
         Ok(())
     }

@@ -12,8 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, flattens_tool_result_content, merge_options, plain_text,
-    reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
+    endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
+    plain_text, reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -88,6 +88,12 @@ impl Codec for AnthropicMessagesCodec {
         )
         .with_headers(version_headers())
         .with_timeout(request.timeout());
+        // The system field of this protocol takes text only, so anything else
+        // a system message carries is dropped. The text still reaches the
+        // model, so it is reported rather than refused.
+        if flattens_system_content(request) {
+            encoded = encoded.unsupported_control("non-text system content");
+        }
         if flattens_tool_result_content(request, |part| {
             matches!(part, ContentPart::Text { .. } | ContentPart::Image(_))
         }) {

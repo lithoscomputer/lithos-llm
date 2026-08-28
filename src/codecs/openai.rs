@@ -12,8 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, flattens_tool_result_content, merge_options, parse_arguments, plain_text,
-    reject_unencodable, sampling, wire_options,
+    endpoint, flattens_system_content, flattens_tool_result_content, merge_options,
+    parse_arguments, plain_text, reject_unencodable, sampling, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -99,6 +99,13 @@ impl Codec for OpenAiResponsesCodec {
 
         if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
             encoded = encoded.unsupported_control("non-text tool result content");
+        }
+
+        // Codex hoists system messages into `instructions`, which is a string,
+        // so anything else in one is dropped. Standard mode keeps them as
+        // input items and loses nothing, so this is Codex-only.
+        if self.codex && flattens_system_content(request) {
+            encoded = encoded.unsupported_control("non-text system content");
         }
 
         if self.codex {
