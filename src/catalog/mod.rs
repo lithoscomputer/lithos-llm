@@ -9,7 +9,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 pub use loader::CatalogBuilder;
-pub use model::{CatalogModel, LongContextPricing, ModelCapabilities, ModelLimits, Pricing};
+pub use model::{
+    CatalogModel, LongContextPricing, ModelCapabilities, ModelLimits, Pricing, SpeedPricing,
+    SpeedRates,
+};
 pub use provider::{
     AdapterId, AuthScheme, CatalogProvider, CodecId, Metadata, MetadataError, ModelHandle, ModelId,
     ProviderId, adapter_ids, codec_ids,
@@ -112,6 +115,10 @@ impl Catalog {
         })
     }
 
+    /// Every model whose canonical identifier or alias is `selector`.
+    ///
+    /// Canonical and alias matches are pooled, so a caller that prefers one
+    /// kind ranks the result itself.
     pub(crate) fn models_matching(&self, selector: &str) -> Vec<&CatalogModel> {
         self.providers()
             .flat_map(CatalogProvider::models)

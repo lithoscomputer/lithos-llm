@@ -239,9 +239,13 @@ impl CredentialProvider for StaticCredentials {
 
 #[cfg(feature = "environment-credentials")]
 /// Resolves secrets from environment variables for every attempt.
+///
+/// A provider holds an ordered chain of mappings. The first mapping that
+/// resolves wins, so a provider can name a preferred variable, one or more
+/// fallback variables, and a final mapping that needs no variable at all.
 #[derive(Clone, Debug)]
 pub struct EnvironmentCredentials {
-    specs: BTreeMap<ProviderId, EnvironmentSpec>,
+    specs: BTreeMap<ProviderId, Vec<EnvironmentSpec>>,
 }
 
 #[cfg(feature = "environment-credentials")]
@@ -251,13 +255,56 @@ impl EnvironmentCredentials {
     }
 
     /// Conventional environment variable mappings for built-in providers.
+    ///
+    /// Gemini reads `GEMINI_API_KEY` and falls back to `GOOGLE_API_KEY`.
+    /// Bedrock reads `AWS_BEARER_TOKEN_BEDROCK`, the name the AWS tools use,
+    /// and falls back to `BEDROCK_API_KEY`. With the `bedrock-aws` feature,
+    /// Bedrock falls back once more to the AWS default credential chain, so a
+    /// host with only an instance role or a profile still resolves.
     pub fn conventional() -> Self {
-        EnvironmentCredentialsBuilder::default()
+        let builder = EnvironmentCredentialsBuilder::default()
             .bearer("openai", "OPENAI_API_KEY")
             .header("anthropic", "x-api-key", "ANTHROPIC_API_KEY")
             .header("gemini", "x-goog-api-key", "GEMINI_API_KEY")
+            .or_header("gemini", "x-goog-api-key", "GOOGLE_API_KEY")
             .bedrock_bearer("bedrock", "AWS_BEARER_TOKEN_BEDROCK")
-            .build()
+            .or_bedrock_bearer("bedrock", "BEDROCK_API_KEY");
+        #[cfg(feature = "bedrock-aws")]
+        let builder = builder.or_aws_default_chain("bedrock", None);
+        builder.build()
+    }
+
+    /// Resolves one provider's chain against `read`.
+    ///
+    /// The first mapping that resolves wins. When every mapping fails, the
+    /// failure of the first one is reported, because that mapping names the
+    /// variable the provider expects.
+    fn resolve(
+        &self,
+        provider: &ProviderId,
+        read: SecretLookup<'_>,
+    ) -> Result<Credentials, CredentialError> {
+        let specs = self
+            .specs
+            .get(provider)
+            .filter(|specs| !specs.is_empty())
+            .ok_or_else(|| CredentialError::NotConfigured {
+                provider: provider.clone(),
+            })?;
+        let mut first_error = None;
+        for spec in specs {
+            match spec.resolve(provider, read) {
+                Ok(credentials) => return Ok(credentials),
+                Err(error) => {
+                    first_error.get_or_insert(error);
+                }
+            }
+        }
+        Err(
+            first_error.unwrap_or_else(|| CredentialError::NotConfigured {
+                provider: provider.clone(),
+            }),
+        )
     }
 }
 
@@ -268,15 +315,16 @@ impl CredentialProvider for EnvironmentCredentials {
         &self,
         provider: &CatalogProvider,
     ) -> Result<Credentials, CredentialError> {
-        let spec = self
-            .specs
-            .get(provider.id())
-            .ok_or_else(|| CredentialError::NotConfigured {
-                provider: provider.id().clone(),
-            })?;
-        spec.resolve(provider.id())
+        self.resolve(provider.id(), &|variable| env::var(variable))
     }
 }
+
+/// Reads one environment variable by name.
+///
+/// Every lookup goes through one of these, so a test can resolve a chain
+/// against a fixed environment.
+#[cfg(feature = "environment-credentials")]
+type SecretLookup<'a> = &'a dyn Fn(&str) -> Result<String, env::VarError>;
 
 #[cfg(feature = "environment-credentials")]
 #[derive(Clone, Debug)]
@@ -288,14 +336,18 @@ enum EnvironmentSpec {
 
 #[cfg(feature = "environment-credentials")]
 impl EnvironmentSpec {
-    fn resolve(&self, provider: &ProviderId) -> Result<Credentials, CredentialError> {
+    fn resolve(
+        &self,
+        provider: &ProviderId,
+        read: SecretLookup<'_>,
+    ) -> Result<Credentials, CredentialError> {
         match self {
-            Self::Http(spec) => spec.resolve(provider).map(Credentials::Http),
+            Self::Http(spec) => spec.resolve(provider, read).map(Credentials::Http),
             Self::AwsDefaultChain(region) => Ok(Credentials::AwsDefaultChain {
                 region: region.clone(),
             }),
             Self::BedrockBearer(variable) => {
-                read_secret(provider, variable).map(Credentials::BedrockBearer)
+                read_secret(provider, variable, read).map(Credentials::BedrockBearer)
             }
         }
     }
@@ -323,14 +375,18 @@ enum HttpAuthSpec {
 
 #[cfg(feature = "environment-credentials")]
 impl HttpSpec {
-    fn resolve(&self, provider: &ProviderId) -> Result<HttpCredentials, CredentialError> {
+    fn resolve(
+        &self,
+        provider: &ProviderId,
+        read: SecretLookup<'_>,
+    ) -> Result<HttpCredentials, CredentialError> {
         let auth = match &self.auth {
             HttpAuthSpec::None => HttpAuthentication::None,
             HttpAuthSpec::Bearer(variable) => {
-                HttpAuthentication::Bearer(read_secret(provider, variable)?)
+                HttpAuthentication::Bearer(read_secret(provider, variable, read)?)
             }
             HttpAuthSpec::Header(name, variable) => HttpAuthentication::Header(
-                CredentialHeader::new(name.clone(), read_secret(provider, variable)?),
+                CredentialHeader::new(name.clone(), read_secret(provider, variable, read)?),
             ),
         };
         let extra_headers = self
@@ -339,7 +395,7 @@ impl HttpSpec {
             .map(|(name, variable)| {
                 Ok(CredentialHeader::new(
                     name.clone(),
-                    read_secret(provider, variable)?,
+                    read_secret(provider, variable, read)?,
                 ))
             })
             .collect::<Result<Vec<_>, CredentialError>>()?;
@@ -351,8 +407,12 @@ impl HttpSpec {
 }
 
 #[cfg(feature = "environment-credentials")]
-fn read_secret(provider: &ProviderId, variable: &str) -> Result<SecretValue, CredentialError> {
-    env::var(variable)
+fn read_secret(
+    provider: &ProviderId,
+    variable: &str,
+    read: SecretLookup<'_>,
+) -> Result<SecretValue, CredentialError> {
+    read(variable)
         .map(SecretValue::new)
         .map_err(|source| CredentialError::Environment {
             provider: provider.clone(),
@@ -363,10 +423,15 @@ fn read_secret(provider: &ProviderId, variable: &str) -> Result<SecretValue, Cre
 
 #[cfg(feature = "environment-credentials")]
 /// Builds environment-backed provider mappings.
+///
+/// The `bearer`, `header`, `bearer_header`, `aws_default_chain`, and
+/// `bedrock_bearer` methods write the provider's primary mapping. The `or_`
+/// methods append a fallback mapping, tried in the order it was added when
+/// every earlier mapping finds no environment variable.
 #[derive(Default)]
 #[must_use]
 pub struct EnvironmentCredentialsBuilder {
-    specs: BTreeMap<ProviderId, EnvironmentSpec>,
+    specs: BTreeMap<ProviderId, Vec<EnvironmentSpec>>,
 }
 
 #[cfg(feature = "environment-credentials")]
@@ -423,28 +488,80 @@ impl EnvironmentCredentialsBuilder {
         })
     }
 
+    /// Reads one fallback provider header from `variable`.
+    ///
+    /// The header is the provider's authentication header for that attempt,
+    /// which is tried only when every earlier mapping finds no variable.
+    pub fn or_header(
+        self,
+        provider: impl Into<ProviderId>,
+        name: impl Into<String>,
+        variable: impl Into<String>,
+    ) -> Self {
+        self.push(
+            provider.into(),
+            EnvironmentSpec::Http(HttpSpec {
+                auth:          HttpAuthSpec::Header(name.into(), variable.into()),
+                extra_headers: Vec::new(),
+            }),
+        )
+    }
+
+    /// Reads a fallback bearer secret from `variable`.
+    pub fn or_bearer(self, provider: impl Into<ProviderId>, variable: impl Into<String>) -> Self {
+        self.push(
+            provider.into(),
+            EnvironmentSpec::Http(HttpSpec {
+                auth:          HttpAuthSpec::Bearer(variable.into()),
+                extra_headers: Vec::new(),
+            }),
+        )
+    }
+
     /// Resolves the provider through the AWS default credential chain.
     pub fn aws_default_chain(
-        mut self,
+        self,
         provider: impl Into<ProviderId>,
         region: Option<String>,
     ) -> Self {
-        self.specs
-            .insert(provider.into(), EnvironmentSpec::AwsDefaultChain(region));
-        self
+        self.replace(provider.into(), EnvironmentSpec::AwsDefaultChain(region))
+    }
+
+    /// Falls back to the AWS default credential chain.
+    ///
+    /// The chain resolves from an instance role, a profile, or the AWS
+    /// environment variables, so it needs no variable of its own and always
+    /// ends the provider's fallbacks.
+    pub fn or_aws_default_chain(
+        self,
+        provider: impl Into<ProviderId>,
+        region: Option<String>,
+    ) -> Self {
+        self.push(provider.into(), EnvironmentSpec::AwsDefaultChain(region))
     }
 
     /// Reads the provider's Bedrock API key from `variable`.
     pub fn bedrock_bearer(
-        mut self,
+        self,
         provider: impl Into<ProviderId>,
         variable: impl Into<String>,
     ) -> Self {
-        self.specs.insert(
+        self.replace(
             provider.into(),
             EnvironmentSpec::BedrockBearer(variable.into()),
-        );
-        self
+        )
+    }
+
+    /// Reads a fallback Bedrock API key from `variable`.
+    pub fn or_bedrock_bearer(
+        self,
+        provider: impl Into<ProviderId>,
+        variable: impl Into<String>,
+    ) -> Self {
+        self.push(
+            provider.into(),
+            EnvironmentSpec::BedrockBearer(variable.into()),
+        )
     }
 
     pub fn build(self) -> EnvironmentCredentials {
@@ -452,13 +569,33 @@ impl EnvironmentCredentialsBuilder {
     }
 
     /// Edits the provider's HTTP mapping, replacing any non-HTTP mapping.
+    ///
+    /// The mapping edited is the primary one, so a fallback added earlier
+    /// keeps its own headers and its place in the chain.
     fn with_http(mut self, provider: ProviderId, edit: impl FnOnce(&mut HttpSpec)) -> Self {
-        let mut spec = match self.specs.remove(&provider) {
-            Some(EnvironmentSpec::Http(spec)) => spec,
+        let chain = self.specs.entry(provider).or_default();
+        let mut spec = match chain.first() {
+            Some(EnvironmentSpec::Http(spec)) => spec.clone(),
             _ => HttpSpec::default(),
         };
         edit(&mut spec);
-        self.specs.insert(provider, EnvironmentSpec::Http(spec));
+        let spec = EnvironmentSpec::Http(spec);
+        match chain.first_mut() {
+            Some(primary) => *primary = spec,
+            None => chain.push(spec),
+        }
+        self
+    }
+
+    /// Makes `spec` the provider's primary mapping, dropping any fallbacks.
+    fn replace(mut self, provider: ProviderId, spec: EnvironmentSpec) -> Self {
+        self.specs.insert(provider, vec![spec]);
+        self
+    }
+
+    /// Appends `spec` to the end of the provider's chain.
+    fn push(mut self, provider: ProviderId, spec: EnvironmentSpec) -> Self {
+        self.specs.entry(provider).or_default().push(spec);
         self
     }
 }
@@ -482,7 +619,38 @@ pub enum CredentialError {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "environment-credentials")]
+    use std::env::VarError;
+
     use super::{CredentialHeader, Credentials, HttpAuthentication, HttpCredentials, SecretValue};
+    #[cfg(feature = "environment-credentials")]
+    use super::{EnvironmentCredentials, ProviderId};
+
+    /// Resolves one provider against a fixed environment.
+    #[cfg(feature = "environment-credentials")]
+    fn resolve(provider: &str, environment: &[(&str, &str)]) -> Result<Credentials, String> {
+        EnvironmentCredentials::conventional()
+            .resolve(&ProviderId::new(provider), &|variable| {
+                environment
+                    .iter()
+                    .find(|(name, _)| *name == variable)
+                    .map(|(_, value)| (*value).to_owned())
+                    .ok_or(VarError::NotPresent)
+            })
+            .map_err(|error| error.to_string())
+    }
+
+    /// The secret behind a provider's primary authentication header.
+    #[cfg(feature = "environment-credentials")]
+    fn header_secret(credentials: &Credentials) -> Option<&str> {
+        match credentials {
+            Credentials::Http(http) => match &http.auth {
+                HttpAuthentication::Header(header) => Some(header.value.expose_secret()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
 
     #[test]
     fn debug_output_redacts_secrets() {
@@ -507,5 +675,60 @@ mod tests {
         assert!(output.contains("openai-organization"));
         assert!(!output.contains("org-secret"));
         assert!(!output.contains("top-secret"));
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn gemini_prefers_its_own_variable_over_the_google_one() -> Result<(), String> {
+        let preferred = resolve("gemini", &[
+            ("GEMINI_API_KEY", "gemini-key"),
+            ("GOOGLE_API_KEY", "google-key"),
+        ])?;
+        assert_eq!(header_secret(&preferred), Some("gemini-key"));
+
+        let fallback = resolve("gemini", &[("GOOGLE_API_KEY", "google-key")])?;
+        assert_eq!(header_secret(&fallback), Some("google-key"));
+
+        // With neither variable set, the error names the preferred one.
+        let message = resolve("gemini", &[]).expect_err("gemini should not resolve");
+        assert!(message.contains("GEMINI_API_KEY"), "{message}");
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn bedrock_prefers_the_aws_variable_then_the_lithos_one() -> Result<(), String> {
+        let preferred = resolve("bedrock", &[
+            ("AWS_BEARER_TOKEN_BEDROCK", "aws-key"),
+            ("BEDROCK_API_KEY", "bedrock-key"),
+        ])?;
+        assert!(
+            matches!(&preferred, Credentials::BedrockBearer(secret) if secret.expose_secret() == "aws-key")
+        );
+
+        let fallback = resolve("bedrock", &[("BEDROCK_API_KEY", "bedrock-key")])?;
+        assert!(
+            matches!(&fallback, Credentials::BedrockBearer(secret) if secret.expose_secret() == "bedrock-key")
+        );
+        Ok(())
+    }
+
+    /// Without an API key, Bedrock falls back to the AWS credential chain.
+    #[cfg(all(feature = "environment-credentials", feature = "bedrock-aws"))]
+    #[test]
+    fn bedrock_falls_back_to_the_aws_default_chain() -> Result<(), String> {
+        let credentials = resolve("bedrock", &[])?;
+
+        assert!(matches!(credentials, Credentials::AwsDefaultChain { .. }));
+        Ok(())
+    }
+
+    /// Without the AWS chain, the failure names the variable to set.
+    #[cfg(all(feature = "environment-credentials", not(feature = "bedrock-aws")))]
+    #[test]
+    fn bedrock_reports_its_preferred_variable_without_the_aws_feature() {
+        let message = resolve("bedrock", &[]).expect_err("bedrock should not resolve");
+
+        assert!(message.contains("AWS_BEARER_TOKEN_BEDROCK"), "{message}");
     }
 }

@@ -103,6 +103,9 @@ impl ModelResolver for CatalogResolver {
 
         let mut matches = catalog.models_matching(selector);
         matches.retain(|model| available.contains(model.provider_id()));
+        // A model actually named `selector` wins over any provider's alias for
+        // it, whatever the provider priorities are. Priority only separates
+        // matches of the same kind.
         matches.sort_by(|left, right| {
             let left_priority = catalog
                 .find_provider(left.provider_id().as_str())
@@ -110,8 +113,11 @@ impl ModelResolver for CatalogResolver {
             let right_priority = catalog
                 .find_provider(right.provider_id().as_str())
                 .map_or(i32::MIN, CatalogProvider::priority);
-            right_priority
-                .cmp(&left_priority)
+            let left_alias = left.id().as_str() != selector;
+            let right_alias = right.id().as_str() != selector;
+            left_alias
+                .cmp(&right_alias)
+                .then_with(|| right_priority.cmp(&left_priority))
                 .then_with(|| left.provider_id().cmp(right.provider_id()))
         });
         let model =
@@ -292,6 +298,51 @@ mod tests {
         let request = Request::builder().model("default").user("Hello").build()?;
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
         assert_eq!(route.provider().id().as_str(), "openai");
+        Ok(())
+    }
+
+    #[test]
+    fn a_canonical_model_id_outranks_an_alias_from_a_higher_priority_provider()
+    -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .overlay_toml(
+                r#"
+                schema_version = 1
+
+                [providers.high]
+                display_name = "High"
+                adapter = "test-adapter"
+                codec = "test-codec"
+                base_url = "http://127.0.0.1"
+                priority = 100
+                auth = { type = "none" }
+
+                [providers.high.models.other]
+                display_name = "Other"
+                aliases = ["shared"]
+                api_model = "other-v1"
+
+                [providers.low]
+                display_name = "Low"
+                adapter = "test-adapter"
+                codec = "test-codec"
+                base_url = "http://127.0.0.1"
+                priority = 1
+                auth = { type = "none" }
+
+                [providers.low.models.shared]
+                display_name = "Shared"
+                api_model = "shared-v1"
+            "#,
+            )?
+            .build()?;
+        let available = AvailableProviders::all(&catalog);
+
+        let request = Request::builder().model("shared").user("Hello").build()?;
+        let route = CatalogResolver.resolve(&request, &catalog, &available)?;
+
+        assert_eq!(route.provider().id().as_str(), "low");
+        assert_eq!(route.model().id().as_str(), "shared");
         Ok(())
     }
 }

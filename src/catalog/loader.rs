@@ -27,9 +27,9 @@ type = "bearer"
 display_name = "GPT-5.6 Luna"
 aliases = ["luna"]
 api_model = "gpt-5.6-luna"
-limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
-pricing = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 20000 }
+limits = { context_tokens = 272000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000 }
 
 [providers.anthropic]
 display_name = "Anthropic"
@@ -48,9 +48,16 @@ name = "x-api-key"
 display_name = "Claude Sonnet 4.6"
 aliases = ["sonnet"]
 api_model = "claude-sonnet-4-6"
-limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
-pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
+limits = { context_tokens = 200000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+
+# Cache writes bill at 1.25x input. The fast speed tier doubles every rate.
+[providers.anthropic.models."claude-sonnet-4-6".pricing]
+input_usd_micros_per_million = 3000000
+output_usd_micros_per_million = 15000000
+cached_input_usd_micros_per_million = 300000
+cache_write_usd_micros_per_million = 3750000
+speed = { fast = { input_usd_micros_per_million = 6000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 600000, cache_write_usd_micros_per_million = 7500000 } }
 
 [providers.gemini]
 display_name = "Google Gemini"
@@ -90,9 +97,12 @@ region = "us-east-1"
 [providers.bedrock.models."anthropic.claude-sonnet-4-6"]
 display_name = "Claude Sonnet 4.6 on Bedrock"
 aliases = ["bedrock-sonnet"]
-api_model = "anthropic.claude-sonnet-4-6"
-limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, documents = true, tools = true, reasoning = true, sampling = true }
+# The `us.` cross-region inference profile: Bedrock on-demand access to this
+# model needs the profile rather than the bare model id.
+api_model = "us.anthropic.claude-sonnet-4-6"
+limits = { context_tokens = 200000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, documents = true, tools = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
 "#;
 
 /// The layer name reported for the built-in catalog.
@@ -267,6 +277,8 @@ mod tests {
     use serde::Deserialize;
 
     use super::{Catalog, CatalogError};
+    #[cfg(feature = "builtin-catalog")]
+    use crate::types::Speed;
 
     const BASE: &str = r#"
         schema_version = 1
@@ -503,6 +515,64 @@ mod tests {
             return Err("expected a layer failure".into());
         };
         assert_eq!(layer, "overlay 2");
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_catalog_carries_the_published_rates_and_limits() -> Result<(), Box<dyn StdError>>
+    {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let luna = catalog.model("openai", "gpt-5.6-luna")?;
+        let pricing = luna.pricing().ok_or("gpt-5.6-luna should be priced")?;
+        assert_eq!(pricing.input_usd_micros_per_million, Some(1_000_000));
+        assert_eq!(pricing.output_usd_micros_per_million, Some(6_000_000));
+        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(100_000));
+        assert_eq!(
+            luna.limits().map(|limits| limits.context_tokens),
+            Some(272_000)
+        );
+
+        let sonnet = catalog.model("anthropic", "claude-sonnet-4-6")?;
+        assert_eq!(
+            sonnet.limits().map(|limits| limits.context_tokens),
+            Some(200_000)
+        );
+        assert_eq!(
+            sonnet.limits().map(|limits| limits.max_output_tokens),
+            Some(64_000)
+        );
+        let pricing = sonnet
+            .pricing()
+            .ok_or("claude-sonnet-4-6 should be priced")?;
+        // Anthropic bills a cache write at 1.25x input, and the fast tier
+        // doubles every rate.
+        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(3_750_000));
+        let fast = pricing.for_speed(Some(Speed::Fast));
+        assert_eq!(fast.input_usd_micros_per_million, Some(6_000_000));
+        assert_eq!(fast.output_usd_micros_per_million, Some(30_000_000));
+        assert_eq!(fast.cached_input_usd_micros_per_million, Some(600_000));
+        assert_eq!(fast.cache_write_usd_micros_per_million, Some(7_500_000));
+        assert!(sonnet.capabilities().reasoning_effort_levels);
+
+        // Bedrock on-demand access needs the `us.` inference profile, and the
+        // model caches, which the codec gates on.
+        let bedrock = catalog.model("bedrock", "anthropic.claude-sonnet-4-6")?;
+        assert_eq!(bedrock.api_model(), "us.anthropic.claude-sonnet-4-6");
+        assert!(bedrock.capabilities().caching);
+        assert!(bedrock.capabilities().reasoning_effort_levels);
+        assert_eq!(
+            bedrock.limits().map(|limits| limits.max_output_tokens),
+            Some(64_000)
+        );
+        let pricing = bedrock
+            .pricing()
+            .ok_or("the Bedrock model should be priced")?;
+        assert_eq!(pricing.input_usd_micros_per_million, Some(3_000_000));
+        assert_eq!(pricing.output_usd_micros_per_million, Some(15_000_000));
+        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(300_000));
+        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(3_750_000));
         Ok(())
     }
 
