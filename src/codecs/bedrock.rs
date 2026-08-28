@@ -1021,11 +1021,11 @@ mod tests {
 
         assert_eq!(
             unary.url,
-            "https://bedrock-runtime.us-east-1.amazonaws.com/model/anthropic.claude-sonnet-4-6/converse"
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/us.anthropic.claude-sonnet-4-6/converse"
         );
         assert_eq!(
             streaming.url,
-            "https://bedrock-runtime.us-east-1.amazonaws.com/model/anthropic.claude-sonnet-4-6/converse-stream"
+            "https://bedrock-runtime.us-east-1.amazonaws.com/model/us.anthropic.claude-sonnet-4-6/converse-stream"
         );
         Ok(())
     }
@@ -1537,7 +1537,7 @@ mod tests {
         assert!(
             encoded
                 .url
-                .ends_with("/model/anthropic.claude-sonnet-4-6/count-tokens"),
+                .ends_with("/model/us.anthropic.claude-sonnet-4-6/count-tokens"),
             "{}",
             encoded.url
         );

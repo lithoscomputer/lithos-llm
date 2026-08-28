@@ -1,29 +1,36 @@
 use serde::{Deserialize, Serialize};
 
 use super::{Metadata, ModelId, ProviderId};
+use crate::types::Speed;
 
 /// Portable model capabilities.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModelCapabilities {
     #[serde(default)]
-    pub text:              bool,
+    pub text:                    bool,
     #[serde(default)]
-    pub images:            bool,
+    pub images:                  bool,
     #[serde(default)]
-    pub audio:             bool,
+    pub audio:                   bool,
     #[serde(default)]
-    pub documents:         bool,
+    pub documents:               bool,
     #[serde(default)]
-    pub tools:             bool,
+    pub tools:                   bool,
     #[serde(default)]
-    pub structured_output: bool,
+    pub structured_output:       bool,
     #[serde(default)]
-    pub reasoning:         bool,
+    pub reasoning:               bool,
+    /// The model takes a named reasoning effort level.
+    ///
+    /// A reasoning model without this capability takes only a reasoning token
+    /// budget, so a codec converts a requested effort into a budget.
     #[serde(default)]
-    pub caching:           bool,
+    pub reasoning_effort_levels: bool,
     #[serde(default)]
-    pub sampling:          bool,
+    pub caching:                 bool,
+    #[serde(default)]
+    pub sampling:                bool,
 }
 
 /// Context and output token limits.
@@ -36,8 +43,9 @@ pub struct ModelLimits {
 
 /// Catalog pricing in US dollar micros per million tokens.
 ///
+/// `cached_input_usd_micros_per_million` prices cache reads and
 /// `cache_write_usd_micros_per_million` prices tokens written into a provider
-/// cache. Callers that do not find it should fall back to the input rate.
+/// cache. Callers that do not find either should fall back to the input rate.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Pricing {
@@ -47,6 +55,8 @@ pub struct Pricing {
     pub cache_write_usd_micros_per_million: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub long_context: Option<LongContextPricing>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<SpeedPricing>,
 }
 
 /// Alternate rates selected when input crosses a model billing threshold.
@@ -57,6 +67,49 @@ pub struct LongContextPricing {
     pub input_usd_micros_per_million:        Option<u64>,
     pub output_usd_micros_per_million:       Option<u64>,
     pub cached_input_usd_micros_per_million: Option<u64>,
+    pub cache_write_usd_micros_per_million:  Option<u64>,
+}
+
+/// Rate overrides for each requested speed.
+///
+/// A speed the model does not price keeps the base rates.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpeedPricing {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fast:       Option<SpeedRates>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub balanced:   Option<SpeedRates>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub economical: Option<SpeedRates>,
+}
+
+impl SpeedPricing {
+    /// The overrides for one speed, if the model prices that speed.
+    #[must_use]
+    pub fn for_speed(self, speed: Speed) -> Option<SpeedRates> {
+        match speed {
+            Speed::Fast => self.fast,
+            Speed::Balanced => self.balanced,
+            Speed::Economical => self.economical,
+        }
+    }
+}
+
+/// The rates one speed replaces.
+///
+/// Each rate is optional, so a speed that changes only some rates states only
+/// those and the rest stay at their base value.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpeedRates {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_usd_micros_per_million:        Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_usd_micros_per_million:       Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_input_usd_micros_per_million: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_write_usd_micros_per_million:  Option<u64>,
 }
 
@@ -79,6 +132,39 @@ impl Pricing {
             cached_input_usd_micros_per_million: long_context.cached_input_usd_micros_per_million,
             cache_write_usd_micros_per_million: long_context.cache_write_usd_micros_per_million,
             long_context: self.long_context,
+            speed: self.speed,
+        }
+    }
+
+    /// Applies the rate overrides for the request's speed.
+    ///
+    /// A request with no speed, a model with no speed rates, and a speed the
+    /// model does not price all keep the rates unchanged. Speed overrides
+    /// apply after [`Pricing::for_input_tokens`], so a speed rate wins over a
+    /// long-context rate.
+    #[must_use]
+    pub fn for_speed(self, speed: Option<Speed>) -> Self {
+        let Some(rates) = speed
+            .zip(self.speed)
+            .and_then(|(speed, pricing)| pricing.for_speed(speed))
+        else {
+            return self;
+        };
+        Self {
+            input_usd_micros_per_million: rates
+                .input_usd_micros_per_million
+                .or(self.input_usd_micros_per_million),
+            output_usd_micros_per_million: rates
+                .output_usd_micros_per_million
+                .or(self.output_usd_micros_per_million),
+            cached_input_usd_micros_per_million: rates
+                .cached_input_usd_micros_per_million
+                .or(self.cached_input_usd_micros_per_million),
+            cache_write_usd_micros_per_million: rates
+                .cache_write_usd_micros_per_million
+                .or(self.cache_write_usd_micros_per_million),
+            long_context: self.long_context,
+            speed: self.speed,
         }
     }
 }
@@ -169,7 +255,8 @@ impl CatalogModel {
 mod tests {
     use std::error::Error as StdError;
 
-    use super::{LongContextPricing, Pricing};
+    use super::{LongContextPricing, ModelCapabilities, Pricing};
+    use crate::types::Speed;
 
     fn sample_pricing() -> Pricing {
         Pricing {
@@ -184,6 +271,7 @@ mod tests {
                 cached_input_usd_micros_per_million: Some(6),
                 cache_write_usd_micros_per_million:  Some(8),
             }),
+            speed: None,
         }
     }
 
@@ -242,6 +330,59 @@ mod tests {
                 .and_then(|rates| rates.cache_write_usd_micros_per_million),
             Some(8)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn reads_speed_rates_from_toml_and_applies_them() -> Result<(), Box<dyn StdError>> {
+        let pricing = toml::from_str::<Pricing>(
+            r"
+            input_usd_micros_per_million = 100
+            output_usd_micros_per_million = 200
+            cached_input_usd_micros_per_million = 10
+            cache_write_usd_micros_per_million = 125
+            speed = { fast = { input_usd_micros_per_million = 200, output_usd_micros_per_million = 400 } }
+            ",
+        )?;
+
+        let fast = pricing.for_speed(Some(Speed::Fast));
+
+        assert_eq!(fast.input_usd_micros_per_million, Some(200));
+        assert_eq!(fast.output_usd_micros_per_million, Some(400));
+        // A rate the speed leaves out keeps its base value.
+        assert_eq!(fast.cached_input_usd_micros_per_million, Some(10));
+        assert_eq!(fast.cache_write_usd_micros_per_million, Some(125));
+        Ok(())
+    }
+
+    #[test]
+    fn keeps_the_base_rates_without_a_matching_speed() {
+        let pricing = sample_pricing();
+
+        assert_eq!(
+            pricing.for_speed(None).input_usd_micros_per_million,
+            Some(1)
+        );
+        assert_eq!(
+            pricing
+                .for_speed(Some(Speed::Fast))
+                .input_usd_micros_per_million,
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn reads_the_effort_level_capability_from_toml() -> Result<(), Box<dyn StdError>> {
+        let capabilities = toml::from_str::<ModelCapabilities>(
+            r"
+            reasoning = true
+            reasoning_effort_levels = true
+            ",
+        )?;
+
+        assert!(capabilities.reasoning_effort_levels);
+        // The capability defaults to false, so a reasoning model states it.
+        assert!(!toml::from_str::<ModelCapabilities>("reasoning = true")?.reasoning_effort_levels);
         Ok(())
     }
 }

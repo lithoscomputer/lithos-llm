@@ -43,7 +43,7 @@ use crate::resolver::ResolvedRoute;
     feature = "openai-compatible",
     feature = "bedrock"
 ))]
-use crate::types::{Cost, CostSource, Response, TokenCounts};
+use crate::types::{Cost, CostSource, Response, Speed, TokenCounts};
 
 pub(crate) fn register_builtin(registry: &mut AdapterRegistry) {
     #[cfg(not(any(
@@ -243,7 +243,7 @@ pub(super) mod http {
             let mut response = self.codec.decode_response(call.route(), result.body)?;
             response.rate_limits = result.rate_limits;
             response.warnings.extend(warnings);
-            apply_catalog_cost(&mut response, call.route());
+            apply_catalog_cost(&mut response, call.route(), call.request().speed());
             Ok(response)
         }
 
@@ -257,6 +257,7 @@ pub(super) mod http {
                 .await?;
             let decoder = self.codec.stream_decoder(call.route());
             let route = call.route().clone();
+            let speed = call.request().speed();
             let limits = iter(
                 accepted
                     .rate_limits
@@ -267,7 +268,7 @@ pub(super) mod http {
                 event.map(|mut event| {
                     if let StreamEvent::Completed { response } = &mut event {
                         response.warnings.extend(warnings.iter().cloned());
-                        apply_catalog_cost(response, &route);
+                        apply_catalog_cost(response, &route, speed);
                     }
                     event
                 })
@@ -818,7 +819,9 @@ pub(super) mod http {
 
 /// Applies the catalog cost estimate when the provider reported no cost.
 ///
-/// A provider-reported cost is authoritative and is never overwritten.
+/// A provider-reported cost is authoritative and is never overwritten. The
+/// request's `speed` selects the rates, because a provider can charge more for
+/// a faster tier.
 #[cfg(any(
     feature = "openai",
     feature = "anthropic",
@@ -826,9 +829,13 @@ pub(super) mod http {
     feature = "openai-compatible",
     feature = "bedrock"
 ))]
-pub(crate) fn apply_catalog_cost(response: &mut Response, route: &ResolvedRoute) {
+pub(crate) fn apply_catalog_cost(
+    response: &mut Response,
+    route: &ResolvedRoute,
+    speed: Option<Speed>,
+) {
     if response.cost.is_none() {
-        response.cost = catalog_cost(response.usage, route.model().pricing());
+        response.cost = catalog_cost(response.usage, route.model().pricing().as_ref(), speed);
     }
 }
 
@@ -839,6 +846,10 @@ pub(crate) fn apply_catalog_cost(response: &mut Response, route: &ResolvedRoute)
 /// cached-input rate and cache writes at the cache-write rate, each falling
 /// back to the plain input rate when the catalog omits it.
 ///
+/// A long-context rate tier is selected on the whole prompt, which is the input
+/// bucket plus both cache buckets. Speed rates apply last, so a speed rate wins
+/// over a long-context rate.
+///
 /// Callers apply this only when the provider reported no cost of its own.
 #[cfg(any(
     feature = "openai",
@@ -847,8 +858,16 @@ pub(crate) fn apply_catalog_cost(response: &mut Response, route: &ResolvedRoute)
     feature = "openai-compatible",
     feature = "bedrock"
 ))]
-fn catalog_cost(usage: TokenCounts, pricing: Option<Pricing>) -> Option<Cost> {
-    let pricing = pricing?.for_input_tokens(usage.input);
+fn catalog_cost(
+    usage: TokenCounts,
+    pricing: Option<&Pricing>,
+    speed: Option<Speed>,
+) -> Option<Cost> {
+    let prompt = usage
+        .input
+        .saturating_add(usage.cache_read)
+        .saturating_add(usage.cache_write);
+    let pricing = pricing?.for_input_tokens(prompt).for_speed(speed);
     if pricing.input_usd_micros_per_million.is_none()
         && pricing.output_usd_micros_per_million.is_none()
     {
@@ -907,7 +926,8 @@ fn token_cost(tokens: u64, price: Option<u64>) -> u64 {
 ))]
 mod tests {
     use super::{Pricing, catalog_cost};
-    use crate::types::{CostSource, TokenCounts};
+    use crate::catalog::{LongContextPricing, SpeedPricing, SpeedRates};
+    use crate::types::{CostSource, Speed, TokenCounts};
 
     /// One micro-dollar per input token and two per output token.
     fn pricing() -> Pricing {
@@ -917,6 +937,7 @@ mod tests {
             cached_input_usd_micros_per_million: Some(100_000),
             cache_write_usd_micros_per_million: Some(500_000),
             long_context: None,
+            speed: None,
         }
     }
 
@@ -932,7 +953,7 @@ mod tests {
 
     #[test]
     fn prices_reasoning_at_the_output_rate_and_each_cache_bucket_at_its_own() {
-        let cost = catalog_cost(usage(), Some(pricing()));
+        let cost = catalog_cost(usage(), Some(&pricing()), None);
 
         // 1000 input + 100 cache read + 500 cache write + 4000 for the 2000
         // tokens billed at the output rate.
@@ -948,7 +969,7 @@ mod tests {
             ..pricing()
         };
 
-        let cost = catalog_cost(usage(), Some(pricing));
+        let cost = catalog_cost(usage(), Some(&pricing), None);
 
         // Both cache buckets now bill at the plain input rate.
         assert_eq!(cost.map(|cost| cost.usd_micros), Some(7_000));
@@ -956,17 +977,71 @@ mod tests {
 
     #[test]
     fn prices_nothing_without_catalog_rates() {
-        assert_eq!(catalog_cost(usage(), None), None);
+        assert_eq!(catalog_cost(usage(), None, None), None);
         assert_eq!(
             catalog_cost(
                 usage(),
-                Some(Pricing {
+                Some(&Pricing {
                     input_usd_micros_per_million: None,
                     output_usd_micros_per_million: None,
                     ..pricing()
-                })
+                }),
+                None
             ),
             None
+        );
+    }
+
+    #[test]
+    fn selects_the_long_context_tier_on_the_whole_prompt() {
+        // The input bucket alone stays under the threshold. Adding the two
+        // cache buckets crosses it, which is how the provider tiers a prompt.
+        let pricing = Pricing {
+            long_context: Some(LongContextPricing {
+                above_input_tokens:                  2_500,
+                input_usd_micros_per_million:        Some(2_000_000),
+                output_usd_micros_per_million:       Some(4_000_000),
+                cached_input_usd_micros_per_million: Some(200_000),
+                cache_write_usd_micros_per_million:  Some(1_000_000),
+            }),
+            ..pricing()
+        };
+
+        let cost = catalog_cost(usage(), Some(&pricing), None);
+
+        // Every rate doubles: 2000 + 200 + 1000 + 8000.
+        assert_eq!(cost.map(|cost| cost.usd_micros), Some(11_200));
+    }
+
+    #[test]
+    fn prices_a_fast_request_at_the_fast_rates() {
+        let pricing = Pricing {
+            speed: Some(SpeedPricing {
+                fast: Some(SpeedRates {
+                    input_usd_micros_per_million:        Some(2_000_000),
+                    output_usd_micros_per_million:       Some(4_000_000),
+                    cached_input_usd_micros_per_million: Some(200_000),
+                    cache_write_usd_micros_per_million:  Some(1_000_000),
+                }),
+                ..SpeedPricing::default()
+            }),
+            ..pricing()
+        };
+
+        // The standard rates bill 5600, so the doubled tier bills 11200.
+        assert_eq!(
+            catalog_cost(usage(), Some(&pricing), Some(Speed::Fast)).map(|cost| cost.usd_micros),
+            Some(11_200)
+        );
+        // A speed the model does not price keeps the base rates.
+        assert_eq!(
+            catalog_cost(usage(), Some(&pricing), Some(Speed::Economical))
+                .map(|cost| cost.usd_micros),
+            Some(5_600)
+        );
+        assert_eq!(
+            catalog_cost(usage(), Some(&pricing), None).map(|cost| cost.usd_micros),
+            Some(5_600)
         );
     }
 }
