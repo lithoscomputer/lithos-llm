@@ -9,6 +9,11 @@ use super::{Message, Role, ToolChoice, ToolDefinition, ToolDefinitionKind};
 use crate::catalog::ProviderId;
 
 /// Requested reasoning depth, when a provider supports it.
+///
+/// The variants run from least to most reasoning. A codec maps them onto the
+/// levels its provider names, which is why `Xhigh` and `Max` are separate:
+/// providers that offer both treat them as different levels, and collapsing
+/// them would make the higher one unreachable.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -18,6 +23,7 @@ pub enum ReasoningEffort {
     Medium,
     High,
     Xhigh,
+    Max,
 }
 
 /// Requested latency or cost preference.
@@ -454,12 +460,33 @@ mod tests {
 
     use serde_json::{Map, json};
 
-    use super::{Request, RequestBuildError, RequestBuilder};
+    use super::{ReasoningEffort, Request, RequestBuildError, RequestBuilder};
     use crate::catalog::ProviderId;
     use crate::types::{ToolChoice, ToolDefinition};
 
     fn base() -> RequestBuilder {
         Request::builder().model("test-model").user("hello")
+    }
+
+    #[test]
+    fn every_reasoning_effort_has_its_own_wire_value() -> Result<(), Box<dyn StdError>> {
+        let levels = [
+            (ReasoningEffort::Minimal, "minimal"),
+            (ReasoningEffort::Low, "low"),
+            (ReasoningEffort::Medium, "medium"),
+            (ReasoningEffort::High, "high"),
+            (ReasoningEffort::Xhigh, "xhigh"),
+            (ReasoningEffort::Max, "max"),
+        ];
+
+        for (effort, wire) in levels {
+            assert_eq!(serde_json::to_value(effort)?, json!(wire));
+            assert_eq!(
+                serde_json::from_value::<ReasoningEffort>(json!(wire))?,
+                effort
+            );
+        }
+        Ok(())
     }
 
     #[test]

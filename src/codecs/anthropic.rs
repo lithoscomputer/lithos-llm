@@ -307,7 +307,8 @@ fn anthropic_effort(effort: ReasoningEffort) -> &'static str {
         ReasoningEffort::Minimal | ReasoningEffort::Low => "low",
         ReasoningEffort::Medium => "medium",
         ReasoningEffort::High => "high",
-        ReasoningEffort::Xhigh => "max",
+        ReasoningEffort::Xhigh => "xhigh",
+        ReasoningEffort::Max => "max",
     }
 }
 
