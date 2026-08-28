@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "318"
+      "361"
     ],
     [
       "content-type",
@@ -40,19 +40,25 @@ expression: rendered
             "cache_control": {
               "type": "ephemeral"
             },
-            "text": "Is 91 prime?",
+            "text": "What is the weather in Paris?",
             "type": "text"
           }
         ],
         "role": "user"
       },
       {
-        "content": "No, 91 is not prime.",
-        "reasoning_content": "91 is 7 times 13.",
+        "content": "Looking it up.",
+        "reasoning_details": [
+          {
+            "data": "AQ==",
+            "id": "rs-1",
+            "type": "reasoning.encrypted"
+          }
+        ],
         "role": "assistant"
       },
       {
-        "content": "What about 97?",
+        "content": "Thanks.",
         "role": "user"
       }
     ],

@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "643"
+      "705"
     ],
     [
       "content-type",
@@ -35,7 +35,15 @@ expression: rendered
     "max_tokens": 128,
     "messages": [
       {
-        "content": "What is the weather in Paris?",
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "What is the weather in Paris?",
+            "type": "text"
+          }
+        ],
         "role": "user"
       },
       {

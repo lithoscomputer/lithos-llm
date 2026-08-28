@@ -22,6 +22,12 @@ expression: rendered
     "cache_read": 0,
     "cache_write": 0
   },
+  "warnings": [
+    {
+      "code": "unsupported_control",
+      "message": "this provider protocol does not support request metadata"
+    }
+  ],
   "raw": {
     "choices": [
       {

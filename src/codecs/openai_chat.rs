@@ -14,6 +14,7 @@
 //! from catalog pricing.
 
 use std::collections::BTreeMap;
+use std::slice::from_ref;
 
 use reqwest::Method;
 use serde_json::{Map, Value, json, to_string};
@@ -29,9 +30,9 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Cost, CostSource, Error, ErrorKind,
-    ImageContent, MediaSource, Message, ReasoningContent, Response, ResponseFormat, Role,
-    StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition,
-    ToolDefinitionKind, ToolResult,
+    ImageContent, MediaSource, Message, ReasoningContent, ReasoningEffort, Response,
+    ResponseFormat, Role, StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice,
+    ToolDefinition, ToolDefinitionKind, ToolResult,
 };
 
 /// The prefix of an opaque content kind this dialect claims.
@@ -39,6 +40,14 @@ use crate::types::{
 /// The namespace is `openai_compatible`; the text after the separator names the
 /// message field the part replays into.
 const OPAQUE_PREFIX: &str = "openai_compatible.";
+
+/// The message field carrying an aggregator's structured reasoning channel.
+///
+/// OpenRouter sends signed or encrypted reasoning here, and the upstream model
+/// rejects a continued turn that does not send it back. It is preserved
+/// verbatim as an opaque part named after this field, so
+/// [`encode_chat_message`] replays it into the same place.
+const REASONING_DETAILS: &str = "reasoning_details";
 
 /// The id of the single streamed text block.
 ///
@@ -48,6 +57,9 @@ const TEXT_BLOCK: &str = "block-0";
 
 /// The id of the single streamed reasoning block.
 const REASONING_BLOCK: &str = "reasoning-0";
+
+/// The id of the single streamed `reasoning_details` block.
+const REASONING_DETAILS_BLOCK: &str = "reasoning-details-0";
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct OpenAiChatCodec;
@@ -68,13 +80,19 @@ impl Codec for OpenAiChatCodec {
             _ => None,
         })?;
 
-        let (options, _controls) = wire_options(call);
+        let (options, controls) = wire_options(call);
         let mut body = Map::new();
         body.insert("model".to_owned(), route.api_model().into());
-        body.insert(
-            "messages".to_owned(),
-            Value::Array(request.messages().iter().flat_map(encode_message).collect()),
-        );
+
+        let mut messages: Vec<Value> = request.messages().iter().flat_map(encode_message).collect();
+        // An aggregator fronting an Anthropic model forwards the breakpoints
+        // upstream. A model that cannot cache would reject them, and a caller
+        // can turn them off with the `auto_cache` control.
+        if controls.auto_cache && route.model().capabilities().caching {
+            mark_cache_breakpoints(&mut messages);
+        }
+        body.insert("messages".to_owned(), Value::Array(messages));
+
         body.insert("stream".to_owned(), stream.into());
         if stream {
             // Without this the compatible skins never send a usage chunk, and
@@ -93,6 +111,9 @@ impl Codec for OpenAiChatCodec {
         if let Some(top_p) = request.top_p() {
             body.insert("top_p".to_owned(), sampling(top_p));
         }
+        if let Some(effort) = request.reasoning_effort() {
+            body.insert("reasoning_effort".to_owned(), effort_name(effort).into());
+        }
         if !request.stop_sequences().is_empty() {
             let stop = request
                 .stop_sequences()
@@ -100,14 +121,6 @@ impl Codec for OpenAiChatCodec {
                 .map(|sequence| Value::from(sequence.as_str()))
                 .collect();
             body.insert("stop".to_owned(), Value::Array(stop));
-        }
-        if !request.metadata().is_empty() {
-            let metadata = request
-                .metadata()
-                .iter()
-                .map(|(key, value)| (key.clone(), Value::from(value.as_str())))
-                .collect();
-            body.insert("metadata".to_owned(), Value::Object(metadata));
         }
         if !request.tools().is_empty() {
             let tools: Vec<Value> = request.tools().iter().filter_map(encode_tool).collect();
@@ -130,6 +143,13 @@ impl Codec for OpenAiChatCodec {
             Value::Object(body),
         )
         .with_timeout(request.timeout());
+        // Only OpenAI itself documents `metadata` on this endpoint, and a
+        // strict skin rejects the whole request over one unknown field. The
+        // tags are dropped rather than risking that, and a caller who knows
+        // their skin accepts them can send them as a raw provider option.
+        if !request.metadata().is_empty() {
+            encoded = encoded.unsupported_control("request metadata");
+        }
         // A `tool` message has no error marker in this protocol, so a failed
         // tool result reaches the model looking like a successful one. The
         // content still arrives, so this is a warning rather than a refusal.
@@ -148,10 +168,22 @@ impl Codec for OpenAiChatCodec {
     }
 
     fn decode_response(&self, route: &ResolvedRoute, value: Value) -> Result<Response, Error> {
+        // A 200 whose `choices` array is missing or empty carries no answer at
+        // all. Decoding it as an empty success would hand the caller a
+        // finished response the model never wrote, so the body fails to
+        // decode instead.
+        if value.pointer("/choices/0").is_none() {
+            return Err(no_choices(route, value));
+        }
         let choice = value.pointer("/choices/0").unwrap_or(&Value::Null);
         let message = choice.get("message").unwrap_or(&Value::Null);
 
         let mut content = Vec::new();
+        // The structured reasoning channel comes first, ahead of the readable
+        // reasoning text it describes.
+        if let Some(details) = complete_details(message) {
+            content.push(details);
+        }
         if let Some(text) = reasoning_text(message) {
             content.push(ContentPart::Reasoning(ReasoningContent {
                 text,
@@ -192,6 +224,7 @@ impl Codec for OpenAiChatCodec {
             assembler: StreamAssembler::new(route),
             route:     route.clone(),
             started:   false,
+            details:   ReasoningDetails::default(),
         })
     }
 
@@ -215,6 +248,8 @@ struct ChatStreamDecoder {
     route:     ResolvedRoute,
     /// Whether the `Started` event has been emitted for this stream.
     started:   bool,
+    /// The structured reasoning channel, coalesced as its fragments arrive.
+    details:   ReasoningDetails,
 }
 
 impl StreamDecoder for ChatStreamDecoder {
@@ -256,6 +291,21 @@ impl StreamDecoder for ChatStreamDecoder {
         }
 
         let delta = chunk.pointer("/choices/0/delta").unwrap_or(&Value::Null);
+        // The structured channel is coalesced across chunks, so the block
+        // carries the whole array every time a fragment lands on it.
+        if let Some(payload) = delta.get(REASONING_DETAILS) {
+            self.details.absorb(payload);
+            if let Some(entries) = self.details.entries() {
+                let block = ContentBlockId::new(REASONING_DETAILS_BLOCK);
+                events.extend(
+                    self.assembler
+                        .start(block.clone(), ContentBlockKind::Opaque {
+                            kind: details_kind(),
+                        }),
+                );
+                events.extend(self.assembler.set_opaque_data(&block, entries));
+            }
+        }
         // OpenRouter spells it `reasoning`, DeepSeek `reasoning_content`.
         if let Some(text) =
             non_empty(delta, "reasoning").or_else(|| non_empty(delta, "reasoning_content"))
@@ -334,6 +384,182 @@ impl ChatStreamDecoder {
         }
         events
     }
+}
+
+/// The opaque content kind the structured reasoning channel replays as.
+fn details_kind() -> String {
+    format!("{OPAQUE_PREFIX}{REASONING_DETAILS}")
+}
+
+/// The structured reasoning channel of one response, in wire order.
+///
+/// A complete response carries the whole array at once. A stream splits each
+/// logical detail across chunks, so the fragments are coalesced back into one
+/// entry before the opaque part is built — an aggregator that receives half a
+/// signature back rejects the turn.
+#[derive(Default)]
+struct ReasoningDetails {
+    entries: Vec<Value>,
+}
+
+impl ReasoningDetails {
+    /// Absorbs one streamed `reasoning_details` payload.
+    ///
+    /// A fragment continues the most recent entry of the same `type` whose
+    /// `index` matches, so details that arrive interleaved still coalesce. A
+    /// fragment without an `index` continues the most recent entry of its
+    /// type, which is what a skin that omits the field means by it. Anything
+    /// that is not an object carries nothing replayable and is dropped.
+    fn absorb(&mut self, payload: &Value) {
+        let incoming: &[Value] = match payload {
+            Value::Array(entries) => entries,
+            Value::Object(_) => from_ref(payload),
+            _ => &[],
+        };
+        for entry in incoming.iter().filter(|entry| entry.is_object()) {
+            match self
+                .entries
+                .iter_mut()
+                .rev()
+                .find(|existing| continues_detail(existing, entry))
+            {
+                Some(existing) => merge_detail(existing, entry),
+                None => self.entries.push(entry.clone()),
+            }
+        }
+    }
+
+    /// The accumulated entries, or `None` when nothing usable arrived.
+    fn entries(&self) -> Option<Value> {
+        (!self.entries.is_empty()).then(|| Value::Array(self.entries.clone()))
+    }
+}
+
+/// The members of a detail whose fragments concatenate across chunks.
+///
+/// Every other member is written once, by the fragment that first carried it.
+const DETAIL_TEXT_MEMBERS: &[&str] = &["text", "summary", "data"];
+
+/// Whether `fragment` continues the logical detail already held in `entry`.
+fn continues_detail(entry: &Value, fragment: &Value) -> bool {
+    let (Some(entry_type), Some(fragment_type)) = (
+        entry.get("type").and_then(Value::as_str),
+        fragment.get("type").and_then(Value::as_str),
+    ) else {
+        return false;
+    };
+    if entry_type != fragment_type {
+        return false;
+    }
+
+    match (
+        entry.get("index").and_then(Value::as_u64),
+        fragment.get("index").and_then(Value::as_u64),
+    ) {
+        (Some(entry_index), Some(fragment_index)) => entry_index == fragment_index,
+        _ => true,
+    }
+}
+
+/// Appends one fragment's text onto `entry` and fills in members it lacks.
+fn merge_detail(entry: &mut Value, fragment: &Value) {
+    let (Some(members), Some(fragment)) = (entry.as_object_mut(), fragment.as_object()) else {
+        return;
+    };
+    for (key, value) in fragment {
+        match members.get_mut(key) {
+            Some(Value::String(text)) if DETAIL_TEXT_MEMBERS.contains(&key.as_str()) => {
+                if let Some(fragment) = value.as_str() {
+                    text.push_str(fragment);
+                }
+            }
+            Some(_) => {}
+            None => {
+                members.insert(key.clone(), value.clone());
+            }
+        }
+    }
+}
+
+/// The structured reasoning channel of a complete response message.
+///
+/// Providers document an array of detail objects; a lone object is accepted as
+/// a single entry. The payload is preserved exactly as it arrived, because
+/// only the model that wrote it can read the encrypted members.
+fn complete_details(message: &Value) -> Option<ContentPart> {
+    let mut details = ReasoningDetails::default();
+    details.absorb(message.get(REASONING_DETAILS)?);
+    Some(ContentPart::opaque(details_kind(), details.entries()?))
+}
+
+/// The error a 200 with no choices decodes into.
+fn no_choices(route: &ResolvedRoute, value: Value) -> Error {
+    Error::new(
+        ErrorKind::ResponseDecode,
+        format!(
+            "provider {} returned no choices in the response",
+            route.provider().id()
+        ),
+    )
+    .with_provider(route.provider().id().clone())
+    .with_raw_data(value)
+}
+
+/// Marks the cacheable prefix of a conversation for an Anthropic upstream.
+///
+/// Two breakpoints, the same pair the Anthropic codec places: the last system
+/// message, which the tools and instructions precede on the upstream wire, and
+/// the second-to-last user turn, so each iteration of an agent loop reads the
+/// prefix the previous one wrote. A tool result is its own message here and
+/// counts as a user turn, because it rides in a user message upstream.
+fn mark_cache_breakpoints(messages: &mut [Value]) {
+    if let Some(system) = messages
+        .iter_mut()
+        .rev()
+        .find(|message| role_of(message) == Some("system"))
+    {
+        mark_cached(system);
+    }
+
+    let user_turns: Vec<usize> = messages
+        .iter()
+        .enumerate()
+        .filter(|(_, message)| matches!(role_of(message), Some("user" | "tool")))
+        .map(|(index, _)| index)
+        .collect();
+    let Some(turn) = user_turns.len().checked_sub(2).map(|last| user_turns[last]) else {
+        return;
+    };
+    mark_cached(&mut messages[turn]);
+}
+
+/// The wire role of one encoded message.
+fn role_of(message: &Value) -> Option<&str> {
+    message.get("role").and_then(Value::as_str)
+}
+
+/// Adds an ephemeral cache breakpoint to one wire message.
+///
+/// The plain-string content form has nowhere to carry the annotation, so it
+/// becomes a one-part array; a message already in the array form marks its
+/// last part. A message with no content is left alone.
+fn mark_cached(message: &mut Value) {
+    let Some(content) = message.get_mut("content") else {
+        return;
+    };
+    let breakpoint = json!({ "type": "ephemeral" });
+    *content = match content.take() {
+        Value::String(text) => {
+            json!([{ "type": "text", "text": text, "cache_control": breakpoint }])
+        }
+        Value::Array(mut parts) => {
+            if let Some(part) = parts.last_mut().and_then(Value::as_object_mut) {
+                part.insert("cache_control".to_owned(), breakpoint);
+            }
+            Value::Array(parts)
+        }
+        other => other,
+    };
 }
 
 /// Encodes one canonical message into the wire messages it produces.
@@ -495,18 +721,45 @@ fn wire_arguments(call: &ToolCall) -> String {
 }
 
 /// Encodes one tool result as its own `tool` message.
+///
+/// This protocol takes a string here and nothing else, so the content is
+/// flattened. Text wins when there is any. A result made only of JSON parts
+/// sends the bare values instead — a tool that answers with structured data
+/// means the data, not the `ContentPart` envelope that carried it.
 fn encode_tool_result(result: &ToolResult) -> Value {
     let text = plain_text(&result.content);
-    let content = if text.is_empty() {
-        to_string(&result.content).unwrap_or_default()
-    } else {
+    let content = if !text.is_empty() {
         text
+    } else if let Some(json) = json_result_text(&result.content) {
+        json
+    } else {
+        to_string(&result.content).unwrap_or_default()
     };
     json!({
         "role": "tool",
         "tool_call_id": result.tool_call_id,
         "content": content,
     })
+}
+
+/// The wire text of a tool result whose content is only JSON parts.
+///
+/// One part sends its value; several send an array of them. Returns `None`
+/// when any part is something else, which leaves the caller its own fallback.
+fn json_result_text(content: &[ContentPart]) -> Option<String> {
+    let values: Vec<&Value> = content
+        .iter()
+        .map(|part| match part {
+            ContentPart::Json { value } => Some(value),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+
+    match values.as_slice() {
+        [] => None,
+        [value] => Some(value.to_string()),
+        values => Some(Value::Array(values.iter().map(|&v| v.clone()).collect()).to_string()),
+    }
 }
 
 /// Encodes one function tool definition.
@@ -547,13 +800,33 @@ fn encode_response_format(format: &ResponseFormat) -> Value {
     }
 }
 
+/// The wire role for one canonical role.
+///
+/// A developer message is sent as a system message. Only OpenAI itself takes
+/// `developer` on this endpoint; a strict skin accepts system, user,
+/// assistant, and tool and rejects the request over anything else, so the
+/// closest role every skin understands is the compatible choice.
 fn role_name(role: Role) -> &'static str {
     match role {
-        Role::System => "system",
-        Role::Developer => "developer",
+        Role::System | Role::Developer => "system",
         Role::User => "user",
         Role::Assistant => "assistant",
         Role::Tool => "tool",
+    }
+}
+
+/// The wire spelling of one reasoning effort level.
+///
+/// The canonical names are the wire vocabulary: this dialect passes the level
+/// through untranslated, and a skin that knows fewer levels clamps its own.
+fn effort_name(effort: ReasoningEffort) -> &'static str {
+    match effort {
+        ReasoningEffort::Minimal => "minimal",
+        ReasoningEffort::Low => "low",
+        ReasoningEffort::Medium => "medium",
+        ReasoningEffort::High => "high",
+        ReasoningEffort::Xhigh => "xhigh",
+        ReasoningEffort::Max => "max",
     }
 }
 
@@ -672,15 +945,15 @@ fn usd_micros(usd: f64) -> u64 {
 mod tests {
     use std::error::Error as StdError;
 
-    use serde_json::{Map, Value, json};
+    use serde_json::{Map, Value, json, to_string};
 
     use super::{Codec, OpenAiChatCodec};
     use crate::codecs::test_support::resolved;
     use crate::resolver::ResolvedRoute;
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentBlockKind, ContentPart, CostSource, Error, Message, Request, Response, Role,
-        StreamEvent, ToolCall, ToolDefinition, ToolResult,
+        ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, Message, ReasoningEffort,
+        Request, Response, Role, StreamEvent, ToolCall, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -955,7 +1228,7 @@ mod tests {
     }
 
     #[test]
-    fn stop_sequences_and_metadata_encode_in_order() -> Result<(), Box<dyn StdError>> {
+    fn stop_sequences_encode_in_order_and_metadata_is_reported() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
                 .model(MODEL)
@@ -968,7 +1241,210 @@ mod tests {
         let encoded = OpenAiChatCodec.encode(&call, false)?;
 
         assert_eq!(encoded.body["stop"], json!(["END", "STOP"]));
-        assert_eq!(encoded.body["metadata"], json!({ "trace_id": "t789" }));
+        // Only OpenAI itself takes `metadata` here, so the tags are dropped
+        // with a warning rather than risking a strict skin's rejection.
+        assert_eq!(encoded.body.get("metadata"), None);
+        let warnings: Vec<&str> = encoded
+            .warnings
+            .iter()
+            .map(|warning| warning.code.as_str())
+            .collect();
+        assert_eq!(warnings, ["unsupported_control"]);
+        Ok(())
+    }
+
+    #[test]
+    fn reasoning_effort_reaches_the_wire_untranslated() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::Xhigh)
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(encoded.body["reasoning_effort"], json!("xhigh"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_developer_message_is_sent_as_a_system_message() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .message(Message::text(Role::Developer, "Keep it short."))
+                .user("Hello")
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(encoded.body["messages"][0]["role"], "system");
+        Ok(())
+    }
+
+    #[test]
+    fn a_json_only_tool_result_sends_the_bare_value() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                    ToolResult {
+                        tool_call_id: "call-1".to_owned(),
+                        name:         Some("weather".to_owned()),
+                        content:      vec![ContentPart::Json {
+                            value: json!({ "city": "Boston", "temp_c": 4 }),
+                        }],
+                        is_error:     false,
+                    },
+                )]))
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["messages"][0]["content"],
+            json!(r#"{"city":"Boston","temp_c":4}"#),
+            "the value itself, not the ContentPart envelope"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_body_without_choices_fails_to_decode() -> Result<(), Box<dyn StdError>> {
+        let error = OpenAiChatCodec
+            .decode_response(&route()?, json!({ "id": "chatcmpl-1", "choices": [] }))
+            .err()
+            .ok_or("expected an empty choices array to fail")?;
+
+        assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        Ok(())
+    }
+
+    #[test]
+    fn auto_cache_marks_the_system_message_and_the_prefix() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .system("Keep it short.")
+                .user("What is the capital of France?")
+                .message(Message::text(Role::Assistant, "Paris."))
+                .user("And of Spain?")
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        let messages = &encoded.body["messages"];
+        assert_eq!(
+            messages[0]["content"][0]["cache_control"]["type"],
+            "ephemeral"
+        );
+        assert_eq!(
+            messages[1]["content"][0]["cache_control"]["type"],
+            "ephemeral"
+        );
+        assert_eq!(
+            messages[1]["content"][0]["text"],
+            "What is the capital of France?"
+        );
+        assert!(
+            messages[3]["content"].is_string(),
+            "the last user turn keeps the plain string form"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn auto_cache_false_places_no_breakpoints() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .system("Keep it short.")
+                .user("What is the capital of France?")
+                .message(Message::text(Role::Assistant, "Paris."))
+                .user("And of Spain?")
+                .provider_option(NAMESPACE, "auto_cache", json!(false))
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(
+            to_string(&encoded.body)?.matches("cache_control").count(),
+            0
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn reasoning_details_are_preserved_verbatim() -> Result<(), Box<dyn StdError>> {
+        let details = json!([
+            { "type": "reasoning.encrypted", "id": "rs-1", "data": "opaque" },
+            { "type": "reasoning.text", "text": "step one", "index": 0 },
+        ]);
+        let response = decode(json!({
+            "choices": [{
+                "message": { "content": "done", "reasoning_details": details },
+                "finish_reason": "stop",
+            }],
+        }))?;
+
+        let first = response.content.first().ok_or("expected an opaque part")?;
+        match first {
+            ContentPart::Opaque { kind, data } => {
+                assert_eq!(kind, "openai_compatible.reasoning_details");
+                assert_eq!(data, &details);
+            }
+            other => return Err(format!("expected an opaque part, got {other:?}").into()),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn streamed_detail_fragments_coalesce_by_type_and_index() -> Result<(), Box<dyn StdError>> {
+        let events = stream(vec![
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "reasoning_details": [
+                { "type": "reasoning.text", "index": 0, "text": "first " },
+            ] } }] }),
+            json!({ "choices": [{ "delta": { "reasoning_details": [
+                { "type": "reasoning.text", "index": 1, "text": "second " },
+            ] } }] }),
+            json!({ "choices": [{ "delta": { "reasoning_details": [
+                { "type": "reasoning.text", "index": 0, "text": "half" },
+            ] } }] }),
+            json!({ "choices": [{ "delta": { "reasoning_details": [
+                { "type": "reasoning.text", "index": 1, "text": "half", "signature": "sig" },
+            ] } }] }),
+            json!({ "choices": [{ "delta": { "content": "done" }, "finish_reason": "stop" }] }),
+        ])?;
+
+        let response = completed(&events)
+            .first()
+            .copied()
+            .ok_or("expected a completed response")?;
+        let first = response.content.first().ok_or("expected an opaque part")?;
+        match first {
+            ContentPart::Opaque { kind, data } => {
+                assert_eq!(kind, "openai_compatible.reasoning_details");
+                assert_eq!(
+                    data,
+                    &json!([
+                        { "type": "reasoning.text", "index": 0, "text": "first half" },
+                        {
+                            "type": "reasoning.text",
+                            "index": 1,
+                            "text": "second half",
+                            "signature": "sig",
+                        },
+                    ])
+                );
+            }
+            other => return Err(format!("expected an opaque part, got {other:?}").into()),
+        }
         Ok(())
     }
 

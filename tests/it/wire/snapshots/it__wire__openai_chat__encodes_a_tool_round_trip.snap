@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "783"
+      "845"
     ],
     [
       "content-type",
@@ -61,7 +61,15 @@ expression: rendered
         ]
       },
       {
-        "content": "18C and clear",
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "18C and clear",
+            "type": "text"
+          }
+        ],
         "role": "tool",
         "tool_call_id": "call_paris"
       },

@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "141"
+      "139"
     ],
     [
       "content-type",
@@ -39,10 +39,8 @@ expression: rendered
         "role": "user"
       }
     ],
-    "metadata": {
-      "tenant": "acme"
-    },
     "model": "vendor/compat-chat-v2",
+    "reasoning_effort": "xhigh",
     "stream": false
   }
 }
