@@ -13,7 +13,8 @@ use serde_json::{Map, Value, json};
 use super::assembler::StreamAssembler;
 use super::common::{
     endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
-    plain_text, reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
+    plain_text, refusal, reject_unencodable, sampling, system_text, unsupported_capability,
+    wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -103,6 +104,16 @@ impl Codec for AnthropicMessagesCodec {
     }
 
     fn decode_response(&self, route: &ResolvedRoute, value: Value) -> Result<Response, Error> {
+        // A refusal is a failure, not a short answer; failing here keeps it
+        // visible to the caller and the retry and failover middleware.
+        if value.get("stop_reason").and_then(Value::as_str) == Some("refusal") {
+            let explanation = value
+                .pointer("/stop_details/explanation")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            return Err(refusal(route, explanation.as_deref(), Some(value)));
+        }
+
         let content = value
             .get("content")
             .and_then(Value::as_array)
@@ -696,6 +707,15 @@ impl StreamDecoder for AnthropicStreamDecoder {
             Some("content_block_stop") => events.extend(self.assembler.end(&block_id(&value))),
             Some("message_delta") => {
                 if let Some(reason) = value.pointer("/delta/stop_reason").and_then(Value::as_str) {
+                    // A refusal fails the stream here, before `message_stop`
+                    // can complete it as a success.
+                    if reason == "refusal" {
+                        let explanation = value
+                            .pointer("/delta/stop_details/explanation")
+                            .and_then(Value::as_str)
+                            .map(ToOwned::to_owned);
+                        return Err(refusal(&self.route, explanation.as_deref(), Some(value)));
+                    }
                     self.assembler
                         .set_finish_reason(finish_reason(Some(reason)));
                 }
@@ -1364,6 +1384,58 @@ mod tests {
 
         assert_eq!(error.provider_code(), Some("overloaded_error"));
         assert!(error.message().contains("Overloaded"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_refusal_response_fails_instead_of_decoding() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let body = json!({
+            "id": "msg-1",
+            "content": [],
+            "stop_reason": "refusal",
+            "stop_details": { "explanation": "it asks for malware" }
+        });
+
+        let error = AnthropicMessagesCodec
+            .decode_response(call.route(), body.clone())
+            .expect_err("a refusal must fail the call");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert!(error.message().contains("it asks for malware"), "{error}");
+        assert_eq!(error.raw_data(), Some(&body));
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_refusal_ends_the_stream_as_an_error() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let mut decoder = AnthropicMessagesCodec.stream_decoder(call.route());
+
+        decoder.decode(sse(
+            "message_start",
+            &json!({
+                "type": "message_start",
+                "message": { "id": "msg-1", "usage": { "input_tokens": 3 } }
+            }),
+        ))?;
+        let error = decoder
+            .decode(sse(
+                "message_delta",
+                &json!({
+                    "type": "message_delta",
+                    "delta": {
+                        "stop_reason": "refusal",
+                        "stop_details": { "explanation": "it asks for malware" }
+                    }
+                }),
+            ))
+            .expect_err("a refusal must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert!(error.message().contains("it asks for malware"), "{error}");
         Ok(())
     }
 
