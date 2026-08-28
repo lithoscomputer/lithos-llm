@@ -16,11 +16,11 @@ use serde_json::{Map, Value, json};
 use super::assembler::StreamAssembler;
 use super::common::{
     endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
-    plain_text, reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
+    plain_text, refusal, reject_unencodable, sampling, system_text, unsupported_capability,
+    wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
-use crate::catalog::ProviderId;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, classify};
 use crate::types::{
@@ -120,6 +120,13 @@ impl Codec for BedrockConverseCodec {
     }
 
     fn decode_response(&self, route: &ResolvedRoute, value: Value) -> Result<Response, Error> {
+        // A refusal is a failure, not a short answer — the same contract the
+        // Anthropic codec applies, since Bedrock passes the stop through for
+        // Claude models.
+        if value.get("stopReason").and_then(Value::as_str) == Some("refusal") {
+            return Err(refusal(route, None, Some(value)));
+        }
+
         let content = value
             .pointer("/output/message/content")
             .and_then(Value::as_array)
@@ -141,7 +148,7 @@ impl Codec for BedrockConverseCodec {
 
     fn stream_decoder(&self, route: &ResolvedRoute) -> Box<dyn StreamDecoder> {
         Box::new(BedrockStreamDecoder {
-            provider:  route.provider().id().clone(),
+            route:     route.clone(),
             assembler: StreamAssembler::new(route),
         })
     }
@@ -733,7 +740,7 @@ fn decode_reasoning_block(reasoning: &Value) -> Option<ContentPart> {
 
 /// Decodes one Bedrock ConverseStream.
 struct BedrockStreamDecoder {
-    provider:  ProviderId,
+    route:     ResolvedRoute,
     assembler: StreamAssembler,
 }
 
@@ -744,7 +751,7 @@ impl StreamDecoder for BedrockStreamDecoder {
                 ErrorKind::StreamDecode,
                 "Bedrock returned an invalid stream event",
             )
-            .with_provider(self.provider.clone())
+            .with_provider(self.route.provider().id().clone())
             .with_source(source)
         })?;
 
@@ -762,6 +769,11 @@ impl StreamDecoder for BedrockStreamDecoder {
             "contentBlockStop" => Ok(self.assembler.end(&block_id(payload))),
             "messageStop" => {
                 let reason = payload.get("stopReason").and_then(Value::as_str);
+                // A refusal fails the stream here, before `metadata` can
+                // complete it as a success.
+                if reason == Some("refusal") {
+                    return Err(refusal(&self.route, None, Some(payload.clone())));
+                }
                 self.assembler.set_finish_reason(stop_reason(reason));
                 Ok(Vec::new())
             }
@@ -862,7 +874,7 @@ impl BedrockStreamDecoder {
                 .message
                 .unwrap_or_else(|| "Bedrock failed mid-stream".to_owned()),
         )
-        .with_provider(self.provider.clone())
+        .with_provider(self.route.provider().id().clone())
         .with_retry(failure.retry)
         .with_raw_data(value.clone());
         if let Some(code) = failure.code {
@@ -964,6 +976,45 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    #[test]
+    fn a_refusal_response_fails_instead_of_decoding() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let body = json!({
+            "output": { "message": { "content": [] } },
+            "stopReason": "refusal",
+        });
+
+        let error = BedrockConverseCodec
+            .decode_response(call.route(), body.clone())
+            .expect_err("a refusal must fail the call");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert_eq!(error.raw_data(), Some(&body));
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_refusal_ends_the_stream_as_an_error() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let mut decoder = BedrockConverseCodec.stream_decoder(call.route());
+
+        decoder.decode(SseEvent {
+            event: Some("messageStart".to_owned()),
+            data:  json!({ "role": "assistant" }).to_string(),
+        })?;
+        let error = decoder
+            .decode(SseEvent {
+                event: Some("messageStop".to_owned()),
+                data:  json!({ "stopReason": "refusal" }).to_string(),
+            })
+            .expect_err("a refusal must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        Ok(())
     }
 
     #[test]

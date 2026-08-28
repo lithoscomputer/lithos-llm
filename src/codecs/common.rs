@@ -4,7 +4,7 @@ use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
-#[cfg(any(feature = "anthropic", test))]
+#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
 use crate::transport::classify;
 #[cfg(any(
     feature = "anthropic",
@@ -26,7 +26,7 @@ pub(crate) const CONTROL_KEYS: &[&str] = &["auto_cache"];
 ///
 /// [`classify`](crate::transport::classify) registers this code among the
 /// content-filter codes, which is what makes a refusal failover-eligible.
-#[cfg(any(feature = "anthropic", test))]
+#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
 const REFUSAL_CODE: &str = "refusal";
 
 /// Codec behavior selected by control keys in the raw provider options.
@@ -339,7 +339,7 @@ pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
 /// the kind and the retry classification. `explanation` is the provider's own
 /// account of the refusal, when the payload carried one, and `raw` is the
 /// payload the codec decoded.
-#[cfg(any(feature = "anthropic", test))]
+#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
 pub(crate) fn refusal(
     route: &ResolvedRoute,
     explanation: Option<&str>,
