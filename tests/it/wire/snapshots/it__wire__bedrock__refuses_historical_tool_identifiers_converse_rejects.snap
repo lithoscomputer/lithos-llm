@@ -1,0 +1,24 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "dotted_name": {
+    "kind": "invalid_request",
+    "message": "provider bedrock does not support the tool name `mcp.server.tool`, which must match ^[a-zA-Z0-9_-]{1,64}$",
+    "provider": "bedrock",
+    "provider_code": "unsupported_capability",
+    "retry": {
+      "type": "never"
+    }
+  },
+  "over_long_id": {
+    "kind": "invalid_request",
+    "message": "provider bedrock does not support the tool call id `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, which must match ^[a-zA-Z0-9_.:-]{1,64}$",
+    "provider": "bedrock",
+    "provider_code": "unsupported_capability",
+    "retry": {
+      "type": "never"
+    }
+  }
+}

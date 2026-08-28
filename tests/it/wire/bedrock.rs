@@ -21,6 +21,12 @@
 //!   Converse body.
 //! - `count_input_tokens` calls Bedrock Runtime `CountTokens`. The reference
 //!   implemented no Bedrock count path at all.
+//! - A `stopReason` of `refusal` fails the call on both the blocking and the
+//!   streaming path. The reference mapped it to a ContentFilter finish reason
+//!   and returned a successful, empty response.
+//! - A tool name or `toolUseId` in the message history that Converse rejects
+//!   refuses the request. The reference rewrote both onto the Converse
+//!   character set with a hash suffix.
 
 #[cfg(feature = "bedrock-aws")]
 use std::process::Command;
@@ -29,7 +35,10 @@ use std::{env, fs, process};
 
 use httpmock::{Method, MockServer};
 use lithos_llm::credentials::{Credentials, SecretValue};
-use lithos_llm::types::{ErrorData, Message, Request, Response, Role, ToolChoice, ToolDefinition};
+use lithos_llm::types::{
+    ContentPart, ErrorData, FinishReason, Message, ReasoningContent, Request, Response, Role,
+    ToolCall, ToolChoice, ToolDefinition, ToolResult,
+};
 use lithos_llm::{Client, Error};
 use serde_json::{Value, json};
 
@@ -115,6 +124,24 @@ async fn complete_for(
         .expect("the Converse call should succeed");
 
     (support::captured(&slot), response)
+}
+
+/// Drives one complete call the provider answers with a failing document.
+///
+/// The HTTP call succeeds, so this covers a body the codec itself rejects
+/// rather than a classified transport failure.
+async fn complete_error(request: Request, response_body: &Value) -> Error {
+    let server = MockServer::start_async().await;
+    let (_mock, _slot) = support::mount_capture(
+        &server,
+        &operation_path(API_MODEL, "converse"),
+        response_body,
+    );
+
+    client(&server, &wire_provider(), bedrock_credentials())
+        .complete(request)
+        .await
+        .expect_err("the Converse call should fail")
 }
 
 /// Drives one call the codec must refuse before it dispatches.
@@ -507,6 +534,190 @@ async fn reads_usage_without_subtracting_anything() {
     crate::json_snapshot!(response.usage);
 }
 
+#[tokio::test]
+async fn a_refusal_fails_the_call() {
+    // INTENTIONAL DIFFERENCE. The reference mapped `stopReason: "refusal"` to
+    // a ContentFilter finish reason and returned a successful, empty response.
+    // A refusal is a failure, not a short answer, so it now fails the call the
+    // same way it does on the direct Anthropic route: one uniform
+    // cross-provider contract, visible to retry middleware, rather than a
+    // silent empty answer on this route alone.
+    //
+    // `refusal` is not a member of the documented Converse `stopReason` enum.
+    // Bedrock passes it through from the Anthropic models that emit it, which
+    // is the same observed behavior the reference implementation mapped.
+    //
+    // Converse carries no field holding the model's account of the refusal, so
+    // the error has no explanation to pass on — unlike the Anthropic route,
+    // where `stop_details.explanation` supplies one.
+    let body = json!({
+        "output": { "message": { "role": "assistant", "content": [] } },
+        "stopReason": "refusal",
+        "usage": { "inputTokens": 12, "outputTokens": 0, "totalTokens": 12 },
+    });
+
+    let error = complete_error(support::base_request(&selector()), &body).await;
+
+    assert_eq!(error.provider_code(), Some("refusal"));
+    assert_eq!(error.data().raw_data.as_ref(), Some(&body));
+    crate::json_snapshot!(error.data());
+}
+
+#[tokio::test]
+async fn a_streamed_refusal_fails_before_the_stream_completes() {
+    // The streaming half of the same contract. `messageStop` carries the stop
+    // reason, so the stream fails there, before the terminal `metadata` event
+    // can complete it as a success.
+    let frames = vec![
+        support::bedrock_event_frame("messageStart", &json!({ "role": "assistant" })),
+        support::bedrock_event_frame("messageStop", &json!({ "stopReason": "refusal" })),
+        support::bedrock_event_frame(
+            "metadata",
+            &json!({ "usage": { "inputTokens": 12, "outputTokens": 0 } }),
+        ),
+    ];
+
+    let (_capture, events) = stream(support::base_request(&selector()), &frames).await;
+
+    support::assert_stream_contract(&events);
+    let failures: Vec<&Value> = events
+        .iter()
+        .filter(|event| event["type"] == "error")
+        .collect();
+    let [failure] = failures.as_slice() else {
+        panic!("expected exactly one error item, got {events:#?}");
+    };
+    assert_eq!(failure["error"]["kind"], "content_filter");
+    assert_eq!(failure["error"]["provider_code"], "refusal");
+    assert!(
+        !events.iter().any(|event| event["type"] == "completed"),
+        "a refused stream must not complete"
+    );
+    crate::json_snapshot!(events);
+}
+
+#[tokio::test]
+async fn a_context_window_stop_decodes_as_length() {
+    // Converse's own name for a generation that ran out of context. It is the
+    // same outcome as `max_tokens`, so it normalizes to the same finish
+    // reason instead of an unrecognized one.
+    let mut body = text_response();
+    body["stopReason"] = json!("model_context_window_exceeded");
+
+    let (_capture, response) = complete(support::base_request(&selector()), &body).await;
+
+    assert_eq!(response.finish_reason, FinishReason::Length);
+    crate::json_snapshot!(response);
+}
+
+/// A conversation replaying one historical tool call and its result.
+fn replayed_tool_request(name: &str, id: &str) -> Request {
+    Request::builder()
+        .model(selector())
+        .user("What is the weather in Paris?")
+        .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+            ToolCall::function(id, name, json!({ "city": "Paris" })),
+        )]))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: id.to_owned(),
+                name:         Some(name.to_owned()),
+                content:      vec![ContentPart::Text {
+                    text: "18C and clear".to_owned(),
+                }],
+                is_error:     false,
+            },
+        )]))
+        .build()
+        .expect("the replayed tool request should build")
+}
+
+#[tokio::test]
+async fn refuses_historical_tool_identifiers_converse_rejects() {
+    // INTENTIONAL DIFFERENCE. The reference rewrote a foreign tool name or id
+    // onto the Converse character set with a hash suffix. Rewriting is lossy —
+    // `mcp.server.tool` and `mcp_server_tool` collapse onto one value, and a
+    // rewritten id no longer matches the call the caller holds — so the
+    // request is refused with the offending value named instead.
+    //
+    // A conversation that began on another provider is where this bites: a
+    // dotted Gemini tool name or an over-long id would otherwise die at AWS
+    // with an opaque ValidationException.
+    let dotted = refuse(replayed_tool_request("mcp.server.tool", "call_1")).await;
+    assert_eq!(dotted.provider_code(), Some("unsupported_capability"));
+
+    let long_id = refuse(replayed_tool_request("get_weather", &"a".repeat(65))).await;
+    assert_eq!(long_id.provider_code(), Some("unsupported_capability"));
+
+    crate::json_snapshot!(json!({
+        "dotted_name": dotted.data(),
+        "over_long_id": long_id.data(),
+    }));
+}
+
+#[tokio::test]
+async fn a_replayed_tool_call_id_keeps_its_dots_and_colons() {
+    // `toolUseId` allows `.` and `:` on top of the tool-name set, so an id in
+    // that shape replays unchanged rather than being refused or rewritten.
+    let (capture, _) = complete(
+        replayed_tool_request("get_weather", "functions.get_weather:4"),
+        &text_response(),
+    )
+    .await;
+
+    assert_eq!(
+        capture.body["messages"][1]["content"][0]["toolUse"]["toolUseId"],
+        "functions.get_weather:4"
+    );
+    crate::json_snapshot!(capture);
+}
+
+#[tokio::test]
+async fn tool_result_content_keeps_json_and_drops_reasoning() {
+    // INTENTIONAL DIFFERENCE from this crate's own earlier behavior, not from
+    // the reference. `toolResult.content` is a block list whose members
+    // include `json`, so structured results reach the model as themselves and
+    // no flattening warning is due. Reasoning has no member of that union: it
+    // is dropped rather than encoded as a `reasoningContent` block Converse
+    // would reject, and the drop is reported.
+    let request = Request::builder()
+        .model(selector())
+        .user("Chart the quarters.")
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: "call_chart".to_owned(),
+                name:         Some("chart".to_owned()),
+                content:      vec![
+                    ContentPart::Json {
+                        value: json!({ "quarters": [1, 2] }),
+                    },
+                    ContentPart::Reasoning(ReasoningContent {
+                        text:      "the third quarter is the outlier".to_owned(),
+                        signature: None,
+                        redacted:  false,
+                    }),
+                ],
+                is_error:     false,
+            },
+        )]))
+        .build()
+        .expect("the tool result request should build");
+
+    let (capture, response) = complete(request, &text_response()).await;
+
+    let body = capture.body.to_string();
+    assert!(body.contains("quarters"), "{body}");
+    assert!(!body.contains("reasoningContent"), "{body}");
+    let codes: Vec<&str> = response
+        .warnings
+        .iter()
+        .map(|warning| warning.code.as_str())
+        .collect();
+    assert_eq!(codes, ["unsupported_control"]);
+    crate::json_snapshot!(capture);
+    crate::json_snapshot!(response);
+}
+
 /// Two user turns and one tool, so every cache-point position has a home.
 fn caching_request(auto_cache: Option<bool>) -> Request {
     let mut builder = Request::builder()
@@ -553,6 +764,26 @@ async fn auto_cache_false_sends_no_cache_points() {
     let body = capture.body.to_string();
     assert!(!body.contains("cachePoint"), "{body}");
     assert!(!body.contains("auto_cache"), "{body}");
+    crate::json_snapshot!(capture);
+}
+
+/// The capabilities of a hosted family that cannot cache.
+const NO_CACHING_CAPABILITIES: &str = "{ text = true, tools = true }";
+
+#[tokio::test]
+async fn a_model_that_cannot_cache_sends_no_cache_points() {
+    // Bedrock allows passthrough, so a caller can name any hosted family, and
+    // most of them have no prompt cache. A `cachePoint` block is not ignored
+    // by such a family: Converse rejects the whole request with a
+    // ValidationException, so every call to a Llama, Mistral, or DeepSeek
+    // model would fail. The caller's `auto_cache` control is a veto on top of
+    // this, not a substitute for it.
+    let provider = wire_provider().with_capabilities(NO_CACHING_CAPABILITIES);
+
+    let (capture, _) = complete_for(&provider, caching_request(None), &text_response()).await;
+
+    let body = capture.body.to_string();
+    assert!(!body.contains("cachePoint"), "{body}");
     crate::json_snapshot!(capture);
 }
 
@@ -711,6 +942,40 @@ async fn streams_text_reasoning_and_a_tool_call() {
     assert!(completed["response"].get("raw").is_none());
 
     crate::json_snapshot!(capture);
+    crate::json_snapshot!(events);
+}
+
+#[tokio::test]
+async fn an_empty_text_delta_opens_no_text_block() {
+    // The reference suppressed an empty text delta. Passing it on opens a text
+    // block that carries no text, and the completed response ends with an
+    // empty part that re-encodes to nothing on the next turn.
+    let frames = vec![
+        support::bedrock_event_frame("messageStart", &json!({ "role": "assistant" })),
+        support::bedrock_event_frame(
+            "contentBlockDelta",
+            &json!({ "contentBlockIndex": 0, "delta": { "text": "" } }),
+        ),
+        support::bedrock_event_frame("contentBlockStop", &json!({ "contentBlockIndex": 0 })),
+        support::bedrock_event_frame("messageStop", &json!({ "stopReason": "end_turn" })),
+        support::bedrock_event_frame(
+            "metadata",
+            &json!({ "usage": { "inputTokens": 12, "outputTokens": 0 } }),
+        ),
+    ];
+
+    let (_capture, events) = stream(support::base_request(&selector()), &frames).await;
+
+    support::assert_stream_contract(&events);
+    assert!(
+        !events
+            .iter()
+            .any(|event| event["type"] == "text_delta" || event["type"] == "text_start"),
+        "an empty delta must open no text block: {events:#?}"
+    );
+    let completed = events.last().expect("the stream should produce events");
+    assert_eq!(completed["type"], "completed");
+    assert_eq!(completed["response"]["content"], json!([]));
     crate::json_snapshot!(events);
 }
 

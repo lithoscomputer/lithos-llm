@@ -1,0 +1,25 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+[
+  {
+    "id": null,
+    "type": "started"
+  },
+  {
+    "error": {
+      "kind": "content_filter",
+      "message": "provider bedrock refused the request",
+      "provider": "bedrock",
+      "provider_code": "refusal",
+      "raw_data": {
+        "stopReason": "refusal"
+      },
+      "retry": {
+        "type": "never"
+      }
+    },
+    "type": "error"
+  }
+]

@@ -1,0 +1,27 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "kind": "content_filter",
+  "message": "provider bedrock refused the request",
+  "provider": "bedrock",
+  "provider_code": "refusal",
+  "retry": {
+    "type": "never"
+  },
+  "raw_data": {
+    "output": {
+      "message": {
+        "content": [],
+        "role": "assistant"
+      }
+    },
+    "stopReason": "refusal",
+    "usage": {
+      "inputTokens": 12,
+      "outputTokens": 0,
+      "totalTokens": 12
+    }
+  }
+}

@@ -1,0 +1,80 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "368"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "toolUse": {
+              "input": {
+                "city": "Paris"
+              },
+              "name": "get_weather",
+              "toolUseId": "functions.get_weather:4"
+            }
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "toolResult": {
+              "content": [
+                {
+                  "text": "18C and clear"
+                }
+              ],
+              "toolUseId": "functions.get_weather:4"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  }
+}

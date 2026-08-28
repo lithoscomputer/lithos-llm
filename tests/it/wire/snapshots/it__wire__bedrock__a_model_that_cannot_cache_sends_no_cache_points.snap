@@ -1,0 +1,93 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "476"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the capital of France?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Paris."
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "And of Spain?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "system": [
+      {
+        "text": "Keep it short."
+      }
+    ],
+    "toolConfig": {
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_weather"
+          }
+        }
+      ]
+    }
+  }
+}

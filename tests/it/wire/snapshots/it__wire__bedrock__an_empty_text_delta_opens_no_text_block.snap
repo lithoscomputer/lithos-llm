@@ -1,0 +1,39 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+[
+  {
+    "id": null,
+    "type": "started"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 12,
+      "output": 0,
+      "reasoning": 0
+    }
+  },
+  {
+    "response": {
+      "content": [],
+      "finish_reason": "stop",
+      "id": null,
+      "model": {
+        "model": "sonnet",
+        "provider": "bedrock"
+      },
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 12,
+        "output": 0,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

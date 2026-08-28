@@ -47,22 +47,23 @@ impl Codec for BedrockConverseCodec {
         })?;
         reject_unnameable_tools(request, route)?;
         let (options, controls) = wire_options(call);
+        let cached = caches(route, controls.auto_cache);
 
         let mut body = Map::new();
-        let system = system_blocks(request, controls.auto_cache);
+        let system = system_blocks(request, cached);
         if !system.is_empty() {
             body.insert("system".to_owned(), Value::Array(system));
         }
         body.insert(
             "messages".to_owned(),
-            Value::Array(conversation(request, route, controls.auto_cache)?),
+            Value::Array(conversation(request, route, cached)?),
         );
 
         let inference = inference_config(request);
         if !inference.is_empty() {
             body.insert("inferenceConfig".to_owned(), Value::Object(inference));
         }
-        if let Some(tool_config) = tool_config(request, controls.auto_cache) {
+        if let Some(tool_config) = tool_config(request, cached) {
             body.insert("toolConfig".to_owned(), tool_config);
         }
         if let Some(effort) = request.reasoning_effort() {
@@ -113,8 +114,13 @@ impl Codec for BedrockConverseCodec {
         if flattens_system_content(request) {
             encoded = encoded.unsupported_control("non-text system content");
         }
-        if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
-            encoded = encoded.unsupported_control("non-text tool result content");
+        // `toolResult.content` is a block list of its own, so text, structured
+        // JSON, images, and documents all reach the model as themselves. Only
+        // a part with no member of that union — reasoning, most of all — is
+        // dropped, and only that is worth reporting.
+        if flattens_tool_result_content(request, carries_in_tool_result) {
+            encoded =
+                encoded.unsupported_control("tool result content outside text, JSON, and media");
         }
         Ok(encoded)
     }
@@ -188,14 +194,16 @@ fn encode_count_tokens(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
     reject_unencodable(route, request, |part| {
         matches!(part, ContentPart::Audio(_)).then_some("audio content")
     })?;
+    reject_unnameable_tools(request, route)?;
     let (_, controls) = wire_options(call);
+    let cached = caches(route, controls.auto_cache);
 
     let mut converse = Map::new();
     converse.insert(
         "messages".to_owned(),
-        Value::Array(conversation(request, route, controls.auto_cache)?),
+        Value::Array(conversation(request, route, cached)?),
     );
-    let system = system_blocks(request, controls.auto_cache);
+    let system = system_blocks(request, cached);
     if !system.is_empty() {
         converse.insert("system".to_owned(), Value::Array(system));
     }
@@ -240,15 +248,41 @@ fn cache_point() -> Value {
     json!({ "cachePoint": { "type": "default" } })
 }
 
+/// Whether this call may carry `cachePoint` markers.
+///
+/// Bedrock fronts many model families and the catalog lets a caller name any
+/// of them, so the model's own declared support decides this and not the
+/// provider: a family that cannot cache rejects the whole request with a
+/// ValidationException rather than ignoring the marker. `auto_cache` is the
+/// caller's separate veto over markers this codec adds on its own.
+fn caches(route: &ResolvedRoute, auto_cache: bool) -> bool {
+    auto_cache && route.model().capabilities().caching
+}
+
+/// Whether `toolResult.content` has a block for this part.
+///
+/// The Converse tool-result union takes text, structured JSON, images, and
+/// documents, so all four reach the model as themselves. Anything else —
+/// reasoning above all — has no member of that union and is dropped.
+fn carries_in_tool_result(part: &ContentPart) -> bool {
+    matches!(
+        part,
+        ContentPart::Text { .. }
+            | ContentPart::Json { .. }
+            | ContentPart::Image(_)
+            | ContentPart::Document(_)
+    )
+}
+
 /// The system blocks, with a cache point after the prompt when caching is on.
-fn system_blocks(request: &Request, auto_cache: bool) -> Vec<Value> {
+fn system_blocks(request: &Request, cached: bool) -> Vec<Value> {
     let system = system_text(request.messages());
     if system.is_empty() {
         return Vec::new();
     }
 
     let mut blocks = vec![json!({ "text": system })];
-    if auto_cache {
+    if cached {
         blocks.push(cache_point());
     }
     blocks
@@ -262,7 +296,7 @@ fn system_blocks(request: &Request, auto_cache: bool) -> Vec<Value> {
 fn conversation(
     request: &Request,
     route: &ResolvedRoute,
-    auto_cache: bool,
+    cached: bool,
 ) -> Result<Vec<Value>, Error> {
     let mut messages: Vec<Value> = Vec::new();
     for message in request.messages() {
@@ -309,7 +343,7 @@ fn conversation(
         }
     }
 
-    if auto_cache {
+    if cached {
         place_conversation_cache_point(&mut messages);
     }
     Ok(messages)
@@ -452,16 +486,24 @@ fn encode_tool_call(call: &ToolCall) -> Value {
 }
 
 /// Encodes a tool result as a `toolResult` block.
+///
+/// A part the tool-result union has no member for is skipped rather than
+/// encoded as the block it would become in a message. A reasoning part would
+/// otherwise become a `reasoningContent` block inside `toolResult`, which
+/// Converse rejects, and the whole request would fail over one replayed part.
+/// The caller is told about the drop by the `unsupported_control` warning
+/// [`carries_in_tool_result`] drives.
 fn encode_tool_result(result: &ToolResult, route: &ResolvedRoute) -> Result<Value, Error> {
     let mut blocks = Vec::new();
     for part in &result.content {
         match part {
             ContentPart::Json { value } => blocks.push(json!({ "json": value })),
-            other => {
+            other if carries_in_tool_result(other) => {
                 if let Some(block) = encode_content_part(other, route)? {
                     blocks.push(block);
                 }
             }
+            _ => {}
         }
     }
     if blocks.is_empty() {
@@ -547,43 +589,97 @@ fn inference_config(request: &Request) -> Map<String, Value> {
     inference
 }
 
-/// The `toolConfig` object, with a cache point after the last tool.
+/// The longest tool name or tool-call id Converse accepts.
+const TOOL_IDENTIFIER_MAX: usize = 64;
+
+/// Converse validates a tool name against `^[a-zA-Z0-9_-]{1,64}$` and a
+/// `toolUseId` against the same set plus `.` and `:`.
 ///
-/// Converse has no "call no tool" choice, so `ToolChoice::None` drops the whole
-/// tool configuration: withholding the tools is the only faithful encoding.
-/// Converse validates a tool name against `^[a-zA-Z0-9_-]{1,64}$`.
+/// Every tool identifier the request would send is checked here: the tool
+/// definitions, and the names and ids of the tool calls and tool results
+/// already in the message history. History matters as much as the definitions,
+/// because a conversation that began on another provider carries that
+/// provider's identifiers — a dotted Gemini tool name, or an id longer than
+/// Converse allows — and the whole replayed request would die at AWS with an
+/// opaque ValidationException.
 ///
-/// A name outside that set is refused here rather than rewritten. Rewriting is
-/// lossy — `mcp.server.tool` and `mcp_server_tool` both become the same thing,
-/// so a decoded tool call could not be mapped back to the tool the caller
-/// registered. A caller with dotted names owns that mapping, because only they
-/// can undo it.
+/// An identifier outside the set is refused here rather than rewritten.
+/// Rewriting is lossy — `mcp.server.tool` and `mcp_server_tool` both become the
+/// same thing, so a decoded tool call could not be mapped back to the tool the
+/// caller registered, and a rewritten id no longer matches the call the caller
+/// holds. A caller with such names owns that mapping, because only they can
+/// undo it. This is the deliberate departure from the reference, which
+/// rewrote both with a hash suffix.
 ///
 /// # Errors
 ///
-/// Returns [`ErrorKind::InvalidRequest`] naming the first offending tool.
+/// Returns [`ErrorKind::InvalidRequest`] naming the first offending identifier.
 fn reject_unnameable_tools(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
     for tool in request.tools() {
-        let valid = !tool.name.is_empty()
-            && tool.name.len() <= 64
-            && tool
-                .name
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'));
-        if !valid {
-            return Err(unsupported_capability(
-                route,
-                &format!(
-                    "the tool name `{}`, which must match ^[a-zA-Z0-9_-]{{1,64}}$",
-                    tool.name
-                ),
-            ));
+        reject_tool_name(&tool.name, route)?;
+    }
+    for message in request.messages() {
+        if let Some(tool_call_id) = message.tool_call_id() {
+            reject_tool_call_id(tool_call_id, route)?;
+        }
+        for part in message.content() {
+            match part {
+                ContentPart::ToolCall(call) => {
+                    reject_tool_name(&call.name, route)?;
+                    reject_tool_call_id(&call.id, route)?;
+                }
+                ContentPart::ToolResult(result) => {
+                    reject_tool_call_id(&result.tool_call_id, route)?;
+                }
+                _ => {}
+            }
         }
     }
     Ok(())
 }
 
-fn tool_config(request: &Request, auto_cache: bool) -> Option<Value> {
+/// Refuses a tool name outside `^[a-zA-Z0-9_-]{1,64}$`.
+fn reject_tool_name(name: &str, route: &ResolvedRoute) -> Result<(), Error> {
+    reject_tool_identifier(name, route, "tool name", "^[a-zA-Z0-9_-]{1,64}$", |byte| {
+        byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')
+    })
+}
+
+/// Refuses a `toolUseId` outside `^[a-zA-Z0-9_.:-]{1,64}$`.
+fn reject_tool_call_id(id: &str, route: &ResolvedRoute) -> Result<(), Error> {
+    reject_tool_identifier(
+        id,
+        route,
+        "tool call id",
+        "^[a-zA-Z0-9_.:-]{1,64}$",
+        |byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b':'),
+    )
+}
+
+/// Refuses one tool identifier, naming the value and the pattern it must match.
+fn reject_tool_identifier(
+    value: &str,
+    route: &ResolvedRoute,
+    kind: &str,
+    pattern: &str,
+    allowed: fn(u8) -> bool,
+) -> Result<(), Error> {
+    let valid =
+        !value.is_empty() && value.len() <= TOOL_IDENTIFIER_MAX && value.bytes().all(allowed);
+    if valid {
+        return Ok(());
+    }
+    Err(unsupported_capability(
+        route,
+        &format!("the {kind} `{value}`, which must match {pattern}"),
+    ))
+}
+
+/// The `toolConfig` object, with a cache point after the last tool.
+///
+/// Converse has no "call no tool" choice, so `ToolChoice::None` drops the whole
+/// tool configuration: withholding the tools is the only faithful encoding.
+fn tool_config(request: &Request, cached: bool) -> Option<Value> {
     if request.tools().is_empty() || matches!(request.tool_choice(), Some(ToolChoice::None)) {
         return None;
     }
@@ -607,7 +703,7 @@ fn tool_config(request: &Request, auto_cache: bool) -> Option<Value> {
             })
         })
         .collect();
-    if auto_cache {
+    if cached {
         entries.push(cache_point());
     }
 
@@ -654,9 +750,15 @@ fn bedrock_effort(effort: ReasoningEffort) -> &'static str {
 }
 
 /// Maps a Converse `stopReason` onto the normalized finish reason.
+///
+/// `model_context_window_exceeded` is Converse's own name for a generation that
+/// ran out of context, which is the same outcome as `max_tokens` and so maps
+/// onto the same reason. `refusal` never reaches here: both decode paths fail
+/// the call before they ask for a finish reason.
 fn stop_reason(reason: Option<&str>) -> FinishReason {
     match reason {
         Some("stop_sequence") => FinishReason::Stop,
+        Some("model_context_window_exceeded") => FinishReason::Length,
         Some("content_filtered" | "guardrail_intervened") => FinishReason::ContentFilter,
         other => finish_reason(other),
     }
@@ -825,7 +927,12 @@ impl BedrockStreamDecoder {
         };
 
         let mut events = Vec::new();
-        if let Some(text) = delta.get("text").and_then(Value::as_str) {
+        // An empty text delta says nothing. Passing it on would open a text
+        // block that carries no text, and the assembled response would end with
+        // an empty part that re-encodes to nothing.
+        if let Some(text) = delta.get("text").and_then(Value::as_str)
+            && !text.is_empty()
+        {
             events.extend(self.assembler.text(&id, text));
         }
         if let Some(chunk) = delta.pointer("/toolUse/input").and_then(Value::as_str) {
@@ -923,7 +1030,7 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::{BedrockConverseCodec, Codec};
-    use crate::codecs::test_support::resolved;
+    use crate::codecs::test_support::{resolved, resolved_in};
     use crate::transport::SseEvent;
     use crate::types::{
         ContentPart, DocumentContent, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
@@ -1297,6 +1404,72 @@ mod tests {
         Ok(())
     }
 
+    /// A Bedrock provider whose one model declares no prompt caching.
+    ///
+    /// Bedrock allows passthrough, so a caller can name any hosted family, and
+    /// most of them cannot cache. The built-in catalog carries no such entry,
+    /// so this test catalog supplies one.
+    const UNCACHED_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.bedrock]
+        display_name = "Amazon Bedrock"
+        adapter = "bedrock"
+        codec = "bedrock-converse"
+        base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+        default_model = "llama"
+        auth = { type = "none" }
+
+        [providers.bedrock.models.llama]
+        display_name = "Llama 3 70B"
+        api_model = "meta.llama3-70b-instruct-v1:0"
+        capabilities = { text = true, tools = true }
+    "#;
+
+    #[test]
+    fn a_model_that_cannot_cache_gets_no_cache_points() -> Result<(), Box<dyn StdError>> {
+        // A `cachePoint` block is not ignored by a family that cannot cache:
+        // Converse rejects the whole request with a ValidationException, so
+        // every call to such a model would fail.
+        let mut builder = Request::builder()
+            .model("bedrock/llama")
+            .system("Be brief")
+            .user("First")
+            .message(Message::text(Role::Assistant, "Answer"))
+            .user("Second")
+            .tool(ToolDefinition::function("search", "Searches", json!({})));
+        builder = builder.max_output_tokens(64);
+        let call = resolved_in(UNCACHED_CATALOG, builder.build()?)?;
+
+        let body = BedrockConverseCodec.encode(&call, false)?.body;
+        assert!(!body.to_string().contains("cachePoint"), "{body}");
+
+        // The count-tokens body describes the same prompt, so it drops the
+        // markers with it.
+        let counted = BedrockConverseCodec
+            .encode_count_tokens(&call)
+            .ok_or("expected Bedrock to have a count-tokens endpoint")??;
+        assert!(
+            !counted.body.to_string().contains("cachePoint"),
+            "{}",
+            counted.body
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_context_window_stop_is_a_length_finish() -> Result<(), Box<dyn StdError>> {
+        // Converse's own name for a generation that ran out of context. It is
+        // the same outcome as `max_tokens`, so it maps onto the same reason.
+        let response = decoded(json!({
+            "output": { "message": { "content": [{ "text": "Partial" }] } },
+            "stopReason": "model_context_window_exceeded",
+        }))?;
+
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        Ok(())
+    }
+
     #[test]
     fn redacted_reasoning_round_trips_through_the_blocking_path() -> Result<(), Box<dyn StdError>> {
         let response = decoded(json!({
@@ -1524,6 +1697,36 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_text_delta_opens_no_text_block() -> Result<(), Box<dyn StdError>> {
+        // An empty delta says nothing. Passing it on opened a text block that
+        // carried no text, and the completed response ended with an empty part
+        // that re-encodes to nothing.
+        let events = streamed(&[
+            ("messageStart", json!({ "role": "assistant" })),
+            (
+                "contentBlockDelta",
+                json!({ "contentBlockIndex": 0, "delta": { "text": "" } }),
+            ),
+            ("contentBlockStop", json!({ "contentBlockIndex": 0 })),
+            ("messageStop", json!({ "stopReason": "end_turn" })),
+            ("metadata", json!({ "usage": { "inputTokens": 3 } })),
+        ])?;
+
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, StreamEvent::TextDelta { .. })),
+            "{events:?}"
+        );
+        let responses = completed(&events);
+        let [response] = responses.as_slice() else {
+            return Err(format!("expected one Completed, got {}", responses.len()).into());
+        };
+        assert!(response.content.is_empty(), "{:?}", response.content);
+        Ok(())
+    }
+
+    #[test]
     fn an_unlabelled_frame_falls_back_to_its_single_top_level_key() -> Result<(), Box<dyn StdError>>
     {
         let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
@@ -1671,9 +1874,12 @@ mod tests {
     }
 
     #[test]
-    fn a_json_tool_result_warns_that_it_is_flattened() -> Result<(), Box<dyn StdError>> {
-        // Structured JSON is the easy one to miss: it is not media, but the
-        // text flattening drops it just the same.
+    fn a_json_tool_result_reaches_the_wire_unflattened() -> Result<(), Box<dyn StdError>> {
+        // `toolResult.content` is a block list, and one of its members is
+        // `json`, so structured JSON reaches the model as itself. Warning
+        // about it said the opposite of what the encoder does, and every
+        // agent-loop request with a structured result carried the false
+        // warning.
         let request = Request::builder()
             .model(MODEL)
             .user("Chart it.")
@@ -1689,9 +1895,51 @@ mod tests {
             )]))
             .build()?;
 
-        let codes = warnings_for(request)?;
+        let codes = warnings_for(request.clone())?;
+        assert!(codes.is_empty(), "{codes:?}");
 
+        let body = encoded(request)?;
+        assert_eq!(
+            body["messages"][0]["content"][1]["toolResult"]["content"][0]["json"],
+            json!({ "quarters": [1, 2] })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_reasoning_tool_result_part_is_dropped_and_reported() -> Result<(), Box<dyn StdError>> {
+        // `reasoningContent` has no member of the tool-result union, so
+        // encoding it there made Converse reject the whole request. The part
+        // is dropped and the caller is told, which is the rule for content the
+        // protocol cannot carry.
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Chart it.")
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: "call-1".to_owned(),
+                    name:         Some("chart".to_owned()),
+                    content:      vec![
+                        ContentPart::Reasoning(ReasoningContent {
+                            text:      "the third quarter is the outlier".to_owned(),
+                            signature: None,
+                            redacted:  false,
+                        }),
+                        ContentPart::Text {
+                            text: "Q3 leads.".to_owned(),
+                        },
+                    ],
+                    is_error:     false,
+                },
+            )]))
+            .build()?;
+
+        let codes = warnings_for(request.clone())?;
         assert_eq!(codes, ["unsupported_control"]);
+
+        let body = encoded(request)?;
+        let content = &body["messages"][0]["content"][1]["toolResult"]["content"];
+        assert_eq!(content, &json!([{ "text": "Q3 leads." }]));
         Ok(())
     }
 
@@ -1738,6 +1986,111 @@ mod tests {
             body["toolConfig"]["tools"][0]["toolSpec"]["name"],
             "mcp_server_tool-2"
         );
+        Ok(())
+    }
+
+    /// A conversation replaying one historical tool call and its result.
+    fn replayed_tool_request(name: &str, id: &str) -> Result<Request, Box<dyn StdError>> {
+        Ok(Request::builder()
+            .model(MODEL)
+            .user("What is the weather?")
+            .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                ToolCall::function(id, name, json!({ "city": "Paris" })),
+            )]))
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: id.to_owned(),
+                    name:         Some(name.to_owned()),
+                    content:      vec![ContentPart::Text {
+                        text: "18C".to_owned(),
+                    }],
+                    is_error:     false,
+                },
+            )]))
+            .build()?)
+    }
+
+    #[test]
+    fn refuses_a_historical_tool_name_converse_rejects() -> Result<(), Box<dyn StdError>> {
+        // A conversation that began on another provider carries that
+        // provider's identifiers. Sending a dotted name back to Converse dies
+        // at AWS with an opaque ValidationException, so it is refused here
+        // with the offending value named.
+        let request = replayed_tool_request("mcp.server.tool", "call_1")?;
+
+        let Err(error) = BedrockConverseCodec.encode(&resolved(request)?, false) else {
+            panic!("a historical tool name Converse rejects should be refused");
+        };
+
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert_eq!(error.provider_code(), Some("unsupported_capability"));
+        assert!(error.message().contains("mcp.server.tool"), "{error}");
+        Ok(())
+    }
+
+    #[test]
+    fn refuses_a_historical_tool_call_id_converse_rejects() -> Result<(), Box<dyn StdError>> {
+        // 65 characters, one over the Converse limit. Counting is the whole
+        // check here: every character is allowed.
+        let long_id = "a".repeat(65);
+        let request = replayed_tool_request("get_weather", &long_id)?;
+        let call = resolved(request)?;
+
+        let Err(error) = BedrockConverseCodec.encode(&call, false) else {
+            panic!("a historical tool call id Converse rejects should be refused");
+        };
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert!(error.message().contains(&long_id), "{error}");
+
+        // Counting sends the same message blocks, so it refuses the same
+        // request rather than returning a count for a call that cannot be
+        // made.
+        let counted = BedrockConverseCodec
+            .encode_count_tokens(&call)
+            .ok_or("expected Bedrock to have a count-tokens endpoint")?;
+        assert_eq!(
+            counted.err().map(|error| error.kind()),
+            Some(ErrorKind::InvalidRequest)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn accepts_a_tool_call_id_with_dots_and_colons() -> Result<(), Box<dyn StdError>> {
+        // `toolUseId` allows `.` and `:` on top of the tool-name set, so an id
+        // in that shape replays unchanged.
+        let body = encoded(replayed_tool_request(
+            "get_weather",
+            "functions.get_weather:4",
+        )?)?;
+
+        assert_eq!(
+            body["messages"][1]["content"][0]["toolUse"]["toolUseId"],
+            "functions.get_weather:4"
+        );
+        assert_eq!(
+            body["messages"][2]["content"][0]["toolResult"]["toolUseId"],
+            "functions.get_weather:4"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn refuses_a_tool_call_id_on_a_tool_message() -> Result<(), Box<dyn StdError>> {
+        // A tool result can ride on the message rather than in a `ToolResult`
+        // part, and that id reaches the wire the same way.
+        let request = Request::builder()
+            .model(MODEL)
+            .user("What is the weather?")
+            .message(Message::text(Role::Tool, "18C").with_tool_call_id("call one"))
+            .build()?;
+
+        let Err(error) = BedrockConverseCodec.encode(&resolved(request)?, false) else {
+            panic!("a message tool call id Converse rejects should be refused");
+        };
+
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert!(error.message().contains("call one"), "{error}");
         Ok(())
     }
 

@@ -1,0 +1,61 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "155"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Chart the quarters."
+          },
+          {
+            "toolResult": {
+              "content": [
+                {
+                  "json": {
+                    "quarters": [
+                      1,
+                      2
+                    ]
+                  }
+                }
+              ],
+              "toolUseId": "call_chart"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  }
+}
