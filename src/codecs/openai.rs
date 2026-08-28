@@ -97,7 +97,7 @@ impl Codec for OpenAiResponsesCodec {
             encoded = encoded.unsupported_control("replaying reasoning text");
         }
 
-        if flattens_tool_result_content(request) {
+        if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
 

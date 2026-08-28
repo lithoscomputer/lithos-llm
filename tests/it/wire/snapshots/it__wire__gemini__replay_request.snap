@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/gemini.rs
+assertion_line: 623
 expression: rendered
 ---
 {
@@ -12,7 +13,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "648"
+      "631"
     ],
     [
       "content-type",
@@ -66,7 +67,6 @@ expression: rendered
               "id": "call_replay",
               "name": "get_weather",
               "response": {
-                "is_error": false,
                 "output": "18C and clear"
               }
             }

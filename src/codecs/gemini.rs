@@ -47,7 +47,9 @@ impl Codec for GeminiGenerateCodec {
         if !call.request().metadata().is_empty() {
             encoded = encoded.unsupported_control("request metadata");
         }
-        if flattens_tool_result_content(call.request()) {
+        if flattens_tool_result_content(call.request(), |part| {
+            matches!(part, ContentPart::Text { .. })
+        }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)
@@ -334,15 +336,24 @@ fn encode_tool_call(call: &ToolCall) -> Value {
 }
 
 /// Encodes a tool result as the function response that answers a call.
+///
+/// `response` is a free-form struct, and Google's guidance is to report a
+/// failure under an `error` key and a success under `output`. Following that
+/// convention matters because the model reads this payload: a key it
+/// recognizes as an error reads as one, where a boolean flag beside an
+/// `output` value reads as ordinary output.
 fn encode_tool_result(result: &ToolResult) -> Value {
+    let text = plain_text(&result.content);
+    let response = if result.is_error {
+        json!({ "error": text })
+    } else {
+        json!({ "output": text })
+    };
     json!({
         "functionResponse": {
             "id": result.tool_call_id,
             "name": result.name.as_deref().unwrap_or(&result.tool_call_id),
-            "response": {
-                "output": plain_text(&result.content),
-                "is_error": result.is_error,
-            },
+            "response": response,
         }
     })
 }
@@ -1057,6 +1068,34 @@ mod tests {
         assert_eq!(error.kind(), ErrorKind::RateLimit);
         assert_eq!(error.provider_code(), Some("RESOURCE_EXHAUSTED"));
         assert!(decoder.finish()?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn a_failed_tool_result_uses_googles_error_key() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model("gemini/gemini-2.5-pro")
+            .user("Look it up.")
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: "call-1".to_owned(),
+                    name:         Some("weather".to_owned()),
+                    content:      vec![ContentPart::Text {
+                        text: "the city is unknown".to_owned(),
+                    }],
+                    is_error:     true,
+                },
+            )]))
+            .build()?;
+
+        let encoded = GeminiGenerateCodec.encode(&resolved(request)?, false)?;
+
+        let response = &encoded.body["contents"][0]["parts"][1]["functionResponse"]["response"];
+        assert_eq!(response, &json!({ "error": "the city is unknown" }));
+        assert!(
+            response.get("is_error").is_none(),
+            "a boolean flag beside `output` reads to the model as ordinary output"
+        );
         Ok(())
     }
 }

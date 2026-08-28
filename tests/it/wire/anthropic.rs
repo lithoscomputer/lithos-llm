@@ -625,7 +625,7 @@ fn image_tool_result_request(model: &str) -> Request {
 }
 
 #[tokio::test]
-async fn drops_non_text_tool_result_content() {
+async fn keeps_an_image_a_tool_returned() {
     let server = MockServer::start_async().await;
     let (client, model) = client_for(&server);
     let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
@@ -637,29 +637,29 @@ async fn drops_non_text_tool_result_content() {
 
     let captured = support::captured(&slot);
     let result = &captured.body["messages"][2]["content"][0];
-    // `tool_result.content` is flattened to the concatenated TEXT parts, so
-    // the image the tool returned never reaches the model.
-    assert_eq!(result["content"], json!("Here is the chart."));
-    assert!(!captured.body.to_string().contains("Y2hhcnQtYnl0ZXM="));
-
-    // The loss is reported rather than silent. It is a warning and not a
-    // refusal because the text still reaches the model, so the answer is
-    // degraded rather than wrong — unlike audio, where nothing of the part
-    // survives and the call is refused outright.
-    assert_eq!(response.warnings.len(), 1);
-    assert_eq!(response.warnings[0].code, "unsupported_control");
-    assert!(
-        response.warnings[0]
-            .message
-            .contains("non-text tool result content"),
-        "{:?}",
-        response.warnings[0]
+    // `tool_result.content` takes an array of blocks here, not only a string,
+    // and it accepts image blocks. An image a tool produced reaches the model
+    // instead of being flattened away with the rest of the non-text content.
+    assert_eq!(result["content"][0]["type"], json!("text"));
+    assert_eq!(result["content"][0]["text"], json!("Here is the chart."));
+    assert_eq!(result["content"][1]["type"], json!("image"));
+    assert_eq!(
+        result["content"][1]["source"]["data"],
+        json!("Y2hhcnQtYnl0ZXM=")
     );
 
-    // KNOWN GAP, recorded at the fixture: Anthropic's `tool_result.content`
-    // genuinely accepts text AND image blocks, so this content could be
-    // encoded properly instead of warned about. Encoding it correctly moves
-    // this snapshot and drops the warning.
+    // Nothing was lost, so nothing is reported. The warning fires only for
+    // content this protocol genuinely cannot carry.
+    assert!(
+        response.warnings.is_empty(),
+        "content the codec carries must not warn: {:?}",
+        response.warnings
+    );
+
+    // This gap is now closed: the block array is what the protocol documents,
+    // and the warning it used to raise is gone. Snapshotting the empty warning
+    // list keeps that visible, so a regression that reintroduces flattening
+    // shows up as a warning appearing rather than only as a body diff.
     crate::json_snapshot!(captured);
     crate::json_snapshot!(response.warnings);
 }

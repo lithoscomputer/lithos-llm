@@ -321,9 +321,12 @@ async fn tool_round_trip_request() {
         .filter_map(|turn| turn["role"].as_str())
         .collect();
     assert_eq!(roles, ["user", "model", "user"]);
+    // Google's guidance reports a failure under an `error` key. The model
+    // reads this payload, and a key it recognizes as an error reads as one,
+    // where a boolean flag beside `output` reads as ordinary output.
     assert_eq!(
         contents[2]["parts"][1]["functionResponse"]["response"],
-        json!({ "output": "the city is unknown", "is_error": true })
+        json!({ "error": "the city is unknown" })
     );
 
     crate::json_snapshot!(request);
@@ -671,7 +674,7 @@ async fn a_tool_result_with_media_flattens_to_text_and_warns() {
     let result = &request.body["contents"][2]["parts"][0]["functionResponse"];
     assert_eq!(
         result["response"],
-        json!({ "output": "Revenue by quarter.", "is_error": false })
+        json!({ "output": "Revenue by quarter." })
     );
     assert!(
         !request.body.to_string().contains("Y2hhcnQtYnl0ZXM="),

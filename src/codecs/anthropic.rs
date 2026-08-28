@@ -88,7 +88,9 @@ impl Codec for AnthropicMessagesCodec {
         )
         .with_headers(version_headers())
         .with_timeout(request.timeout());
-        if flattens_tool_result_content(request) {
+        if flattens_tool_result_content(request, |part| {
+            matches!(part, ContentPart::Text { .. } | ContentPart::Image(_))
+        }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)
@@ -397,6 +399,44 @@ fn wire_messages(messages: &[Message]) -> Vec<WireMessage> {
     wire
 }
 
+/// Encodes the content a tool returned.
+///
+/// This protocol takes an array of blocks here, not just a string, and it
+/// accepts text and image blocks. Encoding them keeps an image a tool produced
+/// instead of flattening the result to its text and losing the picture.
+///
+/// A text-only result stays a plain string, which this protocol also accepts
+/// and which is what the overwhelming majority of results are. The block array
+/// appears only when a result carries something a string cannot hold, so the
+/// common case is unchanged.
+///
+/// Anything with no block of its own falls back to the flattened text, and
+/// `flattens_tool_result_content` reports whatever this cannot carry.
+fn tool_result_content(parts: &[ContentPart]) -> Value {
+    if parts
+        .iter()
+        .all(|part| matches!(part, ContentPart::Text { .. }))
+    {
+        return Value::String(plain_text(parts));
+    }
+
+    let blocks: Vec<Value> = parts
+        .iter()
+        .filter_map(|part| match part {
+            ContentPart::Text { text } => Some(json!({ "type": "text", "text": text })),
+            ContentPart::Image(image) => Some(json!({
+                "type": "image",
+                "source": media_source(&image.source),
+            })),
+            _ => None,
+        })
+        .collect();
+    if blocks.is_empty() {
+        return Value::String(plain_text(parts));
+    }
+    Value::Array(blocks)
+}
+
 /// Marks the conversation prefix so the next agent-loop turn reuses it.
 ///
 /// The breakpoint lands on the **second-to-last** user turn. The prefix that
@@ -475,7 +515,7 @@ fn content_block(part: &ContentPart) -> Option<Value> {
         ContentPart::ToolResult(result) => Some(json!({
             "type": "tool_result",
             "tool_use_id": result.tool_call_id,
-            "content": plain_text(&result.content),
+            "content": tool_result_content(&result.content),
             "is_error": result.is_error,
         })),
         // A part this codec produced replays verbatim; one belonging to another
@@ -782,7 +822,7 @@ mod tests {
     use crate::types::{
         ContentPart, ErrorKind, ImageContent, MediaSource, Message, ReasoningContent,
         ReasoningEffort, Request, ResponseFormat, Role, Speed, StreamEvent, ToolChoice,
-        ToolDefinition,
+        ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "anthropic/claude-sonnet-4-6";
@@ -1372,6 +1412,44 @@ mod tests {
 
         let tokens = codec.decode_count_tokens(call.route(), json!({ "input_tokens": 123 }))?;
         assert_eq!(tokens, 123);
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_result_image_becomes_a_block_and_does_not_warn() -> Result<(), Box<dyn StdError>> {
+        // `tool_result.content` takes an array of blocks here, so an image a
+        // tool produced survives instead of being flattened away.
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Chart it.")
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: "call-1".to_owned(),
+                    name:         Some("chart".to_owned()),
+                    content:      vec![
+                        ContentPart::Text {
+                            text: "Revenue by quarter.".to_owned(),
+                        },
+                        ContentPart::Image(ImageContent::new(MediaSource::base64(
+                            "aW1n",
+                            "image/png",
+                        ))),
+                    ],
+                    is_error:     false,
+                },
+            )]))
+            .build()?;
+
+        let encoded = AnthropicMessagesCodec.encode(&resolved(request)?, false)?;
+
+        let blocks = &encoded.body["messages"][0]["content"][1]["content"];
+        assert_eq!(blocks[0]["type"], "text");
+        assert_eq!(blocks[1]["type"], "image");
+        assert_eq!(blocks[1]["source"]["data"], "aW1n");
+        assert!(
+            encoded.warnings.is_empty(),
+            "content this codec carries must not warn"
+        );
         Ok(())
     }
 }

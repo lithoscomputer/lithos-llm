@@ -141,7 +141,7 @@ impl Codec for OpenAiChatCodec {
         {
             encoded = encoded.unsupported_control("the tool result error flag");
         }
-        if flattens_tool_result_content(request) {
+        if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)

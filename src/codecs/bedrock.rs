@@ -45,6 +45,7 @@ impl Codec for BedrockConverseCodec {
         reject_unencodable(route, request, |part| {
             matches!(part, ContentPart::Audio(_)).then_some("audio content")
         })?;
+        reject_unnameable_tools(request, route)?;
         let (options, controls) = wire_options(call);
 
         let mut body = Map::new();
@@ -106,7 +107,7 @@ impl Codec for BedrockConverseCodec {
         if request.response_format().is_some() {
             encoded = encoded.unsupported_control("response formats");
         }
-        if flattens_tool_result_content(request) {
+        if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)
@@ -530,6 +531,38 @@ fn inference_config(request: &Request) -> Map<String, Value> {
 ///
 /// Converse has no "call no tool" choice, so `ToolChoice::None` drops the whole
 /// tool configuration: withholding the tools is the only faithful encoding.
+/// Converse validates a tool name against `^[a-zA-Z0-9_-]{1,64}$`.
+///
+/// A name outside that set is refused here rather than rewritten. Rewriting is
+/// lossy — `mcp.server.tool` and `mcp_server_tool` both become the same thing,
+/// so a decoded tool call could not be mapped back to the tool the caller
+/// registered. A caller with dotted names owns that mapping, because only they
+/// can undo it.
+///
+/// # Errors
+///
+/// Returns [`ErrorKind::InvalidRequest`] naming the first offending tool.
+fn reject_unnameable_tools(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
+    for tool in request.tools() {
+        let valid = !tool.name.is_empty()
+            && tool.name.len() <= 64
+            && tool
+                .name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'));
+        if !valid {
+            return Err(unsupported_capability(
+                route,
+                &format!(
+                    "the tool name `{}`, which must match ^[a-zA-Z0-9_-]{{1,64}}$",
+                    tool.name
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn tool_config(request: &Request, auto_cache: bool) -> Option<Value> {
     if request.tools().is_empty() || matches!(request.tool_choice(), Some(ToolChoice::None)) {
         return None;
@@ -1594,6 +1627,52 @@ mod tests {
         let codes = warnings_for(request)?;
 
         assert_eq!(codes, ["unsupported_control"]);
+        Ok(())
+    }
+
+    #[test]
+    fn refuses_a_tool_name_converse_rejects() -> Result<(), Box<dyn StdError>> {
+        // Rewriting `mcp.server.tool` to `mcp_server_tool` is lossy, so a
+        // decoded call could not be mapped back to the registered tool. The
+        // caller owns that mapping because only they can undo it.
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Use the tool.")
+            .tool(ToolDefinition::function(
+                "mcp.server.tool",
+                "A dotted MCP-style name",
+                json!({ "type": "object" }),
+            ))
+            .build()?;
+
+        let Err(error) = BedrockConverseCodec.encode(&resolved(request)?, false) else {
+            panic!("a tool name Converse rejects should be refused");
+        };
+
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert_eq!(error.provider_code(), Some("unsupported_capability"));
+        assert!(error.message().contains("mcp.server.tool"));
+        Ok(())
+    }
+
+    #[test]
+    fn accepts_a_tool_name_converse_allows() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Use the tool.")
+            .tool(ToolDefinition::function(
+                "mcp_server_tool-2",
+                "An allowed name",
+                json!({ "type": "object" }),
+            ))
+            .build()?;
+
+        let body = encoded(request)?;
+
+        assert_eq!(
+            body["toolConfig"]["tools"][0]["toolSpec"]["name"],
+            "mcp_server_tool-2"
+        );
         Ok(())
     }
 }

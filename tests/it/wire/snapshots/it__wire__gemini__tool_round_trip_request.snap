@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/gemini.rs
+assertion_line: 332
 expression: rendered
 ---
 {
@@ -12,7 +13,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "836"
+      "802"
     ],
     [
       "content-type",
@@ -74,7 +75,6 @@ expression: rendered
               "id": "call_paris",
               "name": "get_weather",
               "response": {
-                "is_error": false,
                 "output": "18C and clear"
               }
             }
@@ -84,8 +84,7 @@ expression: rendered
               "id": "call_madrid",
               "name": "get_weather",
               "response": {
-                "is_error": true,
-                "output": "the city is unknown"
+                "error": "the city is unknown"
               }
             }
           }

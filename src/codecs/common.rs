@@ -143,10 +143,15 @@ pub(crate) fn reject_unencodable(
 /// refusal — unlike message content, where the caller's own attachment would
 /// vanish entirely.
 ///
-/// This reports any non-text part. A codec that falls back to serializing the
-/// whole content when there is no text at all still hands the model a shape it
-/// did not ask for, so warning there is not a false positive.
-pub(crate) fn flattens_tool_result_content(request: &Request) -> bool {
+/// `carries` names the parts this codec keeps. Anthropic takes an array of
+/// blocks here and encodes images, so it carries more than text; the protocols
+/// that accept only a string carry text alone. A codec that falls back to
+/// serializing the whole content when there is no text still hands the model a
+/// shape it did not ask for, so reporting that is not a false positive.
+pub(crate) fn flattens_tool_result_content(
+    request: &Request,
+    carries: fn(&ContentPart) -> bool,
+) -> bool {
     request
         .messages()
         .iter()
@@ -156,7 +161,7 @@ pub(crate) fn flattens_tool_result_content(request: &Request) -> bool {
             _ => None,
         })
         .flat_map(|result| result.content.iter())
-        .any(|part| !matches!(part, ContentPart::Text { .. }))
+        .any(|part| !carries(part))
 }
 
 /// Encodes a sampling parameter without its binary32 rounding error.
