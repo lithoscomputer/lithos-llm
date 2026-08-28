@@ -16,33 +16,15 @@ and tool results between an application and a provider.
 ```rust
 use std::error::Error;
 
-use lithos_llm::{
-    Client, Request,
-    catalog::Catalog,
-    credentials::EnvironmentCredentials,
-    middleware::{RetryMiddleware, RetryPolicy, TracingMiddleware},
-};
+use lithos_llm::{Client, Request};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let catalog = Catalog::builder().with_builtin().build()?;
-    let credentials = EnvironmentCredentials::builder()
-        .bearer("openai", "OPENAI_API_KEY")
-        .build();
-    let client = Client::builder()
-        .catalog(catalog)
-        .credentials(credentials)
-        .middleware(TracingMiddleware)
-        .middleware(RetryMiddleware::new(
-            RetryPolicy::exponential().max_attempts(3),
-        ))
-        .build()?;
+    let client = Client::from_env()?;
 
     let request = Request::builder()
         .model("openai/gpt-5.6-luna")
-        .system("Answer in one short paragraph.")
         .user("Why is the sky blue?")
-        .max_output_tokens(300)
         .build()?;
     let response = client.complete(request).await?;
     assert!(!response.text().is_empty());
@@ -50,9 +32,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
+`Client::from_env()` uses the built-in catalog, the default HTTP client, and
+conventional provider environment variables such as `OPENAI_API_KEY`.
 Applications own the Tokio runtime and tracing subscriber. Credential lookup
-runs for each provider attempt, so application credential providers can refresh
-tokens without rebuilding the client.
+runs for each provider attempt, so tokens can refresh without rebuilding the
+client. Retry and tracing middleware remain opt-in.
 
 ## Catalog overlays
 

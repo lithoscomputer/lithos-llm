@@ -281,6 +281,25 @@ fn public_identity_types_remain_open() {
     assert_eq!(ModelId::new("custom-model").as_str(), "custom-model");
 }
 
+#[cfg(all(
+    feature = "builtin-catalog",
+    feature = "environment-credentials",
+    any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible",
+        feature = "bedrock"
+    )
+))]
+#[test]
+fn from_env_builds_without_reading_credentials() -> Result<(), Box<dyn StdError>> {
+    let client = Client::from_env()?;
+
+    assert!(client.available_providers().iter().next().is_some());
+    Ok(())
+}
+
 #[test]
 fn unknown_adapter_factory_is_reported() -> Result<(), Box<dyn StdError>> {
     let source = TEST_CATALOG.replace("test-adapter", "custom-protocol");

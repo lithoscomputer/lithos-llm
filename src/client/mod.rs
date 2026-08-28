@@ -13,7 +13,19 @@ use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, AdapterRegistry, InputTokenCount,
     ProviderAdapter, ResolvedCall,
 };
-use crate::catalog::{AdapterId, Catalog, ProviderId, adapter_ids};
+use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
+#[cfg(all(
+    feature = "builtin-catalog",
+    feature = "environment-credentials",
+    any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible",
+        feature = "bedrock"
+    )
+))]
+use crate::credentials::EnvironmentCredentials;
 use crate::credentials::{CredentialProvider, NoCredentials};
 use crate::middleware::{Call, CallContext, CancellationToken, Middleware, Mode, Output, Pipeline};
 use crate::providers::register_builtin;
@@ -34,6 +46,38 @@ pub struct Client {
 impl Client {
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
+    }
+
+    /// Builds a client with the built-in catalog and conventional environment
+    /// variable names.
+    ///
+    /// Credentials are resolved for each provider attempt. This constructor
+    /// does not require credentials to be present when it builds the client.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the built-in catalog is invalid, the default HTTP
+    /// client cannot be built, or no enabled provider can create an adapter.
+    #[cfg(all(
+        feature = "builtin-catalog",
+        feature = "environment-credentials",
+        any(
+            feature = "openai",
+            feature = "anthropic",
+            feature = "gemini",
+            feature = "openai-compatible",
+            feature = "bedrock"
+        )
+    ))]
+    pub fn from_env() -> Result<Self, ClientBuildError> {
+        let catalog = Catalog::builder()
+            .with_builtin()
+            .build()
+            .map_err(|source| ClientBuildError::BuiltInCatalog { source })?;
+        Self::builder()
+            .catalog(catalog)
+            .credentials(EnvironmentCredentials::conventional())
+            .build()
     }
 
     pub fn catalog(&self) -> &Catalog {
@@ -436,6 +480,11 @@ fn is_disabled_builtin_adapter(adapter: &AdapterId) -> bool {
 pub enum ClientBuildError {
     #[error("a catalog is required")]
     MissingCatalog,
+    #[error("the built-in catalog could not be loaded")]
+    BuiltInCatalog {
+        #[source]
+        source: CatalogError,
+    },
     #[error("no catalog provider has a registered adapter")]
     NoAdapters,
     #[error("provider {provider} uses unregistered adapter {adapter}")]

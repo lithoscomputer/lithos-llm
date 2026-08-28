@@ -14,5 +14,7 @@ This project follows [Semantic Versioning](https://semver.org/).
   adapters.
 - Runtime extension points for model resolution, credentials, adapters, and
   middleware.
+- `Client::from_env()` for the built-in catalog and conventional provider
+  environment variables.
 - Retry, timeout, concurrency, tracing, and observer middleware.
 - Catalog-only and provider-specific Cargo feature boundaries.
