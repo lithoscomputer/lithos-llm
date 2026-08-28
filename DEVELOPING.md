@@ -30,7 +30,7 @@ mise run setup
 | `mise run check` | Run the routine verification gate |
 | `mise run check:nightly` | Run the extended verification gate |
 | `mise run check:catalog-only` | Verify the catalog-only feature boundary |
-| `mise run check:features` | Check each feature and the default Bedrock boundary |
+| `mise run check:features` | Check each feature and the AWS SDK boundary |
 
 Run `mise run check` before opening a pull request.
 
@@ -46,10 +46,37 @@ version. Mise pins the development compiler and the nightly formatter.
 ## Feature checks
 
 The routine gate checks every feature. It also verifies that a catalog-only
-build has no normal dependency on Tokio, reqwest, or an AWS SDK.
+build has no normal dependency on Tokio, reqwest, or an AWS crate.
 
-Bedrock is not a default feature. It adds the AWS SDK and supports both the AWS
-default credential chain and Bedrock bearer tokens.
+Bedrock is not a default feature. `bedrock` supplies the Converse wire format
+and Bedrock bearer tokens over the shared HTTP transport and pulls in no AWS
+crate. `bedrock-aws` adds the AWS credential chain and SigV4 signing. The gate
+asserts that both default features and `bedrock` alone stay free of AWS crates.
+
+## Wire tests
+
+`tests/it` holds the provider wire suite. Each test points the public client at
+a local mock server, captures the exact request the codec produced, and
+snapshots both that request and the decoded result. The snapshots are the
+contract for provider wire behavior, so review a changed snapshot the way you
+would review a public API change.
+
+Snapshots live in `tests/it/wire/snapshots/`. Review pending changes with
+[`cargo-insta`](https://insta.rs/):
+
+```sh
+cargo insta pending-snapshots
+cargo insta accept
+```
+
+Dynamic values are normalized so snapshots stay deterministic: hosts, user
+agents, credential headers, and AWS signing dates are replaced with
+placeholders, and header lists are lowercased and sorted. Content-block ids and
+tool-call ids are synthesized deterministically rather than randomly, so they
+need no scrubbing.
+
+Where our wire behavior intentionally differs from the previous Fabro
+implementation, the difference is documented next to the affected fixture.
 
 ## Continuous integration
 
