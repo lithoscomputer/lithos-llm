@@ -58,6 +58,184 @@ available for inspection either way.
 without dispatching it, which is the same resolution `complete`, `stream`, and
 `count_input_tokens` perform.
 
+## Streaming
+
+Streaming uses the same request type and model resolution as `complete`. Add
+`futures-util` to the application to use `StreamExt`.
+
+```rust
+use std::error::Error;
+use std::io::{self, Write as _};
+
+use futures_util::StreamExt as _;
+use lithos_llm::types::StreamEvent;
+use lithos_llm::{Client, Request};
+
+async fn stream_answer(client: &Client) -> Result<(), Box<dyn Error>> {
+    let request = Request::builder()
+        .model("openai/gpt-5.6-luna")
+        .user("Why is the sky blue?")
+        .build()?;
+    let mut stream = client.stream(request).await?;
+
+    while let Some(event) = stream.next().await {
+        match event? {
+            StreamEvent::TextDelta { text, .. } => {
+                print!("{text}");
+                io::stdout().flush()?;
+            }
+            StreamEvent::Completed { response } => {
+                eprintln!("\n{} tokens", response.usage.total());
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+```
+
+Every successful stream ends with one `StreamEvent::Completed`. It contains
+the assembled `Response`. Streams can also carry reasoning, tool-call, usage,
+and rate-limit events. Dropping the stream cancels the operation as far as the
+provider and transport permit.
+
+## Tool calling
+
+Lithos carries tool definitions, calls, and results. The application executes
+each tool and decides whether to make another model request.
+
+```rust
+use std::error::Error;
+
+use lithos_llm::types::{
+    ContentPart, Message, Role, ToolDefinition, ToolResult,
+};
+use lithos_llm::{Client, Request};
+use serde_json::json;
+
+async fn answer_with_weather(client: &Client) -> Result<String, Box<dyn Error>> {
+    let model = "openai/gpt-5.6-luna";
+    let prompt = "What is the weather in Paris?";
+    let tool = ToolDefinition::function(
+        "get_weather",
+        "Reads the current weather for a city",
+        json!({
+            "type": "object",
+            "properties": { "city": { "type": "string" } },
+            "required": ["city"],
+            "additionalProperties": false,
+        }),
+    );
+
+    let request = Request::builder()
+        .model(model)
+        .user(prompt)
+        .tool(tool.clone())
+        .build()?;
+    let response = client.complete(request).await?;
+    let Some(call) = response.content.iter().find_map(|part| match part {
+        ContentPart::ToolCall(call) => Some(call.clone()),
+        _ => None,
+    }) else {
+        return Err("the model did not call get_weather".into());
+    };
+
+    let result = ToolResult {
+        tool_call_id: call.id.clone(),
+        name: Some(call.name.clone()),
+        content: vec![ContentPart::Text {
+            text: "18 C and clear".to_owned(),
+        }],
+        is_error: false,
+    };
+    let follow_up = Request::builder()
+        .model(model)
+        .user(prompt)
+        .tool(tool)
+        .message(Message::new(Role::Assistant, response.content))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(result)]))
+        .build()?;
+
+    Ok(client.complete(follow_up).await?.text())
+}
+```
+
+Replay the complete assistant content in the follow-up request. It can contain
+provider data that a later request needs. One response can contain more than
+one `ToolCall`; applications must return a result for each call they execute.
+
+## Structured output
+
+Use `ResponseFormat` to request a JSON object or a document that follows a JSON
+Schema.
+
+```rust
+use std::error::Error;
+
+use lithos_llm::types::ResponseFormat;
+use lithos_llm::{Client, Request};
+use serde_json::{Value, json};
+
+async fn extract_city(client: &Client) -> Result<Value, Box<dyn Error>> {
+    let request = Request::builder()
+        .model("openai/gpt-5.6-luna")
+        .user("Extract the city and country from: I live in Paris, France.")
+        .response_format(ResponseFormat::JsonSchema {
+            name: "location".to_owned(),
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "city": { "type": "string" },
+                    "country": { "type": "string" },
+                },
+                "required": ["city", "country"],
+                "additionalProperties": false,
+            }),
+        })
+        .build()?;
+    let response = client.complete(request).await?;
+    Ok(serde_json::from_str(&response.text())?)
+}
+```
+
+The built-in adapters return the JSON document as response text. The
+application parses it into `serde_json::Value` or its own type. Lithos rejects
+structured-output requests before dispatch when the selected model does not
+declare that capability.
+
+## Multimodal input
+
+A message can contain text, images, audio, and documents. Media can use a
+provider-accessible URL or inline base64 data.
+
+```rust
+use std::error::Error;
+
+use lithos_llm::types::{ContentPart, ImageContent, MediaSource, Message, Role};
+use lithos_llm::{Client, Request};
+
+async fn describe_image(client: &Client) -> Result<String, Box<dyn Error>> {
+    let request = Request::builder()
+        .model("openai/gpt-5.6-luna")
+        .message(Message::new(Role::User, [
+            ContentPart::Text {
+                text: "Describe this image.".to_owned(),
+            },
+            ContentPart::Image(ImageContent::new(MediaSource::url(
+                "https://example.com/image.png",
+            ))),
+        ]))
+        .build()?;
+
+    Ok(client.complete(request).await?.text())
+}
+```
+
+Use `MediaSource::base64(data, media_type)` for inline bytes. `AudioContent`
+and `DocumentContent` use the same source type. Provider URL rules differ.
+Lithos rejects media that the selected model does not support before it sends
+the request.
+
 ## Catalog overlays
 
 Catalog documents use schema version `1`. Later overlays win. Tables merge

@@ -15,8 +15,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, merge_options, plain_text, reject_unencodable, sampling, system_text,
-    unsupported_capability, wire_options,
+    endpoint, finish_reason, flattens_tool_result_content, merge_options, plain_text,
+    reject_unencodable, sampling, system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -99,6 +99,15 @@ impl Codec for BedrockConverseCodec {
         // than folded into some other field where it would change the prompt.
         if !request.metadata().is_empty() {
             encoded = encoded.unsupported_control("request metadata");
+        }
+        // Converse has no portable structured-output field. A caller who asked
+        // for JSON gets prose, so say so rather than letting them discover it
+        // by parsing.
+        if request.response_format().is_some() {
+            encoded = encoded.unsupported_control("response formats");
+        }
+        if flattens_tool_result_content(request) {
+            encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)
     }
@@ -335,18 +344,22 @@ fn encode_content_part(part: &ContentPart, route: &ResolvedRoute) -> Result<Opti
         ContentPart::Text { text } => Some(json!({ "text": text })),
         ContentPart::Image(image) => {
             let (data, media_type) = media_bytes(&image.source, route)?;
+            let format = media_format(media_type, "png")
+                .ok_or_else(|| unsupported_media_type(route, media_type))?;
             Some(json!({
                 "image": {
-                    "format": media_format(media_type, "png"),
+                    "format": format,
                     "source": { "bytes": data },
                 }
             }))
         }
         ContentPart::Document(document) => {
             let (data, media_type) = media_bytes(&document.source, route)?;
+            let format = media_format(media_type, "pdf")
+                .ok_or_else(|| unsupported_media_type(route, media_type))?;
             Some(json!({
                 "document": {
-                    "format": media_format(media_type, "pdf"),
+                    "format": format,
                     "name": document.name.as_deref().unwrap_or("document"),
                     "source": { "bytes": data },
                 }
@@ -452,8 +465,27 @@ fn tool_result_block(tool_call_id: &str, content: Vec<Value>, is_error: bool) ->
 }
 
 /// Maps a media type onto Bedrock's media `format` enum.
-fn media_format<'a>(media_type: Option<&str>, default: &'a str) -> &'a str {
-    match media_type {
+/// Maps a declared media type onto the Converse format enum.
+///
+/// `None` means the source declared nothing, and the caller's `default` stands
+/// in. A declared type this protocol has no enum member for returns `None`,
+/// because labelling the bytes with a format they are not would tell the
+/// provider something the caller never said — `image/heic` sent as `png`.
+/// Bedrock is the only dialect that must map onto an enum; the others pass the
+/// declared type through verbatim, so only this one can misdescribe content.
+/// Refuses media whose declared type has no Converse format.
+fn unsupported_media_type(route: &ResolvedRoute, media_type: Option<&str>) -> Error {
+    unsupported_capability(
+        route,
+        &format!("the media type {}", media_type.unwrap_or("<undeclared>")),
+    )
+}
+
+fn media_format<'a>(media_type: Option<&'a str>, default: &'a str) -> Option<&'a str> {
+    let Some(media_type) = media_type else {
+        return Some(default);
+    };
+    let format = match Some(media_type) {
         Some("image/png") => "png",
         Some("image/jpeg" | "image/jpg") => "jpeg",
         Some("image/gif") => "gif",
@@ -471,8 +503,9 @@ fn media_format<'a>(media_type: Option<&str>, default: &'a str) -> &'a str {
             "application/vnd.ms-excel"
             | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ) => "xlsx",
-        _ => default,
-    }
+        _ => return None,
+    };
+    Some(format)
 }
 
 /// The `inferenceConfig` object, which is omitted when it would be empty.
@@ -835,11 +868,20 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         ContentPart, DocumentContent, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
-        ReasoningContent, ReasoningEffort, Request, Response, Role, Speed, StreamEvent,
-        ToolDefinition,
+        ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat, Role, Speed,
+        StreamEvent, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "bedrock/anthropic.claude-sonnet-4-6";
+
+    fn warnings_for(request: Request) -> Result<Vec<String>, Box<dyn StdError>> {
+        Ok(BedrockConverseCodec
+            .encode(&resolved(request)?, false)?
+            .warnings
+            .into_iter()
+            .map(|warning| warning.code)
+            .collect())
+    }
 
     fn encoded(request: Request) -> Result<Value, Box<dyn StdError>> {
         Ok(BedrockConverseCodec
@@ -1474,6 +1516,84 @@ mod tests {
             .err()
             .ok_or("expected a malformed count body to fail")?;
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        Ok(())
+    }
+
+    #[test]
+    fn refuses_a_declared_media_type_it_cannot_name() -> Result<(), Box<dyn StdError>> {
+        // Converse takes a format enum, so an unmapped type has nowhere to go.
+        // Sending the bytes as `png` anyway would tell the provider something
+        // the caller never said.
+        let request = Request::builder()
+            .model(MODEL)
+            .message(Message::new(Role::User, [ContentPart::Image(
+                ImageContent::new(MediaSource::base64("aW1n", "image/heic")),
+            )]))
+            .build()?;
+
+        let Err(error) = BedrockConverseCodec.encode(&resolved(request)?, false) else {
+            panic!("an unmapped media type should be refused");
+        };
+
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert_eq!(error.provider_code(), Some("unsupported_capability"));
+        assert!(error.message().contains("image/heic"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_declared_media_type_the_enum_names_is_used() -> Result<(), Box<dyn StdError>> {
+        // The refusal above must not have swallowed the mapped types too.
+        let request = Request::builder()
+            .model(MODEL)
+            .message(Message::new(Role::User, [ContentPart::Image(
+                ImageContent::new(MediaSource::base64("aW1n", "image/png")),
+            )]))
+            .build()?;
+        let body = encoded(request)?;
+
+        assert_eq!(body["messages"][0]["content"][0]["image"]["format"], "png");
+        Ok(())
+    }
+
+    #[test]
+    fn reports_controls_converse_cannot_express() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Answer as JSON.")
+            .response_format(ResponseFormat::JsonObject)
+            .metadata_entry("tenant", "acme")
+            .build()?;
+
+        let codes = warnings_for(request)?;
+
+        assert!(codes.iter().all(|code| code == "unsupported_control"));
+        assert_eq!(codes.len(), 2, "metadata and response format both warn");
+        Ok(())
+    }
+
+    #[test]
+    fn a_json_tool_result_warns_that_it_is_flattened() -> Result<(), Box<dyn StdError>> {
+        // Structured JSON is the easy one to miss: it is not media, but the
+        // text flattening drops it just the same.
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Chart it.")
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: "call-1".to_owned(),
+                    name:         Some("chart".to_owned()),
+                    content:      vec![ContentPart::Json {
+                        value: json!({ "quarters": [1, 2] }),
+                    }],
+                    is_error:     false,
+                },
+            )]))
+            .build()?;
+
+        let codes = warnings_for(request)?;
+
+        assert_eq!(codes, ["unsupported_control"]);
         Ok(())
     }
 }

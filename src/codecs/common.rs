@@ -136,10 +136,16 @@ pub(crate) fn reject_unencodable(
 
 /// Whether any tool result carries content this codec flattens to text.
 ///
-/// Several protocols accept only a string for a tool result, so a tool that
-/// returns an image or a document loses it. The text still reaches the model,
-/// so this is a warning rather than a refusal — unlike message content, where
-/// the caller's own attachment would vanish.
+/// Several protocols accept only a string for a tool result, so anything
+/// [`plain_text`] does not keep is lost. That is every non-text part: media,
+/// and structured JSON too, which is easy to overlook because it is not media.
+/// The text still reaches the model, so this is a warning rather than a
+/// refusal — unlike message content, where the caller's own attachment would
+/// vanish entirely.
+///
+/// This reports any non-text part. A codec that falls back to serializing the
+/// whole content when there is no text at all still hands the model a shape it
+/// did not ask for, so warning there is not a false positive.
 pub(crate) fn flattens_tool_result_content(request: &Request) -> bool {
     request
         .messages()
@@ -150,12 +156,7 @@ pub(crate) fn flattens_tool_result_content(request: &Request) -> bool {
             _ => None,
         })
         .flat_map(|result| result.content.iter())
-        .any(|part| {
-            matches!(
-                part,
-                ContentPart::Image(_) | ContentPart::Audio(_) | ContentPart::Document(_)
-            )
-        })
+        .any(|part| !matches!(part, ContentPart::Text { .. }))
 }
 
 /// Encodes a sampling parameter without its binary32 rounding error.
