@@ -1,35 +1,38 @@
-use std::collections::BTreeMap;
-use std::error::Error as StdError;
+//! The Amazon Bedrock provider adapter.
+//!
+//! One HTTP path serves both Bedrock authentication methods. Every call
+//! resolves credentials, encodes through [`BedrockConverseCodec`], dispatches
+//! the resulting [`EncodedRequest`], and decodes through the same codec. A
+//! bearer request and a SigV4 request are built from that one encoded request,
+//! so they always carry the same method, URL, and body; only the
+//! authentication headers differ.
+//!
+//! The `bedrock` feature alone gives bearer authentication and the Bedrock
+//! wire protocol with no AWS crates. `bedrock-aws` adds the AWS credential
+//! chain and SigV4 signing.
+
+use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use aws_config::{BehaviorVersion, Region, defaults};
-use aws_sdk_bedrockruntime::config::Builder as BedrockConfigBuilder;
-use aws_sdk_bedrockruntime::operation::converse::ConverseOutput;
-use aws_sdk_bedrockruntime::{Client as BedrockClient, types as aws};
-use aws_smithy_types::{Blob, Document, Number};
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
+use futures_core::Stream;
 use futures_util::StreamExt as _;
 use futures_util::stream::{iter, unfold};
-use serde_json::{Number as JsonNumber, Value as JsonValue, json, to_string};
-use tokio::sync::Mutex;
 
 use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
     ResolvedCall,
 };
-use crate::catalog::{AdapterId, AuthScheme, CatalogProvider, codec_ids};
-use crate::codecs::Codec;
+#[cfg(not(feature = "bedrock-aws"))]
+use crate::catalog::AuthScheme;
+use crate::catalog::{AdapterId, CatalogProvider, codec_ids};
 use crate::codecs::bedrock::BedrockConverseCodec;
+use crate::codecs::{Codec as _, StreamDecoder};
 use crate::credentials::{CredentialProvider, Credentials};
-use crate::token_count::estimate_input_tokens;
-use crate::transport::HttpTransport;
-use crate::types::{
-    ContentPart, Error, ErrorKind, FinishReason, Message, ReasoningContent, ReasoningEffort,
-    Response, ResponseStream, RetryClassification, Role, Speed, StreamEvent, TokenCounts, ToolCall,
-    ToolChoice,
-};
+#[cfg(feature = "bedrock-aws")]
+use crate::transport::aws::AwsSigner;
+use crate::transport::{EncodedRequest, EventResponse, HttpTransport, JsonResponse, SseEvent};
+use crate::types::{Error, ErrorKind, Response, ResponseStream, StreamEvent};
 
 pub(super) struct Factory;
 
@@ -45,20 +48,45 @@ impl AdapterFactory for Factory {
                 codec:    provider.codec().clone(),
             });
         }
+        // SigV4 needs the AWS crates. Reporting this as a build error keeps it
+        // a client construction issue for this one provider rather than a
+        // failure at the first request or a silent downgrade to bearer.
+        #[cfg(not(feature = "bedrock-aws"))]
+        if matches!(provider.auth(), AuthScheme::Aws { .. }) {
+            return Err(AdapterBuildError::InvalidConfiguration {
+                provider: provider.id().clone(),
+                message:  "AWS SigV4 authentication needs the `bedrock-aws` feature, which is \
+                           disabled in this build"
+                    .to_owned(),
+            });
+        }
         Ok(Arc::new(BedrockAdapter {
-            id:          provider.adapter().clone(),
-            transport:   HttpTransport::new(context.http().clone()),
+            id: provider.adapter().clone(),
+            codec: BedrockConverseCodec,
+            transport: HttpTransport::new(context.http().clone()),
+            #[cfg(feature = "bedrock-aws")]
+            http: context.http().clone(),
             credentials: context.credentials().clone(),
-            clients:     Mutex::new(BTreeMap::new()),
+            #[cfg(feature = "bedrock-aws")]
+            signer: AwsSigner::new(provider.id().clone()),
         }))
     }
 }
 
 struct BedrockAdapter {
     id:          AdapterId,
+    codec:       BedrockConverseCodec,
     transport:   HttpTransport,
+    /// The same client the transport holds, used by the signed path, which
+    /// must attach headers that cover the exact bytes it sends.
+    #[cfg(feature = "bedrock-aws")]
+    http:        reqwest::Client,
     credentials: Arc<dyn CredentialProvider>,
-    clients:     Mutex<BTreeMap<String, BedrockClient>>,
+    /// One signer per adapter. It loads the AWS credential chain on the first
+    /// signed request and then resolves credentials per request, so temporary
+    /// credentials refresh.
+    #[cfg(feature = "bedrock-aws")]
+    signer:      AwsSigner,
 }
 
 #[async_trait]
@@ -68,632 +96,739 @@ impl ProviderAdapter for BedrockAdapter {
     }
 
     async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
-        match self.resolve_credentials(call).await? {
-            credentials @ Credentials::BedrockBearer(_) => {
-                self.complete_with_bearer(call, credentials).await
-            }
-            Credentials::AwsDefaultChain { region } => self.complete_with_sdk(call, region).await,
-            _ => Err(scheme_mismatch(call)),
-        }
-    }
-
-    async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
-        match self.resolve_credentials(call).await? {
-            credentials @ Credentials::BedrockBearer(_) => {
-                self.stream_with_bearer(call, credentials).await
-            }
-            Credentials::AwsDefaultChain { region } => self.stream_with_sdk(call, region).await,
-            _ => Err(scheme_mismatch(call)),
-        }
-    }
-
-    async fn count_input_tokens(
-        &self,
-        call: &ResolvedCall,
-    ) -> Result<Option<InputTokenCount>, Error> {
-        Ok(Some(InputTokenCount::new(estimate_input_tokens(
-            call.request(),
-        ))))
-    }
-}
-
-impl BedrockAdapter {
-    async fn resolve_credentials(&self, call: &ResolvedCall) -> Result<Credentials, Error> {
-        self.credentials
-            .credentials(call.route().provider())
-            .await
-            .map_err(|source| {
-                Error::new(
-                    ErrorKind::Authentication,
-                    format!(
-                        "credentials for provider {} could not be resolved",
-                        call.route().provider().id()
-                    ),
-                )
-                .with_provider(call.route().provider().id().clone())
-                .with_source(source)
-            })
-    }
-
-    async fn complete_with_bearer(
-        &self,
-        call: &ResolvedCall,
-        credentials: Credentials,
-    ) -> Result<Response, Error> {
-        let codec = BedrockConverseCodec;
-        let encoded = codec.encode(call, false)?;
-        let result = self
-            .transport
-            .execute_json(encoded, call.route().provider(), credentials)
-            .await?;
-        let mut response = codec.decode_response(call.route(), result.body)?;
+        let encoded = self.codec.encode(call, false)?;
+        let warnings = encoded.warnings.clone();
+        let result = self.json(call, encoded).await?;
+        let mut response = self.codec.decode_response(call.route(), result.body)?;
         response.rate_limits = result.rate_limits;
-        response.cost = super::catalog_cost(response.usage, call.route().model().pricing());
+        response.warnings.extend(warnings);
+        super::apply_catalog_cost(&mut response, call.route());
         Ok(response)
     }
 
-    async fn stream_with_bearer(
-        &self,
-        call: &ResolvedCall,
-        credentials: Credentials,
-    ) -> Result<ResponseStream, Error> {
-        let codec = BedrockConverseCodec;
-        let encoded = codec.encode(call, true)?;
-        let accepted = self
-            .transport
-            .event_stream_events(encoded, call.route().provider(), credentials)
-            .await?;
+    async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        let encoded = self.codec.encode(call, true)?;
+        let warnings = encoded.warnings.clone();
+        let accepted = self.events(call, encoded).await?;
+        let decoded = decode_stream(accepted.events, self.codec.stream_decoder(call.route()));
+
         let route = call.route().clone();
-        let decoded = accepted
-            .events
-            .map(move |event| match event {
-                Ok(event) => codec.decode_sse(&route, event).map_or_else(
-                    |error| vec![Err(error)],
-                    |events| events.into_iter().map(Ok).collect(),
-                ),
-                Err(error) => vec![Err(error)],
-            })
-            .flat_map(iter);
+        let finished = decoded.map(move |event| match event {
+            Ok(StreamEvent::Completed { mut response }) => {
+                response.warnings.extend(warnings.clone());
+                super::apply_catalog_cost(&mut response, &route);
+                Ok(StreamEvent::Completed { response })
+            }
+            other => other,
+        });
         let limits = iter(
             accepted
                 .rate_limits
                 .into_iter()
                 .map(|rate_limits| Ok(StreamEvent::RateLimits { rate_limits })),
         );
-        Ok(Box::pin(limits.chain(decoded)))
+        Ok(Box::pin(limits.chain(finished)))
     }
 
-    async fn complete_with_sdk(
+    async fn count_input_tokens(
         &self,
         call: &ResolvedCall,
-        region: Option<String>,
-    ) -> Result<Response, Error> {
-        let client = self.sdk_client(call.route().provider(), region).await;
-        let input = sdk_input(call)?;
-        let output = client
-            .converse()
-            .model_id(call.route().model().api_model())
-            .set_messages(Some(input.messages))
-            .set_system(input.system)
-            .set_inference_config(input.inference)
-            .set_tool_config(input.tools)
-            .set_additional_model_request_fields(input.additional)
-            .set_performance_config(input.performance)
-            .send()
-            .await
-            .map_err(|source| sdk_error(call, "Bedrock Converse request failed", source))?;
-        let mut response = sdk_response(call, &output);
-        response.cost = super::catalog_cost(response.usage, call.route().model().pricing());
-        Ok(response)
+    ) -> Result<Option<InputTokenCount>, Error> {
+        let Some(encoded) = self.codec.encode_count_tokens(call) else {
+            return Ok(None);
+        };
+        let result = self.json(call, encoded?).await?;
+        let tokens = self.codec.decode_count_tokens(call.route(), result.body)?;
+        Ok(Some(InputTokenCount::new(tokens, call.route().handle())))
     }
+}
 
-    async fn stream_with_sdk(
+impl BedrockAdapter {
+    /// Sends one encoded request and returns its JSON body.
+    ///
+    /// The credentials select the authentication arm. Both arms send the
+    /// `encoded` request unchanged, so the method, URL, and body cannot differ
+    /// between them.
+    async fn json(
         &self,
         call: &ResolvedCall,
-        region: Option<String>,
-    ) -> Result<ResponseStream, Error> {
-        let client = self.sdk_client(call.route().provider(), region).await;
-        let input = sdk_input(call)?;
-        let output = client
-            .converse_stream()
-            .model_id(call.route().model().api_model())
-            .set_messages(Some(input.messages))
-            .set_system(input.system)
-            .set_inference_config(input.inference)
-            .set_tool_config(input.tools)
-            .set_additional_model_request_fields(input.additional)
-            .set_performance_config(input.performance)
-            .send()
-            .await
-            .map_err(|source| sdk_error(call, "Bedrock ConverseStream request failed", source))?;
-        let provider = call.route().provider().id().clone();
-        let state = (output.stream, BTreeMap::<i32, String>::new());
-        let stream = unfold(state, move |(mut receiver, mut tool_ids)| {
-            let provider = provider.clone();
-            async move {
-                loop {
-                    match receiver.recv().await {
-                        Ok(Some(event)) => {
-                            if let Some(event) = sdk_stream_event(event, &mut tool_ids) {
-                                return Some((Ok(event), (receiver, tool_ids)));
-                            }
-                        }
-                        Ok(None) => return None,
-                        Err(source) => {
-                            let error = Error::new(
-                                ErrorKind::StreamDecode,
-                                "Bedrock response stream failed",
-                            )
-                            .with_provider(provider)
-                            .with_retry(RetryClassification::Safe)
-                            .with_source(source);
-                            return Some((Err(error), (receiver, tool_ids)));
-                        }
-                    }
-                }
+        encoded: EncodedRequest,
+    ) -> Result<JsonResponse, Error> {
+        let provider = call.route().provider();
+        match self.credentials(call).await? {
+            credentials @ Credentials::BedrockBearer(_) => {
+                self.transport
+                    .execute_json(encoded, provider, credentials)
+                    .await
             }
-        });
-        Ok(Box::pin(stream))
+            #[cfg(feature = "bedrock-aws")]
+            Credentials::AwsDefaultChain { region } => {
+                let prepared = self.sign(provider, encoded, region.as_deref()).await?;
+                signed::execute_json(&self.http, prepared, provider).await
+            }
+            #[cfg(not(feature = "bedrock-aws"))]
+            Credentials::AwsDefaultChain { .. } => Err(missing_feature(provider)),
+            _ => Err(scheme_mismatch(provider)),
+        }
     }
 
-    async fn sdk_client(
+    /// Sends one encoded request and returns its event stream.
+    async fn events(
+        &self,
+        call: &ResolvedCall,
+        encoded: EncodedRequest,
+    ) -> Result<EventResponse, Error> {
+        let provider = call.route().provider();
+        match self.credentials(call).await? {
+            credentials @ Credentials::BedrockBearer(_) => {
+                self.transport
+                    .event_stream_events(encoded, provider, credentials)
+                    .await
+            }
+            #[cfg(feature = "bedrock-aws")]
+            Credentials::AwsDefaultChain { region } => {
+                let prepared = self.sign(provider, encoded, region.as_deref()).await?;
+                signed::event_stream_events(&self.http, prepared, provider).await
+            }
+            #[cfg(not(feature = "bedrock-aws"))]
+            Credentials::AwsDefaultChain { .. } => Err(missing_feature(provider)),
+            _ => Err(scheme_mismatch(provider)),
+        }
+    }
+
+    async fn credentials(&self, call: &ResolvedCall) -> Result<Credentials, Error> {
+        let provider = call.route().provider();
+        self.credentials
+            .credentials(provider)
+            .await
+            .map_err(|source| {
+                Error::new(
+                    ErrorKind::Authentication,
+                    format!(
+                        "credentials for provider {} could not be resolved",
+                        provider.id()
+                    ),
+                )
+                .with_provider(provider.id().clone())
+                .with_source(source)
+            })
+    }
+
+    /// Prepares one request and signs it with AWS SigV4.
+    ///
+    /// The body is serialized once and the header map is final before signing,
+    /// so the signature covers exactly the bytes and headers that reach the
+    /// wire.
+    #[cfg(feature = "bedrock-aws")]
+    async fn sign(
         &self,
         provider: &CatalogProvider,
-        region: Option<String>,
-    ) -> BedrockClient {
-        let region = region.or_else(|| match provider.auth() {
-            AuthScheme::Aws { region } => region.clone(),
-            _ => None,
-        });
-        let key = region.clone().unwrap_or_else(|| "<default>".to_owned());
-        if let Some(client) = self.clients.lock().await.get(&key).cloned() {
-            return client;
-        }
-        let mut loader = defaults(BehaviorVersion::latest());
-        if let Some(region) = region {
-            loader = loader.region(Region::new(region));
-        }
-        let shared = loader.load().await;
-        let config = BedrockConfigBuilder::from(&shared)
-            .endpoint_url(provider.base_url())
-            .build();
-        let client = BedrockClient::from_conf(config);
-        self.clients.lock().await.insert(key, client.clone());
-        client
+        encoded: EncodedRequest,
+        credential_region: Option<&str>,
+    ) -> Result<signed::PreparedRequest, Error> {
+        let mut prepared = signed::prepare(provider, encoded)?;
+        let region = self
+            .signer
+            .resolve_region(credential_region, provider.auth(), provider.base_url())
+            .await?;
+        self.signer
+            .sign(
+                &region,
+                &prepared.method,
+                &prepared.url,
+                &mut prepared.headers,
+                &prepared.body,
+            )
+            .await?;
+        Ok(prepared)
     }
 }
 
-struct SdkInput {
-    messages:    Vec<aws::Message>,
-    system:      Option<Vec<aws::SystemContentBlock>>,
-    inference:   Option<aws::InferenceConfiguration>,
-    tools:       Option<aws::ToolConfiguration>,
-    additional:  Option<Document>,
-    performance: Option<aws::PerformanceConfiguration>,
-}
+/// The transport's undecoded event stream.
+type TransportEvents = Pin<Box<dyn Stream<Item = Result<SseEvent, Error>> + Send>>;
 
-fn sdk_input(call: &ResolvedCall) -> Result<SdkInput, Error> {
-    let request = call.request();
-    let messages = request
-        .messages()
-        .iter()
-        .filter(|message| !matches!(message.role(), Role::System | Role::Developer))
-        .map(|message| {
-            let role = if message.role() == Role::Assistant {
-                aws::ConversationRole::Assistant
-            } else {
-                aws::ConversationRole::User
-            };
-            let content = message
-                .content()
-                .iter()
-                .map(|part| sdk_content(call, part))
-                .collect::<Result<Vec<_>, Error>>()?;
-            aws::Message::builder()
-                .role(role)
-                .set_content(Some(content))
-                .build()
-                .map_err(|source| build_error(call, source))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-    let system_text = request
-        .messages()
-        .iter()
-        .filter(|message| matches!(message.role(), Role::System | Role::Developer))
-        .flat_map(Message::content)
-        .filter_map(|part| match part {
-            ContentPart::Text { text } => Some(text.as_str()),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join("\n\n");
-    let system =
-        (!system_text.is_empty()).then(|| vec![aws::SystemContentBlock::Text(system_text)]);
-    let inference = if request.max_output_tokens().is_some()
-        || request.temperature().is_some()
-        || request.top_p().is_some()
-    {
-        Some(
-            aws::InferenceConfiguration::builder()
-                .set_max_tokens(
-                    request
-                        .max_output_tokens()
-                        .and_then(|value| i32::try_from(value).ok()),
-                )
-                .set_temperature(request.temperature())
-                .set_top_p(request.top_p())
-                .build(),
-        )
-    } else {
-        None
+/// Drives one stream decoder over the transport events.
+///
+/// The decoder's `finish` runs once when the byte stream ends without error.
+/// A decode failure ends the stream, so no `Completed` event follows one.
+fn decode_stream(
+    events: TransportEvents,
+    decoder: Box<dyn StreamDecoder>,
+) -> impl Stream<Item = Result<StreamEvent, Error>> + Send {
+    struct State {
+        events:  TransportEvents,
+        decoder: Box<dyn StreamDecoder>,
+        ended:   bool,
+    }
+
+    let state = State {
+        events,
+        decoder,
+        ended: false,
     };
-    let tools = sdk_tools(call)?;
-    let mut additional = request
-        .provider_options()
-        .get("bedrock")
-        .and_then(JsonValue::as_object)
-        .cloned()
-        .unwrap_or_default();
-    if let Some(effort) = request.reasoning_effort() {
-        additional.insert(
-            "output_config".to_owned(),
-            json!({ "effort": bedrock_effort(effort) }),
-        );
-    }
-    let additional =
-        (!additional.is_empty()).then(|| json_to_document(&JsonValue::Object(additional)));
-    let performance = request.speed().map(|speed| {
-        aws::PerformanceConfiguration::builder()
-            .latency(if matches!(speed, Speed::Fast) {
-                aws::PerformanceConfigLatency::Optimized
-            } else {
-                aws::PerformanceConfigLatency::Standard
-            })
-            .build()
-    });
-    Ok(SdkInput {
-        messages,
-        system,
-        inference,
-        tools,
-        additional,
-        performance,
-    })
-}
-
-fn sdk_content(call: &ResolvedCall, part: &ContentPart) -> Result<aws::ContentBlock, Error> {
-    match part {
-        ContentPart::Text { text } => Ok(aws::ContentBlock::Text(text.clone())),
-        ContentPart::Image(image) => {
-            let bytes = decode_base64(call, &image.source)?;
-            let format = image
-                .media_type
-                .as_deref()
-                .unwrap_or("image/png")
-                .trim_start_matches("image/");
-            let image = aws::ImageBlock::builder()
-                .format(aws::ImageFormat::from(format))
-                .source(aws::ImageSource::Bytes(Blob::new(bytes)))
-                .build()
-                .map_err(|source| build_error(call, source))?;
-            Ok(aws::ContentBlock::Image(image))
+    unfold(state, |mut state| async move {
+        if state.ended {
+            return None;
         }
-        ContentPart::Document(document) => {
-            let format = document_format(&document.media_type);
-            let document = aws::DocumentBlock::builder()
-                .format(aws::DocumentFormat::from(format))
-                .name(document.name.as_deref().unwrap_or("document"))
-                .source(aws::DocumentSource::Bytes(Blob::new(decode_base64(
-                    call,
-                    &document.data,
-                )?)))
-                .build()
-                .map_err(|source| build_error(call, source))?;
-            Ok(aws::ContentBlock::Document(document))
-        }
-        ContentPart::Reasoning(reasoning) => {
-            let block = aws::ReasoningTextBlock::builder()
-                .text(&reasoning.text)
-                .set_signature(reasoning.signature.clone())
-                .build()
-                .map_err(|source| build_error(call, source))?;
-            Ok(aws::ContentBlock::ReasoningContent(
-                aws::ReasoningContentBlock::ReasoningText(block),
-            ))
-        }
-        ContentPart::ToolCall(tool) => {
-            let tool = aws::ToolUseBlock::builder()
-                .tool_use_id(&tool.id)
-                .name(&tool.name)
-                .input(json_to_document(&tool.arguments))
-                .build()
-                .map_err(|source| build_error(call, source))?;
-            Ok(aws::ContentBlock::ToolUse(tool))
-        }
-        ContentPart::ToolResult(result) => {
-            let content = result
-                .content
-                .iter()
-                .map(|part| match part {
-                    ContentPart::Text { text } => aws::ToolResultContentBlock::Text(text.clone()),
-                    _ => aws::ToolResultContentBlock::Text(to_string(part).unwrap_or_default()),
-                })
-                .collect();
-            let status = if result.is_error {
-                aws::ToolResultStatus::Error
-            } else {
-                aws::ToolResultStatus::Success
-            };
-            let result = aws::ToolResultBlock::builder()
-                .tool_use_id(&result.tool_call_id)
-                .set_content(Some(content))
-                .status(status)
-                .build()
-                .map_err(|source| build_error(call, source))?;
-            Ok(aws::ContentBlock::ToolResult(result))
-        }
-        ContentPart::Audio(_) => Err(Error::new(
-            ErrorKind::InvalidRequest,
-            "Bedrock Converse does not support audio content",
-        )
-        .with_provider(call.route().provider().id().clone())),
-    }
-}
-
-fn sdk_tools(call: &ResolvedCall) -> Result<Option<aws::ToolConfiguration>, Error> {
-    let request = call.request();
-    if request.tools().is_empty() || matches!(request.tool_choice(), Some(ToolChoice::None)) {
-        return Ok(None);
-    }
-    let tools = request
-        .tools()
-        .iter()
-        .map(|tool| {
-            aws::ToolSpecification::builder()
-                .name(&tool.name)
-                .description(&tool.description)
-                .input_schema(aws::ToolInputSchema::Json(json_to_document(
-                    &tool.input_schema,
-                )))
-                .build()
-                .map(aws::Tool::ToolSpec)
-                .map_err(|source| build_error(call, source))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-    let choice = match request.tool_choice() {
-        None | Some(ToolChoice::Auto) => Some(aws::ToolChoice::Auto(
-            aws::AutoToolChoice::builder().build(),
-        )),
-        Some(ToolChoice::Required) => {
-            Some(aws::ToolChoice::Any(aws::AnyToolChoice::builder().build()))
-        }
-        Some(ToolChoice::Tool { name }) => Some(aws::ToolChoice::Tool(
-            aws::SpecificToolChoice::builder()
-                .name(name)
-                .build()
-                .map_err(|source| build_error(call, source))?,
-        )),
-        Some(ToolChoice::None) => None,
-    };
-    aws::ToolConfiguration::builder()
-        .set_tools(Some(tools))
-        .set_tool_choice(choice)
-        .build()
-        .map(Some)
-        .map_err(|source| build_error(call, source))
-}
-
-fn sdk_response(call: &ResolvedCall, output: &ConverseOutput) -> Response {
-    let content = output
-        .output()
-        .and_then(|output| output.as_message().ok())
-        .map_or(&[][..], aws::Message::content)
-        .iter()
-        .filter_map(sdk_output_content)
-        .collect();
-    Response {
-        id: None,
-        model: call.route().handle(),
-        content,
-        finish_reason: bedrock_finish_reason(output.stop_reason().as_str()),
-        usage: output.usage().map_or_else(TokenCounts::default, sdk_usage),
-        cost: None,
-        rate_limits: None,
-        warnings: Vec::new(),
-    }
-}
-
-fn sdk_output_content(part: &aws::ContentBlock) -> Option<ContentPart> {
-    match part {
-        aws::ContentBlock::Text(text) => Some(ContentPart::Text { text: text.clone() }),
-        aws::ContentBlock::ToolUse(tool) => Some(ContentPart::ToolCall(ToolCall {
-            id:        tool.tool_use_id().to_owned(),
-            name:      tool.name().to_owned(),
-            arguments: document_to_json(tool.input()),
-        })),
-        aws::ContentBlock::ReasoningContent(reasoning) => {
-            reasoning.as_reasoning_text().ok().map(|reasoning| {
-                ContentPart::Reasoning(ReasoningContent {
-                    text:      reasoning.text().to_owned(),
-                    signature: reasoning.signature().map(ToOwned::to_owned),
-                })
-            })
-        }
-        _ => None,
-    }
-}
-
-fn sdk_stream_event(
-    event: aws::ConverseStreamOutput,
-    tool_ids: &mut BTreeMap<i32, String>,
-) -> Option<StreamEvent> {
-    match event {
-        aws::ConverseStreamOutput::MessageStart(_) => Some(StreamEvent::Started { id: None }),
-        aws::ConverseStreamOutput::ContentBlockStart(event) => {
-            let tool = event.start()?.as_tool_use().ok()?;
-            tool_ids.insert(event.content_block_index(), tool.tool_use_id().to_owned());
-            Some(StreamEvent::ToolCallDelta {
-                id:        tool.tool_use_id().to_owned(),
-                name:      Some(tool.name().to_owned()),
-                arguments: String::new(),
-            })
-        }
-        aws::ConverseStreamOutput::ContentBlockDelta(event) => match event.delta()? {
-            aws::ContentBlockDelta::Text(text) => {
-                Some(StreamEvent::TextDelta { text: text.clone() })
+        let decoded = match state.events.next().await {
+            Some(Ok(event)) => state.decoder.decode(event),
+            Some(Err(error)) => {
+                state.ended = true;
+                return Some((vec![Err(error)], state));
             }
-            aws::ContentBlockDelta::ToolUse(tool) => Some(StreamEvent::ToolCallDelta {
-                id:        tool_ids
-                    .get(&event.content_block_index())
-                    .cloned()
-                    .unwrap_or_default(),
-                name:      None,
-                arguments: tool.input().to_owned(),
-            }),
-            aws::ContentBlockDelta::ReasoningContent(aws::ReasoningContentBlockDelta::Text(
-                text,
-            )) => Some(StreamEvent::ReasoningDelta { text: text.clone() }),
-            _ => None,
-        },
-        aws::ConverseStreamOutput::MessageStop(event) => Some(StreamEvent::Finished {
-            reason: bedrock_finish_reason(event.stop_reason().as_str()),
-        }),
-        aws::ConverseStreamOutput::Metadata(event) => {
-            event.usage().map(|usage| StreamEvent::Usage {
-                usage: sdk_usage(usage),
-            })
-        }
-        _ => None,
-    }
-}
-
-fn sdk_usage(usage: &aws::TokenUsage) -> TokenCounts {
-    TokenCounts {
-        input:            u64::try_from(usage.input_tokens()).unwrap_or_default(),
-        output:           u64::try_from(usage.output_tokens()).unwrap_or_default(),
-        cached_input:     usage
-            .cache_read_input_tokens()
-            .and_then(|tokens| u64::try_from(tokens).ok())
-            .unwrap_or_default(),
-        reasoning_output: 0,
-    }
-}
-
-fn bedrock_finish_reason(reason: &str) -> FinishReason {
-    match reason {
-        "end_turn" | "stop_sequence" => FinishReason::Stop,
-        "max_tokens" => FinishReason::Length,
-        "tool_use" => FinishReason::ToolCall,
-        "content_filtered" | "guardrail_intervened" => FinishReason::ContentFilter,
-        other => FinishReason::Other(other.to_owned()),
-    }
-}
-
-fn bedrock_effort(effort: ReasoningEffort) -> &'static str {
-    match effort {
-        ReasoningEffort::Minimal | ReasoningEffort::Low => "low",
-        ReasoningEffort::Medium => "medium",
-        ReasoningEffort::High => "high",
-        ReasoningEffort::Xhigh => "max",
-    }
-}
-
-fn json_to_document(value: &JsonValue) -> Document {
-    match value {
-        JsonValue::Null => Document::Null,
-        JsonValue::Bool(value) => Document::Bool(*value),
-        JsonValue::String(value) => Document::String(value.clone()),
-        JsonValue::Array(values) => Document::Array(values.iter().map(json_to_document).collect()),
-        JsonValue::Object(values) => Document::Object(
-            values
-                .iter()
-                .map(|(key, value)| (key.clone(), json_to_document(value)))
-                .collect(),
-        ),
-        JsonValue::Number(value) => {
-            let number = if let Some(value) = value.as_u64() {
-                Number::PosInt(value)
-            } else if let Some(value) = value.as_i64() {
-                Number::NegInt(value)
-            } else {
-                Number::Float(value.as_f64().unwrap_or_default())
-            };
-            Document::Number(number)
-        }
-    }
-}
-
-fn document_to_json(value: &Document) -> JsonValue {
-    match value {
-        Document::Null => JsonValue::Null,
-        Document::Bool(value) => JsonValue::Bool(*value),
-        Document::String(value) => JsonValue::String(value.clone()),
-        Document::Array(values) => JsonValue::Array(values.iter().map(document_to_json).collect()),
-        Document::Object(values) => JsonValue::Object(
-            values
-                .iter()
-                .map(|(key, value)| (key.clone(), document_to_json(value)))
-                .collect(),
-        ),
-        Document::Number(Number::PosInt(value)) => (*value).into(),
-        Document::Number(Number::NegInt(value)) => (*value).into(),
-        Document::Number(Number::Float(value)) => {
-            JsonNumber::from_f64(*value).map_or(JsonValue::Null, JsonValue::Number)
-        }
-    }
-}
-
-fn decode_base64(call: &ResolvedCall, value: &str) -> Result<Vec<u8>, Error> {
-    let encoded = value.split_once(',').map_or(value, |(_, encoded)| encoded);
-    STANDARD.decode(encoded).map_err(|source| {
-        Error::new(
-            ErrorKind::InvalidRequest,
-            "Bedrock binary content is not valid base64",
-        )
-        .with_provider(call.route().provider().id().clone())
-        .with_source(source)
+            None => {
+                state.ended = true;
+                state.decoder.finish()
+            }
+        };
+        let items = match decoded {
+            Ok(events) => events.into_iter().map(Ok).collect(),
+            Err(error) => {
+                state.ended = true;
+                vec![Err(error)]
+            }
+        };
+        Some((items, state))
     })
+    .flat_map(iter)
 }
 
-fn document_format(media_type: &str) -> &str {
-    match media_type {
-        "application/pdf" => "pdf",
-        "text/csv" => "csv",
-        "text/html" => "html",
-        "text/markdown" => "md",
-        "text/plain" => "txt",
-        "application/msword" => "doc",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => "docx",
-        "application/vnd.ms-excel" => "xls",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => "xlsx",
-        other => other,
-    }
+#[cfg(not(feature = "bedrock-aws"))]
+fn missing_feature(provider: &CatalogProvider) -> Error {
+    Error::new(
+        ErrorKind::Configuration,
+        format!(
+            "provider {} resolved AWS default-chain credentials, which need the `bedrock-aws` \
+             feature",
+            provider.id()
+        ),
+    )
+    .with_provider(provider.id().clone())
 }
 
-fn scheme_mismatch(call: &ResolvedCall) -> Error {
+fn scheme_mismatch(provider: &CatalogProvider) -> Error {
     Error::new(
         ErrorKind::Authentication,
-        "Bedrock requires AWS default-chain or Bedrock bearer credentials",
+        format!(
+            "credentials for provider {} are not Bedrock credentials",
+            provider.id()
+        ),
     )
-    .with_provider(call.route().provider().id().clone())
+    .with_provider(provider.id().clone())
 }
 
-fn build_error(call: &ResolvedCall, source: impl StdError + Send + Sync + 'static) -> Error {
-    Error::new(
-        ErrorKind::InvalidRequest,
-        "building the Bedrock request failed",
-    )
-    .with_provider(call.route().provider().id().clone())
-    .with_source(source)
+/// Dispatch for requests whose headers and bytes are already final.
+///
+/// TRANSPORT GAP, TEMPORARY. SigV4 signs the exact bytes and headers that go
+/// on the wire, so it cannot use [`HttpTransport::send`], which assembles
+/// headers from credentials itself. `HttpTransport` has no entry point that
+/// accepts a prepared request, so the two dispatch functions and their two
+/// helpers live here for now. They are copies, not new behavior: response
+/// error classification already comes from
+/// [`crate::transport::provider_error`], and event-stream framing already
+/// comes from [`crate::transport::event_stream`]. Once `HttpTransport` gains
+/// `execute_json_prepared` and `event_stream_events_prepared`, this whole
+/// module is deleted and the two call sites above point at those.
+#[cfg(feature = "bedrock-aws")]
+mod signed {
+    use std::future::ready;
+    use std::time::Duration;
+
+    use futures_util::StreamExt as _;
+    use futures_util::stream::iter;
+    use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+    use reqwest::{Client, Method, Response as HttpResponse};
+    use serde_json::Value;
+
+    use crate::catalog::{CatalogProvider, ProviderId};
+    use crate::transport::{
+        EncodedRequest, EventResponse, JsonResponse, SseEvent, classify, event_stream,
+        provider_error,
+    };
+    use crate::types::{Error, ErrorKind, RateLimits, RetryClassification};
+
+    /// A request whose URL, headers, and bytes are final.
+    pub(super) struct PreparedRequest {
+        pub method:  Method,
+        pub url:     String,
+        pub headers: HeaderMap,
+        pub body:    Vec<u8>,
+        pub timeout: Option<Duration>,
+    }
+
+    /// Builds the final headers and bytes for one encoded request.
+    ///
+    /// Header precedence matches [`HttpTransport::send`]: the JSON content
+    /// type first, then codec headers, then the provider's catalog default
+    /// headers. Authentication is applied last, by the caller, so it wins
+    /// every collision.
+    pub(super) fn prepare(
+        provider: &CatalogProvider,
+        encoded: EncodedRequest,
+    ) -> Result<PreparedRequest, Error> {
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        for (name, value) in &encoded.headers {
+            insert(&mut headers, provider.id(), name, value)?;
+        }
+        for (name, value) in provider.default_headers() {
+            insert(&mut headers, provider.id(), name, value)?;
+        }
+        let body = serde_json::to_vec(&encoded.body).map_err(|source| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                format!(
+                    "the request for provider {} could not be serialized",
+                    provider.id()
+                ),
+            )
+            .with_provider(provider.id().clone())
+            .with_source(source)
+        })?;
+        Ok(PreparedRequest {
+            method: encoded.method,
+            url: encoded.url,
+            headers,
+            body,
+            timeout: encoded.timeout,
+        })
+    }
+
+    pub(super) async fn execute_json(
+        client: &Client,
+        request: PreparedRequest,
+        provider: &CatalogProvider,
+    ) -> Result<JsonResponse, Error> {
+        let response = send(client, request, provider).await?;
+        let rate_limits = rate_limits(response.headers());
+        let body = response.json().await.map_err(|source| {
+            Error::new(
+                ErrorKind::Provider,
+                format!("provider {} returned invalid JSON", provider.id()),
+            )
+            .with_provider(provider.id().clone())
+            .with_source(source)
+        })?;
+        Ok(JsonResponse { body, rate_limits })
+    }
+
+    pub(super) async fn event_stream_events(
+        client: &Client,
+        request: PreparedRequest,
+        provider: &CatalogProvider,
+    ) -> Result<EventResponse, Error> {
+        let response = send(client, request, provider).await?;
+        let rate_limits = rate_limits(response.headers());
+        let provider_id = provider.id().clone();
+        let read_provider = provider_id.clone();
+        let chunks = response.bytes_stream().map(move |result| {
+            result.map_err(|source| {
+                Error::new(
+                    ErrorKind::Network,
+                    "reading the Bedrock response stream failed",
+                )
+                .with_provider(read_provider.clone())
+                .with_retry(RetryClassification::Safe)
+                .with_source(source)
+            })
+        });
+        let frames = chunks
+            .scan(Vec::new(), move |buffer, chunk| {
+                let parsed = match chunk {
+                    Ok(chunk) => {
+                        buffer.extend_from_slice(&chunk);
+                        events_from(buffer, &provider_id)
+                    }
+                    Err(error) => vec![Err(error)],
+                };
+                ready(Some(parsed))
+            })
+            .flat_map(iter);
+        Ok(EventResponse {
+            events: Box::pin(frames),
+            rate_limits,
+        })
+    }
+
+    async fn send(
+        client: &Client,
+        request: PreparedRequest,
+        provider: &CatalogProvider,
+    ) -> Result<HttpResponse, Error> {
+        let mut builder = client
+            .request(request.method, &request.url)
+            .headers(request.headers)
+            .body(request.body);
+        if let Some(timeout) = request.timeout {
+            builder = builder.timeout(timeout);
+        }
+        let response = builder.send().await.map_err(|source| {
+            let kind = if source.is_timeout() {
+                ErrorKind::Timeout
+            } else {
+                ErrorKind::Network
+            };
+            Error::new(
+                kind,
+                format!("request to provider {} failed", provider.id()),
+            )
+            .with_provider(provider.id().clone())
+            .with_retry(RetryClassification::Safe)
+            .with_source(source)
+        })?;
+        if response.status().is_success() {
+            return Ok(response);
+        }
+        let status = response.status().as_u16();
+        let retry_after = response
+            .headers()
+            .get("retry-after")
+            .and_then(|value| value.to_str().ok())
+            .map(ToOwned::to_owned);
+        let data = response.json::<Value>().await.ok();
+        Err(provider_error(
+            provider,
+            Some(status),
+            data,
+            retry_after.as_deref(),
+        ))
+    }
+
+    fn events_from(buffer: &mut Vec<u8>, provider: &ProviderId) -> Vec<Result<SseEvent, Error>> {
+        event_stream::extract_frames(buffer)
+            .into_iter()
+            .map(|frame| {
+                let frame = frame?;
+                let data = String::from_utf8(frame.payload.clone()).map_err(|source| {
+                    Error::new(
+                        ErrorKind::StreamDecode,
+                        "a Bedrock event payload was not UTF-8",
+                    )
+                    .with_provider(provider.clone())
+                    .with_source(source)
+                })?;
+                if frame.is_exception() {
+                    let body = serde_json::from_str::<Value>(&data).ok();
+                    let (message, code) = classify::extract(body.as_ref());
+                    let code = code.or_else(|| frame.exception_type().map(ToOwned::to_owned));
+                    let failure =
+                        classify::classify(None, code.as_deref(), message.as_deref(), None);
+                    let mut error = Error::new(
+                        failure.kind,
+                        format!(
+                            "provider {provider} {}",
+                            failure
+                                .message
+                                .unwrap_or_else(|| "returned a stream exception".to_owned())
+                        ),
+                    )
+                    .with_provider(provider.clone())
+                    .with_retry(failure.retry);
+                    if let Some(code) = failure.code {
+                        error = error.with_provider_code(code);
+                    }
+                    if let Some(body) = body {
+                        error = error.with_raw_data(body);
+                    }
+                    return Err(error);
+                }
+                Ok(SseEvent {
+                    event: frame.event_type().map(ToOwned::to_owned),
+                    data,
+                })
+            })
+            .collect()
+    }
+
+    fn rate_limits(headers: &HeaderMap) -> Option<RateLimits> {
+        let limits = RateLimits {
+            request_limit:     header_u64(headers, &[
+                "x-ratelimit-limit-requests",
+                "anthropic-ratelimit-requests-limit",
+            ]),
+            request_remaining: header_u64(headers, &[
+                "x-ratelimit-remaining-requests",
+                "anthropic-ratelimit-requests-remaining",
+            ]),
+            request_reset:     header_string(headers, &[
+                "x-ratelimit-reset-requests",
+                "anthropic-ratelimit-requests-reset",
+            ]),
+            token_limit:       header_u64(headers, &[
+                "x-ratelimit-limit-tokens",
+                "anthropic-ratelimit-tokens-limit",
+            ]),
+            token_remaining:   header_u64(headers, &[
+                "x-ratelimit-remaining-tokens",
+                "anthropic-ratelimit-tokens-remaining",
+            ]),
+            token_reset:       header_string(headers, &[
+                "x-ratelimit-reset-tokens",
+                "anthropic-ratelimit-tokens-reset",
+            ]),
+        };
+        (limits != RateLimits::default()).then_some(limits)
+    }
+
+    fn header_u64(headers: &HeaderMap, names: &[&str]) -> Option<u64> {
+        names.iter().find_map(|name| {
+            headers
+                .get(*name)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse().ok())
+        })
+    }
+
+    fn header_string(headers: &HeaderMap, names: &[&str]) -> Option<String> {
+        names.iter().find_map(|name| {
+            headers
+                .get(*name)
+                .and_then(|value| value.to_str().ok())
+                .map(ToOwned::to_owned)
+        })
+    }
+
+    fn insert(
+        headers: &mut HeaderMap,
+        provider: &ProviderId,
+        name: &str,
+        value: &str,
+    ) -> Result<(), Error> {
+        let name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
+            Error::new(
+                ErrorKind::Configuration,
+                format!("provider {provider} has an invalid HTTP header name"),
+            )
+            .with_provider(provider.clone())
+            .with_source(source)
+        })?;
+        let value = HeaderValue::from_str(value).map_err(|source| {
+            Error::new(
+                ErrorKind::Configuration,
+                format!("provider {provider} has an invalid HTTP header value"),
+            )
+            .with_provider(provider.clone())
+            .with_source(source)
+        })?;
+        headers.insert(name, value);
+        Ok(())
+    }
 }
 
-fn sdk_error(
-    call: &ResolvedCall,
-    message: &'static str,
-    source: impl StdError + Send + Sync + 'static,
-) -> Error {
-    Error::new(ErrorKind::Provider, message)
-        .with_provider(call.route().provider().id().clone())
-        .with_retry(RetryClassification::Safe)
-        .with_source(source)
+#[cfg(all(test, feature = "builtin-catalog"))]
+mod tests {
+    use std::error::Error as StdError;
+    use std::sync::Arc;
+
+    use reqwest::Client;
+    #[cfg(feature = "bedrock-aws")]
+    use reqwest::header::CONTENT_TYPE;
+    use serde_json::json;
+
+    use super::Factory;
+    #[cfg(feature = "bedrock-aws")]
+    use super::{BedrockConverseCodec, signed};
+    use crate::adapter::{
+        AdapterBuildError, AdapterContext, AdapterFactory as _, ProviderAdapter as _, ResolvedCall,
+    };
+    use crate::catalog::{Catalog, CatalogProvider, ProviderId};
+    #[cfg(feature = "bedrock-aws")]
+    use crate::codecs::Codec as _;
+    use crate::credentials::{Credentials, SecretValue, StaticCredentials};
+    use crate::middleware::CallContext;
+    use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver as _};
+    use crate::types::Request;
+
+    /// A Bedrock provider whose endpoint the test controls, using bearer
+    /// authentication so no AWS crates are needed.
+    fn catalog(base_url: &str) -> Result<Catalog, Box<dyn StdError>> {
+        let source = format!(
+            r#"
+            schema_version = 1
+
+            [providers.bedrock]
+            display_name = "Amazon Bedrock"
+            adapter = "bedrock"
+            codec = "bedrock-converse"
+            base_url = "{base_url}"
+            default_model = "sonnet"
+            auth = {{ type = "bedrock_bearer" }}
+
+            [providers.bedrock.models.sonnet]
+            display_name = "Sonnet"
+            api_model = "anthropic.claude-sonnet-4-6"
+            capabilities = {{ text = true, tools = true }}
+            "#
+        );
+        Ok(Catalog::builder().toml_layer("test", &source)?.build()?)
+    }
+
+    fn call(catalog: &Catalog) -> Result<ResolvedCall, Box<dyn StdError>> {
+        let request = Request::builder()
+            .model("bedrock/sonnet")
+            .user("Hello")
+            .build()?;
+        let available = AvailableProviders::all(catalog);
+        let route = CatalogResolver.resolve(&request, catalog, &available)?;
+        Ok(ResolvedCall::new(request, route, CallContext::new()))
+    }
+
+    fn provider(catalog: &Catalog) -> Result<&CatalogProvider, Box<dyn StdError>> {
+        catalog
+            .provider_by_id(&ProviderId::new("bedrock"))
+            .ok_or_else(|| "the test catalog defines a bedrock provider".into())
+    }
+
+    fn context() -> AdapterContext {
+        let credentials = StaticCredentials::new().with(
+            ProviderId::new("bedrock"),
+            Credentials::BedrockBearer(SecretValue::new("token")),
+        );
+        AdapterContext::new(Client::new(), Arc::new(credentials))
+    }
+
+    #[test]
+    fn rejects_a_provider_that_is_not_bedrock_converse() -> Result<(), Box<dyn StdError>> {
+        let source = r#"
+            schema_version = 1
+
+            [providers.bedrock]
+            display_name = "Amazon Bedrock"
+            adapter = "bedrock"
+            codec = "openai-chat"
+            base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+            default_model = "sonnet"
+            auth = { type = "bedrock_bearer" }
+
+            [providers.bedrock.models.sonnet]
+            display_name = "Sonnet"
+            api_model = "anthropic.claude-sonnet-4-6"
+            capabilities = { text = true }
+        "#;
+        let catalog = Catalog::builder().toml_layer("test", source)?.build()?;
+
+        let error = Factory
+            .create(provider(&catalog)?, &context())
+            .err()
+            .ok_or("a non-Bedrock codec is rejected")?;
+
+        assert!(
+            matches!(error, AdapterBuildError::UnsupportedCodec { .. }),
+            "unexpected error: {error}"
+        );
+        Ok(())
+    }
+
+    /// Without `bedrock-aws` the factory reports a construction issue for a
+    /// provider that asks for SigV4, rather than panicking or falling back to
+    /// bearer authentication.
+    #[cfg(not(feature = "bedrock-aws"))]
+    #[test]
+    fn reports_sigv4_without_the_aws_feature() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let error = Factory
+            .create(provider(&catalog)?, &context())
+            .err()
+            .ok_or("AWS authentication is rejected without the feature")?;
+
+        let AdapterBuildError::InvalidConfiguration { message, .. } = &error else {
+            return Err(format!("unexpected error: {error}").into());
+        };
+        assert!(
+            message.contains("bedrock-aws"),
+            "the message names the missing feature: {message}"
+        );
+        Ok(())
+    }
+
+    /// Both authentication paths dispatch the one `EncodedRequest` the codec
+    /// produced, so they cannot disagree about the method, the URL, or the
+    /// body. The signed path is checked directly: preparing a request for
+    /// signing changes none of the three, and adds no authentication of its
+    /// own. The bearer path is checked against that same prepared request over
+    /// a mock endpoint, which only answers a request whose method, path, and
+    /// body match.
+    #[cfg(feature = "bedrock-aws")]
+    #[tokio::test]
+    async fn bearer_and_signed_requests_carry_the_same_url_and_body()
+    -> Result<(), Box<dyn StdError>> {
+        let server = httpmock::MockServer::start_async().await;
+        let catalog = catalog(&server.base_url())?;
+        let call = call(&catalog)?;
+        let encoded = BedrockConverseCodec.encode(&call, false)?;
+        let method = encoded.method.clone();
+        let url = encoded.url.clone();
+        let body = encoded.body.clone();
+
+        let prepared = signed::prepare(provider(&catalog)?, encoded)?;
+
+        assert_eq!(prepared.method, method);
+        assert_eq!(prepared.url, url);
+        assert_eq!(prepared.body, serde_json::to_vec(&body)?);
+        assert_eq!(
+            prepared
+                .headers
+                .get(CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("application/json")
+        );
+        assert!(
+            prepared.headers.get("authorization").is_none(),
+            "authentication is applied after preparation, never during it"
+        );
+
+        let path = prepared
+            .url
+            .strip_prefix(&server.base_url())
+            .ok_or("the encoded URL starts at the provider base URL")?
+            .to_owned();
+        let mock = server
+            .mock_async(|when, then| {
+                when.method(prepared.method.as_str())
+                    .path(path)
+                    .json_body(body);
+                then.status(200)
+                    .header("content-type", "application/json")
+                    .json_body(json!({
+                        "output": { "message": { "role": "assistant", "content": [{ "text": "Hi" }] } },
+                        "stopReason": "end_turn",
+                        "usage": { "inputTokens": 1, "outputTokens": 1 },
+                    }));
+            })
+            .await;
+        let adapter = Factory.create(provider(&catalog)?, &context())?;
+
+        adapter.complete(&call).await?;
+
+        mock.assert_async().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn counts_input_tokens_for_the_canonical_model() -> Result<(), Box<dyn StdError>> {
+        let server = httpmock::MockServer::start_async().await;
+        let mock = server
+            .mock_async(|when, then| {
+                when.method("POST")
+                    .path("/model/anthropic.claude-sonnet-4-6/count-tokens");
+                then.status(200)
+                    .header("content-type", "application/json")
+                    .json_body(json!({ "inputTokens": 42 }));
+            })
+            .await;
+        let catalog = catalog(&server.base_url())?;
+        let call = call(&catalog)?;
+        let adapter = Factory.create(provider(&catalog)?, &context())?;
+
+        let count = adapter
+            .count_input_tokens(&call)
+            .await?
+            .ok_or("Bedrock supports native token counting")?;
+
+        mock.assert_async().await;
+        assert_eq!(count.tokens(), 42);
+        assert_eq!(count.model(), &call.route().handle());
+        Ok(())
+    }
 }

@@ -4,6 +4,7 @@ use super::{Metadata, ModelId, ProviderId};
 
 /// Portable model capabilities.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModelCapabilities {
     #[serde(default)]
     pub text:              bool,
@@ -27,31 +28,43 @@ pub struct ModelCapabilities {
 
 /// Context and output token limits.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModelLimits {
     pub context_tokens:    u64,
     pub max_output_tokens: u64,
 }
 
 /// Catalog pricing in US dollar micros per million tokens.
+///
+/// `cache_write_usd_micros_per_million` prices tokens written into a provider
+/// cache. Callers that do not find it should fall back to the input rate.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Pricing {
     pub input_usd_micros_per_million: Option<u64>,
     pub output_usd_micros_per_million: Option<u64>,
     pub cached_input_usd_micros_per_million: Option<u64>,
+    pub cache_write_usd_micros_per_million: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub long_context: Option<LongContextPricing>,
 }
 
 /// Alternate rates selected when input crosses a model billing threshold.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct LongContextPricing {
     pub above_input_tokens:                  u64,
     pub input_usd_micros_per_million:        Option<u64>,
     pub output_usd_micros_per_million:       Option<u64>,
     pub cached_input_usd_micros_per_million: Option<u64>,
+    pub cache_write_usd_micros_per_million:  Option<u64>,
 }
 
 impl Pricing {
+    /// Selects the rates that apply to a request with `input_tokens` of input.
+    ///
+    /// Long-context rates replace every base rate, including the cache-write
+    /// rate, so a long-context block that omits one rate reports no rate.
     #[must_use]
     pub fn for_input_tokens(self, input_tokens: u64) -> Self {
         let Some(long_context) = self
@@ -64,6 +77,7 @@ impl Pricing {
             input_usd_micros_per_million: long_context.input_usd_micros_per_million,
             output_usd_micros_per_million: long_context.output_usd_micros_per_million,
             cached_input_usd_micros_per_million: long_context.cached_input_usd_micros_per_million,
+            cache_write_usd_micros_per_million: long_context.cache_write_usd_micros_per_million,
             long_context: self.long_context,
         }
     }
@@ -71,6 +85,7 @@ impl Pricing {
 
 /// Model-level catalog facts.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct CatalogModel {
     #[serde(skip)]
     provider:     ProviderId,
@@ -152,21 +167,29 @@ impl CatalogModel {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error as StdError;
+
     use super::{LongContextPricing, Pricing};
 
-    #[test]
-    fn selects_long_context_rates_above_the_threshold() {
-        let pricing = Pricing {
+    fn sample_pricing() -> Pricing {
+        Pricing {
             input_usd_micros_per_million: Some(1),
             output_usd_micros_per_million: Some(2),
             cached_input_usd_micros_per_million: Some(3),
+            cache_write_usd_micros_per_million: Some(7),
             long_context: Some(LongContextPricing {
                 above_input_tokens:                  200_000,
                 input_usd_micros_per_million:        Some(4),
                 output_usd_micros_per_million:       Some(5),
                 cached_input_usd_micros_per_million: Some(6),
+                cache_write_usd_micros_per_million:  Some(8),
             }),
-        };
+        }
+    }
+
+    #[test]
+    fn selects_long_context_rates_above_the_threshold() {
+        let pricing = sample_pricing();
 
         assert_eq!(
             pricing
@@ -180,5 +203,45 @@ mod tests {
                 .input_usd_micros_per_million,
             Some(4)
         );
+    }
+
+    #[test]
+    fn carries_the_cache_write_rate_across_the_threshold() {
+        let pricing = sample_pricing();
+
+        assert_eq!(
+            pricing
+                .for_input_tokens(200_000)
+                .cache_write_usd_micros_per_million,
+            Some(7)
+        );
+        assert_eq!(
+            pricing
+                .for_input_tokens(200_001)
+                .cache_write_usd_micros_per_million,
+            Some(8)
+        );
+    }
+
+    #[test]
+    fn reads_the_cache_write_rate_from_toml() -> Result<(), Box<dyn StdError>> {
+        let pricing = toml::from_str::<Pricing>(
+            r"
+            input_usd_micros_per_million = 1
+            output_usd_micros_per_million = 2
+            cached_input_usd_micros_per_million = 3
+            cache_write_usd_micros_per_million = 7
+            long_context = { above_input_tokens = 100, cache_write_usd_micros_per_million = 8 }
+            ",
+        )?;
+
+        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(7));
+        assert_eq!(
+            pricing
+                .long_context
+                .and_then(|rates| rates.cache_write_usd_micros_per_million),
+            Some(8)
+        );
+        Ok(())
     }
 }

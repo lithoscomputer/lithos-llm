@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::http::{HttpAdapterOptions, build_http_adapter};
 use crate::adapter::{AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter};
 use crate::catalog::{CatalogProvider, codec_ids};
 use crate::codecs::openai_chat::OpenAiChatCodec;
@@ -12,6 +13,12 @@ impl AdapterFactory for Factory {
         provider: &CatalogProvider,
         context: &AdapterContext,
     ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        super::build_http_adapter(provider, context, codec_ids::OPENAI_CHAT, OpenAiChatCodec)
+        build_http_adapter(
+            provider,
+            context,
+            codec_ids::OPENAI_CHAT,
+            OpenAiChatCodec,
+            HttpAdapterOptions::default(),
+        )
     }
 }

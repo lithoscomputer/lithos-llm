@@ -2,10 +2,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use thiserror::Error;
 
-use super::{Message, Role, ToolChoice, ToolDefinition};
+use super::{Message, Role, ToolChoice, ToolDefinition, ToolDefinitionKind};
+use crate::catalog::ProviderId;
 
 /// Requested reasoning depth, when a provider supports it.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -66,8 +67,12 @@ pub struct Request {
         with = "duration_millis"
     )]
     timeout:           Option<Duration>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    stop_sequences:    Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    provider_options:  BTreeMap<String, Value>,
+    metadata:          BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    provider_options:  BTreeMap<ProviderId, Map<String, Value>>,
 }
 
 impl Request {
@@ -119,8 +124,29 @@ impl Request {
         self.timeout
     }
 
-    pub fn provider_options(&self) -> &BTreeMap<String, Value> {
+    /// The sequences that stop generation, in the order they were added.
+    pub fn stop_sequences(&self) -> &[String] {
+        &self.stop_sequences
+    }
+
+    /// Free-form request metadata, forwarded where a protocol supports it.
+    pub fn metadata(&self) -> &BTreeMap<String, String> {
+        &self.metadata
+    }
+
+    /// Raw provider options, keyed by canonical catalog provider id.
+    ///
+    /// Each namespace is a JSON object of wire fields for one provider. A
+    /// request can carry namespaces for several failover candidates; a codec
+    /// reads only the namespace of the provider it was routed to.
+    pub fn provider_options(&self) -> &BTreeMap<ProviderId, Map<String, Value>> {
         &self.provider_options
+    }
+
+    /// The raw options namespace for one provider, or `None` when the request
+    /// carries no options for it.
+    pub fn options_for(&self, provider: &ProviderId) -> Option<&Map<String, Value>> {
+        self.provider_options.get(provider)
     }
 }
 
@@ -139,7 +165,9 @@ pub struct RequestBuilder {
     reasoning_effort:  Option<ReasoningEffort>,
     speed:             Option<Speed>,
     timeout:           Option<Duration>,
-    provider_options:  BTreeMap<String, Value>,
+    stop_sequences:    Vec<String>,
+    metadata:          BTreeMap<String, String>,
+    provider_options:  BTreeMap<ProviderId, Map<String, Value>>,
 }
 
 impl RequestBuilder {
@@ -210,8 +238,55 @@ impl RequestBuilder {
         self
     }
 
-    pub fn provider_option(mut self, namespace: impl Into<String>, value: Value) -> Self {
-        self.provider_options.insert(namespace.into(), value);
+    /// Appends one stop sequence. Order is preserved.
+    pub fn stop_sequence(mut self, sequence: impl Into<String>) -> Self {
+        self.stop_sequences.push(sequence.into());
+        self
+    }
+
+    /// Appends several stop sequences. Order is preserved.
+    pub fn stop_sequences(
+        mut self,
+        sequences: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.stop_sequences
+            .extend(sequences.into_iter().map(Into::into));
+        self
+    }
+
+    /// Sets one metadata entry, replacing any earlier value for the key.
+    pub fn metadata_entry(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
+    /// Sets one raw option inside a provider namespace.
+    ///
+    /// `provider` is the canonical catalog provider id, never a codec or
+    /// adapter id.
+    pub fn provider_option(
+        mut self,
+        provider: impl Into<ProviderId>,
+        key: impl Into<String>,
+        value: Value,
+    ) -> Self {
+        self.provider_options
+            .entry(provider.into())
+            .or_default()
+            .insert(key.into(), value);
+        self
+    }
+
+    /// Replaces the complete raw options namespace for one provider.
+    ///
+    /// `provider` is the canonical catalog provider id, never a codec or
+    /// adapter id.
+    pub fn provider_options(
+        mut self,
+        provider: impl Into<ProviderId>,
+        options: Map<String, Value>,
+    ) -> Self {
+        self.provider_options.insert(provider.into(), options);
         self
     }
 
@@ -248,6 +323,16 @@ impl RequestBuilder {
         if self.timeout == Some(Duration::ZERO) {
             return Err(RequestBuildError::ZeroTimeout);
         }
+        if self
+            .stop_sequences
+            .iter()
+            .any(|sequence| sequence.trim().is_empty())
+        {
+            return Err(RequestBuildError::EmptyStopSequence);
+        }
+        if self.metadata.keys().any(|key| key.trim().is_empty()) {
+            return Err(RequestBuildError::EmptyMetadataKey);
+        }
         let mut tool_names = BTreeSet::new();
         for tool in &self.tools {
             if tool.name.trim().is_empty() {
@@ -255,6 +340,11 @@ impl RequestBuilder {
             }
             if !tool_names.insert(tool.name.as_str()) {
                 return Err(RequestBuildError::DuplicateToolName);
+            }
+            if let ToolDefinitionKind::Custom { format } = &tool.kind {
+                if format.is_null() {
+                    return Err(RequestBuildError::CustomToolFormatRequired);
+                }
             }
         }
         if let Some(ToolChoice::Tool { name }) = &self.tool_choice {
@@ -270,7 +360,7 @@ impl RequestBuilder {
         if self
             .provider_options
             .keys()
-            .any(|namespace| namespace.trim().is_empty())
+            .any(|namespace| namespace.as_str().trim().is_empty())
         {
             return Err(RequestBuildError::EmptyProviderNamespace);
         }
@@ -287,6 +377,8 @@ impl RequestBuilder {
             reasoning_effort: self.reasoning_effort,
             speed: self.speed,
             timeout: self.timeout,
+            stop_sequences: self.stop_sequences,
+            metadata: self.metadata,
             provider_options: self.provider_options,
         })
     }
@@ -312,10 +404,16 @@ pub enum RequestBuildError {
     InvalidTopP,
     #[error("timeout must be greater than zero")]
     ZeroTimeout,
+    #[error("stop sequences must not be empty")]
+    EmptyStopSequence,
+    #[error("metadata keys must not be empty")]
+    EmptyMetadataKey,
     #[error("tool names must not be empty")]
     EmptyToolName,
     #[error("tool names must be unique")]
     DuplicateToolName,
+    #[error("custom tools must define a format")]
+    CustomToolFormatRequired,
     #[error("the selected tool must be present in the request tools")]
     UnknownToolChoice,
     #[error("JSON schema names must not be empty")]
@@ -347,5 +445,151 @@ mod duration_millis {
         D: Deserializer<'de>,
     {
         Option::<u64>::deserialize(deserializer).map(|value| value.map(Duration::from_millis))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::error::Error as StdError;
+
+    use serde_json::{Map, json};
+
+    use super::{Request, RequestBuildError, RequestBuilder};
+    use crate::catalog::ProviderId;
+    use crate::types::{ToolChoice, ToolDefinition};
+
+    fn base() -> RequestBuilder {
+        Request::builder().model("test-model").user("hello")
+    }
+
+    #[test]
+    fn stop_sequences_round_trip_in_order() -> Result<(), Box<dyn StdError>> {
+        let request = base()
+            .stop_sequence("zebra")
+            .stop_sequences(["alpha", "END"])
+            .build()?;
+        assert_eq!(request.stop_sequences(), ["zebra", "alpha", "END"]);
+
+        let encoded = serde_json::to_string(&request)?;
+        let decoded = serde_json::from_str::<Request>(&encoded)?;
+
+        assert_eq!(decoded.stop_sequences(), ["zebra", "alpha", "END"]);
+        assert_eq!(decoded, request);
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_an_empty_stop_sequence() {
+        let error = base().stop_sequence("   ").build().unwrap_err();
+
+        assert_eq!(error, RequestBuildError::EmptyStopSequence);
+    }
+
+    #[test]
+    fn rejects_an_empty_metadata_key() {
+        let error = base().metadata_entry("", "value").build().unwrap_err();
+
+        assert_eq!(error, RequestBuildError::EmptyMetadataKey);
+    }
+
+    #[test]
+    fn round_trips_metadata_and_provider_options() -> Result<(), Box<dyn StdError>> {
+        let mut anthropic = Map::new();
+        anthropic.insert("top_k".to_owned(), json!(5));
+        anthropic.insert("auto_cache".to_owned(), json!(false));
+
+        let request = base()
+            .metadata_entry("user_id", "u-1")
+            .metadata_entry("trace_id", "t-789")
+            .provider_option("openai", "seed", json!(7))
+            .provider_options("anthropic", anthropic)
+            .stop_sequence("END")
+            .build()?;
+
+        let encoded = serde_json::to_string(&request)?;
+        let decoded = serde_json::from_str::<Request>(&encoded)?;
+
+        assert_eq!(decoded, request);
+        assert_eq!(
+            decoded.metadata().get("trace_id").map(String::as_str),
+            Some("t-789")
+        );
+        assert_eq!(decoded.provider_options().len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn options_for_reads_only_the_requested_namespace() -> Result<(), Box<dyn StdError>> {
+        let request = base()
+            .provider_option("openai", "seed", json!(7))
+            .provider_option("anthropic", "top_k", json!(5))
+            .build()?;
+
+        let openai = request
+            .options_for(&ProviderId::new("openai"))
+            .ok_or("the openai namespace is missing")?;
+
+        assert_eq!(openai.get("seed"), Some(&json!(7)));
+        assert!(!openai.contains_key("top_k"));
+        assert!(request.options_for(&ProviderId::new("gemini")).is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_a_non_object_provider_namespace() {
+        let document = r#"{"model":"m","messages":[],"provider_options":{"openai":"seed"}}"#;
+
+        assert!(serde_json::from_str::<Request>(document).is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_names_across_tool_kinds() {
+        let error = base()
+            .tool(ToolDefinition::function(
+                "patch",
+                "apply a patch",
+                json!({}),
+            ))
+            .tool(ToolDefinition::custom(
+                "patch",
+                "apply a patch",
+                json!({"type": "text"}),
+            ))
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, RequestBuildError::DuplicateToolName);
+    }
+
+    #[test]
+    fn accepts_a_named_choice_of_a_custom_tool() -> Result<(), Box<dyn StdError>> {
+        let request = base()
+            .tool(ToolDefinition::custom(
+                "apply_patch",
+                "apply a patch",
+                json!({"type": "text"}),
+            ))
+            .tool_choice(ToolChoice::Tool {
+                name: "apply_patch".to_owned(),
+            })
+            .build()?;
+
+        assert_eq!(request.tools().len(), 1);
+        assert!(request.tools()[0].is_custom());
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_a_custom_tool_without_a_format() {
+        let error = base()
+            .tool(ToolDefinition::custom(
+                "apply_patch",
+                "apply a patch",
+                json!(null),
+            ))
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, RequestBuildError::CustomToolFormatRequired);
     }
 }

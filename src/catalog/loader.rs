@@ -1,8 +1,11 @@
+use std::collections::BTreeMap;
+
+use serde::Deserialize;
 use toml::Value;
 use toml::map::Map;
 
 use super::overlay::merge;
-use super::{Catalog, CatalogError};
+use super::{Catalog, CatalogDocument, CatalogError, CatalogProvider, LayerOrigins, ProviderId};
 
 #[cfg(feature = "builtin-catalog")]
 const BUILTIN_CATALOG: &str = r#"
@@ -92,16 +95,43 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, reasoning = true, sampling = true }
 "#;
 
-enum Layer {
+/// The layer name reported for the built-in catalog.
+const BUILTIN_LAYER: &str = "built-in";
+
+/// The layer name reported when a failure belongs to no single layer.
+const MERGED_LAYER: &str = "<merged catalog>";
+
+struct Layer {
+    name:   String,
+    source: LayerSource,
+}
+
+enum LayerSource {
     Builtin,
-    Overlay(toml::Value),
+    Toml(Value),
+}
+
+/// The merged document before provider entries are given their schema.
+///
+/// Providers stay as raw TOML so a schema failure can name the layer that
+/// last wrote the offending provider.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDocument {
+    schema_version: u32,
+    providers:      BTreeMap<ProviderId, Value>,
 }
 
 /// Builds an immutable catalog from ordered layers.
+///
+/// Layers merge in call order and later layers win. Each layer carries a name
+/// that appears in parse and validation errors. No layer is added implicitly:
+/// a catalog built only from application TOML contains no built-in entry.
 #[derive(Default)]
 #[must_use]
 pub struct CatalogBuilder {
-    layers: Vec<Layer>,
+    layers:   Vec<Layer>,
+    overlays: usize,
 }
 
 impl CatalogBuilder {
@@ -109,37 +139,124 @@ impl CatalogBuilder {
         Self::default()
     }
 
+    /// Adds the minimal built-in catalog as the next layer.
+    ///
+    /// The layer is named `built-in`.
     pub fn with_builtin(mut self) -> Self {
-        self.layers.push(Layer::Builtin);
+        self.layers.push(Layer {
+            name:   BUILTIN_LAYER.to_owned(),
+            source: LayerSource::Builtin,
+        });
         self
     }
 
-    pub fn overlay_toml(mut self, source: &str) -> Result<Self, CatalogError> {
-        let overlay = toml::from_str(source).map_err(CatalogError::Parse)?;
-        self.layers.push(Layer::Overlay(overlay));
+    /// Adds a named TOML layer.
+    ///
+    /// `name` identifies the layer in parse and validation errors. A file path
+    /// such as `providers/openai.toml` reads well in a message.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatalogError::Parse`] when `source` is not valid TOML.
+    pub fn toml_layer(
+        mut self,
+        name: impl Into<String>,
+        source: &str,
+    ) -> Result<Self, CatalogError> {
+        let name = name.into();
+        let value = parse_layer(&name, source)?;
+        self.layers.push(Layer {
+            name,
+            source: LayerSource::Toml(value),
+        });
         Ok(self)
     }
 
+    /// Adds an unnamed TOML layer.
+    ///
+    /// The layer is named `overlay 1`, `overlay 2`, and so on by position. Use
+    /// [`CatalogBuilder::toml_layer`] to choose a more useful name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatalogError::Parse`] when `source` is not valid TOML.
+    pub fn overlay_toml(mut self, source: &str) -> Result<Self, CatalogError> {
+        self.overlays += 1;
+        let name = format!("overlay {}", self.overlays);
+        self.toml_layer(name, source)
+    }
+
+    /// Merges every layer and validates the result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatalogError::Parse`] when a merged provider does not match
+    /// the catalog schema, [`CatalogError::Layer`] when a provider fails
+    /// validation and its layer is known, and the underlying
+    /// [`CatalogError`] otherwise.
     pub fn build(self) -> Result<Catalog, CatalogError> {
         let mut merged = Value::Table(Map::new());
+        let mut origins = LayerOrigins::new();
         for layer in self.layers {
-            match layer {
-                Layer::Builtin => merge(&mut merged, builtin_value()?),
-                Layer::Overlay(value) => merge(&mut merged, value),
-            }
+            let value = match layer.source {
+                LayerSource::Builtin => builtin_value(&layer.name)?,
+                LayerSource::Toml(value) => value,
+            };
+            record_origins(&mut origins, &layer.name, &value);
+            merge(&mut merged, value);
         }
-        let document = merged.try_into().map_err(CatalogError::Parse)?;
-        Catalog::from_document(document)
+
+        let raw: RawDocument = merged.try_into().map_err(|source| CatalogError::Parse {
+            layer: MERGED_LAYER.to_owned(),
+            source,
+        })?;
+
+        let mut providers = BTreeMap::new();
+        for (provider_id, value) in raw.providers {
+            let layer = origins
+                .get(&provider_id)
+                .cloned()
+                .unwrap_or_else(|| MERGED_LAYER.to_owned());
+            let provider: CatalogProvider = value
+                .try_into()
+                .map_err(|source| CatalogError::Parse { layer, source })?;
+            providers.insert(provider_id, provider);
+        }
+
+        Catalog::from_document(
+            CatalogDocument {
+                schema_version: raw.schema_version,
+                providers,
+            },
+            &origins,
+        )
+    }
+}
+
+fn parse_layer(layer: &str, source: &str) -> Result<Value, CatalogError> {
+    toml::from_str(source).map_err(|error| CatalogError::Parse {
+        layer:  layer.to_owned(),
+        source: error,
+    })
+}
+
+/// Records `layer` as the most recent writer of every provider it declares.
+fn record_origins(origins: &mut LayerOrigins, layer: &str, value: &Value) {
+    let Some(Value::Table(providers)) = value.get("providers") else {
+        return;
+    };
+    for name in providers.keys() {
+        origins.insert(ProviderId::new(name.clone()), layer.to_owned());
     }
 }
 
 #[cfg(feature = "builtin-catalog")]
-fn builtin_value() -> Result<toml::Value, CatalogError> {
-    toml::from_str(BUILTIN_CATALOG).map_err(CatalogError::Parse)
+fn builtin_value(layer: &str) -> Result<Value, CatalogError> {
+    parse_layer(layer, BUILTIN_CATALOG)
 }
 
 #[cfg(not(feature = "builtin-catalog"))]
-fn builtin_value() -> Result<toml::Value, CatalogError> {
+fn builtin_value(_layer: &str) -> Result<Value, CatalogError> {
     Err(CatalogError::BuiltinCatalogDisabled)
 }
 
@@ -151,6 +268,21 @@ mod tests {
 
     use super::{Catalog, CatalogError};
 
+    const BASE: &str = r#"
+        schema_version = 1
+
+        [providers.first]
+        display_name = "First"
+        adapter = "custom"
+        codec = "custom"
+        base_url = "https://example.com"
+        auth = { type = "none" }
+
+        [providers.first.models.model]
+        display_name = "Model"
+        api_model = "model"
+    "#;
+
     #[derive(Debug, Deserialize, Eq, PartialEq)]
     struct AppMetadata {
         latency: String,
@@ -161,6 +293,163 @@ mod tests {
     struct Nested {
         enabled: bool,
         count:   u64,
+    }
+
+    #[test]
+    fn external_layers_add_no_built_in_entry() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .build()?;
+
+        assert_eq!(catalog.providers().len(), 1);
+        assert!(catalog.provider("openai").is_err());
+        assert!(catalog.provider("anthropic").is_err());
+        assert!(catalog.models_matching("gpt-5.6-luna").is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn merges_named_layers_in_call_order() -> Result<(), Box<dyn StdError>> {
+        let priority = r"
+            [providers.first]
+            priority = 10
+        ";
+        let second = r#"
+            [providers.second]
+            display_name = "Second"
+            adapter = "custom"
+            codec = "custom"
+            base_url = "https://second.example.com"
+            auth = { type = "none" }
+        "#;
+        let later = r"
+            [providers.first]
+            priority = 20
+        ";
+
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("providers/first.toml", priority)?
+            .toml_layer("providers/second.toml", second)?
+            .toml_layer("overrides.toml", later)?
+            .build()?;
+
+        let ids = catalog
+            .providers()
+            .map(|provider| provider.id().as_str().to_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(ids, vec!["first".to_owned(), "second".to_owned()]);
+        assert_eq!(catalog.provider("first")?.priority(), 20);
+        Ok(())
+    }
+
+    #[test]
+    fn reports_the_layer_name_for_invalid_toml() -> Result<(), Box<dyn StdError>> {
+        let result = Catalog::builder().toml_layer("providers/broken.toml", "not = = toml");
+
+        let Err(CatalogError::Parse { layer, .. }) = result.map(|_| ()) else {
+            return Err("expected a parse failure".into());
+        };
+        assert_eq!(layer, "providers/broken.toml");
+        Ok(())
+    }
+
+    #[test]
+    fn reports_the_layer_name_for_a_validation_failure() -> Result<(), Box<dyn StdError>> {
+        let broken = r#"
+            [providers.first]
+            default_model = "missing"
+        "#;
+
+        let result = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("providers/first.toml", broken)?
+            .build();
+
+        let Err(CatalogError::Layer { layer, source }) = result else {
+            return Err("expected a layer failure".into());
+        };
+        assert_eq!(layer, "providers/first.toml");
+        assert!(matches!(
+            *source,
+            CatalogError::UnknownDefaultModel { model, .. } if model == "missing"
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn reports_the_layer_name_for_an_unknown_provider_field() -> Result<(), Box<dyn StdError>> {
+        let unknown = r#"
+            [providers.first]
+            base_urls = "https://example.com"
+        "#;
+
+        let result = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("providers/first.toml", unknown)?
+            .build();
+
+        let Err(CatalogError::Parse { layer, source }) = result else {
+            return Err("expected a schema failure".into());
+        };
+        assert_eq!(layer, "providers/first.toml");
+        assert!(source.to_string().contains("base_urls"));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_an_unknown_model_field() -> Result<(), Box<dyn StdError>> {
+        let unknown = r"
+            [providers.first.models.model]
+            context_window = 4096
+        ";
+
+        let result = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("providers/first.toml", unknown)?
+            .build();
+
+        let Err(CatalogError::Parse { layer, source }) = result else {
+            return Err("expected a schema failure".into());
+        };
+        assert_eq!(layer, "providers/first.toml");
+        assert!(source.to_string().contains("context_window"));
+        Ok(())
+    }
+
+    #[test]
+    fn round_trips_namespaced_metadata() -> Result<(), Box<dyn StdError>> {
+        let first = r#"
+            [providers.first.models.model.metadata.app]
+            latency = "fast"
+            nested = { enabled = true }
+        "#;
+        let second = r"
+            [providers.first.models.model.metadata.app.nested]
+            count = 2
+        ";
+
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("app/first.toml", first)?
+            .toml_layer("app/second.toml", second)?
+            .build()?;
+
+        let metadata = catalog
+            .model("first", "model")?
+            .metadata()
+            .namespace::<AppMetadata>("app")?
+            .ok_or("app metadata should be present")?;
+
+        assert_eq!(metadata, AppMetadata {
+            latency: "fast".to_owned(),
+            nested:  Nested {
+                enabled: true,
+                count:   2,
+            },
+        });
+        Ok(())
     }
 
     #[cfg(feature = "builtin-catalog")]
@@ -185,7 +474,7 @@ mod tests {
             .model("openai", "luna")?
             .metadata()
             .namespace::<AppMetadata>("app")?
-            .expect("app metadata should be present");
+            .ok_or("app metadata should be present")?;
         assert_eq!(metadata, AppMetadata {
             latency: "fast".to_owned(),
             nested:  Nested {
@@ -193,6 +482,27 @@ mod tests {
                 count:   2,
             },
         });
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn names_unnamed_overlays_by_position() -> Result<(), Box<dyn StdError>> {
+        let broken = r#"
+            [providers.openai]
+            default_model = "missing"
+        "#;
+
+        let result = Catalog::builder()
+            .with_builtin()
+            .overlay_toml("")?
+            .overlay_toml(broken)?
+            .build();
+
+        let Err(CatalogError::Layer { layer, .. }) = result else {
+            return Err("expected a layer failure".into());
+        };
+        assert_eq!(layer, "overlay 2");
         Ok(())
     }
 
@@ -218,9 +528,12 @@ mod tests {
 
         let result = Catalog::builder().overlay_toml(source)?.build();
 
+        let Err(CatalogError::Layer { source, .. }) = result else {
+            return Err("expected a layer failure".into());
+        };
         assert!(matches!(
-            result,
-            Err(CatalogError::DuplicateProviderAlias { alias }) if alias == "second"
+            *source,
+            CatalogError::DuplicateProviderAlias { alias } if alias == "second"
         ));
         Ok(())
     }
@@ -249,9 +562,13 @@ mod tests {
 
         let result = Catalog::builder().overlay_toml(source)?.build();
 
+        let Err(CatalogError::Layer { layer, source }) = result else {
+            return Err("expected a layer failure".into());
+        };
+        assert_eq!(layer, "overlay 1");
         assert!(matches!(
-            result,
-            Err(CatalogError::DuplicateModelSelector { provider, selector })
+            *source,
+            CatalogError::DuplicateModelSelector { provider, selector }
                 if provider.as_str() == "test" && selector == "shared"
         ));
         Ok(())

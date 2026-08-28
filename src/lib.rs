@@ -33,18 +33,10 @@ mod providers;
     feature = "openai-compatible",
     feature = "bedrock"
 ))]
-mod token_count;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
 mod transport;
 
 #[cfg(feature = "runtime")]
 #[doc(inline)]
-pub use client::{Client, ClientBuilder};
+pub use client::{Client, ClientBuild, ClientBuilder};
 #[doc(inline)]
 pub use types::{Error, Request, Response};

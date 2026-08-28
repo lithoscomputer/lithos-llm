@@ -174,6 +174,7 @@ fn bearer_prefix() -> String {
 
 /// Provider-level catalog facts.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct CatalogProvider {
     #[serde(skip)]
     id:                ProviderId,
@@ -190,6 +191,10 @@ pub struct CatalogProvider {
     allow_passthrough: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     default_model:     Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    default_headers:   BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    adapter_options:   Value,
     #[serde(default, skip_serializing_if = "Metadata::is_empty")]
     metadata:          Metadata,
     #[serde(default)]
@@ -235,6 +240,27 @@ impl CatalogProvider {
 
     pub fn default_model(&self) -> Option<&str> {
         self.default_model.as_deref()
+    }
+
+    /// Headers applied to every request for this provider.
+    ///
+    /// These are ordinary catalog data. They are not secret, they are not
+    /// redacted, and they can appear in debug output and logs. Keep API keys
+    /// and other secrets in credentials instead. Credential headers are applied
+    /// after these and win a collision.
+    ///
+    /// Names and values are validated when the catalog is built.
+    pub fn default_headers(&self) -> &BTreeMap<String, String> {
+        &self.default_headers
+    }
+
+    /// Raw adapter options for this provider.
+    ///
+    /// The catalog does not interpret these. Each adapter factory deserializes
+    /// its own typed shape and reports its own errors. The value is
+    /// [`Value::Null`] when the catalog declares no options.
+    pub fn adapter_options(&self) -> &Value {
+        &self.adapter_options
     }
 
     pub fn metadata(&self) -> &Metadata {

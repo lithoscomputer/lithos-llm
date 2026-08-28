@@ -8,13 +8,14 @@ mod response;
 mod stream;
 
 pub use content::{
-    AudioContent, ContentPart, DocumentContent, ImageContent, Message, ReasoningContent, Role,
-    ToolCall, ToolChoice, ToolDefinition, ToolResult,
+    AudioContent, ContentPart, DocumentContent, ImageContent, MediaSource, Message,
+    ReasoningContent, Role, ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
+    ToolResult,
 };
-pub use error::{Error, ErrorKind, RetryClassification};
+pub use error::{Error, ErrorData, ErrorKind, RetryClassification};
 pub use request::{
     ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
 };
 pub use response::{Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Warning};
 #[cfg(feature = "runtime")]
-pub use stream::{ResponseStream, StreamEvent};
+pub use stream::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};

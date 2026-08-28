@@ -1,6 +1,8 @@
 //! Secret-safe credential resolution.
 
 use std::collections::BTreeMap;
+#[cfg(feature = "environment-credentials")]
+use std::mem;
 use std::{env, fmt};
 
 use async_trait::async_trait;
@@ -36,6 +38,16 @@ pub struct CredentialHeader {
     pub value: SecretValue,
 }
 
+impl CredentialHeader {
+    /// Builds one secret header from a name and a secret value.
+    pub fn new(name: impl Into<String>, value: SecretValue) -> Self {
+        Self {
+            name: name.into(),
+            value,
+        }
+    }
+}
+
 impl fmt::Debug for CredentialHeader {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
@@ -46,30 +58,120 @@ impl fmt::Debug for CredentialHeader {
     }
 }
 
+/// The primary HTTP authentication method for one provider attempt.
+#[derive(Clone, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum HttpAuthentication {
+    /// The provider needs no primary authentication header.
+    None,
+    /// The secret is sent through the provider's bearer header.
+    Bearer(SecretValue),
+    /// The secret is sent through one named header.
+    Header(CredentialHeader),
+}
+
+impl fmt::Debug for HttpAuthentication {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::None => formatter.write_str("HttpAuthentication::None"),
+            Self::Bearer(_) => formatter.write_str("HttpAuthentication::Bearer(<redacted>)"),
+            Self::Header(header) => formatter
+                .debug_tuple("HttpAuthentication::Header")
+                .field(&header.name)
+                .finish(),
+        }
+    }
+}
+
+/// Resolved HTTP authentication plus any extra credential headers.
+///
+/// Extra headers are applied after the primary authentication header, in the
+/// order they were added. They carry secrets such as OpenAI organization and
+/// project identifiers or proxy tokens.
+#[derive(Clone, Eq, PartialEq)]
+pub struct HttpCredentials {
+    pub auth:          HttpAuthentication,
+    pub extra_headers: Vec<CredentialHeader>,
+}
+
+impl HttpCredentials {
+    /// Builds credentials with one authentication method and no extra headers.
+    pub fn new(auth: HttpAuthentication) -> Self {
+        Self {
+            auth,
+            extra_headers: Vec::new(),
+        }
+    }
+
+    /// Adds one extra credential header.
+    #[must_use]
+    pub fn with_header(mut self, header: CredentialHeader) -> Self {
+        self.extra_headers.push(header);
+        self
+    }
+}
+
+impl fmt::Debug for HttpCredentials {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let names: Vec<&str> = self
+            .extra_headers
+            .iter()
+            .map(|header| header.name.as_str())
+            .collect();
+        formatter
+            .debug_struct("HttpCredentials")
+            .field("auth", &self.auth)
+            .field("extra_header_names", &names)
+            .finish()
+    }
+}
+
 /// Resolved credentials for one provider attempt.
 #[derive(Clone, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Credentials {
-    None,
-    Bearer(SecretValue),
-    Header(CredentialHeader),
-    Headers(Vec<CredentialHeader>),
+    /// Header-based credentials for an ordinary HTTP provider.
+    Http(HttpCredentials),
+    /// AWS credentials taken from the default provider chain.
     AwsDefaultChain { region: Option<String> },
+    /// A long-lived Amazon Bedrock API key.
     BedrockBearer(SecretValue),
+}
+
+impl Credentials {
+    /// Builds credentials that send no authentication and no extra headers.
+    pub fn none() -> Self {
+        Self::Http(HttpCredentials::new(HttpAuthentication::None))
+    }
+
+    /// Builds bearer credentials with no extra headers.
+    pub fn bearer(secret: SecretValue) -> Self {
+        Self::Http(HttpCredentials::new(HttpAuthentication::Bearer(secret)))
+    }
+
+    /// Builds single-header credentials with no extra headers.
+    pub fn header(header: CredentialHeader) -> Self {
+        Self::Http(HttpCredentials::new(HttpAuthentication::Header(header)))
+    }
+
+    /// Builds unauthenticated credentials that send every given header.
+    ///
+    /// This is the multi-header path for providers that authenticate through
+    /// several proxy headers rather than one primary header.
+    pub fn headers(headers: impl IntoIterator<Item = CredentialHeader>) -> Self {
+        Self::Http(HttpCredentials {
+            auth:          HttpAuthentication::None,
+            extra_headers: headers.into_iter().collect(),
+        })
+    }
 }
 
 impl fmt::Debug for Credentials {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::None => formatter.write_str("Credentials::None"),
-            Self::Bearer(_) => formatter.write_str("Credentials::Bearer(<redacted>)"),
-            Self::Header(header) => formatter
-                .debug_tuple("Credentials::Header")
-                .field(header)
-                .finish(),
-            Self::Headers(headers) => formatter
-                .debug_tuple("Credentials::Headers")
-                .field(headers)
+            Self::Http(credentials) => formatter
+                .debug_tuple("Credentials::Http")
+                .field(credentials)
                 .finish(),
             Self::AwsDefaultChain { region } => formatter
                 .debug_struct("Credentials::AwsDefaultChain")
@@ -97,7 +199,7 @@ impl CredentialProvider for NoCredentials {
         &self,
         _provider: &CatalogProvider,
     ) -> Result<Credentials, CredentialError> {
-        Ok(Credentials::None)
+        Ok(Credentials::none())
     }
 }
 
@@ -179,8 +281,7 @@ impl CredentialProvider for EnvironmentCredentials {
 #[cfg(feature = "environment-credentials")]
 #[derive(Clone, Debug)]
 enum EnvironmentSpec {
-    Bearer(String),
-    Headers(Vec<(String, String)>),
+    Http(HttpSpec),
     AwsDefaultChain(Option<String>),
     BedrockBearer(String),
 }
@@ -189,20 +290,7 @@ enum EnvironmentSpec {
 impl EnvironmentSpec {
     fn resolve(&self, provider: &ProviderId) -> Result<Credentials, CredentialError> {
         match self {
-            Self::Bearer(variable) => read_secret(provider, variable).map(Credentials::Bearer),
-            Self::Headers(headers) => headers
-                .iter()
-                .map(|(name, variable)| {
-                    Ok(CredentialHeader {
-                        name:  name.clone(),
-                        value: read_secret(provider, variable)?,
-                    })
-                })
-                .collect::<Result<Vec<_>, CredentialError>>()
-                .map(|headers| match headers.as_slice() {
-                    [header] => Credentials::Header(header.clone()),
-                    _ => Credentials::Headers(headers),
-                }),
+            Self::Http(spec) => spec.resolve(provider).map(Credentials::Http),
             Self::AwsDefaultChain(region) => Ok(Credentials::AwsDefaultChain {
                 region: region.clone(),
             }),
@@ -210,6 +298,55 @@ impl EnvironmentSpec {
                 read_secret(provider, variable).map(Credentials::BedrockBearer)
             }
         }
+    }
+}
+
+/// The environment mapping for one HTTP provider.
+///
+/// Every header is stored as a header name paired with the environment
+/// variable that holds its value.
+#[cfg(feature = "environment-credentials")]
+#[derive(Clone, Debug, Default)]
+struct HttpSpec {
+    auth:          HttpAuthSpec,
+    extra_headers: Vec<(String, String)>,
+}
+
+#[cfg(feature = "environment-credentials")]
+#[derive(Clone, Debug, Default)]
+enum HttpAuthSpec {
+    #[default]
+    None,
+    Bearer(String),
+    Header(String, String),
+}
+
+#[cfg(feature = "environment-credentials")]
+impl HttpSpec {
+    fn resolve(&self, provider: &ProviderId) -> Result<HttpCredentials, CredentialError> {
+        let auth = match &self.auth {
+            HttpAuthSpec::None => HttpAuthentication::None,
+            HttpAuthSpec::Bearer(variable) => {
+                HttpAuthentication::Bearer(read_secret(provider, variable)?)
+            }
+            HttpAuthSpec::Header(name, variable) => HttpAuthentication::Header(
+                CredentialHeader::new(name.clone(), read_secret(provider, variable)?),
+            ),
+        };
+        let extra_headers = self
+            .extra_headers
+            .iter()
+            .map(|(name, variable)| {
+                Ok(CredentialHeader::new(
+                    name.clone(),
+                    read_secret(provider, variable)?,
+                ))
+            })
+            .collect::<Result<Vec<_>, CredentialError>>()?;
+        Ok(HttpCredentials {
+            auth,
+            extra_headers,
+        })
     }
 }
 
@@ -234,31 +371,59 @@ pub struct EnvironmentCredentialsBuilder {
 
 #[cfg(feature = "environment-credentials")]
 impl EnvironmentCredentialsBuilder {
-    pub fn bearer(mut self, provider: impl Into<ProviderId>, variable: impl Into<String>) -> Self {
-        self.specs
-            .insert(provider.into(), EnvironmentSpec::Bearer(variable.into()));
-        self
+    /// Reads the provider's bearer secret from `variable`.
+    ///
+    /// A header already registered as the provider's primary authentication
+    /// header becomes an extra header, so header and bearer registrations can
+    /// be made in either order.
+    pub fn bearer(self, provider: impl Into<ProviderId>, variable: impl Into<String>) -> Self {
+        self.with_http(provider.into(), |spec| {
+            if let HttpAuthSpec::Header(name, source) = mem::take(&mut spec.auth) {
+                spec.extra_headers.insert(0, (name, source));
+            }
+            spec.auth = HttpAuthSpec::Bearer(variable.into());
+        })
     }
 
+    /// Reads one provider header from `variable`.
+    ///
+    /// The first header registered for a provider becomes its primary
+    /// authentication header. Later headers become extra headers, as do all
+    /// headers registered alongside a bearer secret.
     pub fn header(
-        mut self,
+        self,
         provider: impl Into<ProviderId>,
         name: impl Into<String>,
         variable: impl Into<String>,
     ) -> Self {
-        let provider = provider.into();
-        let header = (name.into(), variable.into());
-        match self
-            .specs
-            .entry(provider)
-            .or_insert_with(|| EnvironmentSpec::Headers(Vec::new()))
-        {
-            EnvironmentSpec::Headers(headers) => headers.push(header),
-            spec => *spec = EnvironmentSpec::Headers(vec![header]),
-        }
-        self
+        self.with_http(provider.into(), |spec| {
+            let header = (name.into(), variable.into());
+            if matches!(spec.auth, HttpAuthSpec::None) {
+                spec.auth = HttpAuthSpec::Header(header.0, header.1);
+            } else {
+                spec.extra_headers.push(header);
+            }
+        })
     }
 
+    /// Reads one extra provider header from `variable`.
+    ///
+    /// The header is always an extra header, so it accompanies a bearer secret
+    /// registered through [`Self::bearer`] rather than replacing it. Provider
+    /// account identifiers such as the OpenAI organization and project headers
+    /// use this method.
+    pub fn bearer_header(
+        self,
+        provider: impl Into<ProviderId>,
+        name: impl Into<String>,
+        variable: impl Into<String>,
+    ) -> Self {
+        self.with_http(provider.into(), |spec| {
+            spec.extra_headers.push((name.into(), variable.into()));
+        })
+    }
+
+    /// Resolves the provider through the AWS default credential chain.
     pub fn aws_default_chain(
         mut self,
         provider: impl Into<ProviderId>,
@@ -269,6 +434,7 @@ impl EnvironmentCredentialsBuilder {
         self
     }
 
+    /// Reads the provider's Bedrock API key from `variable`.
     pub fn bedrock_bearer(
         mut self,
         provider: impl Into<ProviderId>,
@@ -283,6 +449,17 @@ impl EnvironmentCredentialsBuilder {
 
     pub fn build(self) -> EnvironmentCredentials {
         EnvironmentCredentials { specs: self.specs }
+    }
+
+    /// Edits the provider's HTTP mapping, replacing any non-HTTP mapping.
+    fn with_http(mut self, provider: ProviderId, edit: impl FnOnce(&mut HttpSpec)) -> Self {
+        let mut spec = match self.specs.remove(&provider) {
+            Some(EnvironmentSpec::Http(spec)) => spec,
+            _ => HttpSpec::default(),
+        };
+        edit(&mut spec);
+        self.specs.insert(provider, EnvironmentSpec::Http(spec));
+        self
     }
 }
 
@@ -305,13 +482,30 @@ pub enum CredentialError {
 
 #[cfg(test)]
 mod tests {
-    use super::{Credentials, SecretValue};
+    use super::{CredentialHeader, Credentials, HttpAuthentication, HttpCredentials, SecretValue};
 
     #[test]
     fn debug_output_redacts_secrets() {
-        let credentials = Credentials::Bearer(SecretValue::new("top-secret"));
+        let credentials = Credentials::bearer(SecretValue::new("top-secret"));
         let output = format!("{credentials:?}");
         assert!(output.contains("redacted"));
+        assert!(!output.contains("top-secret"));
+    }
+
+    #[test]
+    fn debug_output_shows_extra_header_names_without_values() {
+        let credentials = Credentials::Http(
+            HttpCredentials::new(HttpAuthentication::Bearer(SecretValue::new("top-secret")))
+                .with_header(CredentialHeader::new(
+                    "openai-organization",
+                    SecretValue::new("org-secret"),
+                )),
+        );
+
+        let output = format!("{credentials:?}");
+
+        assert!(output.contains("openai-organization"));
+        assert!(!output.contains("org-secret"));
         assert!(!output.contains("top-secret"));
     }
 }

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::catalog::{AdapterId, CatalogProvider, CodecId, ProviderId};
+use crate::catalog::{AdapterId, CatalogProvider, CodecId, ModelHandle, ProviderId};
 use crate::credentials::CredentialProvider;
 use crate::middleware::CallContext;
 use crate::resolver::ResolvedRoute;
@@ -42,17 +42,30 @@ impl ResolvedCall {
     }
 }
 
-/// A provider-reported or locally counted input token total.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct InputTokenCount(u64);
+/// A provider-authoritative input token count for a resolved route.
+///
+/// This crate never estimates. A value of this type always came from a
+/// provider count endpoint, and it carries the canonical model the provider
+/// counted for, which is the catalog identity rather than any alias the
+/// request used.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InputTokenCount {
+    tokens: u64,
+    model:  ModelHandle,
+}
 
 impl InputTokenCount {
-    pub fn new(tokens: u64) -> Self {
-        Self(tokens)
+    pub fn new(tokens: u64, model: ModelHandle) -> Self {
+        Self { tokens, model }
     }
 
-    pub fn tokens(self) -> u64 {
-        self.0
+    pub fn tokens(&self) -> u64 {
+        self.tokens
+    }
+
+    /// The canonical model this count was produced for.
+    pub fn model(&self) -> &ModelHandle {
+        &self.model
     }
 }
 
@@ -65,6 +78,17 @@ pub trait ProviderAdapter: Send + Sync {
 
     async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error>;
 
+    /// Counts the input tokens this call would send, using the provider.
+    ///
+    /// `Some` is a provider-authoritative count. `None` means this adapter has
+    /// no native count endpoint; it never means the count was guessed. This
+    /// crate does not estimate token counts locally, so a caller that wants an
+    /// estimate for a `None` adapter supplies its own.
+    ///
+    /// # Errors
+    ///
+    /// Returns the normal classified provider error when a native count
+    /// request fails. A failure is never reported as `None`.
     async fn count_input_tokens(
         &self,
         _call: &ResolvedCall,
@@ -156,7 +180,10 @@ impl AdapterRegistry {
     }
 }
 
-/// A catalog provider could not create its runtime adapter.
+/// A provider-local reason one adapter could not be constructed.
+///
+/// Each variant names one catalog provider. A build failure here affects only
+/// that provider; the client keeps every adapter that was built successfully.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum AdapterBuildError {
@@ -169,5 +196,13 @@ pub enum AdapterBuildError {
     InvalidConfiguration {
         provider: ProviderId,
         message:  String,
+    },
+    /// The provider's `adapter_options` catalog table did not match the typed
+    /// shape the adapter factory expects.
+    #[error("provider {provider} has invalid adapter options")]
+    InvalidAdapterOptions {
+        provider: ProviderId,
+        #[source]
+        source:   serde_json::Error,
     },
 }

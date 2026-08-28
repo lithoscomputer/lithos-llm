@@ -56,22 +56,31 @@ run = "zizmor .github/workflows"
 description = "Verify that catalog-only builds exclude runtime dependencies"
 run = '''
 cargo check --locked --no-default-features --features builtin-catalog
-if cargo tree --locked -e normal --no-default-features --features builtin-catalog | grep -Eq '(^| )(tokio|reqwest|aws-sdk-) v'; then
+if cargo tree --locked -e normal --no-default-features --features builtin-catalog | grep -Eq '(^| )(tokio|reqwest|aws-[a-z0-9_-]+) v'; then
   echo "catalog-only feature unexpectedly includes a runtime dependency" >&2
   exit 1
 fi
 '''
 
 [tasks."check:features"]
-description = "Check each additive feature and the default Bedrock boundary"
+description = "Check each additive feature and the AWS SDK boundary"
 run = '''
-for feature in runtime openai anthropic gemini openai-compatible bedrock; do
+for feature in runtime openai anthropic gemini openai-compatible bedrock bedrock-aws; do
   cargo check --locked --no-default-features --features "$feature"
 done
-if cargo tree --locked -e normal | grep -Eq '(^| )(aws-config|aws-sdk-bedrockruntime|aws-smithy-) v'; then
-  echo "default features unexpectedly include a Bedrock SDK dependency" >&2
-  exit 1
-fi
+
+# `aws-lc-rs` and `aws-lc-sys` are the rustls TLS backend, not AWS SDK crates.
+assert_no_aws_sdk() {
+  label="$1"
+  shift
+  if cargo tree --locked -e normal "$@" | grep -E '(^| )aws-[a-z0-9_-]+ v' | grep -qv 'aws-lc-'; then
+    echo "$label unexpectedly pulls in an AWS SDK dependency" >&2
+    exit 1
+  fi
+}
+
+assert_no_aws_sdk "default features"
+assert_no_aws_sdk "the bedrock feature" --no-default-features --features bedrock
 '''
 
 [tasks."check:whitespace"]

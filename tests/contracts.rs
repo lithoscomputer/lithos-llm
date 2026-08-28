@@ -11,6 +11,9 @@ fn request_json_round_trips() -> Result<(), Box<dyn StdError>> {
         .system("Keep it short.")
         .user("Hello")
         .max_output_tokens(100)
+        .stop_sequence("STOP")
+        .metadata_entry("tenant", "acme")
+        .provider_option("openai", "service_tier", json!("flex"))
         .build()?;
 
     let json = serde_json::to_string(&request)?;
@@ -25,15 +28,54 @@ fn request_builder_rejects_an_unknown_selected_tool() {
     let result = Request::builder()
         .model("provider/model")
         .user("Hello")
-        .tool(ToolDefinition {
-            name:         "weather".to_owned(),
-            description:  "Weather".to_owned(),
-            input_schema: json!({ "type": "object" }),
-        })
+        .tool(ToolDefinition::function(
+            "weather",
+            "Weather",
+            json!({ "type": "object" }),
+        ))
         .tool_choice(ToolChoice::Tool {
             name: "missing".to_owned(),
         })
         .build();
 
     assert!(matches!(result, Err(RequestBuildError::UnknownToolChoice)));
+}
+
+#[test]
+fn request_builder_rejects_duplicate_names_across_tool_kinds() {
+    let result = Request::builder()
+        .model("provider/model")
+        .user("Hello")
+        .tool(ToolDefinition::function(
+            "patch",
+            "Patch",
+            json!({ "type": "object" }),
+        ))
+        .tool(ToolDefinition::custom(
+            "patch",
+            "Patch",
+            json!({ "type": "grammar" }),
+        ))
+        .build();
+
+    assert!(matches!(result, Err(RequestBuildError::DuplicateToolName)));
+}
+
+#[test]
+fn named_tool_choice_accepts_a_custom_tool() -> Result<(), Box<dyn StdError>> {
+    let request = Request::builder()
+        .model("provider/model")
+        .user("Hello")
+        .tool(ToolDefinition::custom(
+            "apply_patch",
+            "Apply a patch",
+            json!({ "type": "grammar", "syntax": "lark" }),
+        ))
+        .tool_choice(ToolChoice::Tool {
+            name: "apply_patch".to_owned(),
+        })
+        .build()?;
+
+    assert!(request.tools()[0].is_custom());
+    Ok(())
 }

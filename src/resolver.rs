@@ -53,6 +53,14 @@ impl ResolvedRoute {
         &self.model
     }
 
+    /// The provider API model identifier for this route.
+    ///
+    /// This is the value sent on the wire. It differs from
+    /// [`ResolvedRoute::handle`], which is the catalog identity.
+    pub fn api_model(&self) -> &str {
+        self.model.api_model()
+    }
+
     pub fn handle(&self) -> ModelHandle {
         ModelHandle::new(self.provider.id().clone(), self.model.id().clone())
     }
@@ -229,6 +237,47 @@ mod tests {
     use super::{AvailableProviders, CatalogResolver, ModelResolver};
     use crate::catalog::Catalog;
     use crate::types::Request;
+
+    const TEST_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.alpha]
+        display_name = "Alpha"
+        adapter = "test-adapter"
+        codec = "test-codec"
+        base_url = "http://127.0.0.1"
+        allow_passthrough = true
+        default_model = "one"
+        auth = { type = "none" }
+
+        [providers.alpha.models.one]
+        display_name = "One"
+        aliases = ["uno"]
+        api_model = "alpha-one-v1"
+        capabilities = { text = true }
+    "#;
+
+    #[test]
+    fn reports_the_api_model_for_catalog_and_passthrough_routes() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().overlay_toml(TEST_CATALOG)?.build()?;
+        let available = AvailableProviders::all(&catalog);
+
+        let request = Request::builder()
+            .model("alpha/uno")
+            .user("Hello")
+            .build()?;
+        let route = CatalogResolver.resolve(&request, &catalog, &available)?;
+        assert_eq!(route.model().id().as_str(), "one");
+        assert_eq!(route.api_model(), "alpha-one-v1");
+
+        let request = Request::builder()
+            .model("alpha/not-in-catalog")
+            .user("Hello")
+            .build()?;
+        let route = CatalogResolver.resolve(&request, &catalog, &available)?;
+        assert_eq!(route.api_model(), "not-in-catalog");
+        Ok(())
+    }
 
     #[cfg(feature = "builtin-catalog")]
     #[test]

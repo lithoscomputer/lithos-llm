@@ -11,13 +11,13 @@ use futures_util::StreamExt as _;
 use futures_util::stream::{iter, pending as pending_stream};
 use lithos_llm::adapter::{ProviderAdapter, ResolvedCall};
 use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId};
-use lithos_llm::client::ClientBuildError;
+use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, Middleware, Next, Output, RetryMiddleware, RetryPolicy, TimeoutMiddleware,
 };
 use lithos_llm::types::{
-    ContentPart, Error, ErrorKind, ImageContent, Message, RequestBuildError, Response,
-    ResponseStream, RetryClassification, Role, StreamEvent,
+    ContentBlockId, ContentPart, Error, ErrorKind, ImageContent, MediaSource, Message,
+    RequestBuildError, Response, ResponseStream, RetryClassification, Role, StreamEvent,
 };
 use lithos_llm::{Client, Request};
 use tokio::spawn;
@@ -85,12 +85,14 @@ impl ProviderAdapter for FakeAdapter {
         } else if self.stream_fails_visible {
             vec![
                 Ok(StreamEvent::TextDelta {
+                    id:   ContentBlockId::new("block-0"),
                     text: "visible".to_owned(),
                 }),
                 Err(retryable_error()),
             ]
         } else {
             vec![Ok(StreamEvent::TextDelta {
+                id:   ContentBlockId::new("block-0"),
                 text: "done".to_owned(),
             })]
         };
@@ -155,7 +157,8 @@ async fn first_middleware_is_outermost() -> Result<(), Box<dyn StdError>> {
             name: "second",
             log:  log.clone(),
         })
-        .build()?;
+        .build()?
+        .client;
 
     client.complete(request()?).await?;
 
@@ -195,7 +198,8 @@ async fn middleware_can_short_circuit() -> Result<(), Box<dyn StdError>> {
         .catalog(catalog()?)
         .adapter("test", adapter)
         .middleware(ShortCircuit)
-        .build()?;
+        .build()?
+        .client;
 
     let response = client.complete(request()?).await?;
 
@@ -218,7 +222,8 @@ async fn retry_repeats_complete_calls_on_the_same_route() -> Result<(), Box<dyn 
                 .max_attempts(3)
                 .initial_delay(Duration::ZERO),
         ))
-        .build()?;
+        .build()?
+        .client;
 
     let response = client.complete(request()?).await?;
 
@@ -241,11 +246,15 @@ async fn retry_restarts_stream_before_visible_output() -> Result<(), Box<dyn Std
                 .max_attempts(2)
                 .initial_delay(Duration::ZERO),
         ))
-        .build()?;
+        .build()?
+        .client;
 
     let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
 
-    assert!(matches!(events.as_slice(), [Ok(StreamEvent::TextDelta { text })] if text == "done"));
+    assert!(matches!(
+        events.as_slice(),
+        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+    ));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
 }
@@ -264,7 +273,8 @@ async fn retry_does_not_replay_after_visible_output() -> Result<(), Box<dyn StdE
                 .max_attempts(3)
                 .initial_delay(Duration::ZERO),
         ))
-        .build()?;
+        .build()?
+        .client;
 
     let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
 
@@ -294,25 +304,35 @@ fn public_identity_types_remain_open() {
 ))]
 #[test]
 fn from_env_builds_without_reading_credentials() -> Result<(), Box<dyn StdError>> {
-    let client = Client::from_env()?;
+    let build = Client::from_env()?;
 
-    assert!(client.available_providers().iter().next().is_some());
+    assert!(build.issues.is_empty());
+    assert!(build.client.available_providers().iter().next().is_some());
     Ok(())
 }
 
 #[test]
-fn unknown_adapter_factory_is_reported() -> Result<(), Box<dyn StdError>> {
+fn unknown_adapter_factory_becomes_a_provider_issue() -> Result<(), Box<dyn StdError>> {
     let source = TEST_CATALOG.replace("test-adapter", "custom-protocol");
     let catalog = Catalog::builder().overlay_toml(&source)?.build()?;
 
-    let result = Client::builder().catalog(catalog).build();
+    let build = Client::builder().catalog(catalog).build()?;
 
+    assert!(build.client.available_providers().iter().next().is_none());
     assert!(matches!(
-        result,
-        Err(ClientBuildError::MissingAdapterFactory { provider, adapter })
-            if provider.as_str() == "test" && adapter.as_str() == "custom-protocol"
+        build.issues.as_slice(),
+        [issue] if issue.provider.as_str() == "test"
+            && issue.adapter.as_str() == "custom-protocol"
+            && matches!(&issue.cause, ProviderBuildCause::MissingAdapterFactory { .. })
     ));
     Ok(())
+}
+
+#[test]
+fn a_missing_catalog_is_still_a_fatal_build_error() {
+    let result = Client::builder().build();
+
+    assert!(matches!(result, Err(ClientBuildError::MissingCatalog)));
 }
 
 #[tokio::test]
@@ -323,15 +343,12 @@ async fn catalog_capabilities_reject_unsupported_content() -> Result<(), Box<dyn
     let client = Client::builder()
         .catalog(catalog()?)
         .adapter("test", adapter)
-        .build()?;
+        .build()?
+        .client;
     let request = Request::builder()
         .model("test/model")
         .message(Message::new(Role::User, [ContentPart::Image(
-            ImageContent {
-                source:     "https://example.com/image.png".to_owned(),
-                media_type: Some("image/png".to_owned()),
-                detail:     None,
-            },
+            ImageContent::new(MediaSource::url("https://example.com/image.png")),
         )]))
         .build()?;
 
@@ -371,7 +388,8 @@ fn pending_client() -> Result<Client, Box<dyn StdError>> {
         .adapter("test", PendingAdapter {
             id: AdapterId::new("test-adapter"),
         })
-        .build()?)
+        .build()?
+        .client)
 }
 
 #[tokio::test]
@@ -432,7 +450,8 @@ async fn timeout_stream_emits_one_terminal_error() -> Result<(), Box<dyn StdErro
             id: AdapterId::new("test-adapter"),
         })
         .middleware(TimeoutMiddleware::new(Duration::from_millis(5)))
-        .build()?;
+        .build()?
+        .client;
     let mut stream = client.stream(request()?).await?;
 
     let error = stream
