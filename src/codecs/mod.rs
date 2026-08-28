@@ -140,9 +140,18 @@ pub(crate) mod test_support {
 
     /// Resolves a request against the one-provider test catalog.
     pub(crate) fn test_call(request: Request) -> Result<ResolvedCall, Box<dyn StdError>> {
-        let catalog = Catalog::builder()
-            .toml_layer("test", TEST_CATALOG)?
-            .build()?;
+        resolved_in(TEST_CATALOG, request)
+    }
+
+    /// Resolves a request against a caller-supplied catalog layer.
+    ///
+    /// For codec tests that need a model the built-in catalog does not carry,
+    /// such as one with a capability turned off.
+    pub(crate) fn resolved_in(
+        toml: &str,
+        request: Request,
+    ) -> Result<ResolvedCall, Box<dyn StdError>> {
+        let catalog = Catalog::builder().toml_layer("test", toml)?.build()?;
         let available = AvailableProviders::all(&catalog);
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
         Ok(ResolvedCall::new(request, route, CallContext::new()))

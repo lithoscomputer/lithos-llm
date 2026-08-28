@@ -22,7 +22,7 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, MediaSource, Message,
-    ReasoningContent, ReasoningEffort, Response, ResponseFormat, Role, Speed, StreamEvent,
+    ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat, Role, Speed, StreamEvent,
     TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
 };
 
@@ -40,6 +40,12 @@ const API_VERSION: &str = "2023-06-01";
 ///
 /// Anthropic requires the field, so there is no "omit it" option.
 const DEFAULT_MAX_TOKENS: u32 = 4096;
+
+/// The smallest `thinking.budget_tokens` the API accepts.
+///
+/// Doubles as the headroom kept above the budget when the output limit must
+/// grow, because the budget has to sit strictly below `max_tokens`.
+const MIN_THINKING_BUDGET: u32 = 1024;
 
 /// The only fields `/v1/messages/count_tokens` accepts.
 ///
@@ -72,13 +78,6 @@ impl Codec for AnthropicMessagesCodec {
         let request = call.request();
         let (options, controls) = wire_options(call);
         let mut body = message_body(call, controls.auto_cache);
-        body.insert(
-            "max_tokens".to_owned(),
-            request
-                .max_output_tokens()
-                .unwrap_or(DEFAULT_MAX_TOKENS)
-                .into(),
-        );
         body.insert("stream".to_owned(), stream.into());
         merge_options(&mut body, options);
 
@@ -259,6 +258,24 @@ fn message_body(call: &ResolvedCall, auto_cache: bool) -> Map<String, Value> {
         body.insert("metadata".to_owned(), json!(request.metadata()));
     }
 
+    // Effort has two wire dialects. A model with effort levels takes
+    // `output_config.effort`; an older reasoning model takes an explicit
+    // `thinking` budget instead. The budget must sit strictly below
+    // `max_tokens`, so the limit grows when the budget would not fit under
+    // it. The count endpoint drops `max_tokens` but keeps `thinking`, which
+    // is why both are encoded here rather than per endpoint.
+    let mut max_tokens = output_limit(request);
+    if let Some(budget) = thinking_budget(call, max_tokens) {
+        if max_tokens <= budget {
+            max_tokens = budget.saturating_add(MIN_THINKING_BUDGET);
+        }
+        body.insert(
+            "thinking".to_owned(),
+            json!({ "type": "enabled", "budget_tokens": budget }),
+        );
+    }
+    body.insert("max_tokens".to_owned(), max_tokens.into());
+
     let output_config = output_config(call);
     if !output_config.is_empty() {
         body.insert("output_config".to_owned(), output_config.into());
@@ -287,8 +304,13 @@ fn output_config(call: &ResolvedCall) -> Map<String, Value> {
     let request = call.request();
     let mut config = Map::new();
 
+    // A model without effort levels gets a thinking budget instead; sending
+    // `effort` too would ask the provider to honor a control the model does
+    // not take.
     if let Some(effort) = request.reasoning_effort() {
-        config.insert("effort".to_owned(), anthropic_effort(effort).into());
+        if call.route().model().capabilities().reasoning_effort_levels {
+            config.insert("effort".to_owned(), anthropic_effort(effort).into());
+        }
     }
     if let Some(schema) = request.response_format().and_then(json_schema) {
         config.insert(
@@ -321,6 +343,37 @@ fn anthropic_effort(effort: ReasoningEffort) -> &'static str {
         ReasoningEffort::Xhigh => "xhigh",
         ReasoningEffort::Max => "max",
     }
+}
+
+/// The output-token limit this request sends as `max_tokens`.
+fn output_limit(request: &Request) -> u32 {
+    request.max_output_tokens().unwrap_or(DEFAULT_MAX_TOKENS)
+}
+
+/// The explicit thinking budget for a model without effort levels.
+///
+/// `None` when the request sets no effort or the model takes
+/// `output_config.effort` directly. The budget scales the same way effort
+/// levels scale — a share of the output limit — with the provider floor of
+/// [`MIN_THINKING_BUDGET`]. `Minimal` shares `Low`'s budget for the same
+/// reason [`anthropic_effort`] collapses them: the dialect has no smaller
+/// step.
+fn thinking_budget(call: &ResolvedCall, limit: u32) -> Option<u32> {
+    let effort = call.request().reasoning_effort()?;
+    if call.route().model().capabilities().reasoning_effort_levels {
+        return None;
+    }
+
+    let limit = u64::from(limit);
+    let share = match effort {
+        ReasoningEffort::Minimal | ReasoningEffort::Low => limit / 4,
+        ReasoningEffort::Medium => limit / 2,
+        ReasoningEffort::High => limit * 3 / 4,
+        ReasoningEffort::Xhigh => limit * 7 / 8,
+        ReasoningEffort::Max => limit,
+    };
+    let budget = share.max(u64::from(MIN_THINKING_BUDGET));
+    Some(u32::try_from(budget).unwrap_or(u32::MAX))
 }
 
 /// Encodes the tool definitions, marking the last one as a cache breakpoint.
@@ -844,7 +897,7 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::{AnthropicMessagesCodec, Codec};
-    use crate::codecs::test_support::resolved;
+    use crate::codecs::test_support::{resolved, resolved_in};
     use crate::transport::SseEvent;
     use crate::types::{
         ContentPart, ErrorKind, ImageContent, MediaSource, Message, ReasoningContent,
@@ -1436,6 +1489,103 @@ mod tests {
         assert_eq!(error.kind(), ErrorKind::ContentFilter);
         assert_eq!(error.provider_code(), Some("refusal"));
         assert!(error.message().contains("it asks for malware"), "{error}");
+        Ok(())
+    }
+
+    /// A catalog whose model reasons but takes no effort levels, like
+    /// claude-sonnet-4-5.
+    const BUDGET_MODEL_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.anthropic]
+        display_name = "Anthropic"
+        adapter = "anthropic"
+        codec = "anthropic-messages"
+        base_url = "http://127.0.0.1"
+        default_model = "claude-sonnet-4-5"
+        auth = { type = "none" }
+
+        [providers.anthropic.models."claude-sonnet-4-5"]
+        display_name = "Budget Claude"
+        api_model = "claude-sonnet-4-5"
+        capabilities = { text = true, tools = true, reasoning = true }
+    "#;
+
+    #[test]
+    fn a_model_without_effort_levels_takes_a_thinking_budget() -> Result<(), Box<dyn StdError>> {
+        let call = resolved_in(
+            BUDGET_MODEL_CATALOG,
+            Request::builder()
+                .model("anthropic/claude-sonnet-4-5")
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::High)
+                .max_output_tokens(8000)
+                .build()?,
+        )?;
+        let codec = AnthropicMessagesCodec;
+
+        let encoded = codec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["thinking"],
+            json!({ "type": "enabled", "budget_tokens": 6000 })
+        );
+        assert_eq!(encoded.body["max_tokens"], 8000);
+        // Sending `effort` too would ask for a control the model does not
+        // take.
+        assert_eq!(encoded.body.get("output_config"), None);
+
+        // The count body keeps the thinking budget: counting must see the
+        // same request generation sends.
+        let counted = codec
+            .encode_count_tokens(&call)
+            .ok_or("Anthropic should count tokens")??;
+        assert_eq!(
+            counted.body["thinking"],
+            json!({ "type": "enabled", "budget_tokens": 6000 })
+        );
+        assert_eq!(counted.body.get("max_tokens"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn a_thinking_budget_keeps_its_floor_and_fits_under_the_limit() -> Result<(), Box<dyn StdError>>
+    {
+        let codec = AnthropicMessagesCodec;
+
+        // A quarter of 1200 is under the provider floor; the floor wins and
+        // still fits under the limit.
+        let floored = codec.encode(
+            &resolved_in(
+                BUDGET_MODEL_CATALOG,
+                Request::builder()
+                    .model("anthropic/claude-sonnet-4-5")
+                    .user("Hello")
+                    .reasoning_effort(ReasoningEffort::Low)
+                    .max_output_tokens(1200)
+                    .build()?,
+            )?,
+            false,
+        )?;
+        assert_eq!(floored.body["thinking"]["budget_tokens"], 1024);
+        assert_eq!(floored.body["max_tokens"], 1200);
+
+        // Max effort budgets the whole limit, so the limit grows to keep the
+        // budget strictly below it.
+        let lifted = codec.encode(
+            &resolved_in(
+                BUDGET_MODEL_CATALOG,
+                Request::builder()
+                    .model("anthropic/claude-sonnet-4-5")
+                    .user("Hello")
+                    .reasoning_effort(ReasoningEffort::Max)
+                    .max_output_tokens(2048)
+                    .build()?,
+            )?,
+            false,
+        )?;
+        assert_eq!(lifted.body["thinking"]["budget_tokens"], 2048);
+        assert_eq!(lifted.body["max_tokens"], 3072);
         Ok(())
     }
 
