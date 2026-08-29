@@ -16,6 +16,13 @@
 # Google's native codec owns the `/v1beta` path, so the provider base URL omits
 # fabro's version suffix. The codec maps normalized reasoning effort onto the
 # low, medium, and high thinking levels shared by this roster.
+#
+# No model here declares speed pricing, and that is deliberate (decided
+# 2026-08-29): Gemini has no service-tier control, the codec drops the speed
+# control with an `unsupported_control` warning, and the client's speed gate
+# therefore rejects `fast` and `economical` on these priced rows before
+# dispatch. Do not add empty tiers to open the gate — a speed request on
+# Gemini cannot be honored, so it should fail locally.
 
 schema_version = 1
 

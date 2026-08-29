@@ -21,4 +21,10 @@ aliases = ["luna"]
 api_model = "gpt-5.6-luna"
 limits = { context_tokens = 272000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
-pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000 }
+# The speed tiers open the client's pre-dispatch gate for `fast` (priority
+# processing) and `economical` (flex processing). The rates apply OpenAI's
+# documented service-tier multipliers — priority at 2x and flex at 0.5x of
+# every standard rate — to the base rates above; they are not yet confirmed
+# against a live account (no OPENAI_API_KEY in this environment), so a
+# pricing-page check should accompany the first live verification.
+pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000, speed = { fast = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000 }, economical = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 3000000, cached_input_usd_micros_per_million = 50000 } } }

@@ -136,7 +136,10 @@ display_name = "Gemini 3.1 Pro Preview (via OpenRouter)"
 api_model = "google/gemini-3.1-pro-preview"
 limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
-pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 375000, long_context = { above_input_tokens = 199999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000 } }
+# The long-context tier states the cache-write rate explicitly: OpenRouter's
+# live listing (checked 2026-08-29) prices `input_cache_write` at 0.375/M with
+# no override in the >=200k tier, so the base write rate applies there too.
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 375000, long_context = { above_input_tokens = 199999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 375000 } }
 
 [providers.openrouter.models."gemini-3.5-flash"]
 display_name = "Gemini 3.5 Flash (via OpenRouter)"
