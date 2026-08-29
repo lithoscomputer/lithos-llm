@@ -6,6 +6,7 @@
 
 use std::env;
 
+use lithos_llm::catalog::Catalog;
 use lithos_llm::types::{ErrorKind, ResponseFormat};
 
 use crate::support::{self, TestResult};
@@ -39,6 +40,29 @@ fn the_catalog_holds_the_whole_roster() -> TestResult {
     let catalog = venice::catalog();
     let provider = catalog.provider(venice::PROVIDER)?;
     assert_eq!(provider.models().len(), ROSTER.len());
+    Ok(())
+}
+
+/// The built-in catalog's Venice rows and this suite's roster must not
+/// drift apart: a model added to `src/catalog/builtin/venice.toml` without
+/// E2E coverage fails here, before any nightly run quietly stops testing
+/// it.
+#[test]
+fn the_builtin_venice_rows_match_the_roster() -> TestResult {
+    let builtin = Catalog::builder().with_builtin().build()?;
+    let provider = builtin.provider(venice::PROVIDER)?;
+
+    let mut builtin_rows: Vec<(&str, &str)> = provider
+        .models()
+        .map(|model| (model.id().as_str(), model.api_model()))
+        .collect();
+    builtin_rows.sort_unstable();
+    let mut roster: Vec<(&str, &str)> = ROSTER.to_vec();
+    roster.sort_unstable();
+    assert_eq!(
+        builtin_rows, roster,
+        "the built-in Venice rows and the E2E roster have drifted apart"
+    );
     Ok(())
 }
 
