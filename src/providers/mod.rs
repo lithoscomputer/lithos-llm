@@ -35,6 +35,14 @@ use crate::catalog::adapter_ids;
     feature = "openai-compatible",
     feature = "bedrock"
 ))]
+use crate::catalog::codec_ids;
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible",
+    feature = "bedrock"
+))]
 use crate::resolver::ResolvedRoute;
 #[cfg(any(
     feature = "openai",
@@ -842,8 +850,7 @@ pub(crate) fn apply_catalog_cost(
     if response.cost.is_none() {
         let anthropic_rates = matches!(
             route.provider().codec().as_str(),
-            crate::catalog::codec_ids::ANTHROPIC_MESSAGES
-                | crate::catalog::codec_ids::BEDROCK_CONVERSE
+            codec_ids::ANTHROPIC_MESSAGES | codec_ids::BEDROCK_CONVERSE
         );
         response.cost = catalog_cost(
             response.usage,
