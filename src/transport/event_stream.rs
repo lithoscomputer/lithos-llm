@@ -89,6 +89,19 @@ impl EventStreamFrame {
 pub(crate) fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<EventStreamFrame, Error>> {
     let mut frames = Vec::new();
     while buffer.len() >= PRELUDE_LENGTH {
+        // The prelude CRC is checked as soon as the prelude is available,
+        // before waiting for the declared frame length: a corrupted length
+        // field would otherwise leave the parser waiting for bytes that
+        // never arrive, silent until the stream-idle timeout. A bad prelude
+        // also means neither length can be trusted, so decoding ends here.
+        if hash(&buffer[..8]) != read_u32(&buffer[8..PRELUDE_LENGTH]) {
+            buffer.clear();
+            frames.push(Err(Error::new(
+                ErrorKind::StreamDecode,
+                "Bedrock returned an event-stream frame with an invalid prelude checksum",
+            )));
+            break;
+        }
         let total_length = read_length(&buffer[0..4]);
         let headers_length = read_length(&buffer[4..8]);
         if !(PRELUDE_LENGTH + MESSAGE_CRC_LENGTH..=MAX_FRAME_LENGTH).contains(&total_length)
@@ -107,9 +120,7 @@ pub(crate) fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<EventStreamFram
 
         let frame: Vec<_> = buffer.drain(..total_length).collect();
         let body_length = total_length - MESSAGE_CRC_LENGTH;
-        if hash(&frame[..8]) != read_u32(&frame[8..PRELUDE_LENGTH])
-            || hash(&frame[..body_length]) != read_u32(&frame[body_length..])
-        {
+        if hash(&frame[..body_length]) != read_u32(&frame[body_length..]) {
             frames.push(Err(Error::new(
                 ErrorKind::StreamDecode,
                 "Bedrock returned an event-stream frame with an invalid checksum",
@@ -218,7 +229,7 @@ fn decode_utf8(bytes: &[u8], part: &str) -> Result<String, Error> {
 mod tests {
     use crc32fast::hash;
 
-    use super::{EventStreamFrame, extract_frames};
+    use super::{EventStreamFrame, PRELUDE_LENGTH, extract_frames};
     use crate::types::{Error, ErrorKind};
 
     /// Appends one string header in the AWS event-stream header encoding.
@@ -372,13 +383,34 @@ mod tests {
 
     #[test]
     fn an_invalid_length_clears_the_buffer() {
+        // The length is corrupted and the prelude CRC recomputed to match,
+        // so the range check itself is what rejects the frame.
         let mut buffer = event_frame("messageStop", b"{}");
         buffer[0..4].copy_from_slice(&1_u32.to_be_bytes());
+        let crc = hash(&buffer[..8]);
+        buffer[8..12].copy_from_slice(&crc.to_be_bytes());
 
         let frames = extract_frames(&mut buffer);
         let error = expect_error(&frames);
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert!(error.message().contains("length"));
+        assert!(buffer.is_empty(), "the stream position is abandoned");
+    }
+
+    #[test]
+    fn a_corrupted_length_fails_as_soon_as_the_prelude_arrives() {
+        // A flipped bit in the length field that stays within bounds must not
+        // leave the parser waiting for bytes that never arrive — the prelude
+        // CRC catches it with only the prelude buffered, before the declared
+        // length is trusted.
+        let frame = event_frame("messageStop", b"{}");
+        let mut buffer = frame[..PRELUDE_LENGTH].to_vec();
+        buffer[1] ^= 0x01;
+
+        let frames = extract_frames(&mut buffer);
+        let error = expect_error(&frames);
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert!(error.message().contains("prelude"));
         assert!(buffer.is_empty(), "the stream position is abandoned");
     }
 

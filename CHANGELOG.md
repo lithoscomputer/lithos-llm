@@ -69,6 +69,9 @@ work:
   snapshot and a delta no longer concatenates into a signature the
   provider rejects on replay — the reference decoders' behavior on both
   Anthropic and Bedrock.
+- The AWS event-stream parser validates the prelude CRC as soon as the
+  12-byte prelude arrives, so a corrupted in-bounds frame length fails the
+  stream immediately instead of stalling silently until the idle timeout.
 
 ### Round-2 parity fixes
 
