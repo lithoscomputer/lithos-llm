@@ -30,6 +30,11 @@ work:
   delivered, and a buffer the deltas garbled is replaced, so streaming and
   blocking decode the same response identically instead of keeping silently
   truncated tool arguments.
+- Migration compatibility: histories the reference implementation persisted
+  replay on the Responses codec — the underscore opaque kinds
+  `openai_reasoning` and `openai_message` are read like this crate's dotted
+  kinds, and a tool call's un-namespaced `id` metadata still restores the
+  `fc_` item id, so `store: false` tool calling keeps its reasoning chain.
 
 ### Round-2 parity fixes
 
