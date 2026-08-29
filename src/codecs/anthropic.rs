@@ -2035,6 +2035,13 @@ mod tests {
             sse("message_stop", &json!({ "type": "message_stop" })),
         ])?;
 
+        // The sealed blob must not leak through live reasoning deltas.
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, StreamEvent::ReasoningDelta { .. })),
+            "a redacted block leaked a reasoning delta: {events:?}"
+        );
         let ended = events.iter().find_map(|event| match event {
             StreamEvent::ContentBlockEnd { part, .. } => Some(part),
             _ => None,

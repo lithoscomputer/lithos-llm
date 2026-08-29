@@ -246,6 +246,12 @@ impl StreamAssembler {
     /// Opens a [`ContentBlockKind::Reasoning`] block first when the id is not
     /// open.
     ///
+    /// A block already marked redacted by [`set_redacted`](Self::set_redacted)
+    /// buffers the text without a delta event: the payload is the provider's
+    /// sealed blob, not readable reasoning, so only the assembled part on the
+    /// block-end event carries it. The block-start event still tells a
+    /// consumer that reasoning is happening.
+    ///
     /// A block already open with another kind of content ignores the delta.
     pub(crate) fn reasoning(&mut self, id: &ContentBlockId, text: &str) -> Vec<StreamEvent> {
         let mut events = self.latch(id, ContentBlockKind::Reasoning);
@@ -254,6 +260,9 @@ impl StreamAssembler {
         };
 
         block.buffer.push_str(text);
+        if block.redacted {
+            return events;
+        }
         events.push(StreamEvent::ReasoningDelta {
             id:   id.clone(),
             text: text.to_owned(),
@@ -369,6 +378,11 @@ impl StreamAssembler {
     }
 
     /// Marks a reasoning block as redacted by the provider.
+    ///
+    /// Call this before feeding the sealed payload to
+    /// [`reasoning`](Self::reasoning): once the block is redacted, that
+    /// payload is buffered for the final part instead of leaking through
+    /// live `ReasoningDelta` events.
     ///
     /// The returned vector is empty unless the block had to be opened first.
     pub(crate) fn set_redacted(&mut self, id: &ContentBlockId) -> Vec<StreamEvent> {
@@ -882,6 +896,35 @@ mod tests {
             call.provider_metadata.get("gemini"),
             Some(&json!({ "thoughtSignature": "abc" }))
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_redacted_block_buffers_its_payload_without_delta_events() -> Result<(), Box<dyn StdError>>
+    {
+        let mut assembler = assembler()?;
+        let id = ContentBlockId::new("block-0");
+
+        let mut events = assembler.set_redacted(&id);
+        events.extend(assembler.reasoning(&id, "sealed-"));
+        events.extend(assembler.reasoning(&id, "blob"));
+        events.extend(assembler.end(&id));
+
+        assert_block_boundaries(&events);
+        // The sealed payload is opaque base64, not readable reasoning, so no
+        // delta event may carry it to a live consumer.
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, StreamEvent::ReasoningDelta { .. })),
+            "a redacted block leaked a reasoning delta: {events:?}"
+        );
+        let parts = ended_parts(&events);
+        let [ContentPart::Reasoning(reasoning)] = parts.as_slice() else {
+            return Err("expected one reasoning part".into());
+        };
+        assert!(reasoning.redacted);
+        assert_eq!(reasoning.text, "sealed-blob");
         Ok(())
     }
 

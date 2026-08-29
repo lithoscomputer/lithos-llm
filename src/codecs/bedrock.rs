@@ -2090,6 +2090,13 @@ mod tests {
             ("messageStop", json!({ "stopReason": "end_turn" })),
         ])?;
 
+        // The sealed blob must not leak through live reasoning deltas.
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, StreamEvent::ReasoningDelta { .. })),
+            "a redacted block leaked a reasoning delta: {events:?}"
+        );
         let responses = completed(&events);
         let [response] = responses.as_slice() else {
             return Err(format!("expected one Completed, got {}", responses.len()).into());
