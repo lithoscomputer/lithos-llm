@@ -14,8 +14,7 @@ expression: rendered
     "model": "vendor/compat-chat-v2",
     "response_format": {
       "type": "json_object"
-    },
-    "stream": false
+    }
   },
   "headers": [
     [
@@ -28,7 +27,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "184"
+      "169"
     ],
     [
       "content-type",

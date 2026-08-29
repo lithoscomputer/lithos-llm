@@ -16,7 +16,6 @@ expression: rendered
       "END",
       "STOP"
     ],
-    "stream": false,
     "temperature": 0.7,
     "top_p": 0.9
   },
@@ -31,7 +30,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "178"
+      "163"
     ],
     [
       "content-type",

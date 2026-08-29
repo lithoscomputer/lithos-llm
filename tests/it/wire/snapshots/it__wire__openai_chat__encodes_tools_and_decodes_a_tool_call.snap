@@ -24,7 +24,6 @@ expression: rendered
       }
     ],
     "model": "vendor/compat-chat-v2",
-    "stream": false,
     "tools": [
       {
         "function": {
@@ -75,7 +74,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "662"
+      "647"
     ],
     [
       "content-type",

@@ -34,8 +34,7 @@ expression: rendered
         "strict": true
       },
       "type": "json_schema"
-    },
-    "stream": false
+    }
   },
   "headers": [
     [
@@ -48,7 +47,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "396"
+      "381"
     ],
     [
       "content-type",

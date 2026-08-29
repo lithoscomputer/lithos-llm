@@ -37,8 +37,7 @@ expression: rendered
         "tool_call_id": "call_paris"
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "stream": false
+    "model": "vendor/compat-chat-v2"
   },
   "headers": [
     [
@@ -51,7 +50,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "432"
+      "417"
     ],
     [
       "content-type",

@@ -13,8 +13,7 @@ expression: rendered
       }
     ],
     "model": "vendor/compat-chat-v2",
-    "service_tier": "flex",
-    "stream": false
+    "service_tier": "flex"
   },
   "headers": [
     [
@@ -27,7 +26,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "158"
+      "143"
     ],
     [
       "content-type",

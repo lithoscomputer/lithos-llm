@@ -11,8 +11,7 @@ expression: rendered
         "role": "user"
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "stream": false
+    "model": "vendor/compat-chat-v2"
   },
   "headers": [
     [
@@ -25,7 +24,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "112"
+      "97"
     ],
     [
       "content-type",

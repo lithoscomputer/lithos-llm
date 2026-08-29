@@ -12,7 +12,6 @@ expression: rendered
       }
     ],
     "model": "vendor/compat-chat-v2",
-    "stream": false,
     "temperature": 0.9
   },
   "headers": [
@@ -26,7 +25,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "130"
+      "115"
     ],
     [
       "content-type",

@@ -101,8 +101,11 @@ impl Codec for OpenAiChatCodec {
         }
         body.insert("messages".to_owned(), Value::Array(messages));
 
-        body.insert("stream".to_owned(), stream.into());
+        // A blocking request omits the `stream` member entirely, matching the
+        // reference encoder — a strict skin may reject an explicit
+        // `stream: false`.
         if stream {
+            body.insert("stream".to_owned(), true.into());
             // Without this the compatible skins never send a usage chunk, and
             // a streamed response would report no tokens at all.
             body.insert(
@@ -932,8 +935,11 @@ fn encode_tool_result(result: &ToolResult) -> Value {
 
 /// The wire text of a tool result whose content is only JSON parts.
 ///
-/// One part sends its value; several send an array of them. Returns `None`
-/// when any part is something else, which leaves the caller its own fallback.
+/// One part sends its value; several send an array of them. A lone value that
+/// is itself a string sends the raw text unquoted, as the reference encoder
+/// did — the tool answered with that text, not with a JSON string literal.
+/// Returns `None` when any part is something else, which leaves the caller
+/// its own fallback.
 fn json_result_text(content: &[ContentPart]) -> Option<String> {
     let values: Vec<&Value> = content
         .iter()
@@ -945,6 +951,7 @@ fn json_result_text(content: &[ContentPart]) -> Option<String> {
 
     match values.as_slice() {
         [] => None,
+        [Value::String(text)] => Some(text.clone()),
         [value] => Some(value.to_string()),
         values => Some(Value::Array(values.iter().map(|&v| v.clone()).collect()).to_string()),
     }
@@ -1588,6 +1595,36 @@ mod tests {
             encoded.body["messages"][0]["content"],
             json!(r#"{"city":"Boston","temp_c":4}"#),
             "the value itself, not the ContentPart envelope"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_json_string_tool_result_sends_the_raw_text() -> Result<(), Box<dyn StdError>> {
+        // A JSON part whose value is a bare string means that text. The
+        // reference encoder sent it unquoted; serializing the value would
+        // hand the model the quoted JSON literal `"72F and sunny"` instead.
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                    ToolResult {
+                        tool_call_id: "call-1".to_owned(),
+                        name:         Some("weather".to_owned()),
+                        content:      vec![ContentPart::Json {
+                            value: json!("72F and sunny"),
+                        }],
+                        is_error:     false,
+                    },
+                )]))
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["messages"][0]["content"],
+            json!("72F and sunny")
         );
         Ok(())
     }
@@ -2508,6 +2545,9 @@ mod tests {
             streamed.body["stream_options"],
             json!({ "include_usage": true })
         );
+        // A blocking request omits both members entirely; a strict skin may
+        // reject an explicit `stream: false`.
+        assert_eq!(complete.body.get("stream"), None);
         assert_eq!(complete.body.get("stream_options"), None);
         Ok(())
     }

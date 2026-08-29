@@ -24,7 +24,6 @@ expression: rendered
       }
     ],
     "model": "vendor/compat-chat-v2",
-    "stream": false,
     "tool_choice": {
       "function": {
         "name": "get_weather"
@@ -81,7 +80,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "730"
+      "715"
     ],
     [
       "content-type",
