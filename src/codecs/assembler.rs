@@ -472,6 +472,13 @@ impl StreamAssembler {
         events
     }
 
+    /// Whether any block of this stream, open or closed, is a tool call.
+    pub(crate) fn has_tool_call(&self) -> bool {
+        self.blocks
+            .iter()
+            .any(|block| matches!(block.kind, ContentBlockKind::ToolCall { .. }))
+    }
+
     /// The position of a block, open or closed.
     fn find(&self, id: &ContentBlockId) -> Option<usize> {
         self.blocks.iter().position(|block| &block.id == id)

@@ -902,6 +902,9 @@ fn decode_finish_reason(value: &Value, content: &[ContentPart]) -> FinishReason 
             }
         }
         Some("failed") => FinishReason::Error,
+        // A status this crate does not name — `cancelled`, say — keeps the
+        // provider's own spelling instead of collapsing into `Stop`.
+        Some(other) if other != "completed" => FinishReason::Other(other.to_owned()),
         _ if content
             .iter()
             .any(|part| matches!(part, ContentPart::ToolCall(_))) =>
@@ -1226,7 +1229,16 @@ impl ResponsesStream {
         if let Some(id) = response.id {
             self.assembler.set_id(id);
         }
-        self.assembler.set_finish_reason(response.finish_reason);
+        // The document's own output decides the reason, but a middlebox can
+        // trim `output` in the terminal event — the streamed blocks are the
+        // ground truth for whether the model called a tool.
+        let finish_reason =
+            if response.finish_reason == FinishReason::Stop && self.assembler.has_tool_call() {
+                FinishReason::ToolCall
+            } else {
+                response.finish_reason
+            };
+        self.assembler.set_finish_reason(finish_reason);
         self.assembler.set_raw(document.clone());
 
         let mut events = vec![self.assembler.usage(response.usage)];
@@ -1591,6 +1603,26 @@ mod tests {
     }
 
     #[test]
+    fn an_unknown_response_status_keeps_its_spelling() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+
+        let response = codec().decode_response(
+            &route,
+            json!({ "id": "resp_1", "status": "cancelled", "output": [] }),
+        )?;
+
+        // The old decoder preserved unknown statuses; collapsing `cancelled`
+        // into `Stop` would report an answer the model never finished.
+        assert_eq!(
+            response.finish_reason,
+            FinishReason::Other("cancelled".to_owned())
+        );
+        Ok(())
+    }
+
+    #[test]
     fn the_raw_success_document_is_preserved() -> Result<(), Box<dyn StdError>> {
         let route = call(Request::builder().model(MODEL).user("hi").build()?)?
             .route()
@@ -1943,6 +1975,10 @@ mod tests {
         assert_eq!(response.usage.cache_read, 2);
         assert_eq!(response.usage.reasoning, 1);
         assert!(response.raw.is_some());
+        // The terminal document's `output` is empty — trimmed by a middlebox,
+        // say — but the stream plainly delivered a tool call, and the
+        // assembled blocks decide.
+        assert_eq!(response.finish_reason, FinishReason::ToolCall);
         Ok(())
     }
 
