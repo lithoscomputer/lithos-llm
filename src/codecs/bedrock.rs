@@ -570,15 +570,15 @@ fn encode_reasoning(reasoning: &ReasoningContent) -> Value {
 
 /// Encodes a tool call as a `toolUse` block.
 ///
-/// `toolUse.input` is a document, not an object, so an array or a scalar is a
-/// legal value. Replacing anything that is not an object with `{}` discarded
-/// the arguments of a replayed call whose tool takes a list. `Null` still
-/// becomes `{}`, because a call with no arguments is canonically an empty
-/// object rather than a null.
+/// Converse requires `toolUse.input` to be a JSON object document. A
+/// no-argument tool call carries `Null`, which Bedrock rejects as
+/// "toolUse.input is empty", and a scalar or array argument value would die at
+/// AWS with a ValidationException. Any non-object is coerced to `{}` so the
+/// wire is always valid, regardless of where the replayed call originated.
 fn encode_tool_call(call: &ToolCall) -> Value {
     let input = match &call.arguments {
-        Value::Null => json!({}),
-        arguments => arguments.clone(),
+        Value::Object(_) => call.arguments.clone(),
+        _ => json!({}),
     };
     json!({
         "toolUse": { "toolUseId": call.id, "name": call.name, "input": input }
@@ -2749,14 +2749,11 @@ mod tests {
     }
 
     #[test]
-    fn a_tool_call_keeps_arguments_that_are_not_an_object() -> Result<(), Box<dyn StdError>> {
-        // `toolUse.input` is a document, so an array is a legal value. The old
-        // object-only guard replaced it with `{}` and lost the arguments of a
-        // replayed call whose tool takes a list.
+    fn a_tool_call_keeps_arguments_that_are_an_object() -> Result<(), Box<dyn StdError>> {
         let request = Request::builder()
             .model(MODEL)
             .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
-                ToolCall::function("call-1", "sum", json!([1, 2, 3])),
+                ToolCall::function("call-1", "search", json!({ "q": "rust" })),
             )]))
             .build()?;
 
@@ -2764,8 +2761,31 @@ mod tests {
 
         assert_eq!(
             body["messages"][0]["content"][0]["toolUse"]["input"],
-            json!([1, 2, 3])
+            json!({ "q": "rust" })
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_call_coerces_non_object_arguments_to_an_object() -> Result<(), Box<dyn StdError>> {
+        // Converse requires `toolUse.input` to be a JSON object document, so a
+        // replayed scalar or array argument value becomes `{}` rather than
+        // reaching the wire as a value AWS rejects with a ValidationException.
+        for arguments in [json!([1, 2, 3]), json!("rust"), json!(7)] {
+            let request = Request::builder()
+                .model(MODEL)
+                .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                    ToolCall::function("call-1", "sum", arguments),
+                )]))
+                .build()?;
+
+            let body = encoded(request)?;
+
+            assert_eq!(
+                body["messages"][0]["content"][0]["toolUse"]["input"],
+                json!({})
+            );
+        }
         Ok(())
     }
 
