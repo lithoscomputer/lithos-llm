@@ -1244,12 +1244,17 @@ impl ResponsesStream {
     /// This is the only protocol that sends one, so the finished response keeps
     /// the provider's id, usage, finish reason, and complete raw body rather
     /// than a document assembled from the event log.
+    ///
+    /// The terminal shape is read tolerantly: a gateway that flattens the
+    /// document into the event itself, or trims it below what
+    /// [`decode_document`] accepts, must not fail a stream whose answer was
+    /// already delivered — the streamed blocks are the response, and whatever
+    /// id, usage, and status the terminal event does carry is salvaged.
     fn complete(&mut self, value: &Value) -> Result<Vec<StreamEvent>, Error> {
-        let Some(document) = value.get("response") else {
-            return Ok(self.assembler.complete());
+        let document = value.get("response").unwrap_or(value);
+        let Ok(response) = decode_document(&self.route, document.clone()) else {
+            return Ok(self.salvage(document));
         };
-
-        let response = decode_document(&self.route, document.clone())?;
         if let Some(id) = response.id {
             self.assembler.set_id(id);
         }
@@ -1268,6 +1273,35 @@ impl ResponsesStream {
         let mut events = vec![self.assembler.usage(response.usage)];
         events.extend(self.assembler.complete());
         Ok(events)
+    }
+
+    /// Completes from the assembled blocks, keeping what a nonconforming
+    /// terminal document does carry.
+    ///
+    /// The id and usage are folded in when present; the finish reason is set
+    /// only when the document reports a status, so a shape with none still
+    /// completes as `incomplete` rather than a claimed clean stop.
+    fn salvage(&mut self, document: &Value) -> Vec<StreamEvent> {
+        if let Some(id) = document.get("id").and_then(Value::as_str) {
+            self.assembler.set_id(id);
+        }
+        if document.get("status").and_then(Value::as_str).is_some() {
+            let reason = decode_finish_reason(document, &[]);
+            let reason = if reason == FinishReason::Stop && self.assembler.has_tool_call() {
+                FinishReason::ToolCall
+            } else {
+                reason
+            };
+            self.assembler.set_finish_reason(reason);
+        }
+        self.assembler.set_raw(document.clone());
+
+        let mut events = Vec::new();
+        if let Some(usage) = document.get("usage").filter(|usage| usage.is_object()) {
+            events.push(self.assembler.usage(decode_usage(Some(usage))));
+        }
+        events.extend(self.assembler.complete());
+        events
     }
 }
 
@@ -2121,6 +2155,85 @@ mod tests {
             replaced.raw_arguments.as_deref(),
             Some("{\"query\":\"rust\"}")
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_terminal_document_without_output_completes_from_the_streamed_blocks()
+    -> Result<(), Box<dyn StdError>> {
+        // A middlebox that strips the terminal document below the decodable
+        // shape must not fail a stream whose answer already streamed. The id,
+        // usage, and status it does carry are salvaged.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": { "type": "message", "id": "msg_1", "role": "assistant", "content": [] },
+            }),
+            json!({ "type": "response.output_text.delta", "item_id": "msg_1", "delta": "Hello" }),
+            json!({
+                "type": "response.completed",
+                "response": {
+                    "id": "resp_1",
+                    "status": "completed",
+                    "usage": { "input_tokens": 7, "output_tokens": 2 },
+                },
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        let response = completed(&events)?;
+        assert_eq!(response.id.as_deref(), Some("resp_1"));
+        assert_eq!(response.finish_reason, FinishReason::Stop);
+        assert_eq!(response.usage.input, 7);
+        assert_eq!(response.usage.output, 2);
+        let [ContentPart::Text { text }] = response.content.as_slice() else {
+            return Err(format!("expected the streamed text, got {:?}", response.content).into());
+        };
+        assert_eq!(text, "Hello");
+        Ok(())
+    }
+
+    #[test]
+    fn a_flattened_terminal_event_completes_from_its_own_fields() -> Result<(), Box<dyn StdError>> {
+        // A gateway may flatten the terminal document into the event itself.
+        // The old client read either shape; the fields are salvaged from the
+        // event object instead of completing empty-handed.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({ "type": "response.output_text.delta", "item_id": "msg_1", "delta": "Hi" }),
+            json!({
+                "type": "response.completed",
+                "id": "resp_1",
+                "status": "completed",
+                "usage": { "input_tokens": 3, "output_tokens": 1 },
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        let response = completed(&events)?;
+        assert_eq!(response.id.as_deref(), Some("resp_1"));
+        assert_eq!(response.finish_reason, FinishReason::Stop);
+        assert_eq!(response.usage.input, 3);
         Ok(())
     }
 

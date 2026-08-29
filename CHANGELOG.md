@@ -53,6 +53,11 @@ work:
   the open block instead of being discarded, so a skin that splits identity
   across fragments no longer produces a call answered with the synthesized
   block id.
+- Responses: the terminal stream event is read tolerantly again — a
+  document trimmed below the decodable shape completes from the streamed
+  blocks with its id, usage, and status salvaged, and a gateway that
+  flattens the document into the event itself is read field-by-field
+  instead of failing or discarding a fully delivered answer.
 
 ### Round-2 parity fixes
 
