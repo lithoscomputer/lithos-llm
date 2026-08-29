@@ -292,12 +292,25 @@ impl CatalogProvider {
         self.models.values()
     }
 
-    pub fn model(&self, id_or_alias: &str) -> Option<&CatalogModel> {
-        self.models.get(id_or_alias).or_else(|| {
-            self.models
-                .values()
-                .find(|model| model.aliases().iter().any(|alias| alias == id_or_alias))
-        })
+    /// Finds a model by canonical id, alias, or wire id, in that order.
+    ///
+    /// The wire id (`api_model`) resolves so a selector copied from provider
+    /// documentation — `us.anthropic.claude-sonnet-4-6` on Bedrock — lands on
+    /// the catalog entry that prices and describes it, rather than falling
+    /// through to passthrough with no pricing or capabilities.
+    pub fn model(&self, selector: &str) -> Option<&CatalogModel> {
+        self.models
+            .get(selector)
+            .or_else(|| {
+                self.models
+                    .values()
+                    .find(|model| model.aliases().iter().any(|alias| alias == selector))
+            })
+            .or_else(|| {
+                self.models
+                    .values()
+                    .find(|model| model.api_model() == selector)
+            })
     }
 
     pub(crate) fn set_id(&mut self, id: ProviderId) {

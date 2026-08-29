@@ -285,6 +285,27 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn a_wire_id_resolves_to_its_catalog_entry_before_passthrough() -> Result<(), Box<dyn StdError>>
+    {
+        // A selector copied from provider documentation is the wire id. It
+        // must land on the catalog entry that prices and describes the model;
+        // falling through to passthrough would silently drop pricing and
+        // capabilities on a passthrough provider, and fail outright elsewhere.
+        let catalog = Catalog::builder().overlay_toml(TEST_CATALOG)?.build()?;
+        let available = AvailableProviders::all(&catalog);
+
+        let request = Request::builder()
+            .model("alpha/alpha-one-v1")
+            .user("Hello")
+            .build()?;
+        let route = CatalogResolver.resolve(&request, &catalog, &available)?;
+
+        assert_eq!(route.model().id().as_str(), "one");
+        assert_eq!(route.api_model(), "alpha-one-v1");
+        Ok(())
+    }
+
     #[cfg(feature = "builtin-catalog")]
     #[test]
     fn resolves_explicit_aliases_and_defaults() -> Result<(), Box<dyn StdError>> {
