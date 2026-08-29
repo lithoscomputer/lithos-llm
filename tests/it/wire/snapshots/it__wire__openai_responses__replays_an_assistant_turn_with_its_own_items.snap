@@ -1,0 +1,86 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "method": "POST",
+  "path": "/v1/responses",
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "716"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "encrypted_content": "gAAAAAfirst-reasoning-state",
+        "id": "rs_first",
+        "summary": [],
+        "type": "reasoning"
+      },
+      {
+        "content": [
+          {
+            "annotations": [],
+            "text": "Checking now.",
+            "type": "output_text"
+          }
+        ],
+        "id": "msg_interleaved",
+        "role": "assistant",
+        "status": "completed",
+        "type": "message"
+      },
+      {
+        "encrypted_content": "gAAAAAsecond-reasoning-state",
+        "id": "rs_second",
+        "summary": [],
+        "type": "reasoning"
+      },
+      {
+        "arguments": "{\"city\":\"Paris\"}",
+        "call_id": "call_weather",
+        "id": "fc_interleaved",
+        "name": "get_weather",
+        "type": "function_call"
+      }
+    ],
+    "max_output_tokens": 128,
+    "model": "gpt-5.6-luna-2026-04-01",
+    "store": false,
+    "stream": false
+  }
+}

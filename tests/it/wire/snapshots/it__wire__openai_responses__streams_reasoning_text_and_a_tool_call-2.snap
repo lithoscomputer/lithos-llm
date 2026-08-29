@@ -85,6 +85,35 @@ expression: rendered
     "type": "content_block_end"
   },
   {
+    "id": "msg_stream-item",
+    "kind": {
+      "kind": "openai.message",
+      "type": "opaque"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "msg_stream-item",
+    "part": {
+      "data": {
+        "content": [
+          {
+            "annotations": [],
+            "text": "Looking that up.",
+            "type": "output_text"
+          }
+        ],
+        "id": "msg_stream",
+        "role": "assistant",
+        "status": "completed",
+        "type": "message"
+      },
+      "kind": "openai.message",
+      "type": "opaque"
+    },
+    "type": "content_block_end"
+  },
+  {
     "id": "fc_stream",
     "kind": {
       "id": "call_weather",
@@ -158,6 +187,23 @@ expression: rendered
         {
           "text": "Looking that up.",
           "type": "text"
+        },
+        {
+          "data": {
+            "content": [
+              {
+                "annotations": [],
+                "text": "Looking that up.",
+                "type": "output_text"
+              }
+            ],
+            "id": "msg_stream",
+            "role": "assistant",
+            "status": "completed",
+            "type": "message"
+          },
+          "kind": "openai.message",
+          "type": "opaque"
         },
         {
           "arguments": {

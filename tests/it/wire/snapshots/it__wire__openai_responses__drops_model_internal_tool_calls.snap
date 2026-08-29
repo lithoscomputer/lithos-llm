@@ -3,7 +3,7 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "id": "resp_text",
+  "id": "resp_internal",
   "model": {
     "provider": "openai",
     "model": "gpt-5.6-luna"
@@ -11,7 +11,7 @@ expression: rendered
   "content": [
     {
       "type": "text",
-      "text": "Hello there."
+      "text": "All done."
     },
     {
       "type": "opaque",
@@ -20,11 +20,11 @@ expression: rendered
         "content": [
           {
             "annotations": [],
-            "text": "Hello there.",
+            "text": "All done.",
             "type": "output_text"
           }
         ],
-        "id": "msg_text",
+        "id": "msg_internal",
         "role": "assistant",
         "status": "completed",
         "type": "message"
@@ -33,43 +33,39 @@ expression: rendered
   ],
   "finish_reason": "stop",
   "usage": {
-    "input": 12,
-    "output": 4,
+    "input": 0,
+    "output": 0,
     "reasoning": 0,
     "cache_read": 0,
     "cache_write": 0
   },
   "raw": {
-    "created_at": 1772000000,
-    "id": "resp_text",
+    "id": "resp_internal",
     "model": "gpt-5.6-luna-2026-04-01",
     "object": "response",
     "output": [
       {
+        "arguments": "{}",
+        "call_id": "call_internal",
+        "id": "fc_internal",
+        "name": "",
+        "status": "completed",
+        "type": "function_call"
+      },
+      {
         "content": [
           {
             "annotations": [],
-            "text": "Hello there.",
+            "text": "All done.",
             "type": "output_text"
           }
         ],
-        "id": "msg_text",
+        "id": "msg_internal",
         "role": "assistant",
         "status": "completed",
         "type": "message"
       }
     ],
-    "status": "completed",
-    "usage": {
-      "input_tokens": 12,
-      "input_tokens_details": {
-        "cached_tokens": 0
-      },
-      "output_tokens": 4,
-      "output_tokens_details": {
-        "reasoning_tokens": 0
-      },
-      "total_tokens": 16
-    }
+    "status": "completed"
   }
 }

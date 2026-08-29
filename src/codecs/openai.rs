@@ -37,6 +37,14 @@ const NAMESPACE: &str = "openai";
 /// The opaque kind holding one whole `reasoning` output item.
 const REASONING_KIND: &str = "openai.reasoning";
 
+/// The opaque kind holding one whole assistant `message` output item.
+///
+/// The item's `id` and `status` are what make it replayable: a `reasoning`
+/// item names the item that must follow it, so a reconstructed, id-less
+/// assistant message breaks the chain. Keeping the item verbatim is the only
+/// way to send back the one the provider issued.
+const MESSAGE_KIND: &str = "openai.message";
+
 /// The fields `POST /v1/responses/input_tokens` accepts.
 ///
 /// The projection runs after raw provider options are merged, so a stray
@@ -135,6 +143,8 @@ impl Codec for OpenAiResponsesCodec {
             assembler: StreamAssembler::new(route),
             route:     route.clone(),
             delivered: BTreeSet::new(),
+            skipped:   BTreeSet::new(),
+            started:   false,
         })
     }
 
@@ -403,21 +413,13 @@ impl CustomTools {
 
 /// Encodes one message as the input items it produces.
 ///
-/// Opaque replay items come first so a reasoning item keeps the following item
-/// the protocol requires it to have, then the message itself, then the tool
-/// calls and tool results the message carried.
+/// Items come out in the order the content parts carry them, because this
+/// protocol reads the input list positionally: a `reasoning` item names the
+/// item that must follow it, so replaying `[reasoning, message, reasoning,
+/// function_call]` in any other order breaks the pairing. The parts that
+/// belong inside a single message item — text, JSON, images, documents — are
+/// collected into one item emitted where the first of them appeared.
 fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
-    let mut items: Vec<Value> = message
-        .content()
-        .iter()
-        .filter_map(|part| match part {
-            ContentPart::Opaque { data, .. } if part.opaque_namespace() == Some(NAMESPACE) => {
-                Some(data.clone())
-            }
-            _ => None,
-        })
-        .collect();
-
     let has_result = message
         .content()
         .iter()
@@ -426,6 +428,7 @@ fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
         // A tool message whose content is only text still answers a call. The
         // message-level label is the only place that id survives.
         if let Some(call_id) = message.tool_call_id() {
+            let mut items: Vec<Value> = opaque_items(message).cloned().collect();
             let custom = message
                 .name()
                 .is_some_and(|name| custom.names.contains(name));
@@ -439,13 +442,25 @@ fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
         }
     }
 
-    let content = message_content(message);
-    if !content.is_empty() {
-        items.push(json!({ "role": role(message.role()), "content": content }));
-    }
+    // A preserved `message` item already carries the assistant text, with the
+    // id and status a reconstructed item cannot have. Sending both would
+    // repeat the text on the wire.
+    let replays_message = opaque_items(message)
+        .any(|item| item.get("type").and_then(Value::as_str) == Some("message"));
+    let content = message_content(message, replays_message);
+    let mut pending = (!content.is_empty()).then(|| {
+        json!({
+            "role":    role(message.role()),
+            "content": content,
+        })
+    });
 
+    let mut items = Vec::new();
     for part in message.content() {
         match part {
+            ContentPart::Opaque { data, .. } if part.opaque_namespace() == Some(NAMESPACE) => {
+                items.push(data.clone());
+            }
             ContentPart::ToolCall(call) => items.push(tool_call_item(call)),
             ContentPart::ToolResult(result) => items.push(tool_output_item(
                 &result.tool_call_id,
@@ -453,22 +468,42 @@ fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
                 result.is_error,
                 custom.answers_custom(result, message),
             )),
-            // Every other part belongs inside the message item above.
+            // A text part a preserved `message` item already carries places
+            // nothing of its own.
+            ContentPart::Text { .. } if replays_message => {}
+            // The first part that belongs inside the message item emits the
+            // whole item, so it lands where the caller put its content.
             ContentPart::Text { .. }
             | ContentPart::Json { .. }
             | ContentPart::Image(_)
-            | ContentPart::Audio(_)
-            | ContentPart::Document(_)
-            | ContentPart::Reasoning(_)
-            | ContentPart::Opaque { .. } => {}
+            | ContentPart::Document(_) => items.extend(pending.take()),
+            // Audio never reaches here, reasoning text has no input item, and
+            // another provider's opaque part is not ours to send.
+            ContentPart::Audio(_) | ContentPart::Reasoning(_) | ContentPart::Opaque { .. } => {}
         }
     }
+    // A message whose only content is skipped assistant text still has to send
+    // the parts that survived.
+    items.extend(pending);
 
     items
 }
 
+/// The verbatim replay items this codec owns, in content order.
+fn opaque_items(message: &Message) -> impl Iterator<Item = &Value> {
+    message.content().iter().filter_map(|part| match part {
+        ContentPart::Opaque { data, .. } if part.opaque_namespace() == Some(NAMESPACE) => {
+            Some(data)
+        }
+        _ => None,
+    })
+}
+
 /// Encodes the content parts that belong inside a message item.
-fn message_content(message: &Message) -> Vec<Value> {
+///
+/// `skip_text` drops the text parts a preserved `message` item already
+/// carries, so replay never doubles the assistant's own words.
+fn message_content(message: &Message, skip_text: bool) -> Vec<Value> {
     let text_type = match message.role() {
         Role::Assistant => "output_text",
         Role::System | Role::Developer | Role::User | Role::Tool => "input_text",
@@ -478,6 +513,7 @@ fn message_content(message: &Message) -> Vec<Value> {
         .content()
         .iter()
         .filter_map(|part| match part {
+            ContentPart::Text { .. } if skip_text => None,
             ContentPart::Text { text } => Some(json!({ "type": text_type, "text": text })),
             ContentPart::Json { value } => Some(json!({
                 "type": text_type,
@@ -605,13 +641,35 @@ fn tool_output_item(call_id: &str, output: &str, is_error: bool, custom: bool) -
     item
 }
 
-/// The text a tool result sends back, falling back to its serialized parts.
+/// The text a tool result sends back.
+///
+/// A result whose content is only structured JSON sends the bare value — one
+/// value on its own, several as an array — rather than the `ContentPart`
+/// envelope that wraps it, because the tool's own JSON is what the model was
+/// promised. Anything else falls back to the serialized parts, which keeps
+/// mixed content readable instead of dropping the half this protocol has no
+/// field for.
 fn result_output(result: &ToolResult) -> String {
     let text = plain_text(&result.content);
-    if text.is_empty() {
-        return serde_json::to_string(&result.content).unwrap_or_default();
+    if !text.is_empty() {
+        return text;
     }
-    text
+
+    let values: Vec<&Value> = result
+        .content
+        .iter()
+        .filter_map(|part| match part {
+            ContentPart::Json { value } => Some(value),
+            _ => None,
+        })
+        .collect();
+    match values.as_slice() {
+        [value] if result.content.len() == 1 => serde_json::to_string(value).unwrap_or_default(),
+        values if !values.is_empty() && values.len() == result.content.len() => {
+            serde_json::to_string(values).unwrap_or_default()
+        }
+        _ => serde_json::to_string(&result.content).unwrap_or_default(),
+    }
 }
 
 /// Encodes one image or media source as the URL this protocol accepts.
@@ -668,6 +726,13 @@ fn response_format(format: &ResponseFormat) -> Value {
 }
 
 /// Decodes the `output` array of a complete response document.
+///
+/// A `message` item contributes both its visible text and the whole item as an
+/// [`MESSAGE_KIND`] opaque part, because only the original item replays.
+///
+/// A tool call with no name is a model-internal item rather than a call the
+/// caller can answer. It is dropped, which also keeps it from turning the
+/// finish reason into [`FinishReason::ToolCall`].
 fn decode_output(value: &Value) -> Vec<ContentPart> {
     let mut content = Vec::new();
     let items = value
@@ -683,15 +748,18 @@ fn decode_output(value: &Value) -> Vec<ContentPart> {
                 if !text.is_empty() {
                     content.push(ContentPart::Text { text });
                 }
+                content.push(ContentPart::opaque(MESSAGE_KIND, item.clone()));
             }
-            Some("function_call") => content.push(ContentPart::ToolCall(decode_tool_call(
-                item,
-                ToolCallKind::Function,
-            ))),
-            Some("custom_tool_call") => content.push(ContentPart::ToolCall(decode_tool_call(
-                item,
-                ToolCallKind::Custom,
-            ))),
+            Some(kind @ ("function_call" | "custom_tool_call")) => {
+                let call_kind = match kind {
+                    "custom_tool_call" => ToolCallKind::Custom,
+                    _ => ToolCallKind::Function,
+                };
+                let call = decode_tool_call(item, call_kind);
+                if !call.name.is_empty() {
+                    content.push(ContentPart::ToolCall(call));
+                }
+            }
             Some("reasoning") => content.extend(decode_reasoning(item)),
             // Provider-side items such as `web_search_call` carry no portable
             // content. They stay available in `Response::raw`.
@@ -860,6 +928,10 @@ struct ResponsesStream {
     /// Blocks that already received content, so a terminal item does not
     /// duplicate what the deltas delivered.
     delivered: BTreeSet<ContentBlockId>,
+    /// Blocks for model-internal items, whose deltas open no block at all.
+    skipped:   BTreeSet<ContentBlockId>,
+    /// Whether the `Started` event has been emitted for this stream.
+    started:   bool,
 }
 
 impl StreamDecoder for ResponsesStream {
@@ -869,17 +941,13 @@ impl StreamDecoder for ResponsesStream {
             return Ok(Vec::new());
         }
 
-        let value: Value = serde_json::from_str(data).map_err(|source| {
-            Error::new(
-                ErrorKind::StreamDecode,
-                format!(
-                    "provider {} returned an invalid stream event",
-                    self.route.provider().id()
-                ),
-            )
-            .with_provider(self.route.provider().id().clone())
-            .with_source(source)
-        })?;
+        // A frame this decoder cannot parse is skipped rather than fatal.
+        // Proxies inject their own keepalive payloads, and killing a
+        // generation over a frame that carries no model output would trade a
+        // whole response for a comment.
+        let Ok(value) = serde_json::from_str::<Value>(data) else {
+            return Ok(Vec::new());
+        };
 
         let kind = value
             .get("type")
@@ -887,38 +955,22 @@ impl StreamDecoder for ResponsesStream {
             .or(event.event.as_deref())
             .unwrap_or_default();
 
-        match kind {
-            "error" => Err(provider_error(
-                self.route.provider(),
-                None,
-                Some(value),
-                None,
-            )),
-            "response.failed" => Err(provider_error(
-                self.route.provider(),
-                None,
-                value.get("response").cloned(),
-                None,
-            )),
-            "response.created" => {
-                let id = value
-                    .pointer("/response/id")
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned);
-                Ok(vec![self.assembler.started(id)])
-            }
-            "response.output_item.added" => Ok(self.start_item(&block_id(&value), item(&value))),
-            "response.output_text.delta" => Ok(self.text_delta(&value)),
-            "response.reasoning_text.delta" | "response.reasoning_summary_text.delta" => {
-                Ok(self.reasoning_delta(&value))
-            }
-            "response.function_call_arguments.delta" | "response.custom_tool_call_input.delta" => {
-                Ok(self.arguments_delta(&value))
-            }
-            "response.output_item.done" => Ok(self.end_item(&block_id(&value), item(&value))),
-            "response.completed" | "response.incomplete" => self.complete(&value),
-            _ => Ok(Vec::new()),
+        // `response.created` is where the response id arrives, but a proxy can
+        // drop it. Latching on the first event that is not a failure keeps a
+        // consumer from seeing deltas before the stream ever started, which is
+        // what the Chat dialect does with its first chunk.
+        let mut latched = Vec::new();
+        if !self.started && !matches!(kind, "error" | "response.failed") {
+            self.started = true;
+            let id = value
+                .pointer("/response/id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            latched.push(self.assembler.started(id));
         }
+        let events = self.decode_event(kind, &value)?;
+        latched.extend(events);
+        Ok(latched)
     }
 
     fn finish(&mut self) -> Result<Vec<StreamEvent>, Error> {
@@ -927,6 +979,37 @@ impl StreamDecoder for ResponsesStream {
 }
 
 impl ResponsesStream {
+    /// Decodes one recognized stream event.
+    fn decode_event(&mut self, kind: &str, value: &Value) -> Result<Vec<StreamEvent>, Error> {
+        match kind {
+            "error" => Err(provider_error(
+                self.route.provider(),
+                None,
+                Some(value.clone()),
+                None,
+            )),
+            "response.failed" => Err(provider_error(
+                self.route.provider(),
+                None,
+                value.get("response").cloned(),
+                None,
+            )),
+            "response.output_item.added" => Ok(self.start_item(&block_id(value), item(value))),
+            "response.output_text.delta" => Ok(self.text_delta(value)),
+            "response.reasoning_text.delta" | "response.reasoning_summary_text.delta" => {
+                Ok(self.reasoning_delta(value))
+            }
+            "response.function_call_arguments.delta" | "response.custom_tool_call_input.delta" => {
+                Ok(self.arguments_delta(value))
+            }
+            "response.output_item.done" => Ok(self.end_item(&block_id(value), item(value))),
+            "response.completed" | "response.incomplete" => self.complete(value),
+            // `response.created` lands here: its id already rode the latched
+            // `Started` event, so it contributes nothing of its own.
+            _ => Ok(Vec::new()),
+        }
+    }
+
     /// Opens the block for one output item.
     ///
     /// Opening is idempotent, so the terminal event for an item the provider
@@ -934,6 +1017,11 @@ impl ResponsesStream {
     /// deliberately not opened here: whether it becomes visible reasoning or an
     /// opaque replay item is only known once the item is done.
     fn start_item(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
+        if is_internal_call(item) {
+            self.skipped.insert(id.clone());
+            return Vec::new();
+        }
+
         match item.get("type").and_then(Value::as_str) {
             Some("message") => self.assembler.start(id.clone(), ContentBlockKind::Text),
             Some(kind @ ("function_call" | "custom_tool_call")) => {
@@ -971,6 +1059,15 @@ impl ResponsesStream {
     /// Closes the block for one output item, delivering anything the deltas
     /// did not carry.
     fn end_item(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
+        if self.skipped.contains(id) {
+            return Vec::new();
+        }
+        if is_internal_call(item) {
+            self.skipped.insert(id.clone());
+            // Closes whatever an early delta opened before the name was known.
+            // Nothing opens here, so this is normally empty.
+            return self.assembler.end(id);
+        }
         if item.get("type").and_then(Value::as_str) == Some("reasoning") {
             return self.end_reasoning(id, item);
         }
@@ -980,6 +1077,14 @@ impl ResponsesStream {
             events.extend(self.recover_item(id, item));
         }
         events.extend(self.assembler.end(id));
+
+        // The message item itself replays; the text block only carries what a
+        // reader sees. The opaque block takes a derived id because the item's
+        // own id already named the text block.
+        if item.get("type").and_then(Value::as_str) == Some("message") {
+            let opaque = ContentBlockId::new(format!("{}-item", id.as_str()));
+            events.extend(self.opaque_item(&opaque, MESSAGE_KIND, item));
+        }
         events
     }
 
@@ -1036,14 +1141,17 @@ impl ResponsesStream {
         } else {
             id.clone()
         };
-        events.extend(
-            self.assembler
-                .start(opaque.clone(), ContentBlockKind::Opaque {
-                    kind: REASONING_KIND.to_owned(),
-                }),
-        );
-        events.extend(self.assembler.set_opaque_data(&opaque, item.clone()));
-        events.extend(self.assembler.end(&opaque));
+        events.extend(self.opaque_item(&opaque, REASONING_KIND, item));
+        events
+    }
+
+    /// Emits one whole output item as a closed opaque block.
+    fn opaque_item(&mut self, id: &ContentBlockId, kind: &str, item: &Value) -> Vec<StreamEvent> {
+        let mut events = self.assembler.start(id.clone(), ContentBlockKind::Opaque {
+            kind: kind.to_owned(),
+        });
+        events.extend(self.assembler.set_opaque_data(id, item.clone()));
+        events.extend(self.assembler.end(id));
         events
     }
 
@@ -1059,8 +1167,13 @@ impl ResponsesStream {
         self.deliver(&id, |assembler| assembler.reasoning(&id, &text))
     }
 
+    /// Appends one argument fragment, unless the item it belongs to is
+    /// model-internal and has no block of its own.
     fn arguments_delta(&mut self, value: &Value) -> Vec<StreamEvent> {
         let id = block_id(value);
+        if self.skipped.contains(&id) {
+            return Vec::new();
+        }
         let chunk = delta_text(value);
         self.deliver(&id, |assembler| assembler.arguments(&id, &chunk))
     }
@@ -1097,6 +1210,24 @@ impl ResponsesStream {
         events.extend(self.assembler.complete());
         Ok(events)
     }
+}
+
+/// Whether an output item is a tool call the caller cannot answer.
+///
+/// A `function_call` with no name is model-internal. It has no tool to route
+/// to and no result to send back, so it neither becomes content nor turns the
+/// finish reason into [`FinishReason::ToolCall`].
+fn is_internal_call(item: &Value) -> bool {
+    let is_call = matches!(
+        item.get("type").and_then(Value::as_str),
+        Some("function_call" | "custom_tool_call")
+    );
+    is_call
+        && item
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .is_empty()
 }
 
 /// The output item an item event carries.
@@ -1141,13 +1272,13 @@ mod tests {
 
     use serde_json::{Value, json};
 
-    use super::{COUNT_TOKENS_FIELDS, Codec, OpenAiResponsesCodec};
+    use super::{COUNT_TOKENS_FIELDS, Codec, MESSAGE_KIND, OpenAiResponsesCodec, REASONING_KIND};
     use crate::adapter::ResolvedCall;
     use crate::codecs::test_support::resolved;
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentBlockId, ContentPart, ErrorKind, Message, ReasoningContent, Request, Response, Role,
-        StreamEvent, ToolCall, ToolCallKind, ToolDefinition, ToolResult,
+        ContentBlockId, ContentPart, ErrorKind, FinishReason, Message, ReasoningContent, Request,
+        Response, Role, StreamEvent, ToolCall, ToolCallKind, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -1678,7 +1809,9 @@ mod tests {
             .iter()
             .filter(|event| matches!(event, StreamEvent::ContentBlockStart { .. }))
             .count();
-        assert_eq!(starts, 2);
+        // The message contributes two blocks: the visible text and the whole
+        // item, kept for replay.
+        assert_eq!(starts, 3);
         assert!(matches!(
             events.first(),
             Some(StreamEvent::Started { id: Some(id) }) if id == "resp_stream"
@@ -1688,7 +1821,18 @@ mod tests {
         assert_eq!(parts[0], ContentPart::Text {
             text: "Hello".to_owned(),
         });
-        let ContentPart::ToolCall(streamed) = &parts[1] else {
+        assert_eq!(
+            parts[1],
+            ContentPart::opaque(
+                MESSAGE_KIND,
+                json!({
+                    "type": "message",
+                    "id": "msg_1",
+                    "content": [{ "type": "output_text", "text": "Hello" }],
+                })
+            )
+        );
+        let ContentPart::ToolCall(streamed) = &parts[2] else {
             return Err("expected a streamed tool call".into());
         };
         assert_eq!(streamed.id, "call_abc");
@@ -1864,6 +2008,316 @@ mod tests {
 
         assert_eq!(tokens, 123);
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        Ok(())
+    }
+
+    /// The ported round trip from the reference implementation.
+    ///
+    /// An assistant turn of reasoning, visible text, and a tool call replays as
+    /// three items in that order. The preserved `message` item is sent with its
+    /// own `id` and `status`, rather than reconstructed from the text part, so
+    /// the reasoning item that precedes it still names an item that follows it.
+    #[test]
+    fn a_reasoning_message_and_function_call_replay_in_order() -> Result<(), Box<dyn StdError>> {
+        let reasoning = json!({
+            "type": "reasoning",
+            "id": "rs_xyz789",
+            "summary": [{ "type": "summary_text", "text": "Let me check." }],
+            "encrypted_content": "gAAAA",
+        });
+        let message = json!({
+            "type": "message",
+            "id": "msg_abc123",
+            "status": "completed",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": "Checking now." }],
+        });
+        let mut tool_call = ToolCall::function("call_001", "shell", json!({ "cmd": "ls" }));
+        tool_call
+            .provider_metadata
+            .insert("openai".to_owned(), json!({ "item_id": "fc_def456" }));
+        let request = Request::builder()
+            .model(MODEL)
+            .user("List the files")
+            .message(Message::new(Role::Assistant, [
+                ContentPart::opaque(REASONING_KIND, reasoning.clone()),
+                ContentPart::Text {
+                    text: "Checking now.".to_owned(),
+                },
+                ContentPart::opaque(MESSAGE_KIND, message.clone()),
+                ContentPart::ToolCall(tool_call),
+            ]))
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        let input = encoded.body["input"]
+            .as_array()
+            .ok_or("expected an input array")?;
+        assert_eq!(input.len(), 4, "the user turn plus three replayed items");
+        assert_eq!(input[1], reasoning);
+        assert_eq!(input[2], message);
+        assert_eq!(input[3]["type"], json!("function_call"));
+        assert_eq!(input[3]["id"], json!("fc_def456"));
+        assert_eq!(input[3]["call_id"], json!("call_001"));
+        assert_eq!(
+            encoded.body.to_string().matches("Checking now.").count(),
+            1,
+            "the preserved item already carries the assistant text",
+        );
+        Ok(())
+    }
+
+    /// An interleaved turn keeps every reasoning item beside the item it
+    /// anchors, which hoisting the opaque parts to the front would break.
+    #[test]
+    fn interleaved_replay_items_keep_their_pairing() -> Result<(), Box<dyn StdError>> {
+        let first = json!({ "type": "reasoning", "id": "rs_1", "encrypted_content": "a" });
+        let second = json!({ "type": "reasoning", "id": "rs_2", "encrypted_content": "b" });
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Do both")
+            .message(Message::new(Role::Assistant, [
+                ContentPart::opaque(REASONING_KIND, first.clone()),
+                ContentPart::ToolCall(ToolCall::function("call_1", "one", json!({}))),
+                ContentPart::opaque(REASONING_KIND, second.clone()),
+                ContentPart::ToolCall(ToolCall::function("call_2", "two", json!({}))),
+            ]))
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        let types: Vec<&Value> = encoded.body["input"]
+            .as_array()
+            .ok_or("expected an input array")?
+            .iter()
+            .map(|item| &item["type"])
+            .collect();
+        // The user turn is a plain `{role, content}` item, which carries no
+        // `type` of its own.
+        assert_eq!(types, vec![
+            &Value::Null,
+            &json!("reasoning"),
+            &json!("function_call"),
+            &json!("reasoning"),
+            &json!("function_call"),
+        ]);
+        assert_eq!(encoded.body["input"][1], first);
+        assert_eq!(encoded.body["input"][3], second);
+        Ok(())
+    }
+
+    /// Without a preserved item, assistant text still builds one.
+    #[test]
+    fn assistant_text_without_a_replay_item_builds_a_message() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Hi")
+            .message(Message::new(Role::Assistant, [ContentPart::Text {
+                text: "Hello".to_owned(),
+            }]))
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        assert_eq!(
+            encoded.body["input"][1],
+            json!({
+                "role": "assistant",
+                "content": [{ "type": "output_text", "text": "Hello" }],
+            })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_message_item_decodes_to_text_and_a_replay_part() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let item = json!({
+            "type": "message",
+            "id": "msg_1",
+            "status": "completed",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": "hello" }],
+        });
+
+        let response = codec().decode_response(
+            &route,
+            json!({ "id": "resp_1", "status": "completed", "output": [item.clone()] }),
+        )?;
+
+        assert_eq!(response.content, vec![
+            ContentPart::Text {
+                text: "hello".to_owned(),
+            },
+            ContentPart::opaque(MESSAGE_KIND, item),
+        ]);
+        Ok(())
+    }
+
+    /// A `function_call` with no name is model-internal: it is not content, and
+    /// it does not make the turn look like a tool call.
+    #[test]
+    fn an_unnamed_tool_call_is_dropped() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+
+        let response = codec().decode_response(
+            &route,
+            json!({
+                "id": "resp_1",
+                "status": "completed",
+                "output": [{
+                    "type": "function_call",
+                    "id": "fc_1",
+                    "call_id": "call_1",
+                    "name": "",
+                    "arguments": "{}",
+                }],
+            }),
+        )?;
+
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Stop);
+        Ok(())
+    }
+
+    #[test]
+    fn an_unnamed_streamed_tool_call_is_dropped() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let item = json!({
+            "type": "function_call",
+            "id": "fc_1",
+            "call_id": "call_1",
+            "name": "",
+            "arguments": "{}",
+        });
+
+        let mut events = decoder.decode(sse(&json!({
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": item,
+        })))?;
+        events.extend(decoder.decode(sse(&json!({
+            "type": "response.function_call_arguments.delta",
+            "item_id": "fc_1",
+            "delta": "{}",
+        })))?);
+        events.extend(decoder.decode(sse(&json!({
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": item,
+        })))?);
+        events.extend(decoder.decode(sse(&json!({
+            "type": "response.completed",
+            "response": { "id": "resp_1", "status": "completed", "output": [item] },
+        })))?);
+
+        assert_block_boundaries(&events)?;
+        assert_eq!(ended_parts(&events), Vec::new());
+        let response = completed(&events)?;
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Stop);
+        Ok(())
+    }
+
+    /// A proxy's keepalive frame is not model output, so it cannot end the
+    /// stream.
+    #[test]
+    fn a_frame_that_is_not_json_is_skipped() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+
+        let ignored = decoder.decode(SseEvent {
+            event: None,
+            data:  "keepalive".to_owned(),
+        })?;
+        let events = decoder.decode(sse(&json!({
+            "type": "response.created",
+            "response": { "id": "resp_1" },
+        })))?;
+
+        assert_eq!(ignored, Vec::new());
+        assert!(matches!(
+            events.first(),
+            Some(StreamEvent::Started { id: Some(id) }) if id == "resp_1"
+        ));
+        Ok(())
+    }
+
+    /// A proxy that drops `response.created` still produces a started stream.
+    #[test]
+    fn the_stream_starts_without_a_created_event() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+
+        let mut events = decoder.decode(sse(&json!({
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": { "type": "message", "id": "msg_1", "role": "assistant", "content": [] },
+        })))?;
+        events.extend(decoder.decode(sse(&json!({
+            "type": "response.output_text.delta",
+            "item_id": "msg_1",
+            "delta": "hi",
+        })))?);
+
+        assert!(
+            matches!(events.first(), Some(StreamEvent::Started { id: None })),
+            "the first event must still be `Started`",
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, StreamEvent::Started { .. }))
+                .count(),
+            1,
+            "a later event must not start the stream twice",
+        );
+        Ok(())
+    }
+
+    /// A tool result carrying only JSON sends the value itself, because the
+    /// `ContentPart` envelope is this crate's shape rather than the tool's.
+    #[test]
+    fn a_json_tool_result_sends_the_bare_value() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Look it up")
+            .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                ToolCall::function("call_1", "search", json!({})),
+            )]))
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: "call_1".to_owned(),
+                    name:         Some("search".to_owned()),
+                    content:      vec![ContentPart::Json {
+                        value: json!({ "matches": 2 }),
+                    }],
+                    is_error:     false,
+                },
+            )]))
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        let output = encoded.body["input"][2]["output"]
+            .as_str()
+            .ok_or("expected a function_call_output")?;
+        assert_eq!(
+            serde_json::from_str::<Value>(output)?,
+            json!({ "matches": 2 })
+        );
         Ok(())
     }
 }

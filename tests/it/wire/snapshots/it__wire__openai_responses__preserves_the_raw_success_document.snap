@@ -12,6 +12,21 @@ expression: rendered
     {
       "type": "text",
       "text": "Sunny."
+    },
+    {
+      "type": "opaque",
+      "kind": "openai.message",
+      "data": {
+        "content": [
+          {
+            "text": "Sunny.",
+            "type": "output_text"
+          }
+        ],
+        "id": "msg_raw",
+        "role": "assistant",
+        "type": "message"
+      }
     }
   ],
   "finish_reason": "stop",
