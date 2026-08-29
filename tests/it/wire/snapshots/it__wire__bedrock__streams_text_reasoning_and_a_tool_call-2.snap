@@ -68,6 +68,7 @@ expression: rendered
     "id": "block-1",
     "part": {
       "signature": "sig-stream",
+      "signature_origin": "anthropic",
       "text": "Paris is in France.",
       "type": "reasoning"
     },
@@ -106,6 +107,7 @@ expression: rendered
         },
         {
           "signature": "sig-stream",
+          "signature_origin": "anthropic",
           "text": "Paris is in France.",
           "type": "reasoning"
         },

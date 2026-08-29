@@ -38,6 +38,7 @@ expression: rendered
     "id": "reasoning-0",
     "part": {
       "signature": "sig-stream-think",
+      "signature_origin": "gemini",
       "text": "Let me check the forecast.",
       "type": "reasoning"
     },
@@ -112,6 +113,7 @@ expression: rendered
       "content": [
         {
           "signature": "sig-stream-think",
+          "signature_origin": "gemini",
           "text": "Let me check the forecast.",
           "type": "reasoning"
         },

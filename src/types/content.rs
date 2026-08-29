@@ -258,11 +258,24 @@ impl DocumentContent {
 /// `text` is then an opaque payload that must be echoed back unchanged.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ReasoningContent {
-    pub text:      String,
+    pub text:             String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signature: Option<String>,
+    pub signature:        Option<String>,
+    /// The signature family that minted `signature`, when one did.
+    ///
+    /// A verification signature is only valid at the provider family that
+    /// produced it — `anthropic` covers the Anthropic and Bedrock Converse
+    /// protocols, which both carry Claude-minted signatures, and `gemini`
+    /// covers thought signatures. Codecs record the family at decode time and
+    /// skip a foreign signature at encode time, so a conversation that failed
+    /// over between providers does not replay a signature the target rejects.
+    /// `None` on a signed part means the origin is unknown — a history
+    /// persisted before this field existed — and the signature replays as
+    /// before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature_origin: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub redacted:  bool,
+    pub redacted:         bool,
 }
 
 /// A tool exposed to the model.
@@ -449,9 +462,10 @@ mod tests {
                 name:   Some("report.pdf".to_owned()),
             }),
             ContentPart::Reasoning(ReasoningContent {
-                text:      "step one".to_owned(),
-                signature: Some("sig".to_owned()),
-                redacted:  false,
+                text:             "step one".to_owned(),
+                signature:        Some("sig".to_owned()),
+                signature_origin: None,
+                redacted:         false,
             }),
             ContentPart::ToolCall(ToolCall::function(
                 "call_1",
@@ -557,14 +571,16 @@ mod tests {
     #[test]
     fn reasoning_signature_and_redaction_survive_a_round_trip() -> Result<(), Box<dyn StdError>> {
         let signed = ReasoningContent {
-            text:      "step one".to_owned(),
-            signature: Some("sig".to_owned()),
-            redacted:  false,
+            text:             "step one".to_owned(),
+            signature:        Some("sig".to_owned()),
+            signature_origin: None,
+            redacted:         false,
         };
         let redacted = ReasoningContent {
-            text:      "opaque payload".to_owned(),
-            signature: None,
-            redacted:  true,
+            text:             "opaque payload".to_owned(),
+            signature:        None,
+            signature_origin: None,
+            redacted:         true,
         };
 
         assert_eq!(round_trip(&signed)?, signed);

@@ -38,6 +38,7 @@ expression: rendered
     "id": "block-0",
     "part": {
       "signature": "EqQBCgIYAhIM1gbc",
+      "signature_origin": "anthropic",
       "text": "The user wants today's weather.",
       "type": "reasoning"
     },
@@ -117,6 +118,7 @@ expression: rendered
       "content": [
         {
           "signature": "EqQBCgIYAhIM1gbc",
+          "signature_origin": "anthropic",
           "text": "The user wants today's weather.",
           "type": "reasoning"
         },

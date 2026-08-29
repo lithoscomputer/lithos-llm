@@ -6,6 +6,8 @@ use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 #[cfg(any(feature = "anthropic", feature = "bedrock", test))]
 use crate::transport::classify;
+#[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
+use crate::types::ReasoningContent;
 #[cfg(any(
     feature = "anthropic",
     feature = "bedrock",
@@ -28,6 +30,45 @@ pub(crate) const CONTROL_KEYS: &[&str] = &["auto_cache"];
 /// content-filter codes, which is what makes a refusal failover-eligible.
 #[cfg(any(feature = "anthropic", feature = "bedrock", test))]
 const REFUSAL_CODE: &str = "refusal";
+
+/// The signature family of Claude-minted reasoning signatures.
+///
+/// The Anthropic Messages and Bedrock Converse protocols both carry them, so
+/// a conversation that moves between those providers keeps its signatures.
+#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
+pub(crate) const ANTHROPIC_SIGNATURES: &str = "anthropic";
+
+/// The signature family of Gemini thought signatures.
+#[cfg(any(feature = "gemini", test))]
+pub(crate) const GEMINI_SIGNATURES: &str = "gemini";
+
+/// Whether a reasoning part carries a signature another family minted.
+///
+/// A foreign signature cannot verify at this provider, and replaying it can
+/// fail the whole request, so the encoder skips the part and reports the
+/// skip. A signed part whose origin is unknown — persisted before origins
+/// were recorded — replays as it always did.
+#[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
+pub(crate) fn foreign_signature(reasoning: &ReasoningContent, family: &str) -> bool {
+    reasoning.signature.is_some()
+        && reasoning
+            .signature_origin
+            .as_deref()
+            .is_some_and(|origin| origin != family)
+}
+
+/// Whether any reasoning part of the request carries a foreign signature.
+#[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
+pub(crate) fn carries_foreign_signature(request: &Request, family: &str) -> bool {
+    request
+        .messages()
+        .iter()
+        .flat_map(Message::content)
+        .any(|part| match part {
+            ContentPart::Reasoning(reasoning) => foreign_signature(reasoning, family),
+            _ => false,
+        })
+}
 
 /// Codec behavior selected by control keys in the raw provider options.
 ///

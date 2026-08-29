@@ -12,7 +12,8 @@ expression: rendered
     {
       "type": "reasoning",
       "text": "97 has no divisor below 10.",
-      "signature": "sig-def"
+      "signature": "sig-def",
+      "signature_origin": "anthropic"
     },
     {
       "type": "reasoning",

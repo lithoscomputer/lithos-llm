@@ -854,14 +854,16 @@ pub(crate) fn reasoning_round_trip_request(model: &str) -> Request {
         .user("Is 91 prime?")
         .message(Message::new(Role::Assistant, [
             ContentPart::Reasoning(ReasoningContent {
-                text:      "91 is 7 times 13.".to_owned(),
-                signature: Some("sig-abc".to_owned()),
-                redacted:  false,
+                text:             "91 is 7 times 13.".to_owned(),
+                signature:        Some("sig-abc".to_owned()),
+                signature_origin: None,
+                redacted:         false,
             }),
             ContentPart::Reasoning(ReasoningContent {
-                text:      "cmVkYWN0ZWQtcGF5bG9hZA==".to_owned(),
-                signature: None,
-                redacted:  true,
+                text:             "cmVkYWN0ZWQtcGF5bG9hZA==".to_owned(),
+                signature:        None,
+                signature_origin: None,
+                redacted:         true,
             }),
             ContentPart::Text {
                 text: "No, 91 is not prime.".to_owned(),

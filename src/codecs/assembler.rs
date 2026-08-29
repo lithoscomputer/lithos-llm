@@ -13,12 +13,25 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use super::common::parse_arguments;
-use crate::catalog::{ModelId, ProviderId};
+use crate::catalog::{ModelId, ProviderId, codec_ids};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Cost, FinishReason, ReasoningContent, Response,
     StreamEvent, TokenCounts, ToolCall, ToolCallKind, Warning,
 };
+
+/// The signature family a route's codec mints reasoning signatures in.
+///
+/// The values match the constants in [`super::common`]; they are inlined here
+/// because those constants are feature-gated per codec while the assembler is
+/// always built.
+fn signature_family(route: &ResolvedRoute) -> Option<&'static str> {
+    match route.provider().codec().as_str() {
+        codec_ids::ANTHROPIC_MESSAGES | codec_ids::BEDROCK_CONVERSE => Some("anthropic"),
+        codec_ids::GEMINI_GENERATE => Some("gemini"),
+        _ => None,
+    }
+}
 
 /// One content block, open or already closed.
 #[derive(Clone, Debug)]
@@ -29,6 +42,10 @@ struct Block {
     /// Text, reasoning text, or concatenated tool argument fragments.
     buffer:            String,
     signature:         Option<String>,
+    /// The signature family of this stream's codec, stamped onto a signed
+    /// reasoning part so a later encoder can tell its own signatures from
+    /// foreign ones.
+    signature_origin:  Option<&'static str>,
     redacted:          bool,
     opaque_data:       Option<Value>,
     provider_metadata: BTreeMap<String, Value>,
@@ -66,13 +83,18 @@ impl BlockShape {
 }
 
 impl Block {
-    fn new(id: ContentBlockId, kind: ContentBlockKind) -> Self {
+    fn new(
+        id: ContentBlockId,
+        kind: ContentBlockKind,
+        signature_origin: Option<&'static str>,
+    ) -> Self {
         Self {
             id,
             kind,
             open: true,
             buffer: String::new(),
             signature: None,
+            signature_origin,
             redacted: false,
             opaque_data: None,
             provider_metadata: BTreeMap::new(),
@@ -83,11 +105,19 @@ impl Block {
     fn into_part(self) -> ContentPart {
         match self.kind {
             ContentBlockKind::Text => ContentPart::Text { text: self.buffer },
-            ContentBlockKind::Reasoning => ContentPart::Reasoning(ReasoningContent {
-                text:      self.buffer,
-                signature: self.signature,
-                redacted:  self.redacted,
-            }),
+            ContentBlockKind::Reasoning => {
+                let signature_origin = self
+                    .signature
+                    .is_some()
+                    .then(|| self.signature_origin.map(ToOwned::to_owned))
+                    .flatten();
+                ContentPart::Reasoning(ReasoningContent {
+                    text: self.buffer,
+                    signature: self.signature,
+                    signature_origin,
+                    redacted: self.redacted,
+                })
+            }
             ContentBlockKind::ToolCall { id, name, kind } => {
                 let arguments = match kind {
                     ToolCallKind::Function => parse_arguments(&self.buffer),
@@ -135,6 +165,8 @@ impl Block {
 pub(crate) struct StreamAssembler {
     provider:      ProviderId,
     model:         ModelId,
+    /// The signature family of this stream's codec; see [`Block`].
+    signatures:    Option<&'static str>,
     /// Open and closed blocks, in the order they were opened.
     blocks:        Vec<Block>,
     /// Assembled parts, in the order their blocks were closed.
@@ -159,6 +191,7 @@ impl StreamAssembler {
         Self {
             provider:      route.provider().id().clone(),
             model:         route.model().id().clone(),
+            signatures:    signature_family(route),
             blocks:        Vec::new(),
             parts:         Vec::new(),
             usage:         TokenCounts::default(),
@@ -184,7 +217,7 @@ impl StreamAssembler {
             id:   id.clone(),
             kind: kind.clone(),
         };
-        self.blocks.push(Block::new(id, kind));
+        self.blocks.push(Block::new(id, kind, self.signatures));
         vec![event]
     }
 

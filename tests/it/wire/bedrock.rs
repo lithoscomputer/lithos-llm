@@ -692,9 +692,10 @@ async fn tool_result_content_keeps_json_and_drops_reasoning() {
                         value: json!({ "quarters": [1, 2] }),
                     },
                     ContentPart::Reasoning(ReasoningContent {
-                        text:      "the third quarter is the outlier".to_owned(),
-                        signature: None,
-                        redacted:  false,
+                        text:             "the third quarter is the outlier".to_owned(),
+                        signature:        None,
+                        signature_origin: None,
+                        redacted:         false,
                     }),
                 ],
                 is_error:     false,

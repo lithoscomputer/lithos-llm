@@ -860,6 +860,7 @@ fn decode_reasoning(item: &Value) -> Vec<ContentPart> {
         parts.push(ContentPart::Reasoning(ReasoningContent {
             text,
             signature: None,
+            signature_origin: None,
             redacted: false,
         }));
     }
@@ -1634,9 +1635,10 @@ mod tests {
 
         assert_eq!(response.content, vec![
             ContentPart::Reasoning(ReasoningContent {
-                text:      "checked".to_owned(),
-                signature: None,
-                redacted:  false,
+                text:             "checked".to_owned(),
+                signature:        None,
+                signature_origin: None,
+                redacted:         false,
             }),
             ContentPart::opaque(REASONING_KIND, item),
         ]);
@@ -1804,9 +1806,10 @@ mod tests {
                 ContentPart::opaque("openai.reasoning", item.clone()),
                 ContentPart::opaque("anthropic.thinking", json!({ "signature": "sig" })),
                 ContentPart::Reasoning(ReasoningContent {
-                    text:      "step one".to_owned(),
-                    signature: None,
-                    redacted:  false,
+                    text:             "step one".to_owned(),
+                    signature:        None,
+                    signature_origin: None,
+                    redacted:         false,
                 }),
                 ContentPart::Text {
                     text: "hello".to_owned(),

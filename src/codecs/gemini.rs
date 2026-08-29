@@ -7,8 +7,9 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
-    plain_text, sampling, system_text, unsupported_capability, wire_options,
+    GEMINI_SIGNATURES, carries_foreign_signature, endpoint, finish_reason, flattens_system_content,
+    flattens_tool_result_content, foreign_signature, merge_options, plain_text, sampling,
+    system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -79,6 +80,11 @@ impl Codec for GeminiGenerateCodec {
         // replace this warning later.
         if call.request().reasoning_effort().is_some() {
             encoded = encoded.unsupported_control("the reasoning effort control");
+        }
+        // A skipped foreign-signed reasoning part never reaches the model,
+        // so the skip is reported; see `foreign_signature`.
+        if carries_foreign_signature(call.request(), GEMINI_SIGNATURES) {
+            encoded = encoded.unsupported_control("reasoning signed by another provider");
         }
         Ok(encoded)
     }
@@ -364,6 +370,11 @@ fn encode_part(part: &ContentPart, names: &HashMap<&str, &str>) -> Option<Value>
         ContentPart::Image(image) => Some(encode_media(&image.source)),
         ContentPart::Audio(audio) => Some(encode_media(&audio.source)),
         ContentPart::Document(document) => Some(encode_media(&document.source)),
+        // A signature another provider family minted cannot verify here and
+        // fails the request, so the part is skipped; the encoder reports it.
+        ContentPart::Reasoning(reasoning) if foreign_signature(reasoning, GEMINI_SIGNATURES) => {
+            None
+        }
         ContentPart::Reasoning(reasoning) => Some(encode_reasoning(reasoning)),
         ContentPart::ToolCall(call) => Some(encode_tool_call(call)),
         ContentPart::ToolResult(result) => Some(encode_tool_result(result, names)),
@@ -589,10 +600,13 @@ fn decode_text(part: &Value, text: &str) -> ContentPart {
         };
     }
 
+    let signature = thought_signature(part).map(ToOwned::to_owned);
+    let signature_origin = signature.is_some().then(|| GEMINI_SIGNATURES.to_owned());
     ContentPart::Reasoning(ReasoningContent {
-        text:      text.to_owned(),
-        signature: thought_signature(part).map(ToOwned::to_owned),
-        redacted:  false,
+        text: text.to_owned(),
+        signature,
+        signature_origin,
+        redacted: false,
     })
 }
 

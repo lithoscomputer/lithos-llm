@@ -15,7 +15,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
+    ANTHROPIC_SIGNATURES, carries_foreign_signature, endpoint, finish_reason,
+    flattens_system_content, flattens_tool_result_content, foreign_signature, merge_options,
     plain_text, refusal, reject_unencodable, sampling, system_text, unsupported_capability,
     wire_options,
 };
@@ -155,6 +156,11 @@ impl Codec for BedrockConverseCodec {
         {
             encoded =
                 encoded.unsupported_control("tool_choice none alongside historical tool blocks");
+        }
+        // A skipped foreign-signed reasoning part never reaches the model,
+        // so the skip is reported; see `foreign_signature`.
+        if carries_foreign_signature(request, ANTHROPIC_SIGNATURES) {
+            encoded = encoded.unsupported_control("reasoning signed by another provider");
         }
         // Converse has no portable structured-output field. A caller who asked
         // for JSON gets prose, so say so rather than letting them discover it
@@ -484,6 +490,11 @@ fn encode_content_part(part: &ContentPart, route: &ResolvedRoute) -> Result<Opti
                     "source": { "bytes": data },
                 }
             }))
+        }
+        // A signature another provider family minted cannot verify here and
+        // fails the request, so the part is skipped; the encoder reports it.
+        ContentPart::Reasoning(reasoning) if foreign_signature(reasoning, ANTHROPIC_SIGNATURES) => {
+            None
         }
         ContentPart::Reasoning(reasoning) => Some(encode_reasoning(reasoning)),
         ContentPart::ToolCall(call) => Some(encode_tool_call(call)),
@@ -942,24 +953,28 @@ fn decode_content_block(block: &Value) -> Option<ContentPart> {
 /// Decodes a `reasoningContent` block, redacted or not.
 fn decode_reasoning_block(reasoning: &Value) -> Option<ContentPart> {
     if let Some(text_block) = reasoning.get("reasoningText") {
+        let signature = text_block
+            .get("signature")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let signature_origin = signature.is_some().then(|| ANTHROPIC_SIGNATURES.to_owned());
         return Some(ContentPart::Reasoning(ReasoningContent {
-            text:      text_block
+            text: text_block
                 .get("text")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_owned(),
-            signature: text_block
-                .get("signature")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-            redacted:  false,
+            signature,
+            signature_origin,
+            redacted: false,
         }));
     }
     let redacted = reasoning.get("redactedContent").and_then(Value::as_str)?;
     Some(ContentPart::Reasoning(ReasoningContent {
-        text:      redacted.to_owned(),
-        signature: None,
-        redacted:  true,
+        text:             redacted.to_owned(),
+        signature:        None,
+        signature_origin: None,
+        redacted:         true,
     }))
 }
 
@@ -1270,9 +1285,10 @@ mod tests {
                 .model(MODEL)
                 .message(Message::new(Role::Assistant, [ContentPart::Reasoning(
                     ReasoningContent {
-                        text:      "checked".to_owned(),
-                        signature: Some("sig".to_owned()),
-                        redacted:  false,
+                        text:             "checked".to_owned(),
+                        signature:        Some("sig".to_owned()),
+                        signature_origin: None,
+                        redacted:         false,
                     },
                 )]))
                 .message(Message::new(Role::User, [ContentPart::Document(
@@ -1383,6 +1399,56 @@ mod tests {
                 .warnings
                 .iter()
                 .any(|warning| warning.message.contains("forced tool choice")),
+            "{:?}",
+            encoded.warnings
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn an_anthropic_signed_part_replays_and_a_gemini_one_is_skipped()
+    -> Result<(), Box<dyn StdError>> {
+        // Converse carries Claude-minted signatures, so a part signed at the
+        // Anthropic provider keeps replaying after a failover to Bedrock; a
+        // Gemini thought signature cannot verify and is skipped.
+        let anthropic_signed = ReasoningContent {
+            text:             "claude thought".to_owned(),
+            signature:        Some("claude-sig".to_owned()),
+            signature_origin: Some("anthropic".to_owned()),
+            redacted:         false,
+        };
+        let gemini_signed = ReasoningContent {
+            text:             "gemini thought".to_owned(),
+            signature:        Some("gemini-sig".to_owned()),
+            signature_origin: Some("gemini".to_owned()),
+            redacted:         false,
+        };
+        let encoded = BedrockConverseCodec.encode(
+            &resolved(
+                Request::builder()
+                    .model(MODEL)
+                    .user("Hello")
+                    .message(Message::new(Role::Assistant, [
+                        ContentPart::Reasoning(anthropic_signed),
+                        ContentPart::Reasoning(gemini_signed),
+                        ContentPart::Text {
+                            text: "answer".to_owned(),
+                        },
+                    ]))
+                    .user("Continue")
+                    .build()?,
+            )?,
+            false,
+        )?;
+
+        let body = encoded.body.to_string();
+        assert!(body.contains("claude-sig"), "{body}");
+        assert!(!body.contains("gemini-sig"), "{body}");
+        assert!(
+            encoded
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("signed by another provider")),
             "{:?}",
             encoded.warnings
         );
@@ -2231,9 +2297,10 @@ mod tests {
                     name:         Some("chart".to_owned()),
                     content:      vec![
                         ContentPart::Reasoning(ReasoningContent {
-                            text:      "the third quarter is the outlier".to_owned(),
-                            signature: None,
-                            redacted:  false,
+                            text:             "the third quarter is the outlier".to_owned(),
+                            signature:        None,
+                            signature_origin: None,
+                            redacted:         false,
                         }),
                         ContentPart::Text {
                             text: "Q3 leads.".to_owned(),

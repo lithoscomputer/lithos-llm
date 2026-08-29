@@ -12,7 +12,8 @@ expression: rendered
     {
       "type": "reasoning",
       "text": "Long deliberation.",
-      "signature": "sig-usage"
+      "signature": "sig-usage",
+      "signature_origin": "anthropic"
     },
     {
       "type": "text",

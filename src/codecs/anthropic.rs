@@ -12,7 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, flattens_system_content, flattens_tool_result_content, merge_options,
+    ANTHROPIC_SIGNATURES, carries_foreign_signature, endpoint, finish_reason,
+    flattens_system_content, flattens_tool_result_content, foreign_signature, merge_options,
     plain_text, refusal, reject_unencodable, sampling, system_text, unsupported_capability,
     wire_options,
 };
@@ -120,6 +121,11 @@ impl Codec for AnthropicMessagesCodec {
             })
         }) {
             encoded = encoded.unsupported_control("non-text tool result content");
+        }
+        // A skipped foreign-signed reasoning part never reaches the model,
+        // so the skip is reported; see `foreign_signature`.
+        if carries_foreign_signature(request, ANTHROPIC_SIGNATURES) {
+            encoded = encoded.unsupported_control("reasoning signed by another provider");
         }
         // A forced tool choice drops both output controls; see
         // `forces_tool_use`. Neither reaches the model, so both are reported.
@@ -732,6 +738,11 @@ fn content_block(part: &ContentPart) -> Option<Value> {
             "type": "redacted_thinking",
             "data": reasoning.text,
         })),
+        // A signature another provider family minted cannot verify here and
+        // fails the request, so the part is skipped; the encoder reports it.
+        ContentPart::Reasoning(reasoning) if foreign_signature(reasoning, ANTHROPIC_SIGNATURES) => {
+            None
+        }
         ContentPart::Reasoning(reasoning) => {
             let mut block = json!({ "type": "thinking", "thinking": reasoning.text });
             if let (Some(object), Some(signature)) =
@@ -783,20 +794,26 @@ fn decode_block(block: &Value) -> Option<ContentPart> {
         Some("text") => Some(ContentPart::Text {
             text: field(block, "text").to_owned(),
         }),
-        Some("thinking") => Some(ContentPart::Reasoning(ReasoningContent {
-            text:      field(block, "thinking").to_owned(),
-            signature: block
+        Some("thinking") => {
+            let signature = block
                 .get("signature")
                 .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-            redacted:  false,
-        })),
+                .map(ToOwned::to_owned);
+            let signature_origin = signature.is_some().then(|| ANTHROPIC_SIGNATURES.to_owned());
+            Some(ContentPart::Reasoning(ReasoningContent {
+                text: field(block, "thinking").to_owned(),
+                signature,
+                signature_origin,
+                redacted: false,
+            }))
+        }
         // The encrypted blob is the whole block. It carries no signature and
         // must be replayed exactly as it arrived.
         Some("redacted_thinking") => Some(ContentPart::Reasoning(ReasoningContent {
-            text:      field(block, "data").to_owned(),
-            signature: None,
-            redacted:  true,
+            text:             field(block, "data").to_owned(),
+            signature:        None,
+            signature_origin: None,
+            redacted:         true,
         })),
         Some("tool_use") => Some(ContentPart::ToolCall(decode_tool_use(block))),
         // A server-side block this codec does not model still has to survive a
@@ -1312,6 +1329,56 @@ mod tests {
     }
 
     #[test]
+    fn a_foreign_signed_reasoning_part_is_skipped_with_a_warning() -> Result<(), Box<dyn StdError>>
+    {
+        // A Gemini-minted signature cannot verify here; replaying it fails
+        // the request, so the part is dropped and the drop is reported. A
+        // signed part with no recorded origin — persisted before origins
+        // existed — still replays.
+        let foreign = ReasoningContent {
+            text:             "thought".to_owned(),
+            signature:        Some("gemini-sig".to_owned()),
+            signature_origin: Some("gemini".to_owned()),
+            redacted:         false,
+        };
+        let legacy = ReasoningContent {
+            text:             "older thought".to_owned(),
+            signature:        Some("sig".to_owned()),
+            signature_origin: None,
+            redacted:         false,
+        };
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .user("Hello")
+                .message(Message::new(Role::Assistant, [
+                    ContentPart::Reasoning(foreign),
+                    ContentPart::Reasoning(legacy),
+                    ContentPart::Text {
+                        text: "answer".to_owned(),
+                    },
+                ]))
+                .user("Continue")
+                .build()?,
+        )?;
+
+        let encoded = AnthropicMessagesCodec.encode(&call, false)?;
+
+        let body = encoded.body.to_string();
+        assert!(!body.contains("gemini-sig"), "{body}");
+        assert!(body.contains("older thought"), "{body}");
+        assert!(
+            encoded
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("signed by another provider")),
+            "{:?}",
+            encoded.warnings
+        );
+        Ok(())
+    }
+
+    #[test]
     fn a_whitespace_only_system_prompt_is_omitted() -> Result<(), Box<dyn StdError>> {
         // Templating commonly leaves a system prompt of pure whitespace. The
         // old encoder dropped it, and with auto-cache on it would otherwise
@@ -1520,9 +1587,10 @@ mod tests {
                 .user("Hello")
                 .message(Message::new(Role::Assistant, [ContentPart::Reasoning(
                     ReasoningContent {
-                        text:      "ENCRYPTED".to_owned(),
-                        signature: None,
-                        redacted:  true,
+                        text:             "ENCRYPTED".to_owned(),
+                        signature:        None,
+                        signature_origin: None,
+                        redacted:         true,
                     },
                 )]))
                 .provider_option("anthropic", "auto_cache", json!(false))

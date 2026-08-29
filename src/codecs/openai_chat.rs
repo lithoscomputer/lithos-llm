@@ -215,6 +215,7 @@ impl Codec for OpenAiChatCodec {
             content.push(ContentPart::Reasoning(ReasoningContent {
                 text,
                 signature: None,
+                signature_origin: None,
                 redacted: false,
             }));
         }
