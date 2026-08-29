@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 415
 expression: rendered
 ---
 {
@@ -16,7 +17,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "587"
+      "886"
     ],
     [
       "content-type",
@@ -37,14 +38,16 @@ expression: rendered
   ],
   "body": {
     "model": "claude-sonnet-4-6",
-    "system": "Keep it short.",
     "messages": [
       {
         "role": "user",
         "content": [
           {
             "type": "text",
-            "text": "First"
+            "text": "What is the weather in Paris and Madrid?",
+            "cache_control": {
+              "type": "ephemeral"
+            }
           }
         ]
       },
@@ -53,7 +56,23 @@ expression: rendered
         "content": [
           {
             "type": "text",
-            "text": "Answer"
+            "text": "Looking both up."
+          },
+          {
+            "type": "tool_use",
+            "id": "call_paris",
+            "name": "get_weather",
+            "input": {
+              "city": "Paris"
+            }
+          },
+          {
+            "type": "tool_use",
+            "id": "call_madrid",
+            "name": "get_weather",
+            "input": {
+              "city": "Madrid"
+            }
           }
         ]
       },
@@ -61,26 +80,16 @@ expression: rendered
         "role": "user",
         "content": [
           {
-            "type": "text",
-            "text": "Second"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
+            "type": "tool_result",
+            "tool_use_id": "call_paris",
+            "content": "18C and clear",
+            "is_error": false
+          },
           {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Third"
+            "type": "tool_result",
+            "tool_use_id": "call_madrid",
+            "content": "the city is unknown",
+            "is_error": true
           }
         ]
       }
@@ -100,6 +109,9 @@ expression: rendered
           "required": [
             "city"
           ]
+        },
+        "cache_control": {
+          "type": "ephemeral"
         }
       }
     ],

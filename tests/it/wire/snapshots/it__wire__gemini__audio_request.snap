@@ -34,18 +34,18 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Transcribe this."
           },
           {
             "inlineData": {
-              "data": "YXVkaW8tYnl0ZXM=",
-              "mimeType": "audio/wav"
+              "mimeType": "audio/wav",
+              "data": "YXVkaW8tYnl0ZXM="
             }
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {

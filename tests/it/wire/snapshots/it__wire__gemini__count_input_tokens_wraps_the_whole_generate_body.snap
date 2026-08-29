@@ -33,26 +33,6 @@ expression: rendered
   ],
   "body": {
     "generateContentRequest": {
-      "contents": [
-        {
-          "parts": [
-            {
-              "text": "What is the weather in Paris?"
-            }
-          ],
-          "role": "user"
-        }
-      ],
-      "generationConfig": {
-        "maxOutputTokens": 128
-      },
-      "model": "models/gemini-2.5-pro-002",
-      "safetySettings": [
-        {
-          "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-          "threshold": "BLOCK_ONLY_HIGH"
-        }
-      ],
       "systemInstruction": {
         "parts": [
           {
@@ -60,13 +40,27 @@ expression: rendered
           }
         ]
       },
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "What is the weather in Paris?"
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 128
+      },
       "tools": [
         {
           "functionDeclarations": [
             {
-              "description": "Reads the current weather for a city",
               "name": "get_weather",
+              "description": "Reads the current weather for a city",
               "parametersJsonSchema": {
+                "type": "object",
                 "properties": {
                   "city": {
                     "type": "string"
@@ -74,14 +68,14 @@ expression: rendered
                 },
                 "required": [
                   "city"
-                ],
-                "type": "object"
+                ]
               }
             },
             {
-              "description": "Reads the current time in a time zone",
               "name": "get_time",
+              "description": "Reads the current time in a time zone",
               "parametersJsonSchema": {
+                "type": "object",
                 "properties": {
                   "zone": {
                     "type": "string"
@@ -89,13 +83,19 @@ expression: rendered
                 },
                 "required": [
                   "zone"
-                ],
-                "type": "object"
+                ]
               }
             }
           ]
         }
-      ]
+      ],
+      "safetySettings": [
+        {
+          "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+          "threshold": "BLOCK_ONLY_HIGH"
+        }
+      ],
+      "model": "models/gemini-2.5-pro-002"
     }
   }
 }

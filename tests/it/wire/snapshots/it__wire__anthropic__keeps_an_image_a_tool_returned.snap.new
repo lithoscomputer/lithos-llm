@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 663
 expression: rendered
 ---
 {
@@ -16,7 +17,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "587"
+      "613"
     ],
     [
       "content-type",
@@ -37,14 +38,13 @@ expression: rendered
   ],
   "body": {
     "model": "claude-sonnet-4-6",
-    "system": "Keep it short.",
     "messages": [
       {
         "role": "user",
         "content": [
           {
             "type": "text",
-            "text": "First"
+            "text": "Chart last week's sales."
           }
         ]
       },
@@ -52,8 +52,12 @@ expression: rendered
         "role": "assistant",
         "content": [
           {
-            "type": "text",
-            "text": "Answer"
+            "type": "tool_use",
+            "id": "call_chart",
+            "name": "render_chart",
+            "input": {
+              "range": "7d"
+            }
           }
         ]
       },
@@ -61,26 +65,23 @@ expression: rendered
         "role": "user",
         "content": [
           {
-            "type": "text",
-            "text": "Second"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Third"
+            "type": "tool_result",
+            "tool_use_id": "call_chart",
+            "content": [
+              {
+                "type": "text",
+                "text": "Here is the chart."
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "image/png",
+                  "data": "Y2hhcnQtYnl0ZXM="
+                }
+              }
+            ],
+            "is_error": false
           }
         ]
       }
@@ -88,18 +89,10 @@ expression: rendered
     "max_tokens": 128,
     "tools": [
       {
-        "name": "get_weather",
-        "description": "Reads the current weather for a city",
+        "name": "render_chart",
+        "description": "Renders a chart",
         "input_schema": {
-          "type": "object",
-          "properties": {
-            "city": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "city"
-          ]
+          "type": "object"
         }
       }
     ],

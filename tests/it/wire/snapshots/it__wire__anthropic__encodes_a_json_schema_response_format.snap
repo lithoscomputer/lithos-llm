@@ -36,22 +36,24 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Give me the city and its population.",
-            "type": "text"
+            "type": "text",
+            "text": "Give me the city and its population."
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
+    "max_tokens": 128,
     "output_config": {
       "format": {
+        "type": "json_schema",
         "schema": {
+          "type": "object",
           "additionalProperties": false,
           "properties": {
             "city": {
@@ -64,10 +66,8 @@ expression: rendered
           "required": [
             "city",
             "population"
-          ],
-          "type": "object"
-        },
-        "type": "json_schema"
+          ]
+        }
       }
     },
     "stream": false

@@ -34,14 +34,15 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Is 91 prime?"
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "model",
         "parts": [
           {
             "text": "91 is 7 times 13.",
@@ -55,16 +56,15 @@ expression: rendered
           {
             "text": "No, 91 is not prime."
           }
-        ],
-        "role": "model"
+        ]
       },
       {
+        "role": "user",
         "parts": [
           {
             "text": "What about 97?"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {

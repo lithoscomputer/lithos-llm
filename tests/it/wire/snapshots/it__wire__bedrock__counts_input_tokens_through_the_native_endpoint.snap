@@ -36,6 +36,7 @@ expression: rendered
       "converse": {
         "messages": [
           {
+            "role": "user",
             "content": [
               {
                 "text": "What is the capital of France?"
@@ -45,24 +46,23 @@ expression: rendered
                   "type": "default"
                 }
               }
-            ],
-            "role": "user"
+            ]
           },
           {
+            "role": "assistant",
             "content": [
               {
                 "text": "Paris."
               }
-            ],
-            "role": "assistant"
+            ]
           },
           {
+            "role": "user",
             "content": [
               {
                 "text": "And of Spain?"
               }
-            ],
-            "role": "user"
+            ]
           }
         ],
         "system": [

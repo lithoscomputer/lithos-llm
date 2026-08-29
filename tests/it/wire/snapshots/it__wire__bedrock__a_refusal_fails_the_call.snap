@@ -13,8 +13,8 @@ expression: rendered
   "raw_data": {
     "output": {
       "message": {
-        "content": [],
-        "role": "assistant"
+        "role": "assistant",
+        "content": []
       }
     },
     "stopReason": "refusal",

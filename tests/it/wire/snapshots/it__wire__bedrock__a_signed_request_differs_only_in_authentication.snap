@@ -4,21 +4,8 @@ expression: rendered
 ---
 {
   "bearer": {
-    "body": {
-      "inferenceConfig": {
-        "maxTokens": 128
-      },
-      "messages": [
-        {
-          "content": [
-            {
-              "text": "Hello"
-            }
-          ],
-          "role": "user"
-        }
-      ]
-    },
+    "method": "POST",
+    "path": "/model/anthropic.claude-sonnet-4-6/converse",
     "headers": [
       [
         "accept",
@@ -45,25 +32,25 @@ expression: rendered
         "[user-agent]"
       ]
     ],
-    "method": "POST",
-    "path": "/model/anthropic.claude-sonnet-4-6/converse"
-  },
-  "signed": {
     "body": {
-      "inferenceConfig": {
-        "maxTokens": 128
-      },
       "messages": [
         {
+          "role": "user",
           "content": [
             {
               "text": "Hello"
             }
-          ],
-          "role": "user"
+          ]
         }
-      ]
-    },
+      ],
+      "inferenceConfig": {
+        "maxTokens": 128
+      }
+    }
+  },
+  "signed": {
+    "method": "POST",
+    "path": "/model/anthropic.claude-sonnet-4-6/converse",
     "headers": [
       [
         "accept",
@@ -94,7 +81,20 @@ expression: rendered
         "[amz-date]"
       ]
     ],
-    "method": "POST",
-    "path": "/model/anthropic.claude-sonnet-4-6/converse"
+    "body": {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "text": "Hello"
+            }
+          ]
+        }
+      ],
+      "inferenceConfig": {
+        "maxTokens": 128
+      }
+    }
   }
 }

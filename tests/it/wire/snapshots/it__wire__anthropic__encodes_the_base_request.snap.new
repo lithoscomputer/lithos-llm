@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 281
 expression: rendered
 ---
 {
@@ -16,7 +17,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "269"
+      "133"
     ],
     [
       "content-type",
@@ -43,21 +44,12 @@ expression: rendered
         "content": [
           {
             "type": "text",
-            "text": "Give me the city and its population."
+            "text": "Hello"
           }
         ]
       }
     ],
     "max_tokens": 128,
-    "output_config": {
-      "format": {
-        "type": "json_schema",
-        "schema": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
-    },
     "stream": false
   }
 }

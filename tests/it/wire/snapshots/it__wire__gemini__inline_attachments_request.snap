@@ -34,24 +34,24 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Describe both attachments."
           },
           {
             "inlineData": {
-              "data": "aW1hZ2UtYnl0ZXM=",
-              "mimeType": "image/png"
+              "mimeType": "image/png",
+              "data": "aW1hZ2UtYnl0ZXM="
             }
           },
           {
             "inlineData": {
-              "data": "cGRmLWJ5dGVz",
-              "mimeType": "application/pdf"
+              "mimeType": "application/pdf",
+              "data": "cGRmLWJ5dGVz"
             }
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {

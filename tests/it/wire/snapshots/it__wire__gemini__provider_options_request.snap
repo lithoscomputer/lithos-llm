@@ -34,24 +34,24 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {
       "maxOutputTokens": 128
     },
     "max_output_tokens": 256,
+    "service_tier": "flex",
     "safetySettings": [
       {
         "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
         "threshold": "BLOCK_ONLY_HIGH"
       }
-    ],
-    "service_tier": "flex"
+    ]
   }
 }

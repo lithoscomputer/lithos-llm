@@ -34,17 +34,19 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Give me the city and its population."
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {
       "maxOutputTokens": 128,
+      "responseMimeType": "application/json",
       "responseJsonSchema": {
+        "type": "object",
         "additionalProperties": false,
         "properties": {
           "city": {
@@ -57,10 +59,8 @@ expression: rendered
         "required": [
           "city",
           "population"
-        ],
-        "type": "object"
-      },
-      "responseMimeType": "application/json"
+        ]
+      }
     },
     "safetySettings": [
       {

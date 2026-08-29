@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 542
 expression: rendered
 ---
 {
@@ -16,7 +17,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "269"
+      "370"
     ],
     [
       "content-type",
@@ -43,21 +44,29 @@ expression: rendered
         "content": [
           {
             "type": "text",
-            "text": "Give me the city and its population."
+            "text": "Describe both attachments."
+          },
+          {
+            "type": "image",
+            "source": {
+              "type": "base64",
+              "media_type": "image/png",
+              "data": "aW1hZ2UtYnl0ZXM="
+            }
+          },
+          {
+            "type": "document",
+            "source": {
+              "type": "base64",
+              "media_type": "application/pdf",
+              "data": "cGRmLWJ5dGVz"
+            },
+            "title": "report.pdf"
           }
         ]
       }
     ],
     "max_tokens": 128,
-    "output_config": {
-      "format": {
-        "type": "json_schema",
-        "schema": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
-    },
     "stream": false
   }
 }

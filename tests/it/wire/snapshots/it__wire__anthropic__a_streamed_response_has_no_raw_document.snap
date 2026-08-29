@@ -4,71 +4,71 @@ expression: rendered
 ---
 [
   {
-    "id": "msg_01WireRaw",
-    "type": "started"
+    "type": "started",
+    "id": "msg_01WireRaw"
   },
   {
     "type": "usage",
     "usage": {
-      "cache_read": 0,
-      "cache_write": 0,
       "input": 8,
       "output": 0,
-      "reasoning": 0
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
     }
   },
   {
+    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    },
-    "type": "content_block_start"
+    }
   },
   {
+    "type": "text_delta",
     "id": "block-0",
-    "text": "Hi",
-    "type": "text_delta"
+    "text": "Hi"
   },
   {
+    "type": "content_block_end",
     "id": "block-0",
     "part": {
-      "text": "Hi",
-      "type": "text"
-    },
-    "type": "content_block_end"
+      "type": "text",
+      "text": "Hi"
+    }
   },
   {
     "type": "usage",
     "usage": {
-      "cache_read": 0,
-      "cache_write": 0,
       "input": 8,
       "output": 2,
-      "reasoning": 0
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
     }
   },
   {
+    "type": "completed",
     "response": {
+      "id": "msg_01WireRaw",
+      "model": {
+        "provider": "anthropic",
+        "model": "claude"
+      },
       "content": [
         {
-          "text": "Hi",
-          "type": "text"
+          "type": "text",
+          "text": "Hi"
         }
       ],
       "finish_reason": "stop",
-      "id": "msg_01WireRaw",
-      "model": {
-        "model": "claude",
-        "provider": "anthropic"
-      },
       "usage": {
-        "cache_read": 0,
-        "cache_write": 0,
         "input": 8,
         "output": 2,
-        "reasoning": 0
+        "reasoning": 0,
+        "cache_read": 0,
+        "cache_write": 0
       }
-    },
-    "type": "completed"
+    }
   }
 ]

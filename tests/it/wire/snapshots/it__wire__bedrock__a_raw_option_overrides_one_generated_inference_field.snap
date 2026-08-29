@@ -32,22 +32,22 @@ expression: rendered
     ]
   ],
   "body": {
-    "guardrailConfig": {
-      "trace": "enabled"
-    },
-    "inferenceConfig": {
-      "maxTokens": 4096,
-      "temperature": 0.5
-    },
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
-    ]
+    ],
+    "inferenceConfig": {
+      "temperature": 0.5,
+      "maxTokens": 4096
+    },
+    "guardrailConfig": {
+      "trace": "enabled"
+    }
   }
 }

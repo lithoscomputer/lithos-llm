@@ -32,40 +32,6 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
-    "messages": [
-      {
-        "content": [
-          {
-            "text": "What is the capital of France?"
-          },
-          {
-            "cachePoint": {
-              "type": "default"
-            }
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "content": [
-          {
-            "text": "Paris."
-          }
-        ],
-        "role": "assistant"
-      },
-      {
-        "content": [
-          {
-            "text": "And of Spain?"
-          }
-        ],
-        "role": "user"
-      }
-    ],
     "system": [
       {
         "text": "Keep it short."
@@ -76,13 +42,46 @@ expression: rendered
         }
       }
     ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "What is the capital of France?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "text": "Paris."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "And of Spain?"
+          }
+        ]
+      }
+    ],
     "toolConfig": {
       "tools": [
         {
           "toolSpec": {
+            "name": "get_weather",
             "description": "Reads the current weather for a city",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "city": {
                     "type": "string"
@@ -90,11 +89,9 @@ expression: rendered
                 },
                 "required": [
                   "city"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_weather"
+            }
           }
         },
         {
@@ -103,6 +100,9 @@ expression: rendered
           }
         }
       ]
+    },
+    "inferenceConfig": {
+      "maxTokens": 128
     }
   }
 }

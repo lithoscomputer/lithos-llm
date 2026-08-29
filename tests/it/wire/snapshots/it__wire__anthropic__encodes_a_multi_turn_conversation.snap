@@ -36,49 +36,49 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
-    "messages": [
-      {
-        "content": [
-          {
-            "cache_control": {
-              "type": "ephemeral"
-            },
-            "text": "What is the capital of France?",
-            "type": "text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "content": [
-          {
-            "text": "Paris.",
-            "type": "text"
-          }
-        ],
-        "role": "assistant"
-      },
-      {
-        "content": [
-          {
-            "text": "And of Spain?",
-            "type": "text"
-          }
-        ],
-        "role": "user"
-      }
-    ],
     "model": "claude-sonnet-4-6",
-    "stream": false,
     "system": [
       {
+        "type": "text",
+        "text": "Keep it short.",
         "cache_control": {
           "type": "ephemeral"
-        },
-        "text": "Keep it short.",
-        "type": "text"
+        }
       }
-    ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "What is the capital of France?",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Paris."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "And of Spain?"
+          }
+        ]
+      }
+    ],
+    "max_tokens": 128,
+    "stream": false
   }
 }

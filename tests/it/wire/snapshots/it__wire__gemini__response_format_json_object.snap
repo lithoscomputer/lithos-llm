@@ -34,12 +34,12 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Give me the city and its population."
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {

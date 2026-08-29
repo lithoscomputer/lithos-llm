@@ -36,25 +36,25 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 8000,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Plan a trip to Paris.",
-            "type": "text"
+            "type": "text",
+            "text": "Plan a trip to Paris."
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
+    "thinking": {
+      "type": "adaptive"
+    },
+    "max_tokens": 8000,
     "output_config": {
       "effort": "high"
     },
-    "stream": false,
-    "thinking": {
-      "type": "adaptive"
-    }
+    "stream": false
   }
 }

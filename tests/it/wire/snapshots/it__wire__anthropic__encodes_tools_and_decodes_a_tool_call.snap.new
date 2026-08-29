@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 313
 expression: rendered
 ---
 {
@@ -16,7 +17,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "587"
+      "643"
     ],
     [
       "content-type",
@@ -37,50 +38,22 @@ expression: rendered
   ],
   "body": {
     "model": "claude-sonnet-4-6",
-    "system": "Keep it short.",
+    "system": [
+      {
+        "type": "text",
+        "text": "Use the tools when they help.",
+        "cache_control": {
+          "type": "ephemeral"
+        }
+      }
+    ],
     "messages": [
       {
         "role": "user",
         "content": [
           {
             "type": "text",
-            "text": "First"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Second"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Third"
+            "text": "What is the weather in Paris?"
           }
         ]
       }
@@ -100,6 +73,24 @@ expression: rendered
           "required": [
             "city"
           ]
+        }
+      },
+      {
+        "name": "get_time",
+        "description": "Reads the current time in a time zone",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "zone": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "zone"
+          ]
+        },
+        "cache_control": {
+          "type": "ephemeral"
         }
       }
     ],

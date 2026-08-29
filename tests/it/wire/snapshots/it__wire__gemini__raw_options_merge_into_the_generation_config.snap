@@ -34,12 +34,12 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {

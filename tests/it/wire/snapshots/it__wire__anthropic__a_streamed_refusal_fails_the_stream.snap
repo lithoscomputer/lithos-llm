@@ -4,42 +4,42 @@ expression: rendered
 ---
 [
   {
-    "id": "msg_01WireRefusal",
-    "type": "started"
+    "type": "started",
+    "id": "msg_01WireRefusal"
   },
   {
     "type": "usage",
     "usage": {
-      "cache_read": 0,
-      "cache_write": 0,
       "input": 19,
       "output": 0,
-      "reasoning": 0
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
     }
   },
   {
+    "type": "error",
     "error": {
       "kind": "content_filter",
       "message": "provider anthropic refused the request: This asks for working malware.",
       "provider": "anthropic",
       "provider_code": "refusal",
+      "retry": {
+        "type": "never"
+      },
       "raw_data": {
-        "delta": {
-          "stop_details": {
-            "explanation": "This asks for working malware.",
-            "type": "refusal"
-          },
-          "stop_reason": "refusal"
-        },
         "type": "message_delta",
+        "delta": {
+          "stop_reason": "refusal",
+          "stop_details": {
+            "type": "refusal",
+            "explanation": "This asks for working malware."
+          }
+        },
         "usage": {
           "output_tokens": 3
         }
-      },
-      "retry": {
-        "type": "never"
       }
-    },
-    "type": "error"
+    }
   }
 ]

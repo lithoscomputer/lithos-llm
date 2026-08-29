@@ -36,75 +36,73 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
-    "messages": [
-      {
-        "content": [
-          {
-            "text": "First",
-            "type": "text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "content": [
-          {
-            "text": "Answer",
-            "type": "text"
-          }
-        ],
-        "role": "assistant"
-      },
-      {
-        "content": [
-          {
-            "cache_control": {
-              "type": "ephemeral"
-            },
-            "text": "Second",
-            "type": "text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "content": [
-          {
-            "text": "Answer",
-            "type": "text"
-          }
-        ],
-        "role": "assistant"
-      },
-      {
-        "content": [
-          {
-            "text": "Third",
-            "type": "text"
-          }
-        ],
-        "role": "user"
-      }
-    ],
     "model": "claude-sonnet-4-6",
-    "stream": false,
     "system": [
       {
+        "type": "text",
+        "text": "Keep it short.",
         "cache_control": {
           "type": "ephemeral"
-        },
-        "text": "Keep it short.",
-        "type": "text"
+        }
       }
     ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "First"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Answer"
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Second",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Answer"
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Third"
+          }
+        ]
+      }
+    ],
+    "max_tokens": 128,
     "tools": [
       {
-        "cache_control": {
-          "type": "ephemeral"
-        },
+        "name": "get_weather",
         "description": "Reads the current weather for a city",
         "input_schema": {
+          "type": "object",
           "properties": {
             "city": {
               "type": "string"
@@ -112,11 +110,13 @@ expression: rendered
           },
           "required": [
             "city"
-          ],
-          "type": "object"
+          ]
         },
-        "name": "get_weather"
+        "cache_control": {
+          "type": "ephemeral"
+        }
       }
-    ]
+    ],
+    "stream": false
   }
 }

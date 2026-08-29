@@ -32,40 +32,6 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
-    "messages": [
-      {
-        "content": [
-          {
-            "text": "What is the capital of France?"
-          },
-          {
-            "cachePoint": {
-              "type": "default"
-            }
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "content": [
-          {
-            "text": "Paris."
-          }
-        ],
-        "role": "assistant"
-      },
-      {
-        "content": [
-          {
-            "text": "And of Spain?"
-          }
-        ],
-        "role": "user"
-      }
-    ],
     "system": [
       {
         "text": "Keep it short."
@@ -75,6 +41,40 @@ expression: rendered
           "type": "default"
         }
       }
-    ]
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "What is the capital of France?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "text": "Paris."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "And of Spain?"
+          }
+        ]
+      }
+    ],
+    "inferenceConfig": {
+      "maxTokens": 128
+    }
   }
 }

@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 1340
 expression: rendered
 ---
 {
@@ -16,7 +17,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "587"
+      "607"
     ],
     [
       "content-type",
@@ -37,14 +38,13 @@ expression: rendered
   ],
   "body": {
     "model": "claude-sonnet-4-6",
-    "system": "Keep it short.",
     "messages": [
       {
         "role": "user",
         "content": [
           {
             "type": "text",
-            "text": "First"
+            "text": "What is the weather in Paris?"
           }
         ]
       },
@@ -52,8 +52,12 @@ expression: rendered
         "role": "assistant",
         "content": [
           {
-            "type": "text",
-            "text": "Answer"
+            "type": "tool_use",
+            "id": "call_weather",
+            "name": "get_weather",
+            "input": {
+              "city": "Paris"
+            }
           }
         ]
       },
@@ -61,26 +65,19 @@ expression: rendered
         "role": "user",
         "content": [
           {
-            "type": "text",
-            "text": "Second"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Third"
+            "type": "tool_result",
+            "tool_use_id": "call_weather",
+            "content": [
+              {
+                "type": "text",
+                "text": "{\"city\":\"Paris\",\"high_c\":21}"
+              },
+              {
+                "type": "text",
+                "text": "Fetched at 09:00."
+              }
+            ],
+            "is_error": false
           }
         ]
       }
@@ -91,15 +88,7 @@ expression: rendered
         "name": "get_weather",
         "description": "Reads the current weather for a city",
         "input_schema": {
-          "type": "object",
-          "properties": {
-            "city": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "city"
-          ]
+          "type": "object"
         }
       }
     ],

@@ -4,32 +4,32 @@ expression: rendered
 ---
 [
   {
-    "id": null,
-    "type": "started"
+    "type": "started",
+    "id": null
   },
   {
+    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    },
-    "type": "content_block_start"
+    }
   },
   {
+    "type": "text_delta",
     "id": "block-0",
-    "text": "Chec",
-    "type": "text_delta"
+    "text": "Chec"
   },
   {
+    "type": "error",
     "error": {
       "kind": "server",
       "message": "provider bedrock The model stopped responding mid-stream.",
       "provider": "bedrock",
       "provider_code": "ModelStreamErrorException",
-      "raw_data": {},
       "retry": {
         "type": "safe"
-      }
-    },
-    "type": "error"
+      },
+      "raw_data": {}
+    }
   }
 ]

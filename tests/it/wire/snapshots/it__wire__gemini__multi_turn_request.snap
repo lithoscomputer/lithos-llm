@@ -32,30 +32,37 @@ expression: rendered
     ]
   ],
   "body": {
+    "systemInstruction": {
+      "parts": [
+        {
+          "text": "Keep it short."
+        }
+      ]
+    },
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "What is the capital of France?"
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "model",
         "parts": [
           {
             "text": "Paris."
           }
-        ],
-        "role": "model"
+        ]
       },
       {
+        "role": "user",
         "parts": [
           {
             "text": "And of Spain?"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {
@@ -66,13 +73,6 @@ expression: rendered
         "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
         "threshold": "BLOCK_ONLY_HIGH"
       }
-    ],
-    "systemInstruction": {
-      "parts": [
-        {
-          "text": "Keep it short."
-        }
-      ]
-    }
+    ]
   }
 }

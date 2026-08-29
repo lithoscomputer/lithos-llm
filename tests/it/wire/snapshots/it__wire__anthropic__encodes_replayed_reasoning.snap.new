@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 446
 expression: rendered
 ---
 {
@@ -16,7 +17,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "587"
+      "460"
     ],
     [
       "content-type",
@@ -37,14 +38,16 @@ expression: rendered
   ],
   "body": {
     "model": "claude-sonnet-4-6",
-    "system": "Keep it short.",
     "messages": [
       {
         "role": "user",
         "content": [
           {
             "type": "text",
-            "text": "First"
+            "text": "Is 91 prime?",
+            "cache_control": {
+              "type": "ephemeral"
+            }
           }
         ]
       },
@@ -52,8 +55,17 @@ expression: rendered
         "role": "assistant",
         "content": [
           {
+            "type": "thinking",
+            "thinking": "91 is 7 times 13.",
+            "signature": "sig-abc"
+          },
+          {
+            "type": "redacted_thinking",
+            "data": "cmVkYWN0ZWQtcGF5bG9hZA=="
+          },
+          {
             "type": "text",
-            "text": "Answer"
+            "text": "No, 91 is not prime."
           }
         ]
       },
@@ -62,47 +74,12 @@ expression: rendered
         "content": [
           {
             "type": "text",
-            "text": "Second"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Third"
+            "text": "What about 97?"
           }
         ]
       }
     ],
     "max_tokens": 128,
-    "tools": [
-      {
-        "name": "get_weather",
-        "description": "Reads the current weather for a city",
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "city": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "city"
-          ]
-        }
-      }
-    ],
     "stream": false
   }
 }

@@ -32,19 +32,6 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
-    "messages": [
-      {
-        "content": [
-          {
-            "text": "What is the weather in Paris?"
-          }
-        ],
-        "role": "user"
-      }
-    ],
     "system": [
       {
         "text": "Use the tools when they help."
@@ -55,13 +42,25 @@ expression: rendered
         }
       }
     ],
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "What is the weather in Paris?"
+          }
+        ]
+      }
+    ],
     "toolConfig": {
       "tools": [
         {
           "toolSpec": {
+            "name": "get_weather",
             "description": "Reads the current weather for a city",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "city": {
                     "type": "string"
@@ -69,18 +68,18 @@ expression: rendered
                 },
                 "required": [
                   "city"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_weather"
+            }
           }
         },
         {
           "toolSpec": {
+            "name": "get_time",
             "description": "Reads the current time in a time zone",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "zone": {
                     "type": "string"
@@ -88,11 +87,9 @@ expression: rendered
                 },
                 "required": [
                   "zone"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_time"
+            }
           }
         },
         {
@@ -101,6 +98,9 @@ expression: rendered
           }
         }
       ]
+    },
+    "inferenceConfig": {
+      "maxTokens": 128
     }
   }
 }

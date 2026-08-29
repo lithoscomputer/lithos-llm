@@ -34,6 +34,7 @@ expression: rendered
   "body": {
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "What is the weather in Paris?"
@@ -43,37 +44,36 @@ expression: rendered
               "type": "default"
             }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": [
           {
             "toolUse": {
+              "toolUseId": "functions.get_weather:4",
+              "name": "get_weather",
               "input": {
                 "city": "Paris"
-              },
-              "name": "get_weather",
-              "toolUseId": "functions.get_weather:4"
+              }
             }
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
+        "role": "user",
         "content": [
           {
             "toolResult": {
+              "toolUseId": "functions.get_weather:4",
               "content": [
                 {
                   "text": "18C and clear"
                 }
-              ],
-              "toolUseId": "functions.get_weather:4"
+              ]
             }
           }
-        ],
-        "role": "user"
+        ]
       }
     ]
   }

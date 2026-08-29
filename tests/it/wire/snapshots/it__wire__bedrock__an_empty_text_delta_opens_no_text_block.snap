@@ -4,36 +4,36 @@ expression: rendered
 ---
 [
   {
-    "id": null,
-    "type": "started"
+    "type": "started",
+    "id": null
   },
   {
     "type": "usage",
     "usage": {
-      "cache_read": 0,
-      "cache_write": 0,
       "input": 12,
       "output": 0,
-      "reasoning": 0
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
     }
   },
   {
+    "type": "completed",
     "response": {
-      "content": [],
-      "finish_reason": "stop",
       "id": null,
       "model": {
-        "model": "sonnet",
-        "provider": "bedrock"
+        "provider": "bedrock",
+        "model": "sonnet"
       },
+      "content": [],
+      "finish_reason": "stop",
       "usage": {
-        "cache_read": 0,
-        "cache_write": 0,
         "input": 12,
         "output": 0,
-        "reasoning": 0
+        "reasoning": 0,
+        "cache_read": 0,
+        "cache_write": 0
       }
-    },
-    "type": "completed"
+    }
   }
 ]

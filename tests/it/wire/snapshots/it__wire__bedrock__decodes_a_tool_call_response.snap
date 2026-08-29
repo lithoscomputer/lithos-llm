@@ -34,21 +34,21 @@ expression: rendered
   "raw": {
     "output": {
       "message": {
+        "role": "assistant",
         "content": [
           {
             "text": "Looking that up."
           },
           {
             "toolUse": {
+              "toolUseId": "tooluse_paris",
+              "name": "get_weather",
               "input": {
                 "city": "Paris"
-              },
-              "name": "get_weather",
-              "toolUseId": "tooluse_paris"
+              }
             }
           }
-        ],
-        "role": "assistant"
+        ]
       }
     },
     "stopReason": "tool_use",
