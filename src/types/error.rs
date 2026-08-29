@@ -1,5 +1,6 @@
 use std::error::Error as StdError;
 use std::fmt;
+use std::num::NonZeroU64;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -136,15 +137,21 @@ pub struct ErrorData {
 #[derive(Debug)]
 #[must_use]
 pub struct Error {
-    kind:                 ErrorKind,
-    message:              String,
-    provider:             Option<ProviderId>,
-    status:               Option<u16>,
-    provider_code:        Option<String>,
-    retry:                RetryClassification,
-    provider_retry_after: Option<Duration>,
-    raw_data:             Option<Box<Value>>,
-    source:               Option<Box<dyn StdError + Send + Sync>>,
+    kind: ErrorKind,
+    message: String,
+    provider: Option<ProviderId>,
+    status: Option<u16>,
+    /// A `Box<str>` rather than a `String`: with the advised-wait field
+    /// beside it, the spare capacity word would push the error past Clippy's
+    /// large-`Err` threshold.
+    provider_code: Option<Box<str>>,
+    retry: RetryClassification,
+    /// Non-zero milliseconds rather than a `Duration`: the niche keeps the
+    /// error under Clippy's large-`Err` threshold, and a zero-length wait
+    /// advises nothing.
+    provider_retry_after_millis: Option<NonZeroU64>,
+    raw_data: Option<Box<Value>>,
+    source: Option<Box<dyn StdError + Send + Sync>>,
 }
 
 impl Error {
@@ -156,7 +163,7 @@ impl Error {
             status: None,
             provider_code: None,
             retry: RetryClassification::Never,
-            provider_retry_after: None,
+            provider_retry_after_millis: None,
             raw_data: None,
             source: None,
         }
@@ -173,7 +180,7 @@ impl Error {
     }
 
     pub fn with_provider_code(mut self, code: impl Into<String>) -> Self {
-        self.provider_code = Some(code.into());
+        self.provider_code = Some(code.into().into_boxed_str());
         self
     }
 
@@ -183,8 +190,12 @@ impl Error {
     }
 
     /// Records the provider's advised wait, whatever the error kind.
+    ///
+    /// Delays longer than `u64::MAX` milliseconds saturate, and a zero-length
+    /// delay is not recorded — it advises nothing.
     pub fn with_provider_retry_after(mut self, delay: Duration) -> Self {
-        self.provider_retry_after = Some(delay);
+        self.provider_retry_after_millis =
+            NonZeroU64::new(u64::try_from(delay.as_millis()).unwrap_or(u64::MAX));
         self
     }
 
@@ -234,7 +245,8 @@ impl Error {
     /// classified as spent quota — and an application scheduling its own
     /// failover still wants that hint.
     pub fn provider_retry_after(&self) -> Option<Duration> {
-        self.provider_retry_after
+        self.provider_retry_after_millis
+            .map(|millis| Duration::from_millis(millis.get()))
     }
 
     pub fn raw_data(&self) -> Option<&Value> {
@@ -251,11 +263,9 @@ impl Error {
             message: self.message.clone(),
             provider: self.provider.clone(),
             status: self.status,
-            provider_code: self.provider_code.clone(),
+            provider_code: self.provider_code.as_deref().map(ToOwned::to_owned),
             retry: self.retry,
-            provider_retry_after_millis: self
-                .provider_retry_after
-                .map(|delay| u64::try_from(delay.as_millis()).unwrap_or(u64::MAX)),
+            provider_retry_after_millis: self.provider_retry_after_millis.map(NonZeroU64::get),
             raw_data: self.raw_data.as_deref().cloned(),
             source_message: self.source.as_ref().map(ToString::to_string),
         }
