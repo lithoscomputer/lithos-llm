@@ -132,8 +132,11 @@ impl TokenCounts {
     /// Builds disjoint buckets from provider counters where `input` includes
     /// `cache_read` and `cache_write`, and `output` includes `reasoning`.
     ///
-    /// Subtraction saturates, so a provider that reports a detail counter
-    /// larger than its own total yields zero rather than wrapping.
+    /// Each detail counter is clamped to what remains of its parent total, so
+    /// a provider that reports a detail larger than its own total — a skin
+    /// counting reasoning exclusive of completion, say — cannot inflate the
+    /// summed total or the billable output past what the parent counters
+    /// claim.
     pub fn from_inclusive(
         input: u64,
         output: u64,
@@ -141,6 +144,9 @@ impl TokenCounts {
         cache_read: u64,
         cache_write: u64,
     ) -> Self {
+        let cache_read = cache_read.min(input);
+        let cache_write = cache_write.min(input.saturating_sub(cache_read));
+        let reasoning = reasoning.min(output);
         Self {
             input: input.saturating_sub(cache_read).saturating_sub(cache_write),
             output: output.saturating_sub(reasoning),
@@ -372,6 +378,25 @@ mod tests {
     }
 
     #[test]
+    fn detail_counters_are_clamped_to_their_parent_totals() {
+        // A skin that counts reasoning exclusive of completion reports 66
+        // reasoning tokens against a completion total of 59. The old library
+        // pinned this clamp; without it the total and the billable output
+        // inflate past what the parent counters claim.
+        let usage = TokenCounts::from_inclusive(0, 59, 66, 0, 0);
+        assert_eq!(usage.output, 0);
+        assert_eq!(usage.reasoning, 59);
+        assert_eq!(usage.total(), 59);
+
+        // The cache counters share the input total the same way.
+        let usage = TokenCounts::from_inclusive(100, 0, 0, 80, 50);
+        assert_eq!(usage.cache_read, 80);
+        assert_eq!(usage.cache_write, 20);
+        assert_eq!(usage.input, 0);
+        assert_eq!(usage.total(), 100);
+    }
+
+    #[test]
     fn billable_output_is_output_plus_reasoning() {
         let usage = TokenCounts {
             output: 20,
@@ -398,15 +423,18 @@ mod tests {
 
     #[test]
     fn from_inclusive_cannot_underflow() {
+        // Every detail counter exceeds its parent. Nothing wraps, and the
+        // clamps keep the total at what the parent counters claim: 5 + 3.
         let usage = TokenCounts::from_inclusive(5, 3, 9, 7, 8);
 
         assert_eq!(usage, TokenCounts {
             input:       0,
             output:      0,
-            reasoning:   9,
-            cache_read:  7,
-            cache_write: 8,
+            reasoning:   3,
+            cache_read:  5,
+            cache_write: 0,
         });
+        assert_eq!(usage.total(), 8);
     }
 
     #[test]
