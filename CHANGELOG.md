@@ -36,8 +36,64 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- Anthropic JSON-object responses now use the closed object schema required by
-  the Messages API.
+- Anthropic JSON-object responses ask for free-form JSON through a system-text
+  instruction. The earlier closed object schema admitted only the empty
+  object, so provider-enforced structured output discarded the answer.
+
+### Round-6 parity fixes
+
+A sixth differential review against the reference implementation
+(`.ai/reviews/lithos-llm-vs-fabro-llm-round-6.md`) landed these:
+
+- Anthropic `ResponseFormat::JsonObject` no longer encodes an
+  `output_config.format` schema that only admitted the empty object; the
+  JSON-only instruction rides on the system text, as the reference did.
+- The OpenAI Responses codec sends `service_tier: "priority"` for
+  `Speed::Fast`; the invalid `"fast"` drew a provider 400.
+- The client again rejects a request's `speed` before dispatch when the
+  catalog prices no such tier for the model, restoring the reference's local
+  `InvalidRequest` instead of a wasted provider round trip. `balanced` and
+  models the catalog does not price (including passthrough) are unaffected.
+- A server-side deadline expiry carried on a 5xx status (Gemini's 504
+  `DEADLINE_EXCEEDED`) classifies as a non-retryable timeout instead of a
+  retryable server error, so already-executed and possibly billed work is
+  not re-sent.
+- Streaming no longer leaks a provider's sealed redacted-reasoning payload
+  (opaque base64) through live `ReasoningDelta` events on Anthropic and
+  Bedrock streams; the blob still arrives whole on the block-end part with
+  `redacted` set.
+- Catalog cost estimation refuses to stamp a cost when the input or output
+  base rate is missing for a non-empty token bucket, and a long-context
+  pricing tier inherits unstated rates from the base instead of dropping
+  them.
+- A raw `anthropic` `thinking` provider option sent with a forced tool
+  choice is reported as an unsupported control instead of silently building
+  a request Anthropic rejects.
+- The OpenAI-compatible stream decoder no longer fails a stream whose first
+  tool-call fragment carries only arguments; the slot opens on the arguments
+  and the identity is accepted from later fragments.
+- A `response.failed` stream event without a `response` wrapper keeps its
+  provider error code and message.
+- Streams from lenient OpenAI-compatible skins that separate SSE events with
+  single newlines parse again: the `openai_chat` and `gemini` codecs frame
+  their streams at each complete `data:` line, as the reference transport
+  did.
+- Bedrock Converse encoding coerces every non-object tool-call argument
+  value to `{}` in `toolUse.input`, not just `null` — Converse requires an
+  object document.
+- A decoded Gemini function call in a payload without a `responseId` gets a
+  per-response nonce in its synthesized id, so repeated calls to the same
+  tool across turns no longer collide or replay duplicate ids.
+- A successful Gemini tool result that is one JSON object is sent verbatim
+  as the whole `functionResponse.response` struct again; non-object values,
+  text, and errors keep the `output`/`error` wrapping.
+- Gemini URL media without a declared media type sends `fileData.mimeType`
+  defaulted by attachment kind (`image/png`, `audio/wav`,
+  `application/pdf`), which Vertex-style surfaces require.
+- Blocking OpenAI-compatible requests omit the `stream` member instead of
+  sending `"stream": false`, and a JSON tool result whose value is a bare
+  string is sent as the raw text rather than a quoted JSON literal, both
+  matching the reference encoder's wire shape.
 
 ### Round-5 parity fixes
 
