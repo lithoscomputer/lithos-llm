@@ -99,9 +99,32 @@ macro_rules! family_tests {
 pub(crate) use family_tests;
 pub(crate) use model_tests;
 
+/// The twin proxy's base URL for record and replay runs.
+fn twin_url() -> String {
+    env::var("LITHOS_E2E_TWIN_URL").unwrap_or_else(|_| "http://127.0.0.1:3921".to_owned())
+}
+
 /// The Venice E2E catalog.
+///
+/// Under record and replay, an overlay points the provider at the twin the
+/// `test:e2e` task started; everything else about the rows stays identical,
+/// so the wire bodies match between backends.
 pub(crate) fn catalog() -> Catalog {
-    support::catalog_from_toml("venice-e2e", CATALOG_TOML)
+    let base = Catalog::builder()
+        .toml_layer("venice-e2e", CATALOG_TOML)
+        .expect("the Venice E2E catalog should parse");
+    let builder = if support::Backend::from_env() == support::Backend::Live {
+        base
+    } else {
+        base.toml_layer(
+            "e2e-twin",
+            &format!("[providers.venice]\nbase_url = \"{}\"\n", twin_url()),
+        )
+        .expect("the twin overlay should parse")
+    };
+    builder
+        .build()
+        .expect("the Venice E2E catalog should validate")
 }
 
 /// The catalog's capability claims for one roster model.
@@ -112,7 +135,12 @@ pub(crate) fn capabilities(model: &str) -> ModelCapabilities {
         .capabilities()
 }
 
-/// A client for the live Venice API, or `None` when the key is unset.
+/// A client for this run's backend, or `None` when a live run has no key.
+///
+/// Live runs authenticate with `VENICE_API_KEY`. Record and replay runs go
+/// through the twin instead, authenticating with the test's namespace as a
+/// fake bearer token — the twin holds the real key during recording and
+/// needs none during replay.
 ///
 /// The retry middleware is on so a transient rate limit or server error does
 /// not fail a nightly cell; a persistent failure still surfaces after the
@@ -120,8 +148,15 @@ pub(crate) fn capabilities(model: &str) -> ModelCapabilities {
 /// on concurrent live requests is the runner's `--test-threads`, not
 /// anything configured here.
 pub(crate) fn live_client() -> Option<Client> {
-    let key = env::var(KEY_VARIABLE).ok().filter(|key| !key.is_empty())?;
-    Some(client_with_key(&key))
+    match support::Backend::from_env() {
+        support::Backend::Live => {
+            let key = env::var(KEY_VARIABLE).ok().filter(|key| !key.is_empty())?;
+            Some(client_with_key(&key))
+        }
+        support::Backend::Record | support::Backend::Replay => {
+            Some(client_with_key(&support::test_namespace()))
+        }
+    }
 }
 
 /// A client authenticating with `key`, valid or not.

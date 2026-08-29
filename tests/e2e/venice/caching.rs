@@ -69,7 +69,11 @@ async fn caches_a_shared_prefix(model: &str) -> TestResult {
     // ladder before the verdict.
     let mut second = None;
     for _ in 0..4 {
-        sleep(Duration::from_secs(5)).await;
+        // Replay serves the recorded buckets immediately; only a live or
+        // recording run waits out real cache propagation.
+        if support::Backend::from_env() != support::Backend::Replay {
+            sleep(Duration::from_secs(5)).await;
+        }
         let response = client
             .complete(
                 venice::request(model)

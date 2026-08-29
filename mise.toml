@@ -44,14 +44,46 @@ description = "Run the tests with the default feature set"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
 run = "cargo nextest run --locked --all-targets --no-tests=pass"
 
+# The E2E suite runs against one of three backends. `test:e2e` (the
+# default) replays the committed recording offline through a twin-openai
+# proxy: no keys, no network, deterministic. `test:e2e:record` runs live
+# through the proxy and rewrites the recording — a changed recording is the
+# drift report. `test:e2e:live` is the unproxied nightly battery. A replay
+# failure with `scenario_not_found` means the recording is stale: run
+# `mise run test:e2e:record`.
+#
+# Nextest gives every test its own process, so --test-threads caps
+# concurrent requests. --success-output final keeps passing tests' stderr
+# in the log: the effort, cache-bucket, and rate-limit probes report
+# through it.
 [tasks."test:e2e"]
-description = "Run the live provider E2E suite (spends provider credits)"
-# Sources .env for the provider keys, then runs the e2e target with its
-# ignored (live) tests included. Nextest gives every test its own process,
-# so --test-threads is what caps concurrent live requests per run.
-# --success-output final keeps passing tests' stderr in the log: the effort,
-# cache-bucket, and rate-limit probes report through it.
-run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass'"
+description = "Replay the E2E suite offline against the committed recording"
+run = """
+set -e
+cargo build --locked --all-features --example e2e_twin
+LITHOS_E2E_TWIN_MODE=replay ./target/debug/examples/e2e_twin &
+TWIN_PID=$!
+trap 'kill $TWIN_PID 2>/dev/null || true' EXIT
+for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+LITHOS_E2E_BACKEND=replay cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
+"""
+
+[tasks."test:e2e:record"]
+description = "Re-record the E2E suite through the twin proxy (spends provider credits)"
+run = """
+set -e
+set -a; [ -f .env ] && . ./.env; set +a
+cargo build --locked --all-features --example e2e_twin
+LITHOS_E2E_TWIN_MODE=record ./target/debug/examples/e2e_twin &
+TWIN_PID=$!
+trap 'kill $TWIN_PID 2>/dev/null || true' EXIT
+for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+LITHOS_E2E_BACKEND=record cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
+"""
+
+[tasks."test:e2e:live"]
+description = "Run the live provider E2E suite unproxied (spends provider credits)"
+run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; LITHOS_E2E_BACKEND=live cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass'"
 
 [tasks."test:release"]
 description = "Run all Rust tests in release mode"

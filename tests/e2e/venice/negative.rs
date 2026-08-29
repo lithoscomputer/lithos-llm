@@ -20,6 +20,9 @@ const MODEL: &str = "deepseek-v4-flash";
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn a_bad_key_classifies_as_authentication() -> TestResult {
+    if let Some(skip) = support::live_only("live 401 classification") {
+        return skip;
+    }
     let client = venice::client_with_key("lithos-e2e-invalid-key");
     let request = venice::request(MODEL).user("Hello").build()?;
     let error = client
@@ -39,6 +42,9 @@ async fn a_bad_key_classifies_as_authentication() -> TestResult {
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn an_unknown_passthrough_model_classifies_cleanly() -> TestResult {
+    if let Some(skip) = support::live_only("live error classification") {
+        return skip;
+    }
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");
     };
@@ -68,6 +74,9 @@ async fn an_unknown_passthrough_model_classifies_cleanly() -> TestResult {
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn a_tiny_request_timeout_classifies_as_timeout() -> TestResult {
+    if let Some(skip) = support::live_only("timing behavior") {
+        return skip;
+    }
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");
     };
@@ -89,6 +98,9 @@ async fn a_tiny_request_timeout_classifies_as_timeout() -> TestResult {
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn dropping_a_stream_mid_flight_is_clean() -> TestResult {
+    if let Some(skip) = support::live_only("live connection behavior") {
+        return skip;
+    }
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");
     };
@@ -108,6 +120,9 @@ async fn dropping_a_stream_mid_flight_is_clean() -> TestResult {
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn probe_rate_limit_headers() -> TestResult {
+    if let Some(skip) = support::live_only("live rate-limit headers") {
+        return skip;
+    }
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");
     };

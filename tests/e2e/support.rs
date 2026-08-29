@@ -7,6 +7,7 @@
 
 use std::error::Error as StdError;
 use std::time::Duration;
+use std::{env, thread};
 
 use lithos_llm::types::{ContentPart, Response, ResponseStream, ToolCall};
 use serde_json::Value;
@@ -19,9 +20,59 @@ use serde_json::Value;
 #[path = "../it/support.rs"]
 pub(crate) mod it_support;
 
-pub(crate) use it_support::{assert_stream_contract, catalog_from_toml, collect_stream_events};
+pub(crate) use it_support::{assert_stream_contract, collect_stream_events};
 
 pub(crate) type TestResult = Result<(), Box<dyn StdError>>;
+
+/// Which backend the suite runs against.
+///
+/// The default is `Replay`: offline, keyless, and deterministic against the
+/// committed recording, served by the twin the `test:e2e` mise task starts.
+/// `Record` proxies live traffic through the twin and rewrites the
+/// recording; `Live` is the unproxied nightly battery.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Backend {
+    Live,
+    Record,
+    Replay,
+}
+
+impl Backend {
+    pub(crate) fn from_env() -> Self {
+        match env::var("LITHOS_E2E_BACKEND").as_deref() {
+            Ok("live") => Self::Live,
+            Ok("record") => Self::Record,
+            Ok("replay") | Err(_) => Self::Replay,
+            Ok(other) => panic!("LITHOS_E2E_BACKEND must be live, record, or replay, got {other}"),
+        }
+    }
+}
+
+/// Skips a test that only makes sense against the live API.
+///
+/// Returns `Some(skip)` under record and replay for behavior the proxy
+/// cannot carry: endpoints it does not forward, error responses it does not
+/// record, and timing behavior.
+pub(crate) fn live_only(what: &str) -> Option<TestResult> {
+    (Backend::from_env() != Backend::Live)
+        .then(|| skip(&format!("live-only ({what}) under record/replay")))
+}
+
+/// The recording namespace for the current test: its full test path.
+///
+/// The test harness names each test's thread after the test, and Nextest
+/// runs one test per process, so the thread name is a stable, unique
+/// namespace. It becomes the fake bearer token the twin records and replays
+/// under.
+pub(crate) fn test_namespace() -> String {
+    let thread = thread::current();
+    let name = thread.name().unwrap_or("main");
+    assert_ne!(
+        name, "main",
+        "the recording namespace needs the test thread's name; run under the test harness"
+    );
+    name.to_owned()
+}
 
 /// How long any single live request may take before the test fails.
 ///

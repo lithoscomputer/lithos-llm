@@ -148,6 +148,9 @@ fn an_unknown_model_is_a_selection_error() -> TestResult {
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn the_builtin_catalog_reaches_venice() -> TestResult {
+    if let Some(skip) = support::live_only("the unproxied built-in base URL") {
+        return skip;
+    }
     if env::var(venice::KEY_VARIABLE).is_err() {
         return support::skip("VENICE_API_KEY is unset");
     }
@@ -171,6 +174,9 @@ async fn the_builtin_catalog_reaches_venice() -> TestResult {
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn the_live_listing_contains_every_roster_wire_id() -> TestResult {
+    if let Some(skip) = support::live_only("the model listing endpoint") {
+        return skip;
+    }
     let Ok(key) = env::var(venice::KEY_VARIABLE) else {
         return support::skip("VENICE_API_KEY is unset");
     };
