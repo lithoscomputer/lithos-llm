@@ -46,6 +46,9 @@ work:
   (request limit, else the catalog limit, else 65,536; lifted when the
   budget would not fit under it), so a request without a caller limit can
   no longer draw a ValidationException from AWS's per-model default.
+- Bedrock: a `toolUse` input fragment for a block whose `contentBlockStart`
+  never arrived fails the stream retryably instead of fabricating a nameless
+  tool call, the contract the Chat codec already applies.
 
 ### Round-2 parity fixes
 

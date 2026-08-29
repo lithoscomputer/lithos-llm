@@ -10,6 +10,8 @@
 //! transport hands each frame over as an [`SseEvent`] whose `event` is the
 //! frame's `:event-type` header and whose `data` is the event JSON.
 
+use std::collections::BTreeSet;
+
 use reqwest::Method;
 use serde_json::{Map, Value, json};
 
@@ -26,9 +28,9 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, classify};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, MediaSource,
-    Message, ReasoningContent, ReasoningEffort, Request, Response, Role, Speed, StreamEvent,
-    TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
-    ToolResult,
+    Message, ReasoningContent, ReasoningEffort, Request, Response, RetryClassification, Role,
+    Speed, StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition,
+    ToolDefinitionKind, ToolResult,
 };
 
 /// The opaque replay namespace this codec claims.
@@ -234,8 +236,9 @@ impl Codec for BedrockConverseCodec {
 
     fn stream_decoder(&self, route: &ResolvedRoute) -> Box<dyn StreamDecoder> {
         Box::new(BedrockStreamDecoder {
-            route:     route.clone(),
-            assembler: StreamAssembler::new(route),
+            route:       route.clone(),
+            assembler:   StreamAssembler::new(route),
+            tool_blocks: BTreeSet::new(),
         })
     }
 
@@ -982,8 +985,10 @@ fn decode_reasoning_block(reasoning: &Value) -> Option<ContentPart> {
 
 /// Decodes one Bedrock ConverseStream.
 struct BedrockStreamDecoder {
-    route:     ResolvedRoute,
-    assembler: StreamAssembler,
+    route:       ResolvedRoute,
+    assembler:   StreamAssembler,
+    /// The blocks a `contentBlockStart` opened as tool calls.
+    tool_blocks: BTreeSet<ContentBlockId>,
 }
 
 impl StreamDecoder for BedrockStreamDecoder {
@@ -1007,7 +1012,7 @@ impl StreamDecoder for BedrockStreamDecoder {
         match name {
             "messageStart" => Ok(vec![self.assembler.started(None)]),
             "contentBlockStart" => Ok(self.content_block_start(payload)),
-            "contentBlockDelta" => Ok(self.content_block_delta(payload)),
+            "contentBlockDelta" => self.content_block_delta(payload),
             "contentBlockStop" => Ok(self.assembler.end(&block_id(payload))),
             "messageStop" => {
                 let reason = payload.get("stopReason").and_then(Value::as_str);
@@ -1057,13 +1062,15 @@ impl BedrockStreamDecoder {
                 .map(ToOwned::to_owned),
             kind: ToolCallKind::Function,
         };
-        self.assembler.start(block_id(payload), kind)
+        let id = block_id(payload);
+        self.tool_blocks.insert(id.clone());
+        self.assembler.start(id, kind)
     }
 
-    fn content_block_delta(&mut self, payload: &Value) -> Vec<StreamEvent> {
+    fn content_block_delta(&mut self, payload: &Value) -> Result<Vec<StreamEvent>, Error> {
         let id = block_id(payload);
         let Some(delta) = payload.get("delta") else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
 
         let mut events = Vec::new();
@@ -1076,12 +1083,30 @@ impl BedrockStreamDecoder {
             events.extend(self.assembler.text(&id, text));
         }
         if let Some(chunk) = delta.pointer("/toolUse/input").and_then(Value::as_str) {
+            // Converse announces every tool call in a `contentBlockStart`
+            // carrying its id and name. An input fragment for a block no
+            // start opened means the start was lost in transit; assembling
+            // the rest would fabricate a nameless call that poisons the
+            // replayed conversation, so the stream fails retryably instead —
+            // the same contract the Chat codec applies.
+            if !self.tool_blocks.contains(&id) {
+                return Err(Error::new(
+                    ErrorKind::StreamDecode,
+                    format!(
+                        "provider {} streamed tool-call input for a block whose start event never \
+                         arrived",
+                        self.route.provider().id()
+                    ),
+                )
+                .with_provider(self.route.provider().id().clone())
+                .with_retry(RetryClassification::Safe));
+            }
             events.extend(self.assembler.arguments(&id, chunk));
         }
         if let Some(reasoning) = delta.get("reasoningContent") {
             events.extend(self.reasoning_delta(&id, reasoning));
         }
-        events
+        Ok(events)
     }
 
     /// Applies one reasoning delta.
@@ -1174,8 +1199,8 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         ContentPart, DocumentContent, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
-        ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat, Role, Speed,
-        StreamEvent, ToolCall, ToolChoice, ToolDefinition, ToolResult,
+        ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat, RetryClassification,
+        Role, Speed, StreamEvent, ToolCall, ToolChoice, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "bedrock/anthropic.claude-sonnet-4-6";
@@ -1256,6 +1281,33 @@ mod tests {
         assert_eq!(error.kind(), ErrorKind::ContentFilter);
         assert_eq!(error.provider_code(), Some("refusal"));
         assert_eq!(error.raw_data(), Some(&body));
+        Ok(())
+    }
+
+    #[test]
+    fn an_input_fragment_for_an_unopened_block_fails_the_stream() -> Result<(), Box<dyn StdError>> {
+        // Converse announces every tool call in a contentBlockStart carrying
+        // its id and name. When that start is lost, assembling the fragments
+        // would fabricate a nameless call whose replay fails identifier
+        // validation, so the stream fails retryably instead — the contract
+        // R2-24 set for the Chat codec.
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let mut decoder = BedrockConverseCodec.stream_decoder(call.route());
+
+        let error = decoder
+            .decode(SseEvent {
+                event: Some("contentBlockDelta".to_owned()),
+                data:  json!({
+                    "contentBlockIndex": 0,
+                    "delta": { "toolUse": { "input": "{\"q\":\"rust\"}" } },
+                })
+                .to_string(),
+            })
+            .err()
+            .ok_or("expected the orphan input fragment to fail the stream")?;
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 
