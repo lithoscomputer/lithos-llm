@@ -33,12 +33,14 @@ it with `cargo insta review`. A snapshot change is a contract change.
 
 ### 3. The replay suite (`tests/e2e/`, replay backend)
 
-**Question: do we still handle the bytes real providers actually sent?**
+**Question: can the full client still reproduce and handle recorded exchanges
+with real providers?**
 
-The E2E tests replay `tests/e2e/recordings/venice.json` — real provider
-responses, recorded verbatim — through a local twin-openai proxy. This is
-the default backend: `mise run test:e2e` runs all cells offline in about
-two seconds, with no keys.
+The E2E tests send current requests through local twin-openai proxies. Each
+proxy matches requests to its provider recording under
+`tests/e2e/recordings/` and returns the recorded real response. This checks
+request compatibility and full-client behavior against historical exchanges.
+This is the default backend: `mise run test:e2e` runs offline with no keys.
 
 Each test's own path is its recording namespace, so concurrent tests and
 retry loops replay deterministically. A `scenario_not_found` failure means
@@ -47,20 +49,25 @@ the recording does not cover a new or changed test: run
 
 ### 4. The live suite (`tests/e2e/`, record and live backends)
 
-**Question: did the provider drift?**
+**Question: did a live provider drift?**
 
 The same E2E tests run against the real API. `mise run test:e2e:record`
 runs live through the proxy and rewrites the recording — a changed
 recording is the drift report. `mise run test:e2e:live` runs unproxied.
 Both spend provider credits and read keys from `.env`.
 
-The per-provider E2E catalog (`tests/e2e/venice_catalog.toml`) declares
-each model's capabilities, and the tests treat those claims as assertions:
+Each per-provider E2E catalog declares its models' capabilities. The tests
+treat those claims as assertions:
 a capability the catalog claims but the provider rejects is a failure, not
 a skip. Probe tests record live behavior nothing pins yet (effort levels,
 cache buckets, rate limits); their output stays in the run log through
 `--success-output final`. Tests that only make sense live — error
 classification, timing, the model listing — skip under record and replay.
+
+The replay backend covers the OpenAI-compatible providers that the twin can
+proxy. Anthropic and Gemini use native protocols, and Modal needs two upstream
+authentication headers, so their network checks are live-only. Their free
+catalog and request-validation checks still run in the routine suite.
 
 ## Commands
 

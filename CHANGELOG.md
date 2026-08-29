@@ -8,16 +8,33 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The built-in catalog now includes Fireworks with live-verified model routes,
+  pricing, capabilities, and conventional `FIREWORKS_API_KEY` credentials.
+- The built-in catalog now includes Modal as a portable passthrough provider.
+  It reads `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` and resolves the
+  workspace-specific endpoint hostnames returned by Modal.
+- Anthropic and Gemini now have current, live-verified model rosters, pricing,
+  limits, and capability claims. Their native E2E suites cover completion,
+  tools, structured output, reasoning, caching, media, and error behavior.
+- Gemini reasoning effort now maps to the native low, medium, and high
+  `thinkingLevel` values without enabling thought-summary disclosure.
 - The built-in catalog now includes OpenRouter with live-verified model routes,
   provider-reported cost support, and conventional
   `OPENROUTER_API_KEY` credentials.
 
 ### Changed
 
+- The built-in `default` selector now resolves Anthropic's Claude Sonnet 5,
+  following the provider priority in the source catalog.
 - Provider catalog tests now check resolution and behavior without copying
   exact roster counts or model tables.
 - The minimum supported Rust version is 1.88 (from 1.85): the codecs now
   use let-chains, which need it.
+
+### Fixed
+
+- Anthropic JSON-object responses now use the closed object schema required by
+  the Messages API.
 
 ### Round-5 parity fixes
 

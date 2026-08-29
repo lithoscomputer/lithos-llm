@@ -19,7 +19,11 @@ expression: rendered
       "stopSequences": [
         "END"
       ],
-      "temperature": 0.9
+      "temperature": 0.9,
+      "thinkingConfig": {
+        "includeThoughts": true,
+        "thinkingLevel": "low"
+      }
     },
     "safetySettings": [
       {
@@ -35,7 +39,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "226"
+      "290"
     ],
     [
       "content-type",

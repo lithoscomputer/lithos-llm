@@ -1,0 +1,148 @@
+# Fireworks AI, translated from fabro's `fireworks.toml` and verified on
+# 2026-08-29 against Fireworks' official API, model-library, pricing,
+# reasoning, caching, tool-calling, structured-output, and vision docs plus
+# the authenticated model listing and raw Chat Completions probes.
+#
+# Live behavior replaces several fabro claims. Kimi K2.6 accepts images and
+# reasons, Qwen 3.7 Plus reasons, and the current DeepSeek releases use the
+# dated 0731/0813 wire ids and their newer prices. The roster union adds GLM
+# 5.3 and Qwen 3.8 Max because Fireworks serves models already carried by the
+# Venice and OpenRouter catalogs.
+
+schema_version = 1
+
+[providers.fireworks]
+display_name = "Fireworks AI"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://api.fireworks.ai/inference/v1"
+priority = 30
+allow_passthrough = true
+default_model = "kimi-k2.7-code"
+
+[providers.fireworks.auth]
+type = "bearer"
+
+[providers.fireworks.metadata.fabro]
+api_key_url = "https://app.fireworks.ai/settings/users/api-keys"
+
+[providers.fireworks.models."kimi-k3"]
+display_name = "Kimi K3"
+api_model = "accounts/fireworks/models/kimi-k3"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
+
+[providers.fireworks.models."kimi-k3".metadata.fabro]
+agent_profile = "kimi"
+family = "kimi-k3"
+
+[providers.fireworks.models."kimi-k3-fast"]
+display_name = "Kimi K3 Fast"
+api_model = "accounts/fireworks/routers/kimi-k3-fast"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+# Fireworks documents this router as the K3 Fast tier at 50% above standard.
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 450000 }
+
+[providers.fireworks.models."kimi-k3-fast".metadata.fabro]
+agent_profile = "kimi"
+family = "kimi-k3"
+
+[providers.fireworks.models."kimi-k2.7-code"]
+display_name = "Kimi K2.7 Code"
+api_model = "accounts/fireworks/models/kimi-k2p7-code"
+limits = { context_tokens = 262144, max_output_tokens = 32768 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 190000 }
+
+[providers.fireworks.models."kimi-k2.7-code".metadata.fabro]
+family = "kimi-k2"
+
+[providers.fireworks.models."kimi-k2.6"]
+display_name = "Kimi K2.6"
+api_model = "accounts/fireworks/models/kimi-k2p6"
+limits = { context_tokens = 262144, max_output_tokens = 16384 }
+# The live listing and probes override fabro's no-vision/no-reasoning claim.
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 160000 }
+
+[providers.fireworks.models."kimi-k2.6".metadata.fabro]
+family = "kimi-k2"
+
+[providers.fireworks.models."deepseek-v4-pro"]
+display_name = "DeepSeek V4 Pro"
+api_model = "accounts/fireworks/models/deepseek-v4-pro-0813"
+limits = { context_tokens = 1048576, max_output_tokens = 16384 }
+# Fireworks says the 0813 release supersedes the preview id in fabro.
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+pricing = { input_usd_micros_per_million = 1320000, output_usd_micros_per_million = 3960000, cached_input_usd_micros_per_million = 44000 }
+
+[providers.fireworks.models."deepseek-v4-pro".metadata.fabro]
+agent_profile = "openai"
+family = "deepseek-v4"
+
+[providers.fireworks.models."deepseek-v4-flash"]
+display_name = "DeepSeek V4 Flash"
+aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
+api_model = "accounts/fireworks/models/deepseek-v4-flash-0731"
+limits = { context_tokens = 1048576, max_output_tokens = 384000 }
+# Fireworks says the 0731 release supersedes the preview id in fabro.
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+pricing = { input_usd_micros_per_million = 220000, output_usd_micros_per_million = 660000, cached_input_usd_micros_per_million = 7000 }
+
+[providers.fireworks.models."deepseek-v4-flash".metadata.fabro]
+agent_profile = "openai"
+family = "deepseek-v4"
+
+[providers.fireworks.models."glm-5.2"]
+display_name = "GLM 5.2 (via Fireworks)"
+api_model = "accounts/fireworks/models/glm-5p2"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 1400000, output_usd_micros_per_million = 4400000, cached_input_usd_micros_per_million = 140000 }
+
+[providers.fireworks.models."glm-5.2".metadata.fabro]
+family = "glm-5"
+
+# Roster-union row. Fireworks launched GLM 5.3 on 2026-08-28 and the live
+# listing and completion, schema, effort, and forced-tool probes passed.
+[providers.fireworks.models."glm-5.3"]
+display_name = "GLM 5.3 (via Fireworks)"
+aliases = ["glm53", "glm5.3", "glm-5-3"]
+api_model = "accounts/fireworks/models/glm-5p3"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 1400000, output_usd_micros_per_million = 4400000, cached_input_usd_micros_per_million = 260000 }
+
+[providers.fireworks.models."qwen3.7-plus"]
+display_name = "Qwen3.7 Plus"
+api_model = "accounts/fireworks/models/qwen3p7-plus"
+limits = { context_tokens = 262144, max_output_tokens = 16384 }
+# The live response carried reasoning, overriding fabro's false claim.
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1600000, cached_input_usd_micros_per_million = 80000 }
+
+[providers.fireworks.models."qwen3.7-plus".metadata.fabro]
+family = "qwen3"
+
+# Roster-union row. The live alias accepts images, schemas, and forced tools.
+# Fireworks' model page maps it to the 262k Qwen3.8 2.4T model and supplies
+# these rates; the listing omits the alias's context length.
+[providers.fireworks.models."qwen3.8-max"]
+display_name = "Qwen 3.8 Max (via Fireworks)"
+aliases = ["qwen", "qwen-max", "qwen3.8", "qwen-3.8", "qwen38", "qwen-3.8-max", "qwen38-max"]
+api_model = "accounts/fireworks/models/qwen3p8-max"
+limits = { context_tokens = 262144, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 250000 }
+
+[providers.fireworks.models."gpt-oss-120b"]
+display_name = "GPT-OSS 120B"
+api_model = "accounts/fireworks/models/gpt-oss-120b"
+limits = { context_tokens = 131072, max_output_tokens = 32768 }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 150000, output_usd_micros_per_million = 600000, cached_input_usd_micros_per_million = 14000 }
+
+[providers.fireworks.models."gpt-oss-120b".metadata.fabro]
+family = "gpt-oss"

@@ -17,8 +17,9 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, MediaSource,
-    Message, ReasoningContent, Request, Response, ResponseFormat, RetryClassification, Role,
-    StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinitionKind, ToolResult,
+    Message, ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat,
+    RetryClassification, Role, StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice,
+    ToolDefinitionKind, ToolResult,
 };
 
 /// The replay namespace this codec claims.
@@ -73,12 +74,11 @@ impl Codec for GeminiGenerateCodec {
         if call.request().speed().is_some() {
             encoded = encoded.unsupported_control("the speed control");
         }
-        // `generationConfig.thinkingConfig.thinkingBudget` is the natural
-        // target, but it takes a token count, and turning an effort level into
-        // a defensible budget needs per-model reasoning limits the catalog does
-        // not carry. The control is reported until it does; a mapping can
-        // replace this warning later.
-        if call.request().reasoning_effort().is_some() {
+        // Gemini 3 takes named thinking levels. Older and passthrough routes
+        // do not claim that dialect, so they keep the unsupported warning.
+        if call.request().reasoning_effort().is_some()
+            && !call.route().model().capabilities().reasoning_effort_levels
+        {
             encoded = encoded.unsupported_control("the reasoning effort control");
         }
         // A skipped foreign-signed reasoning part never reaches the model,
@@ -269,6 +269,14 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
             ),
         );
     }
+    if let Some(effort) = request.reasoning_effort()
+        && route.model().capabilities().reasoning_effort_levels
+    {
+        generation.insert(
+            "thinkingConfig".to_owned(),
+            json!({ "thinkingLevel": gemini_effort(effort) }),
+        );
+    }
     // `Text` is the protocol's own default, so it sets nothing: declaring
     // `application/json` for it would force JSON output for a caller who asked
     // for prose. Only the two JSON formats set the MIME type.
@@ -301,6 +309,15 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
     merge_options(&mut body, options);
     apply_default_safety_settings(&mut body);
     Ok(body)
+}
+
+/// Maps normalized effort onto the levels shared by the Gemini 3 roster.
+fn gemini_effort(effort: ReasoningEffort) -> &'static str {
+    match effort {
+        ReasoningEffort::Minimal | ReasoningEffort::Low => "low",
+        ReasoningEffort::Medium => "medium",
+        ReasoningEffort::High | ReasoningEffort::Xhigh | ReasoningEffort::Max => "high",
+    }
 }
 
 /// Relaxes the dangerous-content filter unless the caller set its own settings.
@@ -1509,7 +1526,7 @@ mod tests {
     }
 
     #[test]
-    fn controls_this_protocol_cannot_carry_are_reported() -> Result<(), Box<dyn StdError>> {
+    fn controls_an_unclaimed_route_cannot_carry_are_reported() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
                 .model("gemini/gemini-2.5-pro")
@@ -1530,10 +1547,77 @@ mod tests {
             "this provider protocol does not support the speed control",
             "this provider protocol does not support the reasoning effort control",
         ]);
-        // Neither control may be guessed at on the wire.
+        // Neither control may be guessed at for this passthrough route.
         let body = encoded.body.to_string();
         assert!(!body.contains("thinkingConfig"), "{body}");
         assert!(!body.contains("speed"), "{body}");
+        Ok(())
+    }
+
+    #[test]
+    fn maps_normalized_effort_onto_gemini_thinking_levels() -> Result<(), Box<dyn StdError>> {
+        let cases = [
+            (ReasoningEffort::Minimal, "low"),
+            (ReasoningEffort::Low, "low"),
+            (ReasoningEffort::Medium, "medium"),
+            (ReasoningEffort::High, "high"),
+            (ReasoningEffort::Xhigh, "high"),
+            (ReasoningEffort::Max, "high"),
+        ];
+
+        for (effort, expected) in cases {
+            let call = resolved(
+                Request::builder()
+                    .model("gemini/gemini-3.5-flash")
+                    .user("Hello")
+                    .reasoning_effort(effort)
+                    .build()?,
+            )?;
+
+            let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+            assert_eq!(
+                encoded.body["generationConfig"]["thinkingConfig"]["thinkingLevel"], expected,
+                "{effort:?}"
+            );
+            assert!(
+                encoded.warnings.is_empty(),
+                "a supported effort must not warn: {:?}",
+                encoded.warnings
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn a_raw_thinking_config_overrides_and_extends_the_effort_level()
+    -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-3.5-flash")
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::High)
+                .provider_options(
+                    "gemini",
+                    object(json!({
+                        "generationConfig": {
+                            "thinkingConfig": {
+                                "thinkingLevel": "low",
+                                "includeThoughts": true,
+                            },
+                        },
+                    }))?,
+                )
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["generationConfig"]["thinkingConfig"],
+            json!({ "thinkingLevel": "low", "includeThoughts": true })
+        );
+        assert!(encoded.warnings.is_empty());
         Ok(())
     }
 

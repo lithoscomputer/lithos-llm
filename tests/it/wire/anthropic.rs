@@ -678,9 +678,19 @@ async fn encodes_a_json_object_response_format() {
         .await
         .expect("the JSON object format should complete");
 
+    let captured = support::captured(&slot);
     // Anthropic carries structured output in `output_config.format`, not in a
-    // synthetic tool. A permissive object schema is what "any JSON" means.
-    crate::json_snapshot!(support::captured(&slot));
+    // synthetic tool. Its strict-schema subset requires every object to be
+    // closed. With no caller-supplied fields, the portable schema is empty.
+    assert_eq!(
+        captured.body["output_config"]["format"]["schema"],
+        json!({
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false,
+        })
+    );
+    crate::json_snapshot!(captured);
     crate::json_snapshot!(response);
 }
 

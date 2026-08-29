@@ -134,7 +134,12 @@ const SPENT_QUOTA_MESSAGES: &[&str] = &[
 const NOT_FOUND_MESSAGES: &[&str] = &["not found", "does not exist"];
 
 /// Message fragments that mean the credential was rejected.
-const AUTHENTICATION_MESSAGES: &[&str] = &["unauthorized", "invalid key", "invalid api key"];
+const AUTHENTICATION_MESSAGES: &[&str] = &[
+    "unauthorized",
+    "invalid key",
+    "invalid api key",
+    "api key not valid", // Gemini
+];
 
 /// Message fragments that mean throttling.
 const RATE_LIMIT_MESSAGES: &[&str] = &["rate limit", "too many requests"];
@@ -210,6 +215,13 @@ pub(crate) fn classify(
         Some(408) => ErrorKind::Timeout,
         Some(413) => ErrorKind::ContextLength,
         Some(429) => ErrorKind::RateLimit,
+        // Gemini reports a rejected API key as HTTP 400 INVALID_ARGUMENT.
+        // Its message is the only field that distinguishes that response from
+        // an ordinary malformed request, so the narrow credential message wins
+        // over the generic status code.
+        Some(400 | 422) if message_kind == Some(ErrorKind::Authentication) => {
+            ErrorKind::Authentication
+        }
         Some(400 | 422) => code_kind
             .or(message_kind)
             .unwrap_or(ErrorKind::InvalidRequest),

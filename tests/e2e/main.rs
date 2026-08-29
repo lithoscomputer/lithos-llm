@@ -28,8 +28,22 @@
 //! the suite's request concurrency; the `test:e2e` task passes
 //! `--test-threads` for that instead.
 
-#![cfg(feature = "openai-compatible")]
+#![cfg(any(
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible"
+))]
 
+#[cfg(feature = "anthropic")]
+mod anthropic;
+#[cfg(feature = "openai-compatible")]
+mod fireworks;
+#[cfg(feature = "gemini")]
+mod gemini;
+#[cfg(feature = "openai-compatible")]
+mod modal;
+#[cfg(feature = "openai-compatible")]
 mod openrouter;
 mod support;
+#[cfg(feature = "openai-compatible")]
 mod venice;

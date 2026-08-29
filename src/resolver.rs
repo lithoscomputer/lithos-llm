@@ -359,7 +359,8 @@ mod tests {
 
         let request = Request::builder().model("default").user("Hello").build()?;
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
-        assert_eq!(route.provider().id().as_str(), "openai");
+        assert_eq!(route.provider().id().as_str(), "anthropic");
+        assert_eq!(route.model().id().as_str(), "claude-sonnet-5");
         Ok(())
     }
 

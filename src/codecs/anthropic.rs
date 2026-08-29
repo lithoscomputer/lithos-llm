@@ -465,7 +465,8 @@ fn json_schema(format: &ResponseFormat) -> Option<Value> {
         ResponseFormat::Text => None,
         ResponseFormat::JsonObject => Some(json!({
             "type": "object",
-            "additionalProperties": true,
+            "properties": {},
+            "additionalProperties": false,
         })),
         ResponseFormat::JsonSchema { schema, .. } => Some(schema.clone()),
     }
@@ -1467,7 +1468,7 @@ mod tests {
         // The model takes effort levels, so it also gets the adaptive
         // thinking object, and no request limit means the model's own.
         assert_eq!(encoded.body["thinking"], json!({ "type": "adaptive" }));
-        assert_eq!(encoded.body["max_tokens"], 64000);
+        assert_eq!(encoded.body["max_tokens"], 128_000);
         assert_eq!(encoded.body["stream"], false);
         assert!(encoded.url.ends_with("/v1/messages"));
         assert!(

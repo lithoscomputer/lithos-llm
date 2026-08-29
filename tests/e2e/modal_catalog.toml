@@ -1,0 +1,28 @@
+# The Modal live E2E catalog.
+#
+# Verified on 2026-08-29 against Modal's official Shared Endpoint and proxy
+# token documentation plus the authenticated `GET /v1/models` listing.
+# Modal model ids are endpoint hostnames scoped to a proxy token, so this file
+# has no static model rows. The live-only suite discovers an accessible Kimi
+# K3 endpoint and sends its hostname through provider passthrough.
+#
+# Record and replay are not enabled. The current twin can inject one upstream
+# bearer token, but this catalog deliberately exercises Modal's separate
+# `Modal-Key` and `Modal-Secret` credentials.
+
+schema_version = 1
+
+[providers.modal]
+display_name = "Modal"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://inference.us-west.modal.direct/v1"
+priority = 75
+allow_passthrough = true
+
+[providers.modal.auth]
+type = "headers"
+
+[providers.modal.metadata.fabro]
+agent_profile = "kimi"
+api_key_url = "https://modal.com/docs/guide/webhook-proxy-auth"

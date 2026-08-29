@@ -1,18 +1,14 @@
-# Anthropic, translated from fabro's `anthropic.toml` and verified on
-# 2026-08-29 against Anthropic's official model, pricing, context, caching,
-# effort, thinking, structured-output, and API documentation plus the
-# authenticated `GET /v1/models` listing and raw Messages API probes.
+# The Anthropic roster for the live-only E2E suite.
 #
-# The live listing supplies limits and per-model capability objects. One
-# listing value is wrong: it reports a 1M input limit for Sonnet 4.5, but a
-# 280,023-token Messages request returned `prompt is too long ... > 200000
-# maximum`, agreeing with Anthropic's current context-window guide. Live
-# behavior wins, so that row stays at 200k.
+# Sources checked on 2026-08-29: Anthropic's official model, pricing,
+# context-window, caching, effort, thinking, structured-output, vision, PDF,
+# tool-use, and API documentation; the authenticated `GET /v1/models`
+# listing; and raw Messages API probes. The probes confirmed the native
+# `/v1/messages` URL, forced tools, structured output, sampling restrictions,
+# cache usage, and the listing's incorrect 1M limit for Sonnet 4.5.
 #
-# Fabro's fast rates for Opus 4.7 and 4.6 are stale. Anthropic documents fast
-# mode only for Opus 5 and Opus 4.8; Opus 4.7 rejects it, while Opus 4.6 runs
-# at standard speed and standard rates. Anthropic also corrected Sonnet 5's
-# launch price to a permanent $2/$10 per million tokens.
+# Pricing stays in this catalog because Anthropic reports token usage but no
+# in-band cost. The smoke suite therefore asserts `CostSource::Catalog`.
 
 schema_version = 1
 
@@ -22,7 +18,6 @@ aliases = ["claude"]
 adapter = "anthropic"
 codec = "anthropic-messages"
 base_url = "https://api.anthropic.com"
-priority = 100
 allow_passthrough = true
 default_model = "claude-sonnet-5"
 
@@ -35,148 +30,64 @@ display_name = "Claude Fable 5"
 aliases = ["fable", "claude-fable"]
 api_model = "claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-# Fable always uses adaptive thinking and rejects non-default sampling values.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
-
-[providers.anthropic.models."claude-fable-5".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-5"
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-5"]
 display_name = "Claude Opus 5"
 aliases = ["opus", "claude-opus"]
 api_model = "claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-# Opus 5 takes all five effort levels and rejects non-default sampling values.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
-
-[providers.anthropic.models."claude-opus-5".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-5"
-training = "2026-05-01"
-knowledge_cutoff = "May 2026"
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5"
 aliases = ["sonnet", "claude-sonnet"]
 api_model = "claude-sonnet-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-# Sonnet 5 takes all five effort levels and rejects non-default sampling values.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
-
-[providers.anthropic.models."claude-sonnet-5".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-5"
-training = "2026-01-01"
-knowledge_cutoff = "Jan 2026"
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-4.8"]
 display_name = "Claude Opus 4.8"
 api_model = "claude-opus-4-8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-# Opus 4.8 takes all five effort levels and rejects non-default sampling values.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
-
-[providers.anthropic.models."claude-opus-4.8".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-4"
-training = "2026-01-01"
-knowledge_cutoff = "Jan 2026"
-estimated_output_tps = 25
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-4.7"]
 display_name = "Claude Opus 4.7"
 api_model = "claude-opus-4-7"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-# Opus 4.7 takes all five effort levels and rejects non-default sampling values.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
-
-[providers.anthropic.models."claude-opus-4.7".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 25
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-4.6"]
 display_name = "Claude Opus 4.6"
 api_model = "claude-opus-4-6"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-# Adaptive thinking makes non-default sampling values invalid on Lithos'
-# default route, so sampling stays unclaimed even though the model takes
-# sampling controls after a caller explicitly disables thinking.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
-
-[providers.anthropic.models."claude-opus-4.6".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 25
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-sonnet-4.5"]
 display_name = "Claude Sonnet 4.5"
 api_model = "claude-sonnet-4-5-20250929"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
-# This older model uses a manual thinking budget, not named effort levels.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
-
-[providers.anthropic.models."claude-sonnet-4.5".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 50
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-sonnet-4.6"]
 display_name = "Claude Sonnet 4.6"
 api_model = "claude-sonnet-4-6"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-# The live listing corrects fabro's stale 200k context and 64k output limits.
-# Adaptive thinking makes non-default sampling values invalid on Lithos'
-# default route, so sampling stays unclaimed.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
-
-[providers.anthropic.models."claude-sonnet-4.6".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 50
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5"
 aliases = ["haiku", "claude-haiku"]
 api_model = "claude-haiku-4-5-20251001"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
-# The live listing corrects fabro's stale 8,192-token output limit and says
-# Haiku takes manual thinking, so the row claims reasoning without effort
-# levels. Anthropic's current price is $1/$5, not fabro's $0.80/$4.
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 }
-
-[providers.anthropic.models."claude-haiku-4.5".metadata.fabro]
-agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 100
-probe = true
-small_default = true
-api_key_url = "https://console.anthropic.com/settings/keys"

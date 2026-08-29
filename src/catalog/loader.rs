@@ -193,6 +193,8 @@ mod tests {
 
     use super::{Catalog, CatalogError};
     #[cfg(feature = "builtin-catalog")]
+    use crate::catalog::AuthScheme;
+    #[cfg(feature = "builtin-catalog")]
     use crate::types::Speed;
 
     const BASE: &str = r#"
@@ -536,6 +538,125 @@ mod tests {
 
     #[cfg(feature = "builtin-catalog")]
     #[test]
+    fn the_builtin_fireworks_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let fireworks = catalog.provider("fireworks")?;
+        assert_eq!(fireworks.default_model(), Some("kimi-k2.7-code"));
+        assert!(fireworks.allows_passthrough());
+        assert_eq!(
+            catalog.model("fireworks", "deepseek")?.api_model(),
+            "accounts/fireworks/models/deepseek-v4-flash-0731"
+        );
+        assert_eq!(
+            catalog.model("fireworks", "glm-5.3")?.api_model(),
+            "accounts/fireworks/models/glm-5p3"
+        );
+
+        let kimi = catalog.model("fireworks", "kimi-k2.6")?;
+        assert!(kimi.capabilities().images);
+        assert!(kimi.capabilities().reasoning);
+
+        let pro = catalog.model("fireworks", "deepseek-v4-pro")?;
+        let pricing = pro.pricing().ok_or("DeepSeek V4 Pro should be priced")?;
+        assert_eq!(pricing.input_usd_micros_per_million, Some(1_320_000));
+        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(44_000));
+
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_anthropic_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let anthropic = catalog.provider("claude")?;
+        assert_eq!(anthropic.default_model(), Some("claude-sonnet-5"));
+        assert!(anthropic.allows_passthrough());
+        assert_eq!(
+            catalog.model("anthropic", "sonnet")?.api_model(),
+            "claude-sonnet-5"
+        );
+
+        let fable = catalog.model("anthropic", "fable")?;
+        assert_eq!(
+            fable
+                .limits()
+                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
+            Some((1_000_000, 128_000))
+        );
+        assert!(fable.capabilities().reasoning_effort_levels);
+        assert!(!fable.capabilities().sampling);
+
+        let sonnet_45 = catalog.model("anthropic", "claude-sonnet-4.5")?;
+        assert_eq!(
+            sonnet_45
+                .limits()
+                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
+            Some((200_000, 64_000))
+        );
+        assert!(!sonnet_45.capabilities().reasoning_effort_levels);
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_gemini_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let gemini = catalog.provider("google")?;
+        assert_eq!(gemini.default_model(), Some("gemini-3.5-flash"));
+        assert!(gemini.allows_passthrough());
+        assert_eq!(
+            catalog.model("gemini", "gemini-pro")?.api_model(),
+            "gemini-3.1-pro-preview"
+        );
+
+        let flash = catalog.model("gemini", "gemini-3.5-flash")?;
+        assert_eq!(
+            flash
+                .limits()
+                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
+            Some((1_048_576, 65_536))
+        );
+        assert!(flash.capabilities().reasoning);
+        assert!(flash.capabilities().reasoning_effort_levels);
+        assert!(flash.capabilities().sampling);
+        assert_eq!(
+            flash
+                .pricing()
+                .and_then(|pricing| pricing.cached_input_usd_micros_per_million),
+            Some(150_000)
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_modal_provider_is_portable_passthrough() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let modal = catalog.provider("modal")?;
+        assert_eq!(
+            modal.base_url(),
+            "https://inference.us-west.modal.direct/v1"
+        );
+        assert!(matches!(modal.auth(), AuthScheme::Headers));
+        assert!(modal.allows_passthrough());
+        assert!(modal.default_model().is_none());
+        assert_eq!(modal.models().len(), 0);
+        assert_eq!(
+            modal
+                .metadata()
+                .get("fabro")
+                .and_then(|value| value["agent_profile"].as_str()),
+            Some("kimi")
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
     fn the_builtin_catalog_carries_the_published_rates_and_limits() -> Result<(), Box<dyn StdError>>
     {
         let catalog = Catalog::builder().with_builtin().build()?;
@@ -553,11 +674,11 @@ mod tests {
         let sonnet = catalog.model("anthropic", "claude-sonnet-4-6")?;
         assert_eq!(
             sonnet.limits().map(|limits| limits.context_tokens),
-            Some(200_000)
+            Some(1_000_000)
         );
         assert_eq!(
             sonnet.limits().map(|limits| limits.max_output_tokens),
-            Some(64_000)
+            Some(128_000)
         );
         let pricing = sonnet
             .pricing()

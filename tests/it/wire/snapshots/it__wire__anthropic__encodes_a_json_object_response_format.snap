@@ -20,7 +20,8 @@ expression: rendered
     "output_config": {
       "format": {
         "schema": {
-          "additionalProperties": true,
+          "additionalProperties": false,
+          "properties": {},
           "type": "object"
         },
         "type": "json_schema"
@@ -39,7 +40,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "269"
+      "286"
     ],
     [
       "content-type",

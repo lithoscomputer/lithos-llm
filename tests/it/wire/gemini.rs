@@ -73,6 +73,11 @@ fn provider() -> support::WireProvider<'static> {
     support::WireProvider::new(PROVIDER, "gemini", "gemini-generate", MODEL)
         .with_api_model(API_MODEL)
         .with_auth("{ type = \"header\", name = \"x-goog-api-key\" }")
+        .with_capabilities(
+            "{ text = true, images = true, audio = true, documents = true, tools = true, \
+             structured_output = true, reasoning = true, reasoning_effort_levels = true, \
+             caching = true, cache_breakpoints = true, sampling = true }",
+        )
 }
 
 /// The request selector every corpus constructor is called with.
@@ -572,12 +577,10 @@ async fn metadata_request_warns_and_sends_nothing() {
 }
 
 #[tokio::test]
-async fn speed_and_reasoning_effort_are_reported_not_sent() {
-    // Neither control has a field in this protocol. Gemini does have a thinking
-    // budget, but it takes a token count, and turning an effort level into a
-    // defensible one needs per-model reasoning limits the catalog does not
-    // carry. Warning is what the crate does with a control it cannot express;
-    // guessing a budget would change how much the caller is billed.
+async fn speed_is_reported_and_reasoning_effort_is_sent() {
+    // This protocol has no speed field. Gemini 3 does take named thinking
+    // levels, so normalized reasoning effort reaches that field without a
+    // warning.
     let request = Request::builder()
         .model(selector())
         .user("Hello")
@@ -589,8 +592,11 @@ async fn speed_and_reasoning_effort_are_reported_not_sent() {
 
     let (request, response) = complete(request, &text_response()).await;
 
+    assert_eq!(
+        request.body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+        json!("high")
+    );
     let body = request.body.to_string();
-    assert!(!body.contains("thinkingConfig"), "{body}");
     assert!(!body.contains("speed"), "{body}");
 
     let warnings: Vec<(&str, &str)> = response
@@ -598,16 +604,10 @@ async fn speed_and_reasoning_effort_are_reported_not_sent() {
         .iter()
         .map(|warning| (warning.code.as_str(), warning.message.as_str()))
         .collect();
-    assert_eq!(warnings, [
-        (
-            "unsupported_control",
-            "this provider protocol does not support the speed control",
-        ),
-        (
-            "unsupported_control",
-            "this provider protocol does not support the reasoning effort control",
-        ),
-    ]);
+    assert_eq!(warnings, [(
+        "unsupported_control",
+        "this provider protocol does not support the speed control",
+    )]);
 }
 
 #[tokio::test]
@@ -1090,8 +1090,19 @@ async fn raw_options_merge_into_the_generation_config() {
         .user("Hello")
         .temperature(0.2)
         .stop_sequences(["END"])
+        .reasoning_effort(ReasoningEffort::High)
         .max_output_tokens(128)
-        .provider_option(PROVIDER, "generationConfig", json!({ "temperature": 0.9 }))
+        .provider_option(
+            PROVIDER,
+            "generationConfig",
+            json!({
+                "temperature": 0.9,
+                "thinkingConfig": {
+                    "thinkingLevel": "low",
+                    "includeThoughts": true,
+                },
+            }),
+        )
         .provider_option(
             PROVIDER,
             "safetySettings",
@@ -1110,6 +1121,10 @@ async fn raw_options_merge_into_the_generation_config() {
         "a sibling the codec encoded survives the override"
     );
     assert_eq!(generation["stopSequences"], json!(["END"]));
+    assert_eq!(
+        generation["thinkingConfig"],
+        json!({ "thinkingLevel": "low", "includeThoughts": true })
+    );
 
     crate::json_snapshot!(request);
 }
@@ -1297,8 +1312,8 @@ async fn stream_error_chunk_ends_the_stream_without_completing() {
 async fn classifies_the_grpc_error_statuses() {
     let cases = [
         (
-            401,
-            "UNAUTHENTICATED",
+            400,
+            "INVALID_ARGUMENT",
             "API key not valid. Please pass a valid API key.",
             ErrorKind::Authentication,
         ),

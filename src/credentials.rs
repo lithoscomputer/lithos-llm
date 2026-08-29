@@ -265,8 +265,11 @@ impl EnvironmentCredentials {
         let builder = EnvironmentCredentialsBuilder::default()
             .bearer("openai", "OPENAI_API_KEY")
             .header("anthropic", "x-api-key", "ANTHROPIC_API_KEY")
+            .bearer("fireworks", "FIREWORKS_API_KEY")
             .header("gemini", "x-goog-api-key", "GEMINI_API_KEY")
             .or_header("gemini", "x-goog-api-key", "GOOGLE_API_KEY")
+            .header("modal", "Modal-Key", "MODAL_TOKEN_ID")
+            .header("modal", "Modal-Secret", "MODAL_TOKEN_SECRET")
             .bearer("openrouter", "OPENROUTER_API_KEY")
             .bearer("venice", "VENICE_API_KEY")
             .bedrock_bearer("bedrock", "AWS_BEARER_TOKEN_BEDROCK")
@@ -711,6 +714,45 @@ mod tests {
             ),
             "OpenRouter should resolve a bearer credential"
         );
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn fireworks_reads_its_conventional_bearer_key() -> Result<(), String> {
+        let credentials = resolve("fireworks", &[("FIREWORKS_API_KEY", "fireworks-key")])?;
+        assert!(
+            matches!(
+                credentials,
+                Credentials::Http(HttpCredentials {
+                    auth: HttpAuthentication::Bearer(secret),
+                    ..
+                }) if secret.expose_secret() == "fireworks-key"
+            ),
+            "Fireworks should resolve a bearer credential"
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn modal_reads_both_conventional_proxy_token_headers() -> Result<(), String> {
+        let credentials = resolve("modal", &[
+            ("MODAL_TOKEN_ID", "wk-modal-key"),
+            ("MODAL_TOKEN_SECRET", "ws-modal-secret"),
+        ])?;
+        let Credentials::Http(HttpCredentials {
+            auth: HttpAuthentication::Header(key),
+            extra_headers,
+        }) = credentials
+        else {
+            return Err("Modal should resolve HTTP header credentials".to_owned());
+        };
+        assert_eq!(key.name, "Modal-Key");
+        assert_eq!(key.value.expose_secret(), "wk-modal-key");
+        assert_eq!(extra_headers.len(), 1);
+        assert_eq!(extra_headers[0].name, "Modal-Secret");
+        assert_eq!(extra_headers[0].value.expose_secret(), "ws-modal-secret");
         Ok(())
     }
 

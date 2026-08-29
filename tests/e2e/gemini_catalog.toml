@@ -1,21 +1,9 @@
-# Google Gemini, translated from fabro's `gemini.toml` and verified on
-# 2026-08-29 against Google's official model, pricing, thinking, caching,
-# and structured-output documentation, the authenticated `GET /v1beta/models`
-# listing, and raw `generateContent` probes.
+# The Google Gemini roster for the live-only E2E suite.
 #
-# The live listing confirms every wire id and the 1,048,576-token input and
-# 65,536-token output limits. Raw probes confirmed text completion, forced
-# function calls, JSON Schema, sampling controls, and `thinkingLevel = low`
-# on every Gemini 3 row. A 5,593-token repeated-prefix probe on Gemini 3.5
-# Flash reported 2,034 cached tokens.
-#
-# The model listing still advertises Gemini 2.5 Pro, but a live completion
-# returns 404 and says that the model is unavailable to new users. It is not
-# in fabro's roster, so this catalog does not retain the stale built-in row.
-#
-# Google's native codec owns the `/v1beta` path, so the provider base URL omits
-# fabro's version suffix. The codec maps normalized reasoning effort onto the
-# low, medium, and high thinking levels shared by this roster.
+# Sources checked on 2026-08-29: Google's official model and pricing pages,
+# authenticated `GET /v1beta/models`, and raw GenerateContent probes. The
+# built-in catalog has the detailed evidence and conflict notes. Pricing stays
+# in this file because Gemini reports token usage, not an in-band dollar cost.
 
 schema_version = 1
 
@@ -38,10 +26,6 @@ display_name = "Gemini 3.1 Pro Preview"
 aliases = ["gemini-pro"]
 api_model = "gemini-3.1-pro-preview"
 limits = { context_tokens = 1048576, max_output_tokens = 65536 }
-# Google documents text, image, video, audio, and PDF input plus function
-# calling, structured output, thinking, and caching. The live API also accepted
-# temperature and top-p. Google's cached-input price is $0.20, not fabro's
-# $0.50; the documented long-context tier starts above 200,000 prompt tokens.
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000 } }
 
@@ -57,10 +41,6 @@ display_name = "Gemini 3.1 Pro Custom Tools Preview"
 aliases = ["gemini-customtools"]
 api_model = "gemini-3.1-pro-preview-customtools"
 limits = { context_tokens = 1048576, max_output_tokens = 65536 }
-# Google documents this as the same Pro model and price, with an endpoint
-# optimized to prioritize custom tools and bash. Lithos function tools worked
-# in a forced-call probe; codec-native custom tool definitions remain outside
-# this catalog capability flag.
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000 } }
 
@@ -76,9 +56,6 @@ display_name = "Gemini 3.5 Flash"
 aliases = ["gemini-35-flash"]
 api_model = "gemini-3.5-flash"
 limits = { context_tokens = 1048576, max_output_tokens = 65536 }
-# Fabro omits sampling, but the live API accepted temperature and top-p on
-# 2026-08-29. Google documents those controls as deprecated for this model,
-# so a future removal must update this claim.
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 1500000, output_usd_micros_per_million = 9000000, cached_input_usd_micros_per_million = 150000 }
 
@@ -94,9 +71,6 @@ display_name = "Gemini 3 Flash Preview"
 aliases = ["gemini-flash"]
 api_model = "gemini-3-flash-preview"
 limits = { context_tokens = 1048576, max_output_tokens = 65536 }
-# The catalog stores the standard text/image/video input rate. Google prices
-# audio input at $1.00 per million, a modality distinction the schema cannot
-# represent. Fabro omits sampling, but the live API accepted both controls.
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 3000000, cached_input_usd_micros_per_million = 50000 }
 
@@ -112,9 +86,6 @@ display_name = "Gemini 3.1 Flash-Lite"
 aliases = ["gemini-flash-lite", "gemini-3.1-flash-lite-preview"]
 api_model = "gemini-3.1-flash-lite"
 limits = { context_tokens = 1048576, max_output_tokens = 65536 }
-# The catalog stores the standard text/image/video input and cache-read rates.
-# Google prices audio at $0.50 input and $0.05 cached input per million, which
-# the current modality-neutral pricing schema cannot represent.
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 250000, output_usd_micros_per_million = 1500000, cached_input_usd_micros_per_million = 25000 }
 

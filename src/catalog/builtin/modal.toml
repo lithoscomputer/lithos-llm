@@ -1,0 +1,37 @@
+# Modal, translated from fabro's `modal.toml` and verified on 2026-08-29
+# against Modal's official Endpoint, integration, proxy-token, and Kimi K3
+# documentation plus the authenticated Shared Endpoint model listing and raw
+# Chat Completions probes.
+#
+# Modal does not expose one universal wire model id. Shared Endpoints use this
+# fixed router, but `GET /models` returns endpoint hostnames scoped to the
+# caller's proxy token. Dedicated Endpoints instead use a deployment-specific
+# base URL. The available live Kimi K3 hostname on 2026-08-29 was specific to
+# the verifying workspace, while sending fabro's `moonshotai/Kimi-K3` id to
+# the Shared Endpoint router returned `404 unknown inference model`.
+#
+# Therefore fabro's Kimi row cannot become a truthful portable built-in row.
+# Callers list their accessible Shared Endpoints, then select the returned
+# hostname as `modal/<endpoint-hostname>`. Passthrough leaves each deployed
+# endpoint responsible for its own model limits, capabilities, and pricing.
+# The fabro Kimi facts are intentionally not copied onto unknown endpoints.
+
+schema_version = 1
+
+[providers.modal]
+display_name = "Modal"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://inference.us-west.modal.direct/v1"
+priority = 75
+allow_passthrough = true
+
+[providers.modal.auth]
+# Modal accepts either this separate proxy-token pair or the pair joined with
+# a period in one bearer token. Separate headers preserve fabro's credential
+# shape without constructing a new secret string.
+type = "headers"
+
+[providers.modal.metadata.fabro]
+agent_profile = "kimi"
+api_key_url = "https://modal.com/docs/guide/webhook-proxy-auth"
