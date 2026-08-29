@@ -395,9 +395,12 @@ impl StreamDecoder for ChatStreamDecoder {
             let block = ContentBlockId::new(REASONING_BLOCK);
             events.extend(self.assembler.reasoning(&block, text));
         }
-        if let Some(text) = non_empty(delta, "content") {
+        // `message_text` reads both wire shapes: a delta may carry the
+        // part-array form just as a blocking message may, and dropping it
+        // would complete the stream as an empty success.
+        if let Some(text) = message_text(delta) {
             let block = ContentBlockId::new(TEXT_BLOCK);
-            events.extend(self.assembler.text(&block, text));
+            events.extend(self.assembler.text(&block, &text));
         }
         // Refusal fragments accumulate silently; the whole explanation fails
         // the stream once it ends, matching the blocking decoder's contract.
@@ -1054,7 +1057,8 @@ fn decode_tool_call(call: &Value) -> Result<ContentPart, &'static str> {
     }))
 }
 
-/// The visible text of a response message, in either wire shape.
+/// The visible text of a response message or stream delta, in either wire
+/// shape.
 ///
 /// Most skins send `content` as a string; a few echo the array form the request
 /// uses. Both decode to the same text.
@@ -1769,6 +1773,34 @@ mod tests {
             events
                 .iter()
                 .any(|event| matches!(event, StreamEvent::TextDelta { text, .. } if text == "hi")),
+            "{events:?}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn an_array_form_content_delta_decodes_like_the_blocking_path() -> Result<(), Box<dyn StdError>>
+    {
+        // A skin that streams content as an array of parts must not complete
+        // as an empty success; the blocking path already reads both shapes.
+        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+
+        let events = decoder.decode(SseEvent {
+            event: None,
+            data:  json!({
+                "id": "chatcmpl-1",
+                "choices": [{ "delta": { "content": [
+                    { "type": "text", "text": "Hel" },
+                    { "type": "text", "text": "lo" },
+                ] } }],
+            })
+            .to_string(),
+        })?;
+
+        assert!(
+            events.iter().any(
+                |event| matches!(event, StreamEvent::TextDelta { text, .. } if text == "Hello")
+            ),
             "{events:?}"
         );
         Ok(())
