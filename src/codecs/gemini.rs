@@ -491,6 +491,12 @@ fn encode_tool_call(call: &ToolCall) -> Value {
 /// recognizes as an error reads as one, where a boolean flag beside an
 /// `output` value reads as ordinary output.
 ///
+/// A successful result that is one JSON object is the exception: the caller
+/// crafted the exact struct the model should see, so it becomes the whole
+/// `response` verbatim rather than nesting under `output`. Non-object JSON,
+/// mixed JSON parts, and text keep the `output` wrapping, and a failure keeps
+/// the `error` key whatever shape it carries.
+///
 /// `name` must be the function that was called. It is taken from the result
 /// itself, then from the assistant turn that made the call, and only then from
 /// the call id, which is a last resort that names no declared function.
@@ -518,8 +524,14 @@ fn encode_tool_result(result: &ToolResult, names: &HashMap<&str, &str>) -> Value
         }
         _ => Value::String(plain_text(&result.content)),
     };
+    // A lone JSON object is the caller's own `response` struct; see the doc
+    // comment for the verbatim/wrapped split.
+    let verbatim =
+        matches!(result.content.as_slice(), [ContentPart::Json { value }] if value.is_object());
     let response = if result.is_error {
         json!({ "error": payload })
+    } else if verbatim {
+        payload
     } else {
         json!({ "output": payload })
     };
@@ -2003,31 +2015,26 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn a_json_tool_result_rides_the_response_struct() -> Result<(), Box<dyn StdError>> {
+    /// Encodes a request whose only tool message carries `content` as one
+    /// result, and returns the `functionResponse.response` it produced.
+    fn encoded_tool_response(
+        content: Vec<ContentPart>,
+        is_error: bool,
+    ) -> Result<Value, Box<dyn StdError>> {
         let request = Request::builder()
             .model("gemini/gemini-2.5-pro")
             .user("Look it up.")
             .message(Message::new(Role::Tool, [ContentPart::ToolResult(
                 ToolResult {
                     tool_call_id: "call-1".to_owned(),
-                    name:         Some("weather".to_owned()),
-                    content:      vec![ContentPart::Json {
-                        value: json!({ "temperature": 21, "unit": "C" }),
-                    }],
-                    is_error:     false,
+                    name: Some("weather".to_owned()),
+                    content,
+                    is_error,
                 },
             )]))
             .build()?;
 
         let encoded = GeminiGenerateCodec.encode(&resolved(request)?, false)?;
-
-        let response = &encoded.body["contents"][0]["parts"][1]["functionResponse"]["response"];
-        assert_eq!(
-            response,
-            &json!({ "output": { "temperature": 21, "unit": "C" } }),
-            "a JSON result must reach the model, not flatten to empty text"
-        );
         assert!(
             !encoded
                 .warnings
@@ -2035,6 +2042,52 @@ mod tests {
                 .any(|warning| warning.message.contains("tool result")),
             "carried content must not warn"
         );
+        Ok(encoded.body["contents"][0]["parts"][1]["functionResponse"]["response"].clone())
+    }
+
+    #[test]
+    fn an_object_tool_result_is_the_whole_response_struct() -> Result<(), Box<dyn StdError>> {
+        // The caller crafted the exact struct the model should see, so it
+        // travels verbatim instead of nesting under `output`.
+        let response = encoded_tool_response(
+            vec![ContentPart::Json {
+                value: json!({ "temperature": 21, "unit": "C" }),
+            }],
+            false,
+        )?;
+
+        assert_eq!(response, json!({ "temperature": 21, "unit": "C" }));
+        Ok(())
+    }
+
+    #[test]
+    fn a_non_object_json_tool_result_stays_under_output() -> Result<(), Box<dyn StdError>> {
+        // A bare value could not be the free-form `response` struct, so it
+        // keeps Google's conventional `output` key — and still reaches the
+        // model rather than flattening to empty text.
+        let response = encoded_tool_response(
+            vec![ContentPart::Json {
+                value: json!([21, "C"]),
+            }],
+            false,
+        )?;
+
+        assert_eq!(response, json!({ "output": [21, "C"] }));
+        Ok(())
+    }
+
+    #[test]
+    fn a_failed_object_tool_result_keeps_the_error_key() -> Result<(), Box<dyn StdError>> {
+        // A failure must read as one, so even a crafted object nests under
+        // `error` when `is_error` is set.
+        let response = encoded_tool_response(
+            vec![ContentPart::Json {
+                value: json!({ "code": "unknown_city" }),
+            }],
+            true,
+        )?;
+
+        assert_eq!(response, json!({ "error": { "code": "unknown_city" } }));
         Ok(())
     }
 
