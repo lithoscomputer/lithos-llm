@@ -49,6 +49,10 @@ work:
 - Bedrock: a `toolUse` input fragment for a block whose `contentBlockStart`
   never arrived fails the stream retryably instead of fabricating a nameless
   tool call, the contract the Chat codec already applies.
+- Chat: a tool-call id or name arriving on a later stream fragment repairs
+  the open block instead of being discarded, so a skin that splits identity
+  across fragments no longer produces a call answered with the synthesized
+  block id.
 
 ### Round-2 parity fixes
 

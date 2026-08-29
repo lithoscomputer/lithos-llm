@@ -277,7 +277,7 @@ impl Codec for OpenAiChatCodec {
             route:     route.clone(),
             started:   false,
             details:   ReasoningDetails::default(),
-            slots:     BTreeSet::new(),
+            slots:     BTreeMap::new(),
             refusal:   String::new(),
         })
     }
@@ -304,8 +304,8 @@ struct ChatStreamDecoder {
     started:   bool,
     /// The structured reasoning channel, coalesced as its fragments arrive.
     details:   ReasoningDetails,
-    /// The tool-call slots an opening fragment has named.
-    slots:     BTreeSet<u64>,
+    /// The identity fragments have carried for each opened tool-call slot.
+    slots:     BTreeMap<u64, SlotIdentity>,
     /// Refusal text accumulated across chunks; a non-empty value fails the
     /// stream when it ends.
     refusal:   String,
@@ -438,8 +438,9 @@ impl ChatStreamDecoder {
     ///
     /// The fragment's `index` is the provider's accumulation slot, so it names
     /// the content block. The provider's own tool-call id and the tool name
-    /// arrive on the first fragment for a slot and open the block; later
-    /// fragments carry argument text only.
+    /// normally arrive on the first fragment for a slot and open the block —
+    /// but a skin may split them across fragments, so identity arriving late
+    /// still repairs the open block instead of being discarded.
     ///
     /// # Errors
     ///
@@ -458,16 +459,21 @@ impl ChatStreamDecoder {
         let name = call.pointer("/function/name").and_then(Value::as_str);
         let mut events = Vec::new();
         if id.is_some() || name.is_some() {
-            self.slots.insert(index);
-            events.extend(
-                self.assembler
-                    .start(block.clone(), ContentBlockKind::ToolCall {
-                        id:   id.unwrap_or(block.as_str()).to_owned(),
-                        name: name.map(ToOwned::to_owned),
-                        kind: ToolCallKind::Function,
-                    }),
-            );
-        } else if !self.slots.contains(&index) {
+            let slot = self.slots.entry(index).or_default();
+            if let Some(id) = id {
+                slot.id = Some(id.to_owned());
+            }
+            if let Some(name) = name {
+                slot.name = Some(name.to_owned());
+            }
+            let identity = ContentBlockKind::ToolCall {
+                id:   slot.id.clone().unwrap_or_else(|| block.as_str().to_owned()),
+                name: slot.name.clone(),
+                kind: ToolCallKind::Function,
+            };
+            events.extend(self.assembler.start(block.clone(), identity.clone()));
+            self.assembler.repair_tool_identity(&block, identity);
+        } else if !self.slots.contains_key(&index) {
             return Err(Error::new(
                 ErrorKind::StreamDecode,
                 format!(
@@ -486,6 +492,17 @@ impl ChatStreamDecoder {
         }
         Ok(events)
     }
+}
+
+/// The tool-call identity accumulated for one streaming slot.
+///
+/// A skin may split the call id and the tool name across fragments; each
+/// member keeps the last value a fragment carried, which is how the reference
+/// decoder read them.
+#[derive(Default)]
+struct SlotIdentity {
+    id:   Option<String>,
+    name: Option<String>,
 }
 
 /// The opaque content kind the structured reasoning channel replays as.
@@ -1583,6 +1600,32 @@ mod tests {
 
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn tool_call_identity_arriving_on_a_later_fragment_is_kept() -> Result<(), Box<dyn StdError>> {
+        // A skin may open the slot with the name and send the provider call
+        // id on a later fragment. Discarding the late id would answer the
+        // call with the synthesized block id, which the provider rejects on
+        // the next turn.
+        let events = stream(vec![
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "function": { "name": "search", "arguments": "{\"q\":" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "id": "call-real", "function": { "arguments": "\"rust\"}" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": {}, "finish_reason": "tool_calls" }] }),
+        ])?;
+
+        let responses = completed(&events);
+        assert_eq!(responses.len(), 1);
+        let calls = tool_parts(responses[0]);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "call-real");
+        assert_eq!(calls[0].name, "search");
+        assert_eq!(calls[0].arguments, json!({ "q": "rust" }));
         Ok(())
     }
 
