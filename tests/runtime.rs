@@ -18,6 +18,7 @@ use lithos_llm::middleware::{
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
     Message, RequestBuildError, Response, ResponseStream, RetryClassification, Role, StreamEvent,
+    TokenCounts,
 };
 use lithos_llm::{Client, Request};
 use tokio::spawn;
@@ -241,6 +242,75 @@ async fn retry_restarts_stream_before_visible_output() -> Result<(), Box<dyn Std
     let client = Client::builder()
         .catalog(catalog()?)
         .adapter("test", adapter)
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential()
+                .max_attempts(2)
+                .initial_delay(Duration::ZERO),
+        ))
+        .build()?
+        .client;
+
+    let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+
+    assert!(matches!(
+        events.as_slice(),
+        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+    ));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    Ok(())
+}
+
+/// Fails after a usage snapshot on the first call, then streams normally.
+struct UsageThenFailAdapter {
+    id:    AdapterId,
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl ProviderAdapter for UsageThenFailAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        Ok(success_response(call, "done"))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        let call_index = self.calls.fetch_add(1, Ordering::SeqCst);
+        let events = if call_index == 0 {
+            vec![
+                Ok(StreamEvent::Usage {
+                    usage: TokenCounts {
+                        input: 12,
+                        ..TokenCounts::default()
+                    },
+                }),
+                Err(retryable_error()),
+            ]
+        } else {
+            vec![Ok(StreamEvent::TextDelta {
+                id:   ContentBlockId::new("block-0"),
+                text: "done".to_owned(),
+            })]
+        };
+        Ok(Box::pin(iter(events)))
+    }
+}
+
+#[tokio::test]
+async fn a_usage_snapshot_does_not_close_the_stream_retry_window() -> Result<(), Box<dyn StdError>>
+{
+    // Anthropic reports usage at message_start, before any content exists. A
+    // failure right after it must still retry, and the abandoned attempt's
+    // snapshot must not leak into the surviving stream.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", UsageThenFailAdapter {
+            id:    AdapterId::new("test-adapter"),
+            calls: calls.clone(),
+        })
         .middleware(RetryMiddleware::new(
             RetryPolicy::exponential()
                 .max_attempts(2)

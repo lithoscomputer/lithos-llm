@@ -129,12 +129,19 @@ impl StreamEvent {
     /// normally shows.
     ///
     /// Protocol bookkeeping — [`Started`](Self::Started),
-    /// [`RateLimits`](Self::RateLimits), and
-    /// [`ContentBlockStart`](Self::ContentBlockStart) — is not visible.
+    /// [`RateLimits`](Self::RateLimits),
+    /// [`ContentBlockStart`](Self::ContentBlockStart), and
+    /// [`Usage`](Self::Usage) — is not visible. Usage events are cumulative
+    /// snapshots a reconnected attempt replaces wholesale, and Anthropic
+    /// reports one before any content exists, so counting them as visible
+    /// would close the stream-retry window at `message_start`.
     pub fn is_visible(&self) -> bool {
         !matches!(
             self,
-            Self::Started { .. } | Self::RateLimits { .. } | Self::ContentBlockStart { .. }
+            Self::Started { .. }
+                | Self::RateLimits { .. }
+                | Self::ContentBlockStart { .. }
+                | Self::Usage { .. }
         )
     }
 }
@@ -235,6 +242,7 @@ mod tests {
                 StreamEvent::Started { .. }
                     | StreamEvent::RateLimits { .. }
                     | StreamEvent::ContentBlockStart { .. }
+                    | StreamEvent::Usage { .. }
             );
 
             assert_eq!(event.is_visible(), !hidden, "{event:?}");
