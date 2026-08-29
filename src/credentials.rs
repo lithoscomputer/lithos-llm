@@ -270,6 +270,8 @@ impl EnvironmentCredentials {
             .or_header("gemini", "x-goog-api-key", "GOOGLE_API_KEY")
             .header("modal", "Modal-Key", "MODAL_TOKEN_ID")
             .header("modal", "Modal-Secret", "MODAL_TOKEN_SECRET")
+            .bearer("moonshot", "MOONSHOT_API_KEY")
+            .or_bearer("moonshot", "KIMI_API_KEY")
             .bearer("openrouter", "OPENROUTER_API_KEY")
             .bearer("venice", "VENICE_API_KEY")
             .bedrock_bearer("bedrock", "AWS_BEARER_TOKEN_BEDROCK")
@@ -731,6 +733,41 @@ mod tests {
             ),
             "Fireworks should resolve a bearer credential"
         );
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn moonshot_prefers_its_own_variable_over_the_kimi_one() -> Result<(), String> {
+        let preferred = resolve("moonshot", &[
+            ("MOONSHOT_API_KEY", "moonshot-key"),
+            ("KIMI_API_KEY", "kimi-key"),
+        ])?;
+        assert!(
+            matches!(
+                preferred,
+                Credentials::Http(HttpCredentials {
+                    auth: HttpAuthentication::Bearer(secret),
+                    ..
+                }) if secret.expose_secret() == "moonshot-key"
+            ),
+            "Moonshot should prefer MOONSHOT_API_KEY"
+        );
+
+        let fallback = resolve("moonshot", &[("KIMI_API_KEY", "kimi-key")])?;
+        assert!(
+            matches!(
+                fallback,
+                Credentials::Http(HttpCredentials {
+                    auth: HttpAuthentication::Bearer(secret),
+                    ..
+                }) if secret.expose_secret() == "kimi-key"
+            ),
+            "Moonshot should fall back to KIMI_API_KEY"
+        );
+
+        let message = resolve("moonshot", &[]).expect_err("Moonshot should not resolve");
+        assert!(message.contains("MOONSHOT_API_KEY"), "{message}");
         Ok(())
     }
 

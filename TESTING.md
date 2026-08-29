@@ -18,18 +18,21 @@ timeouts, capability rejection — against a fake adapter, with no HTTP.
 
 ### 2. The wire suite (`tests/it/`)
 
-**Question: do we send the bytes we intend, and decode the bytes providers
-document?**
+**Question: does each codec produce the intended provider request and decode
+the protocol cases we specify?**
 
 Every test points a real `Client` at a local `httpmock` server. The test
-snapshots both halves of the exchange: the captured outbound request pins
-encoding, and the decoded result pins decoding. All provider payloads are
-written by hand — they say what a provider is *expected* to send. One
-dialect module exists per codec.
+snapshots both halves of the exchange: the normalized outbound request pins
+encoding, and the decoded library result pins our public representation. Mock
+provider responses are written by hand. They say what a provider is *expected*
+to send. One dialect module exists per codec.
 
 Snapshots use `insta` and render JSON in canonical key order, so key order
 can never fail a test. When a snapshot changes, review the diff and accept
 it with `cargo insta review`. A snapshot change is a contract change.
+Snapshots provide broad shape coverage. Explicit assertions protect critical
+semantics such as usage buckets, finish reasons, errors, tool calls, and stream
+invariants.
 
 ### 3. The replay suite (`tests/e2e/`, replay backend)
 

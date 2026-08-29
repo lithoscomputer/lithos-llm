@@ -1,0 +1,39 @@
+# Moonshot AI, translated from fabro's `moonshot.toml` and verified on
+# 2026-08-29 against Moonshot's official model, pricing, parameter, caching,
+# vision, and structured-output documentation plus the authenticated
+# `GET /v1/models` listing and raw Chat Completions probes.
+#
+# Moonshot documents K3's real output ceiling as the remaining 1M-token
+# context. That limit replaces fabro's 131,072-token request default. A raw
+# cache probe reported a repeated-prefix hit through
+# `usage.prompt_tokens_details.cached_tokens`.
+
+schema_version = 1
+
+[providers.moonshot]
+display_name = "Moonshot AI"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://api.moonshot.ai/v1"
+priority = 70
+allow_passthrough = true
+default_model = "kimi-k3"
+
+[providers.moonshot.auth]
+type = "bearer"
+
+[providers.moonshot.models."kimi-k3"]
+display_name = "Kimi K3"
+aliases = ["kimi"]
+api_model = "kimi-k3"
+limits = { context_tokens = 1048576, max_output_tokens = 1048576 }
+# Official docs and the live listing agree that K3 always reasons and accepts
+# low, high, and max effort. Moonshot documents strict structured output and
+# fixes its sampling values, so sampling controls remain unclaimed.
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
+
+[providers.moonshot.models."kimi-k3".metadata.fabro]
+agent_profile = "kimi"
+family = "kimi-k3"
+api_key_url = "https://platform.kimi.ai/console/api-keys"

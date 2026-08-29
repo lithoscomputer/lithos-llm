@@ -657,6 +657,33 @@ mod tests {
 
     #[cfg(feature = "builtin-catalog")]
     #[test]
+    fn the_builtin_moonshot_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let moonshot = catalog.provider("moonshot")?;
+        assert_eq!(moonshot.default_model(), Some("kimi-k3"));
+        assert!(moonshot.allows_passthrough());
+        assert_eq!(catalog.model("moonshot", "kimi")?.api_model(), "kimi-k3");
+
+        let k3 = catalog.model("moonshot", "kimi-k3")?;
+        assert_eq!(
+            k3.limits()
+                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
+            Some((1_048_576, 1_048_576))
+        );
+        assert!(k3.capabilities().reasoning_effort_levels);
+        assert!(!k3.capabilities().sampling);
+
+        let fabro = k3
+            .metadata()
+            .get("fabro")
+            .ok_or("Kimi K3 should preserve fabro metadata")?;
+        assert_eq!(fabro["family"], "kimi-k3");
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
     fn the_builtin_catalog_carries_the_published_rates_and_limits() -> Result<(), Box<dyn StdError>>
     {
         let catalog = Catalog::builder().with_builtin().build()?;

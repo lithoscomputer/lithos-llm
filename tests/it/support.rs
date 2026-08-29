@@ -535,18 +535,16 @@ fn assert_usage_not_decreasing(previous: &Value, next: &Value, index: usize) {
 /// dev-dependency does. Canonicalizing here makes the rendered snapshot
 /// identical either way. A JSON document embedded in a string is not
 /// reordered; it renders as the code under test produced it.
-pub(crate) fn canonical_json(value: serde_json::Value) -> serde_json::Value {
+pub(crate) fn canonical_json(value: Value) -> Value {
     match value {
-        serde_json::Value::Object(map) => {
-            let sorted: std::collections::BTreeMap<String, serde_json::Value> = map
+        Value::Object(map) => {
+            let sorted: BTreeMap<String, Value> = map
                 .into_iter()
                 .map(|(key, value)| (key, canonical_json(value)))
                 .collect();
-            serde_json::Value::Object(sorted.into_iter().collect())
+            Value::Object(sorted.into_iter().collect())
         }
-        serde_json::Value::Array(items) => {
-            serde_json::Value::Array(items.into_iter().map(canonical_json).collect())
-        }
+        Value::Array(items) => Value::Array(items.into_iter().map(canonical_json).collect()),
         other => other,
     }
 }

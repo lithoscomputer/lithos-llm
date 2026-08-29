@@ -7,6 +7,7 @@ use crate::resolver::ResolvedRoute;
 #[cfg(any(
     feature = "anthropic",
     feature = "bedrock",
+    feature = "openai",
     feature = "openai-compatible",
     test
 ))]
@@ -31,6 +32,7 @@ pub(crate) const CONTROL_KEYS: &[&str] = &["auto_cache"];
 #[cfg(any(
     feature = "anthropic",
     feature = "bedrock",
+    feature = "openai",
     feature = "openai-compatible",
     test
 ))]
@@ -445,6 +447,7 @@ pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
 #[cfg(any(
     feature = "anthropic",
     feature = "bedrock",
+    feature = "openai",
     feature = "openai-compatible",
     test
 ))]

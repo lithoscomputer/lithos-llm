@@ -269,22 +269,21 @@ fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Erro
     {
         return Err(unsupported_capability(route, "cache routing"));
     }
-    if let Some(limits) = route.model().limits() {
-        if request
+    if let Some(limits) = route.model().limits()
+        && request
             .max_output_tokens()
             .is_some_and(|tokens| u64::from(tokens) > limits.max_output_tokens)
-        {
-            return Err(Error::new(
-                ErrorKind::InvalidRequest,
-                format!(
-                    "model {} allows at most {} output tokens",
-                    route.handle(),
-                    limits.max_output_tokens
-                ),
-            )
-            .with_provider(route.provider().id().clone())
-            .with_provider_code("max_output_tokens"));
-        }
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidRequest,
+            format!(
+                "model {} allows at most {} output tokens",
+                route.handle(),
+                limits.max_output_tokens
+            ),
+        )
+        .with_provider(route.provider().id().clone())
+        .with_provider_code("max_output_tokens"));
     }
     for part in request.messages().iter().flat_map(Message::content) {
         let capability = match part {

@@ -43,6 +43,8 @@ mod gemini;
 #[cfg(feature = "openai-compatible")]
 mod modal;
 #[cfg(feature = "openai-compatible")]
+mod moonshot;
+#[cfg(feature = "openai-compatible")]
 mod openrouter;
 mod support;
 #[cfg(feature = "openai-compatible")]

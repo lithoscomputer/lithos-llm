@@ -178,25 +178,24 @@ fn validate_provider(
                 });
             }
         }
-        if let Some(limits) = model.limits() {
-            if limits.max_output_tokens > limits.context_tokens {
-                return Err(CatalogError::InvalidModelLimits {
-                    model: ModelHandle::new(provider_id.clone(), model_id.clone()),
-                });
-            }
+        if let Some(limits) = model.limits()
+            && limits.max_output_tokens > limits.context_tokens
+        {
+            return Err(CatalogError::InvalidModelLimits {
+                model: ModelHandle::new(provider_id.clone(), model_id.clone()),
+            });
         }
     }
 
-    if let Some(default_model) = provider.default_model() {
-        if !provider
+    if let Some(default_model) = provider.default_model()
+        && !provider
             .models()
             .any(|model| model.id().as_str() == default_model)
-        {
-            return Err(CatalogError::UnknownDefaultModel {
-                provider: provider_id.clone(),
-                model:    default_model.to_owned(),
-            });
-        }
+    {
+        return Err(CatalogError::UnknownDefaultModel {
+            provider: provider_id.clone(),
+            model:    default_model.to_owned(),
+        });
     }
     Ok(())
 }

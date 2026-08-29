@@ -318,10 +318,10 @@ impl Stream for FinalizeStream {
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let result = self.stream.as_mut().poll_next(context);
-        if matches!(result, Poll::Ready(None)) {
-            if let Some(finalize) = self.finalize.take() {
-                finalize();
-            }
+        if matches!(result, Poll::Ready(None))
+            && let Some(finalize) = self.finalize.take()
+        {
+            finalize();
         }
         result
     }

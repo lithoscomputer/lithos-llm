@@ -391,21 +391,21 @@ impl RequestBuilder {
             if !tool_names.insert(tool.name.as_str()) {
                 return Err(RequestBuildError::DuplicateToolName);
             }
-            if let ToolDefinitionKind::Custom { format } = &tool.kind {
-                if format.is_null() {
-                    return Err(RequestBuildError::CustomToolFormatRequired);
-                }
+            if let ToolDefinitionKind::Custom { format } = &tool.kind
+                && format.is_null()
+            {
+                return Err(RequestBuildError::CustomToolFormatRequired);
             }
         }
-        if let Some(ToolChoice::Tool { name }) = &self.tool_choice {
-            if !tool_names.contains(name.as_str()) {
-                return Err(RequestBuildError::UnknownToolChoice);
-            }
+        if let Some(ToolChoice::Tool { name }) = &self.tool_choice
+            && !tool_names.contains(name.as_str())
+        {
+            return Err(RequestBuildError::UnknownToolChoice);
         }
-        if let Some(ResponseFormat::JsonSchema { name, .. }) = &self.response_format {
-            if name.trim().is_empty() {
-                return Err(RequestBuildError::EmptySchemaName);
-            }
+        if let Some(ResponseFormat::JsonSchema { name, .. }) = &self.response_format
+            && name.trim().is_empty()
+        {
+            return Err(RequestBuildError::EmptySchemaName);
         }
         if self
             .provider_options

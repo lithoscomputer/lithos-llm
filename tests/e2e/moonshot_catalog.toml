@@ -1,0 +1,38 @@
+# The Kimi K3 roster for Moonshot's live E2E suite.
+#
+# Sources checked on 2026-08-29: Moonshot's official K3 model, pricing,
+# parameter, caching, vision, tool-calling, and structured-output docs; the
+# authenticated `GET /v1/models` listing; and raw Chat Completions probes.
+# The probes confirmed blocking and streaming URL shape, low/high/max effort,
+# strict JSON Schema, automatic cache reads, standard usage counters, and
+# Moonshot's standard error envelopes.
+#
+# Pricing stays in this catalog because Moonshot reports token usage but no
+# in-band cost. The smoke suite therefore asserts `CostSource::Catalog`.
+
+schema_version = 1
+
+[providers.moonshot]
+display_name = "Moonshot AI"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://api.moonshot.ai/v1"
+# Passthrough lets the negative suite send an unknown model id to Moonshot.
+allow_passthrough = true
+default_model = "kimi-k3"
+
+[providers.moonshot.auth]
+type = "bearer"
+
+[providers.moonshot.models."kimi-k3"]
+display_name = "Kimi K3"
+aliases = ["kimi"]
+api_model = "kimi-k3"
+limits = { context_tokens = 1048576, max_output_tokens = 1048576 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
+
+[providers.moonshot.models."kimi-k3".metadata.fabro]
+agent_profile = "kimi"
+family = "kimi-k3"
+api_key_url = "https://platform.kimi.ai/console/api-keys"

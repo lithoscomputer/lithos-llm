@@ -18,6 +18,9 @@ This project follows [Semantic Versioning](https://semver.org/).
   tools, structured output, reasoning, caching, media, and error behavior.
 - Gemini reasoning effort now maps to the native low, medium, and high
   `thinkingLevel` values without enabling thought-summary disclosure.
+- The built-in catalog now includes Moonshot AI with a live-verified Kimi K3
+  route, pricing and capability data, plus conventional
+  `MOONSHOT_API_KEY` credentials with `KIMI_API_KEY` as a fallback.
 - The built-in catalog now includes OpenRouter with live-verified model routes,
   provider-reported cost support, and conventional
   `OPENROUTER_API_KEY` credentials.
