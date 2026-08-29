@@ -1,6 +1,8 @@
 //! The Gemini `generateContent` wire protocol.
 
 use std::collections::HashMap;
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher as _, Hasher as _};
 
 use reqwest::Method;
 use serde_json::{Map, Value, json};
@@ -98,13 +100,16 @@ impl Codec for GeminiGenerateCodec {
             .get("responseId")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned);
+        // The ids synthesized for function calls need a scope even when the
+        // payload names no response; see [`tool_call_id`].
+        let scope = id.clone().unwrap_or_else(response_nonce);
 
         // The candidate is decoded through a closure so that the borrow of
         // `value` ends here: the no-candidates path below takes the whole
         // document as the error's raw data.
         let decoded = value
             .pointer("/candidates/0")
-            .map(|candidate| decode_candidate(candidate, id.as_deref()));
+            .map(|candidate| decode_candidate(candidate, &scope));
         let Some((content, finished)) = decoded else {
             return Err(no_candidates(route, value));
         };
@@ -536,10 +541,7 @@ fn encode_tool_result(result: &ToolResult, names: &HashMap<&str, &str>) -> Value
 ///
 /// `response_id` scopes the ids synthesized for the function calls; see
 /// [`tool_call_id`].
-fn decode_candidate(
-    candidate: &Value,
-    response_id: Option<&str>,
-) -> (Vec<ContentPart>, FinishReason) {
+fn decode_candidate(candidate: &Value, response_id: &str) -> (Vec<ContentPart>, FinishReason) {
     let mut content = Vec::new();
     let mut calls = 0;
     for part in candidate
@@ -653,11 +655,11 @@ fn decode_text(part: &Value, text: &str) -> ContentPart {
 /// Decodes a `functionCall` part into a tool call.
 ///
 /// `ordinal` counts the function calls already decoded from this response, so
-/// the synthesized id is stable across repeated decodes of the same payload.
+/// the synthesized id is stable within the response it came from.
 fn decode_tool_call(
     part: &Value,
     function_call: &Value,
-    response_id: Option<&str>,
+    response_id: &str,
     ordinal: usize,
 ) -> ContentPart {
     let name = function_call
@@ -696,15 +698,14 @@ fn decode_tool_call(
 ///   payload. It is the fallback that is dropped, not the ordinal: the id stays
 ///   readable, and the plain `{name}-{ordinal}` form remains its prefix.
 ///
-/// A payload that carries no `responseId` — Gemini omits it on some routes —
-/// keeps the bare `{name}-{ordinal}` form. That is the same identity the ids
-/// had before, so nothing is worse for it.
-fn tool_call_id(
-    function_call: &Value,
-    name: &str,
-    response_id: Option<&str>,
-    ordinal: usize,
-) -> String {
+/// A payload that carries no `responseId` — some gateways omit it — is scoped
+/// by a [`response_nonce`] minted once per decode instead. That trades the
+/// pure-function property for uniqueness: the bare `{name}-{ordinal}` form
+/// repeats across turns, so a multi-turn loop calling the same tool once per
+/// turn carried `search-0` twice — colliding in id-keyed applications and
+/// replaying duplicate `functionCall.id`/`functionResponse.id` values on the
+/// wire.
+fn tool_call_id(function_call: &Value, name: &str, response_id: &str, ordinal: usize) -> String {
     if let Some(id) = function_call
         .get("id")
         .and_then(Value::as_str)
@@ -713,10 +714,17 @@ fn tool_call_id(
         return id.to_owned();
     }
 
-    match response_id {
-        Some(response) => format!("{name}-{ordinal}-{response}"),
-        None => format!("{name}-{ordinal}"),
-    }
+    format!("{name}-{ordinal}-{response_id}")
+}
+
+/// A random scope for the synthesized ids of one response without a
+/// `responseId`.
+///
+/// Every [`RandomState`] carries its own keys, so finishing an empty hasher
+/// yields a fresh value per call without a dependency on a randomness crate,
+/// which this crate deliberately avoids.
+fn response_nonce() -> String {
+    format!("{:016x}", RandomState::new().build_hasher().finish())
 }
 
 /// The thought signature carried alongside a part, when it has one.
@@ -793,6 +801,9 @@ struct GeminiStreamDecoder {
     started:     bool,
     /// The provider's response id, taken from the first chunk that carries one.
     response_id: Option<String>,
+    /// The random scope for synthesized call ids when no chunk names the
+    /// response; see [`tool_call_id`].
+    nonce:       String,
     /// The finish reason of the last chunk that reported one.
     finished:    Option<FinishReason>,
     /// Whether a chunk already failed, which forbids a completed response.
@@ -810,6 +821,7 @@ impl GeminiStreamDecoder {
             calls:       0,
             started:     false,
             response_id: None,
+            nonce:       response_nonce(),
             finished:    None,
             failed:      false,
         }
@@ -863,7 +875,12 @@ impl GeminiStreamDecoder {
             .get("name")
             .and_then(Value::as_str)
             .unwrap_or_default();
-        let call_id = tool_call_id(function_call, name, self.response_id.as_deref(), self.calls);
+        let call_id = tool_call_id(
+            function_call,
+            name,
+            self.response_id.as_deref().unwrap_or(&self.nonce),
+            self.calls,
+        );
         events.extend(
             self.assembler
                 .start(id.clone(), ContentBlockKind::ToolCall {
@@ -1229,9 +1246,22 @@ mod tests {
         Ok(())
     }
 
+    /// The synthesized tool-call ids of one decoded response.
+    fn call_ids(response: &Response) -> Vec<&str> {
+        response
+            .content
+            .iter()
+            .filter_map(|part| match part {
+                ContentPart::ToolCall(call) => Some(call.id.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+
     #[test]
     fn synthesized_tool_call_ids_are_deterministic() -> Result<(), Box<dyn StdError>> {
         let payload = json!({
+            "responseId": "resp-1",
             "candidates": [{ "content": { "parts": [
                 { "functionCall": { "name": "search", "args": { "query": "rust" } } },
                 { "text": "and then" },
@@ -1242,16 +1272,40 @@ mod tests {
         let first = decode(payload.clone())?;
         let second = decode(payload)?;
 
-        let ids: Vec<&str> = first
-            .content
-            .iter()
-            .filter_map(|part| match part {
-                ContentPart::ToolCall(call) => Some(call.id.as_str()),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(ids, ["search-0", "search-1"]);
+        assert_eq!(call_ids(&first), ["search-0-resp-1", "search-1-resp-1"]);
         assert_eq!(first.content, second.content);
+        Ok(())
+    }
+
+    #[test]
+    fn ids_without_a_response_id_do_not_collide_across_decodes() -> Result<(), Box<dyn StdError>> {
+        // Without a `responseId` there is nothing deterministic to scope by,
+        // and the bare `{name}-{ordinal}` form repeats across turns: a loop
+        // calling `search` once per turn carried `search-0` twice. A random
+        // nonce per decode keeps each response's ids unique instead.
+        let payload = json!({
+            "candidates": [{ "content": { "parts": [
+                { "functionCall": { "name": "search", "args": { "query": "rust" } } },
+            ] } }]
+        });
+
+        let first = decode(payload.clone())?;
+        let second = decode(payload)?;
+
+        let [first_id] = call_ids(&first)[..] else {
+            return Err(format!("unexpected content {:?}", first.content).into());
+        };
+        let [second_id] = call_ids(&second)[..] else {
+            return Err(format!("unexpected content {:?}", second.content).into());
+        };
+        assert!(
+            first_id.starts_with("search-0-"),
+            "the readable prefix must survive: {first_id}"
+        );
+        assert_ne!(
+            first_id, second_id,
+            "two responses without a responseId must not share ids"
+        );
         Ok(())
     }
 

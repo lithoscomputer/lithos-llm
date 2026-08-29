@@ -991,17 +991,30 @@ async fn synthesized_tool_call_ids_do_not_collide_across_turns() {
 }
 
 #[tokio::test]
-async fn a_payload_without_a_response_id_keeps_the_bare_synthesized_ids() {
-    // Not every route sends `responseId`. The fallback is the id these calls
-    // have always had, so nothing is worse for its absence.
+async fn a_payload_without_a_response_id_still_gets_unique_ids() {
+    // Not every route sends `responseId` — some gateways omit it. The bare
+    // `{name}-{ordinal}` fallback repeated across turns, so a random nonce
+    // per decode scopes the ids instead: each turn's ids stay unique while
+    // the readable `{name}-{ordinal}` form remains their prefix.
     let mut body = two_call_response("unused");
     body.as_object_mut()
         .expect("the body should be an object")
         .remove("responseId");
 
-    let (_, response) = complete(support::base_request(&selector()), &body).await;
+    let (_, first) = complete(support::base_request(&selector()), &body).await;
+    let (_, second) = complete(support::base_request(&selector()), &body).await;
 
-    assert_eq!(call_ids(&response), ["search-0", "search-1"]);
+    for response in [&first, &second] {
+        let ids = call_ids(response);
+        assert_eq!(ids.len(), 2);
+        assert!(ids[0].starts_with("search-0-"), "{ids:?}");
+        assert!(ids[1].starts_with("search-1-"), "{ids:?}");
+    }
+    assert_ne!(
+        call_ids(&first),
+        call_ids(&second),
+        "two turns without a responseId must not share ids"
+    );
 }
 
 #[tokio::test]
