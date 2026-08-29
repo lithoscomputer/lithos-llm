@@ -9,6 +9,7 @@ readme = "README.md"
 repository = "https://github.com/lithoscomputer/lithos-llm"
 documentation = "https://docs.rs/lithos-llm"
 include = [
+  "/build.rs",
   "/src/**",
   "/tests/**",
   "/Cargo.toml",
