@@ -11,6 +11,63 @@ This project follows [Semantic Versioning](https://semver.org/).
 - The minimum supported Rust version is 1.88 (from 1.85): the codecs now
   use let-chains, which need it.
 
+### Round-5 parity fixes
+
+A fifth differential review against the reference implementation
+(`.ai/reviews/lithos-llm-vs-fabro-llm-regressions.md`, punch list in
+`.ai/plans/lithos-llm-punch-list-5.md`) landed these:
+
+- The stream retry drops the failed attempt's stream before it sleeps and
+  reconnects. The abandoned stream could hold a resource a layer below
+  the retry releases only on drop — the concurrency limiter's permit —
+  so a retry inside a limit-1 limiter deadlocked waiting on its own
+  abandoned attempt.
+- A raw `thinking` provider option replaces the Anthropic codec's derived
+  thinking object instead of merging into it, which left a stray
+  `budget_tokens` on `{"type": "disabled"}` that the API rejects, and
+  `max_tokens` stays unlifted when the caller overrides thinking.
+- Provider-scoped selectors resolve wire model ids: `provider.model(..)`
+  falls back to `api_model` after canonical ids and aliases, so
+  `bedrock/us.anthropic.claude-sonnet-4-6` finds its catalog entry
+  (pricing, capabilities, limits) instead of a passthrough model.
+- Chat messages with no content parts omit the `content` member instead
+  of sending `"content": null`, the shape the reference client sent and
+  strict OpenAI-compatible skins require on tool round-trips.
+- The Chat stream decoder reads array-form content deltas through the
+  same both-shapes helper the blocking path uses; they were silently
+  discarded, completing such streams as empty successes.
+- `MediaSource::Url` can carry a media type
+  (`MediaSource::url_with_media_type`), and the Gemini codec sends it as
+  `fileData.mimeType`, which Vertex-style surfaces require.
+- The Responses codec no longer warns "replaying reasoning text" on its
+  own round trip: the warning fires only when a reasoning part has no
+  opaque `openai.reasoning` sibling replaying the same text.
+- A streamed Gemini blocked prompt fails as a ContentFilter error through
+  the same classifier the blocking path uses, instead of streaming as an
+  empty success.
+- Catalog cost estimation refuses to price a call whose cache-read or
+  cache-write tokens have no catalog rate, rather than billing those
+  tokens at zero and reporting a confidently wrong figure.
+- The Responses codec keeps media out of system and developer input
+  items — the protocol accepts only `input_text` there — and reports the
+  drop with the non-text-system warning in standard mode as well as
+  Codex mode.
+- Errors expose the provider's advised wait separately from the retry
+  classification (`Error::provider_retry_after`,
+  `ErrorData::provider_retry_after_millis`), so a never-retried failure
+  such as a spent-quota 429 still carries its `Retry-After` hint.
+- The Responses codec skips history tool calls with an empty name, which
+  previously encoded as `"name": ""` and drew a provider 400.
+- The Bedrock stream keeps text and `redactedContent` reasoning deltas
+  apart: text after a sealed blob is dropped (the blob is what the
+  provider verifies on replay), and a blob after text fails the stream
+  retryably instead of assembling a corrupted sealed payload.
+- Decided and recorded (no code change): the legacy
+  `prompt-caching-2024-07-31` beta header stays off Anthropic requests.
+  The GA API does not need it, and a gateway that still does can add it
+  through catalog `default_headers` or the `beta_headers` provider
+  option.
+
 ### Built-in catalog: Venice
 
 - The built-in catalog now ships one TOML file per provider
