@@ -183,6 +183,7 @@ impl Codec for AnthropicMessagesCodec {
         Box::new(AnthropicStreamDecoder {
             route:     route.clone(),
             assembler: StreamAssembler::new(route),
+            opaque:    BTreeMap::new(),
         })
     }
 
@@ -883,6 +884,14 @@ fn block_id(value: &Value) -> ContentBlockId {
 struct AnthropicStreamDecoder {
     route:     ResolvedRoute,
     assembler: StreamAssembler,
+    /// Unknown server-side blocks that may stream their `input`.
+    ///
+    /// A `server_tool_use` block arrives as a start snapshot with an empty
+    /// `input` and streams the real value through `input_json_delta`. The
+    /// fragments accumulate here next to the snapshot and fold back into it
+    /// when the block closes, so the replayed block matches what the blocking
+    /// decoder keeps whole.
+    opaque:    BTreeMap<ContentBlockId, (Value, String)>,
 }
 
 impl StreamDecoder for AnthropicStreamDecoder {
@@ -920,7 +929,11 @@ impl StreamDecoder for AnthropicStreamDecoder {
             }
             Some("content_block_start") => events.extend(self.start_block(&value)),
             Some("content_block_delta") => events.extend(self.block_delta(&value)),
-            Some("content_block_stop") => events.extend(self.assembler.end(&block_id(&value))),
+            Some("content_block_stop") => {
+                let id = block_id(&value);
+                events.extend(self.flush_opaque(&id));
+                events.extend(self.assembler.end(&id));
+            }
             Some("message_delta") => {
                 if let Some(reason) = value.pointer("/delta/stop_reason").and_then(Value::as_str) {
                     // A refusal fails the stream here, before `message_stop`
@@ -965,7 +978,13 @@ impl StreamDecoder for AnthropicStreamDecoder {
         // here keeps the one-`Completed`-per-successful-stream contract; a
         // stream that already saw `message_stop` gets nothing, because
         // completing is idempotent.
-        Ok(self.assembler.complete())
+        let ids: Vec<ContentBlockId> = self.opaque.keys().cloned().collect();
+        let mut events = Vec::new();
+        for id in &ids {
+            events.extend(self.flush_opaque(id));
+        }
+        events.extend(self.assembler.complete());
+        Ok(events)
     }
 }
 
@@ -1028,6 +1047,7 @@ impl AnthropicStreamDecoder {
                     kind: format!("{NAMESPACE}.{kind}"),
                 });
                 events.extend(self.assembler.set_opaque_data(&id, block.clone()));
+                self.opaque.insert(id, (block.clone(), String::new()));
                 events
             }
             None => Vec::new(),
@@ -1047,9 +1067,40 @@ impl AnthropicStreamDecoder {
             // A signature is block state, not visible output, so it produces no
             // event of its own.
             Some("signature_delta") => self.assembler.signature(&id, field(delta, "signature")),
-            Some("input_json_delta") => self.assembler.arguments(&id, field(delta, "partial_json")),
+            Some("input_json_delta") => {
+                let fragment = field(delta, "partial_json");
+                // A server-side block streams its `input` the same way a tool
+                // call does; the fragments belong to the snapshot, not to a
+                // tool-call buffer.
+                if let Some((_, buffer)) = self.opaque.get_mut(&id) {
+                    buffer.push_str(fragment);
+                    return Vec::new();
+                }
+                self.assembler.arguments(&id, fragment)
+            }
             _ => Vec::new(),
         }
+    }
+
+    /// Folds a server-side block's streamed input back into its snapshot.
+    ///
+    /// Runs when the block closes, and again at end of stream for a block a
+    /// truncated stream never closed. Fragments that do not parse leave the
+    /// start snapshot untouched, which is the pre-accumulation behavior.
+    fn flush_opaque(&mut self, id: &ContentBlockId) -> Vec<StreamEvent> {
+        let Some((mut payload, buffer)) = self.opaque.remove(id) else {
+            return Vec::new();
+        };
+        if buffer.is_empty() {
+            return Vec::new();
+        }
+        let Ok(input) = serde_json::from_str::<Value>(&buffer) else {
+            return Vec::new();
+        };
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("input".to_owned(), input);
+        }
+        self.assembler.set_opaque_data(id, payload)
     }
 }
 
@@ -1119,6 +1170,73 @@ mod tests {
         }
         decoded.extend(decoder.finish()?);
         Ok(decoded)
+    }
+
+    #[test]
+    fn a_streamed_server_tool_use_block_keeps_its_streamed_input() -> Result<(), Box<dyn StdError>>
+    {
+        // A server-side block opens with an empty `input` and streams the
+        // real value through `input_json_delta`. The assembled opaque part
+        // must carry the streamed input — the shape the blocking decoder
+        // keeps whole — or a replay misrepresents what the model did.
+        let events = stream(vec![
+            sse(
+                "message_start",
+                &json!({ "type": "message_start", "message": { "id": "msg_1" } }),
+            ),
+            sse(
+                "content_block_start",
+                &json!({
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {
+                        "type": "server_tool_use",
+                        "id": "srvtoolu_1",
+                        "name": "web_search",
+                        "input": {},
+                    },
+                }),
+            ),
+            sse(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "input_json_delta", "partial_json": "{\"query\":" },
+                }),
+            ),
+            sse(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "input_json_delta", "partial_json": "\"rust\"}" },
+                }),
+            ),
+            sse(
+                "content_block_stop",
+                &json!({ "type": "content_block_stop", "index": 0 }),
+            ),
+            sse("message_stop", &json!({ "type": "message_stop" })),
+        ])?;
+
+        let parts: Vec<_> = events
+            .iter()
+            .filter_map(|event| match event {
+                StreamEvent::ContentBlockEnd { part, .. } => Some(part.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(parts, vec![ContentPart::Opaque {
+            kind: "anthropic.server_tool_use".to_owned(),
+            data: json!({
+                "type": "server_tool_use",
+                "id": "srvtoolu_1",
+                "name": "web_search",
+                "input": { "query": "rust" },
+            }),
+        }]);
+        Ok(())
     }
 
     #[test]
