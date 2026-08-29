@@ -593,6 +593,14 @@ fn no_candidates(route: &ResolvedRoute, value: Value) -> Error {
         .with_retry(RetryClassification::Safe);
     };
 
+    blocked_prompt(route, reason).with_raw_data(value)
+}
+
+/// The classified error for a prompt Gemini blocked, streamed or not.
+///
+/// The restated `error` payload exists only for the shared classifier; the
+/// caller replaces it with the provider's own document as raw data.
+fn blocked_prompt(route: &ResolvedRoute, reason: &str) -> Error {
     let classified = json!({
         "error": {
             "status": reason,
@@ -600,7 +608,7 @@ fn no_candidates(route: &ResolvedRoute, value: Value) -> Error {
                 format!("blocked the prompt under its content policy (block reason {reason})"),
         }
     });
-    provider_error(route.provider(), None, Some(classified), None).with_raw_data(value)
+    provider_error(route.provider(), None, Some(classified), None)
 }
 
 /// Decodes a text part into visible text or reasoning.
@@ -908,6 +916,19 @@ impl GeminiStreamDecoder {
                 Some(value),
                 None,
             ));
+        }
+
+        // A blocked prompt streams as a chunk carrying `promptFeedback` and
+        // no candidates. The blocking path classifies it as a content-policy
+        // failure, and an empty successful stream would hide the block, so
+        // the stream fails the same way.
+        if value.pointer("/candidates/0").is_none()
+            && let Some(reason) = value
+                .pointer("/promptFeedback/blockReason")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        {
+            return Err(blocked_prompt(&self.route, &reason).with_raw_data(value));
         }
 
         let mut events = Vec::new();
@@ -1323,6 +1344,33 @@ mod tests {
                 .any(|event| matches!(event, StreamEvent::TextDelta { text, .. } if text == "hi")),
             "{events:?}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_blocked_prompt_fails_like_the_blocking_path() -> Result<(), Box<dyn StdError>> {
+        // A blocked prompt must not stream as an empty success while the
+        // blocking path reports a content filter for the same body.
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .build()?,
+        )?;
+        let mut decoder = GeminiGenerateCodec.stream_decoder(call.route());
+
+        let error = decoder
+            .decode(SseEvent {
+                event: None,
+                data:  json!({ "promptFeedback": { "blockReason": "SAFETY" } }).to_string(),
+            })
+            .expect_err("a blocked prompt must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("SAFETY"));
+        assert_eq!(error.retry_classification(), RetryClassification::Never);
+        // The failed stream never completes.
+        assert_eq!(decoder.finish()?, Vec::new());
         Ok(())
     }
 
