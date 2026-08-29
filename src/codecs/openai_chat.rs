@@ -583,12 +583,22 @@ fn merge_detail(entry: &mut Value, fragment: &Value) {
 /// The structured reasoning channel of a complete response message.
 ///
 /// Providers document an array of detail objects; a lone object is accepted as
-/// a single entry. The payload is preserved exactly as it arrived, because
-/// only the model that wrote it can read the encrypted members.
+/// a single entry. The entries are preserved exactly as they arrived — order,
+/// count, and shape — because only the model that wrote them can read the
+/// encrypted members. Only a stream coalesces, and only because it must undo
+/// its own fragmenting; a complete payload is already whole, and merging two
+/// same-type entries here would discard the second one's signature.
 fn complete_details(message: &Value) -> Option<ContentPart> {
-    let mut details = ReasoningDetails::default();
-    details.absorb(message.get(REASONING_DETAILS)?);
-    Some(ContentPart::opaque(details_kind(), details.entries()?))
+    let entries: Vec<Value> = match message.get(REASONING_DETAILS)? {
+        Value::Array(entries) => entries
+            .iter()
+            .filter(|entry| entry.is_object())
+            .cloned()
+            .collect(),
+        payload @ Value::Object(_) => vec![payload.clone()],
+        _ => Vec::new(),
+    };
+    (!entries.is_empty()).then(|| ContentPart::opaque(details_kind(), Value::Array(entries)))
 }
 
 /// The error a 200 with no choices decodes into.
@@ -1792,6 +1802,35 @@ mod tests {
         let details = json!([
             { "type": "reasoning.encrypted", "id": "rs-1", "data": "opaque" },
             { "type": "reasoning.text", "text": "step one", "index": 0 },
+        ]);
+        let response = decode(json!({
+            "choices": [{
+                "message": { "content": "done", "reasoning_details": details },
+                "finish_reason": "stop",
+            }],
+        }))?;
+
+        let first = response.content.first().ok_or("expected an opaque part")?;
+        match first {
+            ContentPart::Opaque { kind, data } => {
+                assert_eq!(kind, "openai_compatible.reasoning_details");
+                assert_eq!(data, &details);
+            }
+            other => return Err(format!("expected an opaque part, got {other:?}").into()),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn same_type_unindexed_complete_details_stay_separate_entries() -> Result<(), Box<dyn StdError>>
+    {
+        // Multi-block reasoning through an aggregator: two entries of one
+        // type, no indexes, each sealed by its own signature. Coalescing them
+        // would discard the second signature and fail verification upstream
+        // on replay — only a stream coalesces, to undo its own fragmenting.
+        let details = json!([
+            { "type": "reasoning.text", "text": "step one", "signature": "sig-1" },
+            { "type": "reasoning.text", "text": "step two", "signature": "sig-2" },
         ]);
         let response = decode(json!({
             "choices": [{

@@ -184,19 +184,28 @@ async fn accepts_the_effort_level(model: &str, effort: ReasoningEffort) -> TestR
         "effort {effort:?} was not answered normally: {:?}",
         response.finish_reason
     );
+    // Reasoning evidence is either bucket: some skins count reasoning tokens
+    // in usage, others return the reasoning text without counting it — qwen
+    // on Venice sends 500+ characters of `reasoning_content` with no
+    // `reasoning_tokens` detail at all.
+    let reasoning_parts: usize = response
+        .content
+        .iter()
+        .filter(|part| matches!(part, ContentPart::Reasoning(_)))
+        .count();
     support::observe(&format!(
-        "{model} effort {effort:?}: reasoning tokens {}",
+        "{model} effort {effort:?}: reasoning tokens {}, reasoning parts {reasoning_parts}",
         response.usage.reasoning
     ));
-    // On a question this hard, a model that takes effort levels must spend
-    // reasoning tokens at the high end of its vocabulary.
+    // On a question this hard, a model that takes effort levels must show
+    // reasoning at the high end of its vocabulary.
     if matches!(
         effort,
         ReasoningEffort::High | ReasoningEffort::Xhigh | ReasoningEffort::Max
     ) {
         assert!(
-            response.usage.reasoning > 0,
-            "{model} spent no reasoning tokens at effort {effort:?} on a hard question"
+            response.usage.reasoning > 0 || reasoning_parts > 0,
+            "{model} showed no reasoning at effort {effort:?} on a hard question"
         );
     }
     Ok(())

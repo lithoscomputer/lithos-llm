@@ -21,6 +21,10 @@ work:
   said `stop` or reported no reason, matching the Responses codec's rule and
   the reference client; an explicit non-stop reason such as `length` still
   wins.
+- Complete-response `reasoning_details` are preserved verbatim — order,
+  count, and shape — instead of passing through the stream coalescer, which
+  merged same-type unindexed entries and dropped the second entry's
+  signature.
 
 ### Round-2 parity fixes
 
