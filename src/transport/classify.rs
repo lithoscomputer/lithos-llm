@@ -225,6 +225,13 @@ pub(crate) fn classify(
         Some(400 | 422) => code_kind
             .or(message_kind)
             .unwrap_or(ErrorKind::InvalidRequest),
+        // A timeout code wins over the generic 5xx mapping: Gemini reports a
+        // server-side DEADLINE_EXCEEDED as HTTP 504, and by then the provider
+        // may have spent (and billed) the full execution, so the request must
+        // not be re-sent.
+        Some(status) if status >= 500 && code_kind.or(message_kind) == Some(ErrorKind::Timeout) => {
+            ErrorKind::Timeout
+        }
         Some(status) if status >= 500 => ErrorKind::Server,
         Some(_) => code_kind.or(message_kind).unwrap_or(ErrorKind::Provider),
         // Mid-stream failures carry no status. An unrecognized one is
@@ -669,6 +676,29 @@ mod tests {
         assert_eq!(
             kinds(&spent),
             (ErrorKind::QuotaExceeded, RetryClassification::Never)
+        );
+    }
+
+    #[test]
+    fn never_retries_a_server_side_deadline_expiry() {
+        // Gemini reports DEADLINE_EXCEEDED as HTTP 504. The provider may have
+        // spent (and billed) the full execution, so the timeout code must win
+        // over the generic 5xx server mapping.
+        let http = classify(Some(504), Some("DEADLINE_EXCEEDED"), None, None);
+        assert_eq!(
+            kinds(&http),
+            (ErrorKind::Timeout, RetryClassification::Never)
+        );
+
+        // A bare 504 with no code stays a retryable server failure.
+        let bare = classify(Some(504), None, None, None);
+        assert_eq!(kinds(&bare), (ErrorKind::Server, RetryClassification::Safe));
+
+        // The mid-stream form carries no status and classifies the same way.
+        let stream = classify(None, Some("deadline_exceeded"), None, None);
+        assert_eq!(
+            kinds(&stream),
+            (ErrorKind::Timeout, RetryClassification::Never)
         );
     }
 
