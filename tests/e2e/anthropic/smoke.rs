@@ -48,6 +48,28 @@ mod stop_sequence {
     model_tests!(super::stops_at_the_stop_sequence);
 }
 
+mod token_count {
+    use super::*;
+
+    model_tests!(super::counts_input_tokens_natively);
+}
+
+async fn counts_input_tokens_natively(model: &str) -> TestResult {
+    let Some(client) = anthropic::live_client() else {
+        return support::skip("ANTHROPIC_API_KEY is unset");
+    };
+    let request = anthropic::request(model)
+        .system("Answer briefly.")
+        .user("In one short sentence, say hello.")
+        .build()?;
+    let count = client
+        .count_input_tokens(request)
+        .await?
+        .ok_or("Anthropic has a native count_tokens endpoint")?;
+    assert!(count.tokens() > 0, "the provider counted zero input tokens");
+    Ok(())
+}
+
 async fn completes_with_usage_and_catalog_cost(model: &str) -> TestResult {
     let Some(client) = anthropic::live_client() else {
         return support::skip("ANTHROPIC_API_KEY is unset");
