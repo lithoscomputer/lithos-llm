@@ -7,6 +7,8 @@ pub mod catalog;
 pub mod resolver;
 pub mod types;
 
+mod cost;
+
 #[cfg(feature = "runtime")]
 pub mod adapter;
 #[cfg(feature = "runtime")]

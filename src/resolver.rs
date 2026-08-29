@@ -5,7 +5,8 @@ use std::collections::BTreeSet;
 use thiserror::Error;
 
 use crate::catalog::{Catalog, CatalogModel, CatalogProvider, ModelHandle, ModelId, ProviderId};
-use crate::types::{Error as LlmError, ErrorKind, Request};
+use crate::cost::estimate_catalog_cost;
+use crate::types::{Cost, Error as LlmError, ErrorKind, Request, Speed, TokenCounts};
 
 /// Providers with runtime adapters available to the client.
 #[derive(Clone, Debug, Default)]
@@ -63,6 +64,19 @@ impl ResolvedRoute {
 
     pub fn handle(&self) -> ModelHandle {
         ModelHandle::new(self.provider.id().clone(), self.model.id().clone())
+    }
+
+    /// Estimates the catalog cost for supplied token usage on this route.
+    ///
+    /// The token buckets must be disjoint as described by [`TokenCounts`].
+    /// The estimate selects long-context rates from the whole prompt and then
+    /// applies rates for `speed`. It returns `None` when the model has no
+    /// catalog pricing or a non-empty cache bucket has no applicable rate.
+    ///
+    /// This calculation has no state. It does not reserve or enforce a budget.
+    #[must_use]
+    pub fn estimate_cost(&self, usage: TokenCounts, speed: Option<Speed>) -> Option<Cost> {
+        estimate_catalog_cost(self, usage, speed)
     }
 }
 
@@ -242,7 +256,7 @@ mod tests {
 
     use super::{AvailableProviders, CatalogResolver, ModelResolver};
     use crate::catalog::Catalog;
-    use crate::types::Request;
+    use crate::types::{CostSource, Request, TokenCounts};
 
     const TEST_CATALOG: &str = r#"
         schema_version = 1
@@ -261,7 +275,34 @@ mod tests {
         aliases = ["uno"]
         api_model = "alpha-one-v1"
         capabilities = { text = true }
+        pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 2000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 500000 }
     "#;
+
+    #[test]
+    fn a_resolved_route_estimates_catalog_cost() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().overlay_toml(TEST_CATALOG)?.build()?;
+        let available = AvailableProviders::all(&catalog);
+        let request = Request::builder()
+            .model("alpha/one")
+            .user("Hello")
+            .build()?;
+        let route = CatalogResolver.resolve(&request, &catalog, &available)?;
+
+        let cost = route.estimate_cost(
+            TokenCounts {
+                input:       1_000,
+                output:      1_000,
+                reasoning:   1_000,
+                cache_read:  1_000,
+                cache_write: 1_000,
+            },
+            None,
+        );
+
+        assert_eq!(cost.map(|cost| cost.usd_micros), Some(5_600));
+        assert_eq!(cost.map(|cost| cost.source), Some(CostSource::Catalog));
+        Ok(())
+    }
 
     #[test]
     fn reports_the_api_model_for_catalog_and_passthrough_routes() -> Result<(), Box<dyn StdError>> {
