@@ -2,6 +2,7 @@
 
 use std::error::Error as StdError;
 use std::future::pending;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -13,7 +14,8 @@ use lithos_llm::adapter::{ProviderAdapter, ResolvedCall};
 use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId};
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
-    Call, CallContext, Middleware, Next, Output, RetryMiddleware, RetryPolicy, TimeoutMiddleware,
+    Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Output, RetryMiddleware,
+    RetryPolicy, TimeoutMiddleware,
 };
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
@@ -23,6 +25,7 @@ use lithos_llm::types::{
 use lithos_llm::{Client, Request};
 use tokio::spawn;
 use tokio::task::yield_now;
+use tokio::time::timeout;
 
 const TEST_CATALOG: &str = r#"
 schema_version = 1
@@ -251,6 +254,41 @@ async fn retry_restarts_stream_before_visible_output() -> Result<(), Box<dyn Std
         .client;
 
     let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+
+    assert!(matches!(
+        events.as_slice(),
+        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+    ));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_stream_retry_does_not_deadlock_behind_the_concurrency_limiter()
+-> Result<(), Box<dyn StdError>> {
+    // The failed attempt's stream holds the limiter's only permit until it is
+    // dropped. The retry must release that stream before reconnecting, or the
+    // reconnect waits forever on its own abandoned attempt.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut adapter = FakeAdapter::successful();
+    adapter.stream_calls = calls.clone();
+    adapter.stream_fails_initial = true;
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", adapter)
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential()
+                .max_attempts(2)
+                .initial_delay(Duration::ZERO),
+        ))
+        .middleware(ConcurrencyLimitMiddleware::new(NonZeroUsize::MIN))
+        .build()?
+        .client;
+
+    let stream = client.stream(request()?).await?;
+    let events = timeout(Duration::from_secs(5), stream.collect::<Vec<_>>())
+        .await
+        .expect("the stream retry should not hang on the limiter's permit");
 
     assert!(matches!(
         events.as_slice(),

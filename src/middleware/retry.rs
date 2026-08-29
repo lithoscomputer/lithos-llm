@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
-use futures_util::stream::unfold;
+use futures_util::stream::{empty, unfold};
 use tokio::time::sleep;
 
 use super::{Call, Middleware, Mode, Next, Output};
@@ -242,6 +242,12 @@ fn retry_stream(
                     state.ready.push_back(Ok(event));
                 }
                 Some(Err(mut error)) if !state.visible => {
+                    // The failed attempt's stream must be dropped before the
+                    // backoff sleep and the reconnect: a layer below may hold
+                    // a resource — a concurrency permit, a connection — for
+                    // exactly as long as its stream lives, and the reconnect
+                    // re-enters that layer to acquire the same resource.
+                    state.stream = Box::pin(empty());
                     while let Some(delay) = state.policy.next_delay(state.attempt, &error) {
                         if deadline_prevents_retry(&state.call, delay) {
                             break;
