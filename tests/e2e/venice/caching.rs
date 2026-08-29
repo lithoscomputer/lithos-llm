@@ -31,12 +31,16 @@ mod round_trip {
 /// 2026-08-29 a paragraph repeated 120 times wrote a 13k-token cache entry
 /// on Venice's Claude path on every call and never read one, while varied
 /// prose of the same size read back cleanly — and Anthropic-direct refuses
-/// the same repetitive content outright. The crate's own changelog is
-/// committed, large, and varied, so it serves as the corpus.
+/// the same repetitive content outright.
+///
+/// The corpus is a frozen fixture, not a living file: replay matches
+/// requests by body hash, so the prefix must be byte-identical between the
+/// recording and every later replay. Do not edit the fixture; editing it
+/// invalidates the caching recordings until `mise run test:e2e:record`.
 fn large_prefix() -> String {
     format!(
         "You answer questions about this changelog:\n\n{}",
-        include_str!("../../../CHANGELOG.md")
+        include_str!("../fixtures/cache_prefix.txt")
     )
 }
 
