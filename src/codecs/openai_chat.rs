@@ -49,6 +49,9 @@ const OPAQUE_PREFIX: &str = "openai_compatible.";
 /// [`encode_chat_message`] replays it into the same place.
 const REASONING_DETAILS: &str = "reasoning_details";
 
+/// The kind the reference implementation persisted the channel under.
+const LEGACY_DETAILS_KIND: &str = "openai_compat_reasoning_details";
+
 /// The id of the single streamed text block.
 ///
 /// The protocol carries no block ids at all, so every text fragment of one
@@ -759,11 +762,15 @@ fn encode_chat_message(message: &Message) -> Value {
 
     // An opaque part of this dialect names the message field it came from, so
     // `openai_compatible.reasoning_details` replays as `reasoning_details`.
+    // The reference implementation persisted the same payload under
+    // `openai_compat_reasoning_details`; a migrated history replays alike.
     // Parts of another namespace are skipped, which keeps failover working.
     for part in message.content() {
         if let ContentPart::Opaque { kind, data } = part {
             if let Some(field) = kind.strip_prefix(OPAQUE_PREFIX) {
                 value[field] = data.clone();
+            } else if kind == LEGACY_DETAILS_KIND {
+                value[REASONING_DETAILS] = data.clone();
             }
         }
     }
@@ -1491,6 +1498,32 @@ mod tests {
             json!(r#"{"city":"Boston","temp_c":4}"#),
             "the value itself, not the ContentPart envelope"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_legacy_reasoning_details_kind_replays_into_the_field() -> Result<(), Box<dyn StdError>> {
+        // The reference implementation persisted the channel as
+        // `openai_compat_reasoning_details`; a migrated history must keep its
+        // signed reasoning on replay, or the aggregator sees an unsigned turn.
+        let details = json!([{ "type": "reasoning.encrypted", "id": "rs-1", "data": "AQ==" }]);
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .user("hi")
+                .message(Message::new(Role::Assistant, [
+                    ContentPart::opaque("openai_compat_reasoning_details", details.clone()),
+                    ContentPart::Text {
+                        text: "Looking it up.".to_owned(),
+                    },
+                ]))
+                .user("thanks")
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(encoded.body["messages"][1]["reasoning_details"], details);
         Ok(())
     }
 

@@ -38,6 +38,10 @@ work:
 - Migration compatibility: `TokenCounts` deserializes the reference
   implementation's `input_tokens`-style field names as aliases, so persisted
   usage keeps its values instead of silently loading as all-zero buckets.
+- Migration compatibility: the Chat codec replays the legacy
+  `openai_compat_reasoning_details` opaque kind into `reasoning_details`,
+  so histories the reference implementation persisted keep their signed
+  reasoning.
 
 ### Round-2 parity fixes
 
