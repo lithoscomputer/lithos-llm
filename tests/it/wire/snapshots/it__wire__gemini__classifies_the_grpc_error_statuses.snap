@@ -39,13 +39,13 @@ expression: rendered
   },
   {
     "kind": "not_found",
-    "message": "provider gemini models/gemini-2.5-pro-002 is not found for API version v1beta.",
+    "message": "provider gemini models/gemini-3.1-pro-002 is not found for API version v1beta.",
     "provider": "gemini",
     "provider_code": "NOT_FOUND",
     "raw_data": {
       "error": {
         "code": 404,
-        "message": "models/gemini-2.5-pro-002 is not found for API version v1beta.",
+        "message": "models/gemini-3.1-pro-002 is not found for API version v1beta.",
         "status": "NOT_FOUND"
       }
     },

@@ -18,7 +18,7 @@ expression: rendered
       "generationConfig": {
         "maxOutputTokens": 128
       },
-      "model": "models/gemini-2.5-pro-002",
+      "model": "models/gemini-3.1-pro-002",
       "safetySettings": [
         {
           "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
@@ -97,5 +97,5 @@ expression: rendered
     ]
   ],
   "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:countTokens"
+  "path": "/v1beta/models/gemini-3.1-pro-002:countTokens"
 }

@@ -52,18 +52,18 @@ use crate::support::{
 const PROVIDER: &str = "gemini";
 
 /// The catalog model id, which is the half of the selector a caller types.
-const MODEL: &str = "gemini-2.5-pro";
+const MODEL: &str = "gemini-3.1-pro";
 
 /// The provider's own model id. It differs from [`MODEL`] so that a snapshot
 /// showing `MODEL` in a URL would be a visible bug.
-const API_MODEL: &str = "gemini-2.5-pro-002";
+const API_MODEL: &str = "gemini-3.1-pro-002";
 
 /// The header Gemini authenticates with. The harness redacts its value.
 const API_KEY_HEADER: &str = "x-goog-api-key";
 
-const GENERATE_PATH: &str = "/v1beta/models/gemini-2.5-pro-002:generateContent";
-const STREAM_PATH: &str = "/v1beta/models/gemini-2.5-pro-002:streamGenerateContent";
-const COUNT_PATH: &str = "/v1beta/models/gemini-2.5-pro-002:countTokens";
+const GENERATE_PATH: &str = "/v1beta/models/gemini-3.1-pro-002:generateContent";
+const STREAM_PATH: &str = "/v1beta/models/gemini-3.1-pro-002:streamGenerateContent";
+const COUNT_PATH: &str = "/v1beta/models/gemini-3.1-pro-002:countTokens";
 
 // ===========================================================================
 // Harness
@@ -153,7 +153,7 @@ async fn failure(status: u16, body: &Value) -> Error {
 fn text_response() -> Value {
     json!({
         "responseId": "resp-gemini-1",
-        "modelVersion": "gemini-2.5-pro-002",
+        "modelVersion": "gemini-3.1-pro-002",
         "candidates": [{
             "index": 0,
             "content": { "role": "model", "parts": [{ "text": "Hello there." }] },
@@ -170,8 +170,8 @@ fn text_response() -> Value {
 /// One function call, with the thought signature Gemini 3 requires on replay.
 fn function_call_response() -> Value {
     json!({
-        "responseId": "resp-gemini-2",
-        "modelVersion": "gemini-2.5-pro-002",
+        "responseId": "resp-gemini-1",
+        "modelVersion": "gemini-3.1-pro-002",
         "candidates": [{
             "index": 0,
             "content": { "role": "model", "parts": [
@@ -194,7 +194,7 @@ fn function_call_response() -> Value {
 fn json_response() -> Value {
     json!({
         "responseId": "resp-gemini-3",
-        "modelVersion": "gemini-2.5-pro-002",
+        "modelVersion": "gemini-3.1-pro-002",
         "candidates": [{
             "index": 0,
             "content": { "role": "model", "parts": [
@@ -1203,7 +1203,7 @@ async fn stream_transcript_assigns_one_block_per_run() {
     // hypothetical proxy that reads it.
     assert_eq!(
         request.path,
-        "/v1beta/models/gemini-2.5-pro-002:streamGenerateContent?alt=sse"
+        "/v1beta/models/gemini-3.1-pro-002:streamGenerateContent?alt=sse"
     );
 
     assert_stream_contract(&events);
@@ -1340,7 +1340,7 @@ async fn classifies_the_grpc_error_statuses() {
         (
             404,
             "NOT_FOUND",
-            "models/gemini-2.5-pro-002 is not found for API version v1beta.",
+            "models/gemini-3.1-pro-002 is not found for API version v1beta.",
             ErrorKind::NotFound,
         ),
         (
@@ -1439,7 +1439,7 @@ async fn count_input_tokens_wraps_the_whole_generate_body() {
     assert_eq!(wrapped["generationConfig"]["maxOutputTokens"], json!(128));
     // The API reference marks the nested `model` required; the model in the
     // URL path does not populate it.
-    assert_eq!(wrapped["model"], "models/gemini-2.5-pro-002");
+    assert_eq!(wrapped["model"], "models/gemini-3.1-pro-002");
 
     // The response field is camelCase, unlike every snake_case count response
     // in the other dialects.

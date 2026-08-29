@@ -140,7 +140,7 @@ expression: rendered
       "finish_reason": "tool_call",
       "id": "resp-gemini-stream",
       "model": {
-        "model": "gemini-2.5-pro",
+        "model": "gemini-3.1-pro",
         "provider": "gemini"
       },
       "usage": {

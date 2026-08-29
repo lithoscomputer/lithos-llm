@@ -1087,7 +1087,7 @@ mod tests {
     fn decode(payload: Value) -> Result<Response, Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -1099,7 +1099,7 @@ mod tests {
     fn decode_failure(payload: Value) -> Result<Error, Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -1114,7 +1114,7 @@ mod tests {
     fn stream(chunks: &[Value]) -> Result<Vec<StreamEvent>, Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -1175,7 +1175,7 @@ mod tests {
     fn encodes_media_sources_and_function_response_identity() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .message(Message::new(Role::User, [
                     ContentPart::Image(ImageContent::new(MediaSource::base64(
                         "aGVsbG8=",
@@ -1240,7 +1240,7 @@ mod tests {
     fn encoded_file_data(part: ContentPart) -> Result<Value, Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .message(Message::new(Role::User, [part]))
                 .build()?,
         )?;
@@ -1466,7 +1466,7 @@ mod tests {
         // not fail every stream it serves.
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -1496,7 +1496,7 @@ mod tests {
         // blocking path reports a content filter for the same body.
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -1521,7 +1521,7 @@ mod tests {
     fn a_stream_chunk_that_is_not_json_fails_retryably() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -1568,7 +1568,7 @@ mod tests {
     fn raw_options_win_and_only_this_namespace_is_read() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .temperature(0.2)
                 .max_output_tokens(64)
@@ -1604,7 +1604,7 @@ mod tests {
     fn stop_sequences_land_in_the_generation_config() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .stop_sequences(["STOP", "END"])
                 .metadata_entry("session", "abc")
@@ -1634,7 +1634,7 @@ mod tests {
     fn a_text_response_format_leaves_the_output_mode_alone() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .response_format(ResponseFormat::Text)
                 .build()?,
@@ -1653,9 +1653,11 @@ mod tests {
 
     #[test]
     fn controls_an_unclaimed_route_cannot_carry_are_reported() -> Result<(), Box<dyn StdError>> {
+        // A model id the catalog does not list resolves as a passthrough
+        // route, whose capabilities are unknown rather than declared.
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-unlisted")
                 .user("Hello")
                 .speed(Speed::Fast)
                 .reasoning_effort(ReasoningEffort::High)
@@ -1753,7 +1755,7 @@ mod tests {
         // function name, which matches no declared function.
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("What is the weather?")
                 .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
                     ToolCall::function("call-1", "get_weather", json!({ "city": "Paris" })),
@@ -1791,7 +1793,7 @@ mod tests {
             .insert("thoughtSignature".to_owned(), json!("sig-legacy"));
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Search for rust")
                 .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
                     replayed,
@@ -1822,7 +1824,7 @@ mod tests {
     fn a_caller_without_safety_settings_gets_the_default() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -1846,7 +1848,7 @@ mod tests {
         // the same field twice.
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .provider_option(
                     "gemini",
@@ -1871,7 +1873,7 @@ mod tests {
     fn custom_tools_are_rejected_before_dispatch() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .tool(ToolDefinition::custom(
                     "apply_patch",
@@ -1894,7 +1896,7 @@ mod tests {
     fn count_tokens_wraps_the_whole_generate_body() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .max_output_tokens(128)
                 .tool(ToolDefinition::function(
@@ -1912,7 +1914,7 @@ mod tests {
         assert!(
             encoded
                 .url
-                .ends_with("/v1beta/models/gemini-2.5-pro:countTokens")
+                .ends_with("/v1beta/models/gemini-3.1-pro-preview:countTokens")
         );
         let body = object(encoded.body)?;
         assert!(!body.contains_key("contents"));
@@ -2019,7 +2021,7 @@ mod tests {
     fn stream_errors_end_the_stream() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
-                .model("gemini/gemini-2.5-pro")
+                .model("gemini/gemini-3.1-pro-preview")
                 .user("Hello")
                 .build()?,
         )?;
@@ -2046,7 +2048,7 @@ mod tests {
     #[test]
     fn a_failed_tool_result_uses_googles_error_key() -> Result<(), Box<dyn StdError>> {
         let request = Request::builder()
-            .model("gemini/gemini-2.5-pro")
+            .model("gemini/gemini-3.1-pro-preview")
             .user("Look it up.")
             .message(Message::new(Role::Tool, [ContentPart::ToolResult(
                 ToolResult {
@@ -2078,7 +2080,7 @@ mod tests {
         is_error: bool,
     ) -> Result<Value, Box<dyn StdError>> {
         let request = Request::builder()
-            .model("gemini/gemini-2.5-pro")
+            .model("gemini/gemini-3.1-pro-preview")
             .user("Look it up.")
             .message(Message::new(Role::Tool, [ContentPart::ToolResult(
                 ToolResult {
@@ -2152,7 +2154,7 @@ mod tests {
         // Every Gemini `Part` is an object, so a string payload could never be
         // one. Dropping it beats sending the API something it must reject.
         let request = Request::builder()
-            .model("gemini/gemini-2.5-pro")
+            .model("gemini/gemini-3.1-pro-preview")
             .user("Hello")
             .message(Message::new(Role::Assistant, [
                 ContentPart::opaque("gemini.thought", json!("not a part")),
@@ -2173,7 +2175,7 @@ mod tests {
     #[test]
     fn an_opaque_object_still_replays() -> Result<(), Box<dyn StdError>> {
         let request = Request::builder()
-            .model("gemini/gemini-2.5-pro")
+            .model("gemini/gemini-3.1-pro-preview")
             .user("Hello")
             .message(Message::new(Role::Assistant, [ContentPart::opaque(
                 "gemini.thought",
