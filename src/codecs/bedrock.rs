@@ -79,7 +79,13 @@ impl Codec for BedrockConverseCodec {
         // not fit under it, the same way the Anthropic encoder grows it.
         if let Some(effort) = request.reasoning_effort() {
             if !forces_tool_use(request.tool_choice()) {
-                if route.model().capabilities().reasoning_effort_levels {
+                // A passthrough model takes the modern effort dialect, like
+                // the Anthropic codec: it is uncataloged precisely because it
+                // is newer than the catalog, and a guessed thinking budget is
+                // a manual toggle the always-adaptive models reject.
+                if route.model().capabilities().reasoning_effort_levels
+                    || route.model().is_passthrough()
+                {
                     body.insert(
                         "additionalModelRequestFields".to_owned(),
                         json!({ "output_config": { "effort": bedrock_effort(effort) } }),
@@ -1426,6 +1432,52 @@ mod tests {
         api_model = "us.anthropic.claude-3-7"
         capabilities = { text = true, tools = true, reasoning = true }
     "#;
+
+    /// The budget-model catalog with passthrough allowed.
+    const PASSTHROUGH_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.bedrock]
+        display_name = "Amazon Bedrock"
+        adapter = "bedrock"
+        codec = "bedrock-converse"
+        base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+        allow_passthrough = true
+        default_model = "older-claude"
+        auth = { type = "none" }
+
+        [providers.bedrock.models.older-claude]
+        display_name = "Older Claude"
+        api_model = "us.anthropic.claude-3-7"
+        capabilities = { text = true, tools = true, reasoning = true }
+    "#;
+
+    #[test]
+    fn a_passthrough_model_takes_the_effort_dialect() -> Result<(), Box<dyn StdError>> {
+        // Passthrough serves models newer than the catalog, and those reject
+        // a manual thinking toggle — so the uncataloged guess is the modern
+        // dialect, the same one the Anthropic codec makes.
+        let call = resolved_in(
+            PASSTHROUGH_CATALOG,
+            Request::builder()
+                .model("bedrock/us.anthropic.claude-next")
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::High)
+                .build()?,
+        )?;
+
+        let body = BedrockConverseCodec.encode(&call, false)?.body;
+
+        assert_eq!(
+            body["additionalModelRequestFields"]["output_config"]["effort"],
+            "high"
+        );
+        assert_eq!(
+            body["additionalModelRequestFields"]["thinking"],
+            json!(null)
+        );
+        Ok(())
+    }
 
     #[test]
     fn effort_becomes_a_thinking_budget_without_effort_levels() -> Result<(), Box<dyn StdError>> {

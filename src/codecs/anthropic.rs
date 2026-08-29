@@ -433,7 +433,7 @@ fn output_config(call: &ResolvedCall) -> Map<String, Value> {
     // `effort` too would ask the provider to honor a control the model does
     // not take.
     if let Some(effort) = request.reasoning_effort() {
-        if call.route().model().capabilities().reasoning_effort_levels {
+        if takes_effort_levels(call.route()) {
             config.insert("effort".to_owned(), anthropic_effort(effort).into());
         }
     }
@@ -508,6 +508,19 @@ fn takes_adaptive_thinking(route: &ResolvedRoute) -> bool {
     route.model().capabilities().reasoning_effort_levels
 }
 
+/// Whether effort encodes as `output_config.effort` for this model.
+///
+/// A passthrough model is uncataloged precisely because it is newer than the
+/// catalog, so the modern effort dialect is the safer guess — the one the
+/// reference client made for unknown models. Guessing a thinking budget
+/// instead would send a manual toggle the always-adaptive models reject. The
+/// adaptive thinking object stays gated on the declared capability, so a
+/// passthrough request without an effort is encoded exactly as before.
+fn takes_effort_levels(route: &ResolvedRoute) -> bool {
+    let model = route.model();
+    model.capabilities().reasoning_effort_levels || model.is_passthrough()
+}
+
 /// Whether the tool choice makes a tool call mandatory.
 ///
 /// Anthropic rejects extended thinking together with a forced tool choice, so
@@ -527,7 +540,7 @@ fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
 /// step.
 fn thinking_budget(call: &ResolvedCall, limit: u32) -> Option<u32> {
     let effort = call.request().reasoning_effort()?;
-    if call.route().model().capabilities().reasoning_effort_levels {
+    if takes_effort_levels(call.route()) {
         return None;
     }
 
@@ -1994,6 +2007,48 @@ mod tests {
         api_model = "claude-sonnet-4-5"
         capabilities = { text = true, tools = true, reasoning = true }
     "#;
+
+    /// The budget-model catalog with passthrough allowed.
+    const PASSTHROUGH_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.anthropic]
+        display_name = "Anthropic"
+        adapter = "anthropic"
+        codec = "anthropic-messages"
+        base_url = "http://127.0.0.1"
+        allow_passthrough = true
+        default_model = "claude-sonnet-4-5"
+        auth = { type = "none" }
+
+        [providers.anthropic.models."claude-sonnet-4-5"]
+        display_name = "Budget Claude"
+        api_model = "claude-sonnet-4-5"
+        capabilities = { text = true, tools = true, reasoning = true }
+    "#;
+
+    #[test]
+    fn a_passthrough_model_takes_the_effort_dialect() -> Result<(), Box<dyn StdError>> {
+        // Passthrough serves models newer than the catalog, and those reject
+        // a manual thinking toggle — so the uncataloged guess is the modern
+        // dialect, as the reference client guessed. The adaptive thinking
+        // object stays gated on the declared capability, so nothing else
+        // about the request changes.
+        let call = resolved_in(
+            PASSTHROUGH_CATALOG,
+            Request::builder()
+                .model("anthropic/claude-next")
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::High)
+                .build()?,
+        )?;
+
+        let encoded = AnthropicMessagesCodec.encode(&call, false)?;
+
+        assert_eq!(encoded.body["output_config"]["effort"], json!("high"));
+        assert_eq!(encoded.body.get("thinking"), None);
+        Ok(())
+    }
 
     #[test]
     fn a_model_without_effort_levels_takes_a_thinking_budget() -> Result<(), Box<dyn StdError>> {

@@ -54,6 +54,12 @@ work:
   the empty string on both OpenAI codecs, as the reference client sent it,
   instead of a serialized `ContentPart` envelope the model would read as
   the tool's answer.
+- A passthrough (uncataloged) model with a `reasoning_effort` takes the
+  modern `output_config.effort` dialect on the Anthropic and Bedrock
+  codecs, restoring the reference client's guess for unknown models. The
+  conservative passthrough capabilities previously routed it to a manual
+  thinking budget, which the always-adaptive models — the models
+  passthrough exists to reach — reject with a 400.
 
 ### Round-3 parity fixes
 
