@@ -1101,10 +1101,13 @@ impl ResponsesStream {
                 Some(value.clone()),
                 None,
             )),
+            // Some gateways flatten the failure to `{"type":"response.failed",
+            // "error":{...}}`. Falling back to the whole event keeps the
+            // provider's code and message when the `response` wrapper is gone.
             "response.failed" => Err(provider_error(
                 self.route.provider(),
                 None,
-                value.get("response").cloned(),
+                Some(value.get("response").unwrap_or(value).clone()),
                 None,
             )),
             "response.output_item.added" => Ok(self.start_item(&block_id(value), item(value))),
@@ -2793,6 +2796,28 @@ mod tests {
             .ok_or("expected a stream error")?;
 
         assert!(error.message().contains("upstream failed"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_failed_event_without_a_response_wrapper_keeps_its_detail() -> Result<(), Box<dyn StdError>>
+    {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+
+        let error = decoder
+            .decode(sse(&json!({
+                "type": "response.failed",
+                "error": { "code": "rate_limit_exceeded", "message": "Rate limit reached" },
+            })))
+            .err()
+            .ok_or("expected a stream error")?;
+
+        assert!(error.message().contains("Rate limit reached"));
+        assert_eq!(error.provider_code(), Some("rate_limit_exceeded"));
+        assert!(error.raw_data().is_some());
         Ok(())
     }
 
