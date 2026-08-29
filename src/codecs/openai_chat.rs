@@ -13,7 +13,7 @@
 //! other protocol leaves [`Response::cost`] unset for the adapter to fill in
 //! from catalog pricing.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::slice::from_ref;
 
 use reqwest::Method;
@@ -31,8 +31,8 @@ use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Cost, CostSource, Error, ErrorKind,
     ImageContent, MediaSource, Message, ReasoningContent, ReasoningEffort, Response,
-    ResponseFormat, Role, StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice,
-    ToolDefinition, ToolDefinitionKind, ToolResult,
+    ResponseFormat, RetryClassification, Role, StreamEvent, TokenCounts, ToolCall, ToolCallKind,
+    ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
 };
 
 /// The prefix of an opaque content kind this dialect claims.
@@ -262,6 +262,7 @@ impl Codec for OpenAiChatCodec {
             route:     route.clone(),
             started:   false,
             details:   ReasoningDetails::default(),
+            slots:     BTreeSet::new(),
         })
     }
 
@@ -287,6 +288,8 @@ struct ChatStreamDecoder {
     started:   bool,
     /// The structured reasoning channel, coalesced as its fragments arrive.
     details:   ReasoningDetails,
+    /// The tool-call slots an opening fragment has named.
+    slots:     BTreeSet<u64>,
 }
 
 impl StreamDecoder for ChatStreamDecoder {
@@ -360,7 +363,7 @@ impl StreamDecoder for ChatStreamDecoder {
             .into_iter()
             .flatten()
         {
-            events.extend(self.decode_tool_call_delta(call));
+            events.extend(self.decode_tool_call_delta(call)?);
         }
 
         if let Some(reason) = chunk
@@ -394,7 +397,14 @@ impl ChatStreamDecoder {
     /// the content block. The provider's own tool-call id and the tool name
     /// arrive on the first fragment for a slot and open the block; later
     /// fragments carry argument text only.
-    fn decode_tool_call_delta(&mut self, call: &Value) -> Vec<StreamEvent> {
+    ///
+    /// # Errors
+    ///
+    /// An argument fragment for a slot no earlier fragment opened fails the
+    /// stream: the opening fragment was lost in transit, and assembling the
+    /// remainder would fabricate a nameless call that poisons the replayed
+    /// conversation. The failure is retryable, like any other garbled stream.
+    fn decode_tool_call_delta(&mut self, call: &Value) -> Result<Vec<StreamEvent>, Error> {
         let index = call
             .get("index")
             .and_then(Value::as_u64)
@@ -405,6 +415,7 @@ impl ChatStreamDecoder {
         let name = call.pointer("/function/name").and_then(Value::as_str);
         let mut events = Vec::new();
         if id.is_some() || name.is_some() {
+            self.slots.insert(index);
             events.extend(
                 self.assembler
                     .start(block.clone(), ContentBlockKind::ToolCall {
@@ -413,13 +424,24 @@ impl ChatStreamDecoder {
                         kind: ToolCallKind::Function,
                     }),
             );
+        } else if !self.slots.contains(&index) {
+            return Err(Error::new(
+                ErrorKind::StreamDecode,
+                format!(
+                    "provider {} streamed tool-call arguments for a slot whose opening fragment \
+                     never arrived",
+                    self.route.provider().id()
+                ),
+            )
+            .with_provider(self.route.provider().id().clone())
+            .with_retry(RetryClassification::Safe));
         }
         if let Some(fragment) = call.pointer("/function/arguments").and_then(Value::as_str) {
             if !fragment.is_empty() {
                 events.extend(self.assembler.arguments(&block, fragment));
             }
         }
-        events
+        Ok(events)
     }
 }
 
@@ -997,7 +1019,8 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, Message, ReasoningEffort,
-        Request, Response, Role, Speed, StreamEvent, ToolCall, ToolDefinition, ToolResult,
+        Request, Response, RetryClassification, Role, Speed, StreamEvent, ToolCall, ToolDefinition,
+        ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -1394,6 +1417,34 @@ mod tests {
             .ok_or("expected an empty choices array to fail")?;
 
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        Ok(())
+    }
+
+    #[test]
+    fn an_argument_fragment_for_an_unopened_slot_fails_the_stream() -> Result<(), Box<dyn StdError>>
+    {
+        // The opening fragment carries the call's id and name; when it is
+        // lost, assembling the rest would fabricate a nameless call that
+        // poisons the replayed conversation. The gap is indistinguishable
+        // from dropped chunks, so the stream fails retryably instead.
+        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+
+        let error = decoder
+            .decode(SseEvent {
+                event: None,
+                data:  json!({
+                    "id": "chatcmpl-1",
+                    "choices": [{ "delta": { "tool_calls": [
+                        { "index": 0, "function": { "arguments": "{\"q\":\"rust\"}" } },
+                    ] } }],
+                })
+                .to_string(),
+            })
+            .err()
+            .ok_or("expected the orphan fragment to fail the stream")?;
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 
