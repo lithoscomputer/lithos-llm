@@ -974,6 +974,17 @@ impl StreamDecoder for AnthropicStreamDecoder {
             Some("content_block_delta") => events.extend(self.block_delta(&value)?),
             Some("content_block_stop") => {
                 let id = block_id(&value);
+                // No documented event carries a signature here, but the
+                // reference decoder preferred one arriving on the stop event
+                // over the captured value, and a dialect that sends it only
+                // here would otherwise close the block unsigned — a reasoning
+                // part Anthropic rejects on replay.
+                if let Some(signature) = value
+                    .pointer("/content_block/signature")
+                    .and_then(Value::as_str)
+                {
+                    events.extend(self.assembler.signature(&id, signature));
+                }
                 events.extend(self.flush_opaque(&id));
                 events.extend(self.assembler.end(&id));
             }
@@ -1290,6 +1301,57 @@ mod tests {
             })
             .ok_or("expected a reasoning part")?;
         assert_eq!(reasoning.signature.as_deref(), Some("sig-1"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_signature_on_the_stop_event_replaces_the_captured_one() -> Result<(), Box<dyn StdError>> {
+        // The documented protocol never sends a signature on
+        // content_block_stop, but the reference decoder preferred one that
+        // arrived there; a dialect sending it only on the stop event must
+        // not close the block unsigned.
+        let events = stream(vec![
+            sse(
+                "message_start",
+                &json!({ "type": "message_start", "message": { "id": "msg_1" } }),
+            ),
+            sse(
+                "content_block_start",
+                &json!({
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": { "type": "thinking", "thinking": "" },
+                }),
+            ),
+            sse(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "thinking_delta", "thinking": "step one" },
+                }),
+            ),
+            sse(
+                "content_block_stop",
+                &json!({
+                    "type": "content_block_stop",
+                    "index": 0,
+                    "content_block": { "type": "thinking", "signature": "sig-stop" },
+                }),
+            ),
+        ])?;
+
+        let reasoning = events
+            .iter()
+            .find_map(|event| match event {
+                StreamEvent::ContentBlockEnd {
+                    part: ContentPart::Reasoning(part),
+                    ..
+                } => Some(part),
+                _ => None,
+            })
+            .ok_or("expected a reasoning part")?;
+        assert_eq!(reasoning.signature.as_deref(), Some("sig-stop"));
         Ok(())
     }
 

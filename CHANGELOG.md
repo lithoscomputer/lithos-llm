@@ -74,6 +74,9 @@ work:
   stream retryably, as the reference decoder did, instead of defaulting to
   slot 0 — which silently merged parallel calls into one call with the
   second call's identity and garbled arguments.
+- Anthropic: a thinking signature arriving on `content_block_stop` replaces
+  the captured one, as the reference decoder preferred it, so a dialect
+  sending the signature only there no longer closes the block unsigned.
 
 ### Round-3 parity fixes
 
