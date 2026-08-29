@@ -117,11 +117,23 @@ impl Codec for BedrockConverseCodec {
         } else {
             "converse"
         };
+        // A streaming request names the framing it expects, which is what the
+        // reference client always sent; a gateway that negotiates content
+        // types answers with the event stream rather than something else.
+        let headers = if stream {
+            vec![(
+                "accept".to_owned(),
+                "application/vnd.amazon.eventstream".to_owned(),
+            )]
+        } else {
+            Vec::new()
+        };
         let mut encoded = EncodedRequest::new(
             Method::POST,
             operation_url(route, operation),
             Value::Object(body),
         )
+        .with_headers(headers)
         .with_timeout(request.timeout())
         .with_applied_speed(request.speed());
         // Converse has no request-metadata field, so the map is reported rather
@@ -1445,6 +1457,21 @@ mod tests {
             false,
         )?;
         assert_eq!(clean.body.get("toolConfig"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn a_streaming_request_names_the_event_stream_framing() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+
+        let unary = BedrockConverseCodec.encode(&call, false)?;
+        let streaming = BedrockConverseCodec.encode(&call, true)?;
+
+        assert_eq!(streaming.headers, vec![(
+            "accept".to_owned(),
+            "application/vnd.amazon.eventstream".to_owned(),
+        )]);
+        assert!(unary.headers.is_empty());
         Ok(())
     }
 
