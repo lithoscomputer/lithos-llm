@@ -35,7 +35,7 @@ use crate::resolver::{
 };
 use crate::types::{
     CacheHint, ContentPart, Error, ErrorKind, Message, Request, Response, ResponseFormat,
-    ResponseStream,
+    ResponseStream, Speed,
 };
 
 /// How long the default HTTP client waits to establish a connection.
@@ -269,6 +269,27 @@ fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Erro
     {
         return Err(unsupported_capability(route, "cache routing"));
     }
+    // The catalog declares speed support through speed pricing: a model that
+    // prices a tier takes it, and `SpeedRates` may be empty, so a tier that
+    // keeps the base rates is still declarable. `Balanced` always passes
+    // because it is the default tier — codecs encode it as the provider's
+    // "auto" or standard service level, which every model takes. A model with
+    // no pricing block at all — every passthrough model in particular — is
+    // undescribed rather than restricted, so the provider judges the speed.
+    if let Some(speed) = request.speed()
+        && speed != Speed::Balanced
+        && route.model().pricing().is_some_and(|pricing| {
+            pricing
+                .speed
+                .and_then(|tiers| tiers.for_speed(speed))
+                .is_none()
+        })
+    {
+        return Err(unsupported_capability(
+            route,
+            &format!("speed '{}'", speed_name(speed)),
+        ));
+    }
     if let Some(limits) = route.model().limits()
         && request
             .max_output_tokens()
@@ -302,6 +323,15 @@ fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Erro
         }
     }
     Ok(())
+}
+
+/// The catalog and wire name of a speed, matching its serde form.
+fn speed_name(speed: Speed) -> &'static str {
+    match speed {
+        Speed::Fast => "fast",
+        Speed::Balanced => "balanced",
+        Speed::Economical => "economical",
+    }
 }
 
 fn unsupported_capability(route: &ResolvedRoute, capability: &str) -> Error {
@@ -691,7 +721,9 @@ mod tests {
     };
     use crate::catalog::{AdapterId, Catalog, CatalogProvider, ProviderId};
     use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
-    use crate::types::{ContentPart, Error, Request, Response, ResponseStream, ToolDefinition};
+    use crate::types::{
+        ContentPart, Error, Request, Response, ResponseStream, Speed, ToolDefinition,
+    };
 
     const TEST_CATALOG: &str = r#"
         schema_version = 1
@@ -712,6 +744,8 @@ mod tests {
         aliases = ["uno"]
         api_model = "alpha-one-v1"
         capabilities = { text = true }
+        # Prices a fast tier, so the model declares fast speed support.
+        pricing = { input_usd_micros_per_million = 100, output_usd_micros_per_million = 200, speed = { fast = { input_usd_micros_per_million = 150 } } }
 
         [providers.beta]
         display_name = "Beta"
@@ -726,6 +760,8 @@ mod tests {
         display_name = "Two"
         api_model = "beta-two-v1"
         capabilities = { text = true }
+        # Priced with no speed tiers, so only the balanced default is taken.
+        pricing = { input_usd_micros_per_million = 100, output_usd_micros_per_million = 200 }
 
         [providers.gamma]
         display_name = "Gamma"
@@ -1090,6 +1126,112 @@ mod tests {
             .await
             .expect_err("a pinned-sampling model must refuse sampling controls");
         assert!(error.to_string().contains("sampling"), "{error}");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn an_undeclared_speed_is_rejected_before_dispatch() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .adapter_factory("beta-adapter", CountingFactory::default())
+            .build()?;
+        let request = Request::builder()
+            .model("beta/two")
+            .user("hi")
+            .speed(Speed::Fast)
+            .build()?;
+
+        // The fake adapter would answer successfully, so an error proves the
+        // request never dispatched.
+        let error = build
+            .client
+            .complete(request.clone())
+            .await
+            .expect_err("a priced model with no fast tier must reject fast");
+        assert!(
+            error
+                .to_string()
+                .contains("model beta/two does not support speed 'fast'"),
+            "{error}"
+        );
+
+        let Err(error) = build.client.stream(request).await else {
+            panic!("streaming applies the same speed gate");
+        };
+        assert!(error.to_string().contains("speed 'fast'"), "{error}");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_priced_speed_tier_passes_validation() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .build()?;
+
+        // alpha/one prices a fast tier, so the catalog declares the speed.
+        let request = Request::builder()
+            .model("alpha/one")
+            .user("hi")
+            .speed(Speed::Fast)
+            .build()?;
+        build.client.complete(request).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn balanced_needs_no_speed_declaration() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .adapter_factory("beta-adapter", CountingFactory::default())
+            .build()?;
+
+        // `Balanced` is the default tier, so a priced model that declares no
+        // speed tiers still takes it.
+        let request = Request::builder()
+            .model("beta/two")
+            .user("hi")
+            .speed(Speed::Balanced)
+            .build()?;
+        build.client.complete(request).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_passthrough_model_may_request_any_speed() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .build()?;
+
+        // A passthrough model carries no pricing, so its speeds are unknown
+        // rather than absent, and the provider judges the request.
+        for speed in [Speed::Fast, Speed::Balanced, Speed::Economical] {
+            let request = Request::builder()
+                .model("alpha/not-in-catalog")
+                .user("hi")
+                .speed(speed)
+                .build()?;
+            build.client.complete(request).await?;
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn an_unpriced_model_leaves_speed_to_the_provider() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .adapter_factory("gamma-adapter", CountingFactory::default())
+            .build()?;
+
+        // gamma/three declares no pricing at all, so the catalog says nothing
+        // about its speeds.
+        let request = Request::builder()
+            .model("gamma/three")
+            .user("hi")
+            .speed(Speed::Economical)
+            .build()?;
+        build.client.complete(request).await?;
         Ok(())
     }
 
