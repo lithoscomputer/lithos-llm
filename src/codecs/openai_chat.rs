@@ -150,6 +150,11 @@ impl Codec for OpenAiChatCodec {
         if !request.metadata().is_empty() {
             encoded = encoded.unsupported_control("request metadata");
         }
+        // Chat Completions has no speed control. The request is served and
+        // billed at standard speed, so the dropped control is reported.
+        if request.speed().is_some() {
+            encoded = encoded.unsupported_control("the speed control");
+        }
         // A `tool` message has no error marker in this protocol, so a failed
         // tool result reaches the model looking like a successful one. The
         // content still arrives, so this is a warning rather than a refusal.
@@ -962,7 +967,7 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, Message, ReasoningEffort,
-        Request, Response, Role, StreamEvent, ToolCall, ToolDefinition, ToolResult,
+        Request, Response, Role, Speed, StreamEvent, ToolCall, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -1113,6 +1118,35 @@ mod tests {
 
         assert_eq!(response.usage.cache_read, 30);
         assert_eq!(response.usage.reasoning, 5);
+        Ok(())
+    }
+
+    #[test]
+    fn the_speed_control_is_reported_and_not_billed() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .user("Hello")
+                .speed(Speed::Fast)
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        let messages: Vec<&str> = encoded
+            .warnings
+            .iter()
+            .map(|warning| warning.message.as_str())
+            .collect();
+        assert_eq!(messages, [
+            "this provider protocol does not support the speed control",
+        ]);
+        // Nothing speed-shaped may be guessed at on the wire, and cost must
+        // not price a fast tier the provider never served.
+        let body = encoded.body.to_string();
+        assert!(!body.contains("speed"), "{body}");
+        assert!(!body.contains("service_tier"), "{body}");
+        assert_eq!(encoded.applied_speed, None);
         Ok(())
     }
 

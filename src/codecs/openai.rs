@@ -91,7 +91,8 @@ impl Codec for OpenAiResponsesCodec {
             endpoint(call.route().provider().base_url(), "/v1/responses"),
             Value::Object(body),
         )
-        .with_timeout(request.timeout());
+        .with_timeout(request.timeout())
+        .with_applied_speed(request.speed());
 
         // Reasoning text has no input item in this protocol; only an
         // `openai.reasoning` opaque part replays. Dropping it is correct, but

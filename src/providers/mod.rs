@@ -237,6 +237,10 @@ pub(super) mod http {
             let credentials = self.resolve_credentials(call).await?;
             let mut encoded = self.codec.encode(call, false)?;
             let warnings = take(&mut encoded.warnings);
+            // Cost estimation uses the speed the codec put on the wire, not
+            // the requested one, so a protocol without a speed control is
+            // billed at the standard rates the provider actually charges.
+            let speed = encoded.applied_speed;
             let result = self
                 .transport
                 .execute_json(encoded, call.route().provider(), credentials)
@@ -244,7 +248,7 @@ pub(super) mod http {
             let mut response = self.codec.decode_response(call.route(), result.body)?;
             response.rate_limits = result.rate_limits;
             response.warnings.extend(warnings);
-            apply_catalog_cost(&mut response, call.route(), call.request().speed());
+            apply_catalog_cost(&mut response, call.route(), speed);
             Ok(response)
         }
 
@@ -252,13 +256,13 @@ pub(super) mod http {
             let credentials = self.resolve_credentials(call).await?;
             let mut encoded = self.codec.encode(call, true)?;
             let warnings = take(&mut encoded.warnings);
+            let speed = encoded.applied_speed;
             let accepted = self
                 .transport
                 .sse_events(encoded, call.route().provider(), credentials)
                 .await?;
             let decoder = self.codec.stream_decoder(call.route());
             let route = call.route().clone();
-            let speed = call.request().speed();
             let limits = iter(
                 accepted
                     .rate_limits

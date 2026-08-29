@@ -96,7 +96,8 @@ impl Codec for BedrockConverseCodec {
             operation_url(route, operation),
             Value::Object(body),
         )
-        .with_timeout(request.timeout());
+        .with_timeout(request.timeout())
+        .with_applied_speed(request.speed());
         // Converse has no request-metadata field, so the map is reported rather
         // than folded into some other field where it would change the prompt.
         if !request.metadata().is_empty() {

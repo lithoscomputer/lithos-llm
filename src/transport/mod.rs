@@ -44,7 +44,7 @@ use tokio::time::timeout;
 use crate::adapter::DEFAULT_STREAM_IDLE_TIMEOUT;
 use crate::catalog::{AuthScheme, CatalogProvider, ProviderId};
 use crate::credentials::{CredentialHeader, Credentials, HttpAuthentication, SecretValue};
-use crate::types::{Error, ErrorKind, RateLimits, RetryClassification, Warning};
+use crate::types::{Error, ErrorKind, RateLimits, RetryClassification, Speed, Warning};
 
 /// A request whose headers and body bytes are already final.
 ///
@@ -62,17 +62,23 @@ pub(crate) struct PreparedRequest {
 }
 
 pub(crate) struct EncodedRequest {
-    pub method:   Method,
-    pub url:      String,
-    pub headers:  Vec<(String, String)>,
-    pub body:     Value,
-    pub timeout:  Option<Duration>,
+    pub method:        Method,
+    pub url:           String,
+    pub headers:       Vec<(String, String)>,
+    pub body:          Value,
+    pub timeout:       Option<Duration>,
     /// Non-fatal notes produced while encoding, such as a portable request
     /// control this protocol cannot express.
     ///
     /// Only encoding knows the request, so a codec records these here and the
     /// adapter copies them onto the decoded response.
-    pub warnings: Vec<Warning>,
+    pub warnings:      Vec<Warning>,
+    /// The speed the codec put on the wire, if any.
+    ///
+    /// Cost estimation prices the call at this speed. A codec whose protocol
+    /// cannot express the requested speed leaves this empty, so a request the
+    /// provider serves at standard speed is billed at standard rates.
+    pub applied_speed: Option<Speed>,
 }
 
 impl EncodedRequest {
@@ -85,7 +91,15 @@ impl EncodedRequest {
             headers: Vec::new(),
             timeout: None,
             warnings: Vec::new(),
+            applied_speed: None,
         }
+    }
+
+    /// Records the speed the codec encoded into the request.
+    #[must_use]
+    pub(crate) fn with_applied_speed(mut self, speed: Option<Speed>) -> Self {
+        self.applied_speed = speed;
+        self
     }
 
     #[must_use]

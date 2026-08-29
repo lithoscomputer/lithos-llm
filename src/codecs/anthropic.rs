@@ -103,7 +103,8 @@ impl Codec for AnthropicMessagesCodec {
             Value::Object(body),
         )
         .with_headers(headers(&betas))
-        .with_timeout(request.timeout());
+        .with_timeout(request.timeout())
+        .with_applied_speed(request.speed());
         // The system field of this protocol takes text only, so anything else
         // a system message carries is dropped. The text still reaches the
         // model, so it is reported rather than refused.
@@ -1147,6 +1148,8 @@ mod tests {
             "json_schema"
         );
         assert_eq!(encoded.body["speed"], "fast");
+        // The speed reached the wire, so cost estimation may price it.
+        assert_eq!(encoded.applied_speed, Some(Speed::Fast));
         assert_eq!(encoded.body["stop_sequences"], json!(["END", "STOP"]));
         assert_eq!(encoded.body["metadata"], json!({ "user_id": "u-1" }));
         // The model takes effort levels, so it also gets the adaptive
