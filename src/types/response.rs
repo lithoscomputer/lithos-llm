@@ -41,11 +41,15 @@ impl FinishReason {
 
 impl From<&str> for FinishReason {
     /// Names the matching variant, keeping any other spelling verbatim.
+    ///
+    /// `tool_calls` is the spelling the predecessor library persisted, so it
+    /// keeps loading as [`FinishReason::ToolCall`]; a stored tool-call
+    /// response must not silently stop matching after migration.
     fn from(value: &str) -> Self {
         match value {
             "stop" => Self::Stop,
             "length" => Self::Length,
-            "tool_call" => Self::ToolCall,
+            "tool_call" | "tool_calls" => Self::ToolCall,
             "content_filter" => Self::ContentFilter,
             "error" => Self::Error,
             other => Self::Other(other.to_owned()),
@@ -202,10 +206,19 @@ pub struct RateLimits {
 }
 
 /// A non-fatal provider or normalization warning.
+///
+/// The predecessor library serialized an absent code as `"code": null`, so
+/// deserialization folds a null into the empty string rather than refusing
+/// the stored warning.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Warning {
+    #[serde(deserialize_with = "null_as_empty")]
     pub code:    String,
     pub message: String,
+}
+
+fn null_as_empty<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 /// A normalized complete model response.
@@ -269,7 +282,7 @@ mod tests {
 
     use serde_json::json;
 
-    use super::{FinishReason, RateLimits, Response, TokenCounts};
+    use super::{FinishReason, RateLimits, Response, TokenCounts, Warning};
     use crate::catalog::{ModelId, ProviderId};
     use crate::types::ContentPart;
 
@@ -307,6 +320,26 @@ mod tests {
             reason,
             FinishReason::Other("guardrail_intervened".to_owned())
         );
+        Ok(())
+    }
+
+    #[test]
+    fn the_predecessors_tool_calls_spelling_still_deserializes() -> Result<(), Box<dyn StdError>> {
+        // The old library persisted "tool_calls"; a stored tool-call response
+        // must keep matching `ToolCall` after migration.
+        let reason = serde_json::from_value::<FinishReason>(json!("tool_calls"))?;
+
+        assert_eq!(reason, FinishReason::ToolCall);
+        Ok(())
+    }
+
+    #[test]
+    fn a_stored_warning_with_a_null_code_still_deserializes() -> Result<(), Box<dyn StdError>> {
+        let warning =
+            serde_json::from_value::<Warning>(json!({ "code": null, "message": "dropped" }))?;
+
+        assert_eq!(warning.code, "");
+        assert_eq!(warning.message, "dropped");
         Ok(())
     }
 
