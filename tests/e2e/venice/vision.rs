@@ -10,8 +10,15 @@ use lithos_llm::types::{ContentPart, ImageContent, MediaSource, Message, Role};
 use crate::support::{self, TestResult};
 use crate::venice::{self, model_tests};
 
-/// An 8x8 solid red PNG, generated for this suite.
-const RED_SQUARE_PNG_BASE64: &str = "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC";
+/// A 64x64 solid red PNG, generated for this suite.
+///
+/// The size matters: Venice's request validation rejected an 8x8 image
+/// outright ("Supplied image did not pass validation checks"), so the square
+/// is comfortably above whatever minimum that check applies.
+const RED_SQUARE_PNG_BASE64: &str = "iVBORw0KGgoAAAAN\
+SUhEUgAAAEAAAABACAIAAAAlC+aJAAAAS0lEQVR42u3PQQkAAAgAsetfWiP4FgYrsKZeS0BAQEBA\
+QEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEDgsqnc8OJg6Ln3AAAAAElF\
+TkSuQmCC";
 
 /// A long-stable public photo of a cat, for the URL-fetch variant.
 const CAT_PHOTO_URL: &str = "https://upload.wikimedia.org/wikipedia/commons/3/3a/Cat03.jpg";

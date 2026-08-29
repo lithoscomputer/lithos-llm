@@ -310,6 +310,9 @@ struct ChatStreamDecoder {
 
 impl StreamDecoder for ChatStreamDecoder {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
+        // A chunk that is not JSON is indistinguishable from mid-stream
+        // corruption, so the failure is retryable like any other garbled
+        // stream.
         let chunk: Value = serde_json::from_str(&event.data).map_err(|source| {
             Error::new(
                 ErrorKind::StreamDecode,
@@ -320,6 +323,7 @@ impl StreamDecoder for ChatStreamDecoder {
             )
             .with_provider(self.route.provider().id().clone())
             .with_source(source)
+            .with_retry(RetryClassification::Safe)
         })?;
 
         // An error payload ends the stream. The same classifier runs here and
@@ -581,12 +585,16 @@ fn no_choices(route: &ResolvedRoute, value: Value) -> Error {
 }
 
 fn decode_failure(route: &ResolvedRoute, detail: &str, value: Value) -> Error {
+    // A structurally malformed 200 is indistinguishable from a garbled or
+    // truncated body, so a fresh attempt is safe — the same classification
+    // the transport gives a 200 whose body is not JSON at all.
     Error::new(
         ErrorKind::ResponseDecode,
         format!("provider {} {detail}", route.provider().id()),
     )
     .with_provider(route.provider().id().clone())
     .with_raw_data(value)
+    .with_retry(RetryClassification::Safe)
 }
 
 /// Marks the cacheable prefix of a conversation for an Anthropic upstream.
@@ -982,13 +990,19 @@ fn non_empty<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
 /// reasoning detail. Each detail also has a flat spelling that a skin may send
 /// instead — DeepSeek's `prompt_cache_hit_tokens` and Modal's
 /// `reasoning_tokens` — and the nested detail wins when both are present.
+/// Cache writes have a third spelling: a skin fronting an Anthropic model
+/// passes through `cache_creation_input_tokens`, nested and flat (Venice
+/// sends both).
 fn token_counts(usage: &Value) -> TokenCounts {
     let count = |pointer: &str| usage.pointer(pointer).and_then(Value::as_u64);
 
     let cache_read = count("/prompt_tokens_details/cached_tokens")
         .or_else(|| count("/prompt_cache_hit_tokens"))
         .unwrap_or_default();
-    let cache_write = count("/prompt_tokens_details/cache_write_tokens").unwrap_or_default();
+    let cache_write = count("/prompt_tokens_details/cache_write_tokens")
+        .or_else(|| count("/prompt_tokens_details/cache_creation_input_tokens"))
+        .or_else(|| count("/cache_creation_input_tokens"))
+        .unwrap_or_default();
     let reasoning = count("/completion_tokens_details/reasoning_tokens")
         .or_else(|| count("/reasoning_tokens"))
         .unwrap_or_default();
@@ -1176,6 +1190,31 @@ mod tests {
         assert_eq!(response.usage.cache_read, 41);
         assert_eq!(response.usage.output, 12);
         assert_eq!(response.usage.reasoning, 54);
+        Ok(())
+    }
+
+    #[test]
+    fn anthropic_style_cache_writes_decode_from_either_position() -> Result<(), Box<dyn StdError>> {
+        // Venice fronting a Claude model reports cache writes as
+        // `cache_creation_input_tokens`, both nested and flat, and never as
+        // `cache_write_tokens`. Live calls on 2026-08-29 sent exactly this
+        // shape.
+        let response = decode(json!({
+            "choices": [{ "message": { "content": "ok" } }],
+            "usage": {
+                "prompt_tokens": 15002,
+                "completion_tokens": 12,
+                "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "cache_creation_input_tokens": 13204,
+                },
+                "cache_creation_input_tokens": 13204,
+            },
+        }))?;
+
+        assert_eq!(response.usage.cache_write, 13204);
+        assert_eq!(response.usage.input, 1798);
+        assert_eq!(response.usage.total(), 15014);
         Ok(())
     }
 
@@ -1441,6 +1480,26 @@ mod tests {
             .ok_or("expected an empty choices array to fail")?;
 
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn an_invalid_stream_chunk_fails_retryably() -> Result<(), Box<dyn StdError>> {
+        // A chunk that is not JSON is indistinguishable from mid-stream
+        // corruption; the old client retried it and this keeps that contract.
+        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+
+        let error = decoder
+            .decode(SseEvent {
+                event: None,
+                data:  "{\"id\": \"chatcmpl-1\", \"choi".to_owned(),
+            })
+            .err()
+            .ok_or("expected the truncated chunk to fail the stream")?;
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 
@@ -1533,6 +1592,7 @@ mod tests {
             .ok_or("expected a choice without a message to fail")?;
 
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 
@@ -1556,6 +1616,7 @@ mod tests {
                 .err()
                 .ok_or("expected a tool call without id or name to fail")?;
             assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+            assert_eq!(error.retry_classification(), RetryClassification::Safe);
         }
         Ok(())
     }

@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Round-3 parity fixes
+
+A third differential review against the reference implementation
+(`.ai/reviews/lithos-llm-vs-fabro-llm-round-3.md`, punch list in
+`.ai/plans/lithos-llm-punch-list-3.md`) landed these on top of the round-2
+work:
+
+- Chat structural decode failures — a 200 with no choices, a choice without a
+  message object, a tool call missing its id or name, and a stream chunk that
+  is not JSON — are classified retryable (`Safe`), restoring the reference
+  retry behavior for transiently garbled bodies.
+
 ### Round-2 parity fixes
 
 A second differential review against the reference implementation

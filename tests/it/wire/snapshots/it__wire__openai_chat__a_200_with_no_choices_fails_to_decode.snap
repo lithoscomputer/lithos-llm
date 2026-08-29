@@ -12,6 +12,6 @@ expression: rendered
     "object": "chat.completion"
   },
   "retry": {
-    "type": "never"
+    "type": "safe"
   }
 }

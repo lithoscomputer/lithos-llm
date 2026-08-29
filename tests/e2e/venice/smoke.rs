@@ -141,6 +141,12 @@ async fn carries_the_conversation(model: &str) -> TestResult {
 }
 
 async fn truncates_at_the_output_cap(model: &str) -> TestResult {
+    // grok-4.6 on Venice ignores the output cap outright: a raw call with
+    // `max_tokens: 32` on 2026-08-29 returned 894 completion tokens and
+    // finish reason "stop". Pinned here until Venice forwards the cap.
+    if model == "grok-4.6" {
+        return support::skip("the upstream model ignores the output cap");
+    }
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");
     };
@@ -157,7 +163,25 @@ async fn truncates_at_the_output_cap(model: &str) -> TestResult {
     Ok(())
 }
 
+/// Roster models whose upstream ignores `stop` outright.
+///
+/// The first full run showed the OpenAI and xAI reasoning models running
+/// straight through the sequence — those APIs dropped stop-sequence support
+/// with reasoning — while every other family honored it. The crate has no
+/// per-model capability flag for stop sequences yet, so the pin lives here;
+/// see the drift notes in `.ai/plans/live-e2e-test-matrix.md`.
+const IGNORES_STOP: &[&str] = &[
+    "grok-4.6",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
+];
+
 async fn stops_at_the_stop_sequence(model: &str) -> TestResult {
+    if IGNORES_STOP.contains(&model) {
+        return support::skip("the upstream model ignores stop sequences");
+    }
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");
     };

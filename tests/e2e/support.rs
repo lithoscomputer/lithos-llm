@@ -109,7 +109,9 @@ pub(crate) fn tool_calls(response: &Response) -> Vec<&ToolCall> {
 ///
 /// Codecs differ on whether structured output arrives as a text part holding
 /// JSON or as a decoded [`ContentPart::Json`] part, and both are legal, so a
-/// structured-output test accepts either.
+/// structured-output test accepts either. A Markdown code fence around the
+/// document is tolerated too: `json_object` mode promises valid JSON, not
+/// bare JSON, and Claude models on Venice wrap it.
 pub(crate) fn json_payload(response: &Response) -> Result<Value, Box<dyn StdError>> {
     if let Some(value) = response.content.iter().find_map(|part| match part {
         ContentPart::Json { value } => Some(value.clone()),
@@ -118,5 +120,16 @@ pub(crate) fn json_payload(response: &Response) -> Result<Value, Box<dyn StdErro
         return Ok(value);
     }
     let text = response.text();
-    Ok(serde_json::from_str(text.trim())?)
+    let mut text = text.trim();
+    if let Some(fenced) = text.strip_prefix("```") {
+        let fenced = fenced.strip_prefix("json").unwrap_or(fenced);
+        text = fenced.strip_suffix("```").unwrap_or(fenced).trim();
+    }
+    // Some models append prose after the document — Claude Fable 5 on Venice
+    // does — so the payload is the first complete JSON value, not the whole
+    // text.
+    let mut values = serde_json::Deserializer::from_str(text).into_iter::<Value>();
+    Ok(values
+        .next()
+        .ok_or("the response text holds no JSON value")??)
 }
