@@ -801,7 +801,9 @@ fn encode_chat_message(message: &Message) -> Value {
     }
 
     // Kimi and DeepSeek require the assistant's own reasoning back when a
-    // tool-call turn continues, so replay it rather than dropping it.
+    // tool-call turn continues, so replay it rather than dropping it. Several
+    // parts join unseparated, byte for byte what the reference client sent —
+    // the same rule the text join follows.
     let reasoning: Vec<&str> = message
         .content()
         .iter()
@@ -813,7 +815,7 @@ fn encode_chat_message(message: &Message) -> Value {
         })
         .collect();
     if !reasoning.is_empty() {
-        value["reasoning_content"] = reasoning.join("\n\n").into();
+        value["reasoning_content"] = reasoning.concat().into();
     }
 
     // An opaque part of this dialect names the message field it came from, so
@@ -1664,6 +1666,46 @@ mod tests {
         let encoded = OpenAiChatCodec.encode(&call, false)?;
 
         assert_eq!(encoded.body["messages"][1]["reasoning_details"], details);
+        Ok(())
+    }
+
+    #[test]
+    fn several_reasoning_parts_replay_concatenated() -> Result<(), Box<dyn StdError>> {
+        // A multi-block reasoning history — an Anthropic conversation failing
+        // over to a Chat route — replays as one `reasoning_content` string
+        // joined unseparated, byte for byte what the reference client sent;
+        // the same rule the text join follows.
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .user("hi")
+                .message(Message::new(Role::Assistant, [
+                    ContentPart::Reasoning(ReasoningContent {
+                        text:             "First block. ".to_owned(),
+                        signature:        None,
+                        signature_origin: None,
+                        redacted:         false,
+                    }),
+                    ContentPart::Reasoning(ReasoningContent {
+                        text:             "Second block.".to_owned(),
+                        signature:        None,
+                        signature_origin: None,
+                        redacted:         false,
+                    }),
+                    ContentPart::Text {
+                        text: "Answer.".to_owned(),
+                    },
+                ]))
+                .user("thanks")
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["messages"][1]["reasoning_content"],
+            json!("First block. Second block.")
+        );
         Ok(())
     }
 

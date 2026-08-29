@@ -77,6 +77,9 @@ work:
 - Anthropic: a thinking signature arriving on `content_block_stop` replaces
   the captured one, as the reference decoder preferred it, so a dialect
   sending the signature only there no longer closes the block unsigned.
+- Chat: several replayed reasoning parts join into `reasoning_content`
+  unseparated, byte for byte what the reference client sent, instead of
+  with a `"\n\n"` separator — the same rule the text join follows.
 
 ### Round-3 parity fixes
 
