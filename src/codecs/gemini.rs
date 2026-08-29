@@ -772,6 +772,11 @@ impl GeminiStreamDecoder {
         });
         if let (Run::Reasoning, Some(signature)) = (run, thought_signature(part)) {
             events.extend(self.assembler.signature(&id, signature));
+            // Each signed wire part carries a complete signature blob over
+            // the thought text before it; appending a second blob to the same
+            // block would corrupt both. The signature therefore seals the
+            // run, matching the blocking decoder's one part per signed part.
+            events.extend(self.close_run());
         }
         events
     }
@@ -1003,6 +1008,46 @@ mod tests {
         }
         events.extend(decoder.finish()?);
         Ok(events)
+    }
+
+    #[test]
+    fn each_streamed_thought_signature_seals_its_own_block() -> Result<(), Box<dyn StdError>> {
+        // Two signed thought parts in one contiguous reasoning run. Each
+        // signature is a complete blob; concatenating them would produce a
+        // signature Gemini rejects on replay, so each signed part must end
+        // as its own reasoning part — the blocking decoder's shape.
+        let events = stream(&[json!({
+            "responseId": "resp-1",
+            "candidates": [{
+                "content": { "parts": [
+                    { "text": "step one", "thought": true, "thoughtSignature": "sig-a" },
+                    { "text": "step two", "thought": true, "thoughtSignature": "sig-b" },
+                ] },
+                "finishReason": "STOP",
+            }],
+        })])?;
+
+        let parts: Vec<_> = events
+            .iter()
+            .filter_map(|event| match event {
+                StreamEvent::ContentBlockEnd { part, .. } => Some(part.clone()),
+                _ => None,
+            })
+            .collect();
+        let signatures: Vec<_> = parts
+            .iter()
+            .map(|part| match part {
+                ContentPart::Reasoning(reasoning) => {
+                    Ok((reasoning.text.as_str(), reasoning.signature.as_deref()))
+                }
+                other => Err(format!("expected a reasoning part, got {other:?}")),
+            })
+            .collect::<Result<_, _>>()?;
+        assert_eq!(signatures, vec![
+            ("step one", Some("sig-a")),
+            ("step two", Some("sig-b")),
+        ]);
+        Ok(())
     }
 
     #[test]
