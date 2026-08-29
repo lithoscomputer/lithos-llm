@@ -1401,6 +1401,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "tracing-subscriber",
  "twin-openai",
  "uuid",
 ]
