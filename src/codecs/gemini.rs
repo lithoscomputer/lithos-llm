@@ -409,17 +409,24 @@ fn encode_reasoning(reasoning: &ReasoningContent) -> Value {
 /// Gemini 3 rejects a replayed function call whose `thoughtSignature` is
 /// missing, and the signature is a sibling of `functionCall` inside the same
 /// part rather than a field of the call itself.
+///
+/// The signature is read from the `gemini` metadata namespace first, then
+/// from the metadata's top level, where the predecessor library stored it.
+/// Without the fallback, a history persisted before the namespacing would
+/// silently replay unsigned and draw the rejection this field exists to
+/// prevent.
 fn encode_tool_call(call: &ToolCall) -> Value {
     let mut part = Map::new();
     part.insert(
         "functionCall".to_owned(),
         json!({ "id": call.id, "name": call.name, "args": call.arguments }),
     );
-    if let Some(signature) = call
+    let signature = call
         .provider_metadata
         .get(NAMESPACE)
         .and_then(|metadata| metadata.get("thoughtSignature"))
-    {
+        .or_else(|| call.provider_metadata.get("thoughtSignature"));
+    if let Some(signature) = signature {
         part.insert("thoughtSignature".to_owned(), signature.clone());
     }
     Value::Object(part)
@@ -1405,6 +1412,44 @@ mod tests {
         assert_eq!(
             encoded.body["contents"][2]["parts"][0]["functionResponse"]["name"],
             "get_weather"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_legacy_top_level_thought_signature_still_replays() -> Result<(), Box<dyn StdError>> {
+        // The predecessor library stored the signature at the metadata's top
+        // level rather than under the `gemini` namespace. A migrated history
+        // must keep replaying it, or Gemini 3 rejects the unsigned call.
+        let mut replayed = ToolCall::function("call-1", "search", json!({ "q": "rust" }));
+        replayed
+            .provider_metadata
+            .insert("thoughtSignature".to_owned(), json!("sig-legacy"));
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Search for rust")
+                .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                    replayed,
+                )]))
+                .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                    ToolResult {
+                        tool_call_id: "call-1".to_owned(),
+                        name:         Some("search".to_owned()),
+                        content:      vec![ContentPart::Text {
+                            text: "found".to_owned(),
+                        }],
+                        is_error:     false,
+                    },
+                )]))
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["contents"][1]["parts"][0]["thoughtSignature"],
+            "sig-legacy"
         );
         Ok(())
     }
