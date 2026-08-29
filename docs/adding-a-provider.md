@@ -55,8 +55,14 @@ The full fabro schema lives in
 `~/p/fabro-sh/fabro/lib/foundation/fabro-model/src/catalog.rs`. Fields
 with no lithos-llm equivalent fall into two groups:
 
-- **Drop**: `billing_policy` (lithos-llm prices from disjoint token
-  buckets, so the cost algorithm does not vary by policy),
+- **Drop**: `billing_policy` — its behavior came over, decomposed, so
+  the knob itself is redundant: each codec normalizes its protocol's
+  counters into disjoint token buckets at decode time, and the catalog
+  prices each bucket at its own rate (`cache_write_usd_micros_per_million`
+  carries Anthropic's cache-write premium; `pricing.long_context` and
+  `pricing.speed` carry the tiering). A fabro row with
+  `billing_policy = "anthropic"` translates to cache-write and
+  cached-input rates on the row, nothing more. Also drop
   `reasoning_by_default` (use it to decide which rows assert reasoning
   evidence in the E2E suite, then drop it), `enabled` (a lithos-llm
   provider is usable whenever credentials resolve).
