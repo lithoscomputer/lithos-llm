@@ -1,0 +1,33 @@
+# The built-in anthropic provider. One file per provider; each file is a
+# standalone catalog layer.
+
+schema_version = 1
+
+[providers.anthropic]
+display_name = "Anthropic"
+aliases = ["claude"]
+adapter = "anthropic"
+codec = "anthropic-messages"
+base_url = "https://api.anthropic.com"
+priority = 90
+default_model = "claude-sonnet-4-6"
+
+[providers.anthropic.auth]
+type = "header"
+name = "x-api-key"
+
+[providers.anthropic.models."claude-sonnet-4-6"]
+display_name = "Claude Sonnet 4.6"
+aliases = ["sonnet"]
+api_model = "claude-sonnet-4-6"
+limits = { context_tokens = 200000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+
+# Cache writes bill at 1.25x input. No fast-tier rates: the reference catalog
+# priced a fast tier only for Opus models, so inventing one here would report
+# a confident number for a tier this model does not have.
+[providers.anthropic.models."claude-sonnet-4-6".pricing]
+input_usd_micros_per_million = 3000000
+output_usd_micros_per_million = 15000000
+cached_input_usd_micros_per_million = 300000
+cache_write_usd_micros_per_million = 3750000

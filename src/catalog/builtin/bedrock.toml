@@ -1,0 +1,28 @@
+# The built-in bedrock provider. One file per provider; each file is a
+# standalone catalog layer.
+
+schema_version = 1
+
+[providers.bedrock]
+display_name = "Amazon Bedrock"
+aliases = ["aws-bedrock"]
+adapter = "bedrock"
+codec = "bedrock-converse"
+base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+priority = 50
+allow_passthrough = true
+default_model = "anthropic.claude-sonnet-4-6"
+
+[providers.bedrock.auth]
+type = "aws"
+region = "us-east-1"
+
+[providers.bedrock.models."anthropic.claude-sonnet-4-6"]
+display_name = "Claude Sonnet 4.6 on Bedrock"
+aliases = ["bedrock-sonnet"]
+# The `us.` cross-region inference profile: Bedrock on-demand access to this
+# model needs the profile rather than the bare model id.
+api_model = "us.anthropic.claude-sonnet-4-6"
+limits = { context_tokens = 200000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, documents = true, tools = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }

@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Built-in catalog: Venice
+
+- The built-in catalog now ships one TOML file per provider
+  (`src/catalog/builtin/`), each its own named layer, so a catalog error
+  names the exact file and the catalog grows one provider at a time.
+- A Venice provider joins the built-in catalog: sixteen models merged from
+  fabro's `venice.toml` and the live E2E findings, with live-verified
+  api_model ids, limits, capability corrections, cache flags, Venice's
+  listed prices, and `default_options` turning off the injected system
+  prompt. `EnvironmentCredentials::conventional()` (and so
+  `Client::from_env()`) reads `VENICE_API_KEY`.
+
 ### Venice live-testing findings
 
 The first live E2E runs against Venice

@@ -118,6 +118,28 @@ fn an_unknown_model_is_a_selection_error() -> TestResult {
     Ok(())
 }
 
+/// The built-in catalog's Venice rows work end to end: `Client::from_env`
+/// resolves the conventional `VENICE_API_KEY` mapping, the merged roster
+/// resolves the route, and Venice answers with its in-band cost.
+#[tokio::test]
+#[ignore = "live Venice call; run with `mise run test:e2e`"]
+async fn the_builtin_catalog_reaches_venice() -> TestResult {
+    if env::var(venice::KEY_VARIABLE).is_err() {
+        return support::skip("VENICE_API_KEY is unset");
+    }
+    let client = lithos_llm::Client::from_env()?.client;
+    let request = lithos_llm::Request::builder()
+        .model("venice/deepseek-v4-flash")
+        .user("In one short sentence, say hello.")
+        .max_output_tokens(8192)
+        .build()?;
+    let response = client.complete(request).await?;
+    assert!(!response.text().trim().is_empty());
+    let cost = response.cost.ok_or("the response carries no cost")?;
+    assert!(cost.usd_micros > 0);
+    Ok(())
+}
+
 /// The one preflight test that goes to the network: the live model listing
 /// must still contain every wire id the roster resolves to. This is the
 /// cheapest possible drift alarm — a withdrawn or renamed model fails here

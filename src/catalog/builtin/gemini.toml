@@ -1,0 +1,25 @@
+# The built-in gemini provider. One file per provider; each file is a
+# standalone catalog layer.
+
+schema_version = 1
+
+[providers.gemini]
+display_name = "Google Gemini"
+aliases = ["google"]
+adapter = "gemini"
+codec = "gemini-generate"
+base_url = "https://generativelanguage.googleapis.com"
+priority = 80
+default_model = "gemini-2.5-pro"
+
+[providers.gemini.auth]
+type = "header"
+name = "x-goog-api-key"
+
+[providers.gemini.models."gemini-2.5-pro"]
+display_name = "Gemini 2.5 Pro"
+aliases = ["gemini-pro"]
+api_model = "gemini-2.5-pro"
+limits = { context_tokens = 1048576, max_output_tokens = 65536 }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 1250000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 125000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000 } }

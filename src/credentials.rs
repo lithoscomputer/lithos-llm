@@ -267,6 +267,7 @@ impl EnvironmentCredentials {
             .header("anthropic", "x-api-key", "ANTHROPIC_API_KEY")
             .header("gemini", "x-goog-api-key", "GEMINI_API_KEY")
             .or_header("gemini", "x-goog-api-key", "GOOGLE_API_KEY")
+            .bearer("venice", "VENICE_API_KEY")
             .bedrock_bearer("bedrock", "AWS_BEARER_TOKEN_BEDROCK")
             .or_bedrock_bearer("bedrock", "BEDROCK_API_KEY");
         #[cfg(feature = "bedrock-aws")]

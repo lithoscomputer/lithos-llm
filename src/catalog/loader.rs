@@ -7,107 +7,25 @@ use toml::map::Map;
 use super::overlay::merge;
 use super::{Catalog, CatalogDocument, CatalogError, CatalogProvider, LayerOrigins, ProviderId};
 
+/// The built-in reference catalog, one file per provider.
+///
+/// Each file is a standalone catalog layer. Growing the catalog by one
+/// provider means adding one file here and listing it, and a parse or
+/// validation failure names the exact file.
 #[cfg(feature = "builtin-catalog")]
-const BUILTIN_CATALOG: &str = r#"
-schema_version = 1
-
-[providers.openai]
-display_name = "OpenAI"
-aliases = ["oa"]
-adapter = "openai"
-codec = "openai-responses"
-base_url = "https://api.openai.com"
-priority = 100
-default_model = "gpt-5.6-luna"
-
-[providers.openai.auth]
-type = "bearer"
-
-[providers.openai.models."gpt-5.6-luna"]
-display_name = "GPT-5.6 Luna"
-aliases = ["luna"]
-api_model = "gpt-5.6-luna"
-limits = { context_tokens = 272000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
-pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000 }
-
-[providers.anthropic]
-display_name = "Anthropic"
-aliases = ["claude"]
-adapter = "anthropic"
-codec = "anthropic-messages"
-base_url = "https://api.anthropic.com"
-priority = 90
-default_model = "claude-sonnet-4-6"
-
-[providers.anthropic.auth]
-type = "header"
-name = "x-api-key"
-
-[providers.anthropic.models."claude-sonnet-4-6"]
-display_name = "Claude Sonnet 4.6"
-aliases = ["sonnet"]
-api_model = "claude-sonnet-4-6"
-limits = { context_tokens = 200000, max_output_tokens = 64000 }
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
-
-# Cache writes bill at 1.25x input. No fast-tier rates: the reference catalog
-# priced a fast tier only for Opus models, so inventing one here would report
-# a confident number for a tier this model does not have.
-[providers.anthropic.models."claude-sonnet-4-6".pricing]
-input_usd_micros_per_million = 3000000
-output_usd_micros_per_million = 15000000
-cached_input_usd_micros_per_million = 300000
-cache_write_usd_micros_per_million = 3750000
-
-[providers.gemini]
-display_name = "Google Gemini"
-aliases = ["google"]
-adapter = "gemini"
-codec = "gemini-generate"
-base_url = "https://generativelanguage.googleapis.com"
-priority = 80
-default_model = "gemini-2.5-pro"
-
-[providers.gemini.auth]
-type = "header"
-name = "x-goog-api-key"
-
-[providers.gemini.models."gemini-2.5-pro"]
-display_name = "Gemini 2.5 Pro"
-aliases = ["gemini-pro"]
-api_model = "gemini-2.5-pro"
-limits = { context_tokens = 1048576, max_output_tokens = 65536 }
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
-pricing = { input_usd_micros_per_million = 1250000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 125000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000 } }
-
-[providers.bedrock]
-display_name = "Amazon Bedrock"
-aliases = ["aws-bedrock"]
-adapter = "bedrock"
-codec = "bedrock-converse"
-base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
-priority = 50
-allow_passthrough = true
-default_model = "anthropic.claude-sonnet-4-6"
-
-[providers.bedrock.auth]
-type = "aws"
-region = "us-east-1"
-
-[providers.bedrock.models."anthropic.claude-sonnet-4-6"]
-display_name = "Claude Sonnet 4.6 on Bedrock"
-aliases = ["bedrock-sonnet"]
-# The `us.` cross-region inference profile: Bedrock on-demand access to this
-# model needs the profile rather than the bare model id.
-api_model = "us.anthropic.claude-sonnet-4-6"
-limits = { context_tokens = 200000, max_output_tokens = 64000 }
-capabilities = { text = true, images = true, documents = true, tools = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
-pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
-"#;
-
-/// The layer name reported for the built-in catalog.
-const BUILTIN_LAYER: &str = "built-in";
+const BUILTIN_FILES: &[(&str, &str)] = &[
+    ("built-in/openai.toml", include_str!("builtin/openai.toml")),
+    (
+        "built-in/anthropic.toml",
+        include_str!("builtin/anthropic.toml"),
+    ),
+    ("built-in/gemini.toml", include_str!("builtin/gemini.toml")),
+    (
+        "built-in/bedrock.toml",
+        include_str!("builtin/bedrock.toml"),
+    ),
+    ("built-in/venice.toml", include_str!("builtin/venice.toml")),
+];
 
 /// The layer name reported when a failure belongs to no single layer.
 const MERGED_LAYER: &str = "<merged catalog>";
@@ -150,12 +68,13 @@ impl CatalogBuilder {
         Self::default()
     }
 
-    /// Adds the minimal built-in catalog as the next layer.
+    /// Adds the built-in reference catalog as the next layers.
     ///
-    /// The layer is named `built-in`.
+    /// The catalog ships one file per provider; each becomes its own layer,
+    /// named `built-in/<provider>.toml`.
     pub fn with_builtin(mut self) -> Self {
         self.layers.push(Layer {
-            name:   BUILTIN_LAYER.to_owned(),
+            name:   String::new(),
             source: LayerSource::Builtin,
         });
         self
@@ -209,12 +128,18 @@ impl CatalogBuilder {
         let mut merged = Value::Table(Map::new());
         let mut origins = LayerOrigins::new();
         for layer in self.layers {
-            let value = match layer.source {
-                LayerSource::Builtin => builtin_value(&layer.name)?,
-                LayerSource::Toml(value) => value,
-            };
-            record_origins(&mut origins, &layer.name, &value);
-            merge(&mut merged, value);
+            match layer.source {
+                LayerSource::Builtin => {
+                    for (name, value) in builtin_layers()? {
+                        record_origins(&mut origins, name, &value);
+                        merge(&mut merged, value);
+                    }
+                }
+                LayerSource::Toml(value) => {
+                    record_origins(&mut origins, &layer.name, &value);
+                    merge(&mut merged, value);
+                }
+            }
         }
 
         let raw: RawDocument = merged.try_into().map_err(|source| CatalogError::Parse {
@@ -262,12 +187,15 @@ fn record_origins(origins: &mut LayerOrigins, layer: &str, value: &Value) {
 }
 
 #[cfg(feature = "builtin-catalog")]
-fn builtin_value(layer: &str) -> Result<Value, CatalogError> {
-    parse_layer(layer, BUILTIN_CATALOG)
+fn builtin_layers() -> Result<Vec<(&'static str, Value)>, CatalogError> {
+    BUILTIN_FILES
+        .iter()
+        .map(|(name, source)| Ok((*name, parse_layer(name, source)?)))
+        .collect()
 }
 
 #[cfg(not(feature = "builtin-catalog"))]
-fn builtin_value(_layer: &str) -> Result<Value, CatalogError> {
+fn builtin_layers() -> Result<Vec<(&'static str, Value)>, CatalogError> {
     Err(CatalogError::BuiltinCatalogDisabled)
 }
 
@@ -516,6 +444,63 @@ mod tests {
             return Err("expected a layer failure".into());
         };
         assert_eq!(layer, "overlay 2");
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_venice_provider_carries_the_merged_roster() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let venice = catalog.provider("venice")?;
+        assert_eq!(venice.models().len(), 16);
+        assert_eq!(venice.default_model(), Some("deepseek-v4-flash"));
+        assert!(
+            venice.default_options().contains_key("venice_parameters"),
+            "the venice row should turn off the injected system prompt"
+        );
+
+        // The fabro aliases survive and resolve to the verified wire ids.
+        assert_eq!(
+            catalog.model("venice", "kimi-fast")?.api_model(),
+            "kimi-k3-fast-api"
+        );
+        assert_eq!(
+            catalog.model("venice", "deepseek")?.api_model(),
+            "deepseek-v4-flash-0731"
+        );
+        assert_eq!(
+            catalog.model("venice", "claude-opus-4.8")?.api_model(),
+            "claude-opus-4-8"
+        );
+
+        // Live-verified capability corrections win over fabro's claims.
+        assert!(
+            !catalog
+                .model("venice", "qwen3.8-max")?
+                .capabilities()
+                .structured_output
+        );
+        assert!(
+            catalog
+                .model("venice", "kimi-k3")?
+                .capabilities()
+                .reasoning_effort_levels
+        );
+        assert!(
+            !catalog
+                .model("venice", "glm-5.3")?
+                .capabilities()
+                .reasoning_effort_levels
+        );
+
+        // A model id shared with another provider stays reachable through
+        // the explicit selector; bare-id resolution is priority-ordered and
+        // is pinned by the resolver tests.
+        assert_eq!(
+            catalog.model("venice", "gpt-5.6-luna")?.api_model(),
+            "openai-gpt-56-luna"
+        );
         Ok(())
     }
 

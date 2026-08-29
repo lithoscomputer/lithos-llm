@@ -1,0 +1,159 @@
+# Venice, merged from fabro's `venice.toml` (its eight rows and their
+# aliases and sampling restrictions) and this crate's live E2E findings
+# against the Venice API on 2026-08-29 (api_model ids, limits, capability
+# corrections, cache flags). Where the two disagreed, live behavior won:
+# the kimi rows do take effort levels, glm-5.3 does not, qwen3.8-max takes
+# no response schema, and grok-4.6's output limit is 200k, not fabro's 32k.
+# Pricing is Venice's live listing. Venice reports the cost of every
+# response in-band, and a provider-reported cost wins over these rates, so
+# the rows price only what a response failed to report.
+#
+# The Claude rows carry `cache_breakpoints`: Venice's Anthropic upstream
+# caches nothing automatically, so the codec forwards cache_control
+# markers. `reasoning_effort_levels` on the Claude rows follows Venice's
+# listing, which reflects Venice's own per-model opt-in rather than the
+# models; re-probe when Venice's Anthropic path starts returning reasoning.
+
+schema_version = 1
+
+[providers.venice]
+display_name = "Venice"
+aliases = ["venice-ai"]
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://api.venice.ai/api/v1"
+priority = 35
+default_model = "deepseek-v4-flash"
+
+[providers.venice.auth]
+type = "bearer"
+
+# Venice injects its own system prompt (~1,800-2,700 tokens per request)
+# unless a request turns it off. lithos-llm applications set their own
+# system prompts, so the catalog turns the injection off for every request;
+# a request can set it back through `provider_options`.
+[providers.venice.default_options]
+venice_parameters = { include_venice_system_prompt = false }
+
+[providers.venice.models."kimi-k3"]
+display_name = "Kimi K3"
+aliases = ["kimi"]
+api_model = "kimi-k3"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
+pricing = { input_usd_micros_per_million = 3750000, output_usd_micros_per_million = 18750000, cached_input_usd_micros_per_million = 375000 }
+
+[providers.venice.models."kimi-k3-fast"]
+display_name = "Kimi K3 Fast"
+aliases = ["kimi-fast"]
+api_model = "kimi-k3-fast-api"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
+pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 450000 }
+
+[providers.venice.models."grok-4.6"]
+display_name = "Grok 4.6"
+aliases = ["grok", "grok46", "grok-46"]
+api_model = "grok-4-6"
+limits = { context_tokens = 500000, max_output_tokens = 200000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+pricing = { input_usd_micros_per_million = 2270000, output_usd_micros_per_million = 6800000, cached_input_usd_micros_per_million = 570000 }
+
+[providers.venice.models."glm-5.3"]
+display_name = "GLM 5.3"
+aliases = ["glm", "glm5", "glm53", "glm5.3", "glm-5-3"]
+api_model = "z-ai-glm-5-3"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, sampling = true }
+pricing = { input_usd_micros_per_million = 1750000, output_usd_micros_per_million = 5500000, cached_input_usd_micros_per_million = 325000 }
+
+[providers.venice.models."deepseek-v4-flash"]
+display_name = "DeepSeek V4 Flash"
+aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
+api_model = "deepseek-v4-flash-0731"
+limits = { context_tokens = 1000000, max_output_tokens = 32768 }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
+pricing = { input_usd_micros_per_million = 175000, output_usd_micros_per_million = 350000, cached_input_usd_micros_per_million = 35000 }
+
+[providers.venice.models."deepseek-v4-pro"]
+display_name = "DeepSeek V4 Pro"
+aliases = ["deepseek-pro"]
+api_model = "deepseek-v4-pro-0813"
+limits = { context_tokens = 1000000, max_output_tokens = 32768 }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true }
+pricing = { input_usd_micros_per_million = 1650000, output_usd_micros_per_million = 4950000, cached_input_usd_micros_per_million = 165000 }
+
+[providers.venice.models."qwen3.8-max"]
+display_name = "Qwen 3.8 Max"
+aliases = ["qwen", "qwen-max", "qwen3.8", "qwen-3.8", "qwen38", "qwen-3.8-max", "qwen38-max"]
+api_model = "qwen-3-8-max"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, cache_routing = true, sampling = true }
+pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 312500, cache_write_usd_micros_per_million = 3125000 }
+
+[providers.venice.models."qwen3.8-27b"]
+display_name = "Qwen 3.8 27B"
+aliases = ["qwen-27b", "qwen-3.8-27b", "qwen38-27b"]
+api_model = "qwen-3-8-27b"
+limits = { context_tokens = 262144, max_output_tokens = 65536 }
+# The one row without cache pricing on Venice, so caching stays unclaimed.
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, sampling = true }
+pricing = { input_usd_micros_per_million = 450000, output_usd_micros_per_million = 3200000 }
+
+[providers.venice.models."claude-fable-5"]
+display_name = "Claude Fable 5"
+api_model = "claude-fable-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
+pricing = { input_usd_micros_per_million = 12000000, output_usd_micros_per_million = 60000000, cached_input_usd_micros_per_million = 1200000, cache_write_usd_micros_per_million = 15000000 }
+
+[providers.venice.models."claude-opus-5"]
+display_name = "Claude Opus 5"
+api_model = "claude-opus-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
+pricing = { input_usd_micros_per_million = 6000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 600000, cache_write_usd_micros_per_million = 7500000 }
+
+[providers.venice.models."claude-sonnet-5"]
+display_name = "Claude Sonnet 5"
+api_model = "claude-sonnet-5"
+limits = { context_tokens = 1000000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
+
+[providers.venice.models."claude-opus-4.8"]
+display_name = "Claude Opus 4.8"
+api_model = "claude-opus-4-8"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
+pricing = { input_usd_micros_per_million = 6000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 600000, cache_write_usd_micros_per_million = 7500000 }
+
+[providers.venice.models."gpt-5.6-sol"]
+display_name = "GPT-5.6 Sol"
+api_model = "openai-gpt-56-sol"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+pricing = { input_usd_micros_per_million = 6250000, output_usd_micros_per_million = 37500000, cached_input_usd_micros_per_million = 625000, cache_write_usd_micros_per_million = 7812500 }
+
+[providers.venice.models."gpt-5.6-terra"]
+display_name = "GPT-5.6 Terra"
+api_model = "openai-gpt-56-terra"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+pricing = { input_usd_micros_per_million = 3125000, output_usd_micros_per_million = 18750000, cached_input_usd_micros_per_million = 312500, cache_write_usd_micros_per_million = 3906250 }
+
+# Luna's listed rates are repeating decimals (0.26666667 USD per million);
+# the micro rates round to the nearest whole micro.
+[providers.venice.models."gpt-5.6-luna"]
+display_name = "GPT-5.6 Luna"
+api_model = "openai-gpt-56-luna"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+pricing = { input_usd_micros_per_million = 266667, output_usd_micros_per_million = 1600000, cached_input_usd_micros_per_million = 26667, cache_write_usd_micros_per_million = 333333 }
+
+[providers.venice.models."gpt-5.5"]
+display_name = "GPT-5.5"
+api_model = "openai-gpt-55"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+pricing = { input_usd_micros_per_million = 6250000, output_usd_micros_per_million = 37500000, cached_input_usd_micros_per_million = 625000 }
