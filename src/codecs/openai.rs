@@ -1053,9 +1053,13 @@ impl ResponsesStream {
     /// Opens the block for one output item.
     ///
     /// Opening is idempotent, so the terminal event for an item the provider
-    /// never announced still opens the right kind of block. A reasoning item is
-    /// deliberately not opened here: whether it becomes visible reasoning or an
-    /// opaque replay item is only known once the item is done.
+    /// never announced still opens the right kind of block. A reasoning item
+    /// is deliberately not opened here: whether it becomes visible reasoning
+    /// or an opaque replay item is only known once the item is done. A
+    /// message item is not opened here either — its text block latches on the
+    /// first text that actually arrives, so a message with none (a
+    /// refusal-only message, an empty assistant turn) never emits the empty
+    /// `Text` part the blocking decode of the same body omits.
     fn start_item(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
         if is_internal_call(item) {
             self.skipped.insert(id.clone());
@@ -1063,7 +1067,6 @@ impl ResponsesStream {
         }
 
         match item.get("type").and_then(Value::as_str) {
-            Some("message") => self.assembler.start(id.clone(), ContentBlockKind::Text),
             Some(kind @ ("function_call" | "custom_tool_call")) => {
                 let call_kind = match kind {
                     "custom_tool_call" => ToolCallKind::Custom,
@@ -1120,10 +1123,15 @@ impl ResponsesStream {
         events.extend(self.assembler.end(id));
 
         // The message item itself replays; the text block only carries what a
-        // reader sees. The opaque block takes a derived id because the item's
-        // own id already named the text block.
+        // reader sees. The opaque block takes a derived id when the item's
+        // own id already named a text block, and the item's id when no text
+        // arrived — the same pairing reasoning items use.
         if item.get("type").and_then(Value::as_str) == Some("message") {
-            let opaque = ContentBlockId::new(format!("{}-item", id.as_str()));
+            let opaque = if self.delivered.contains(id) {
+                ContentBlockId::new(format!("{}-item", id.as_str()))
+            } else {
+                id.clone()
+            };
             events.extend(self.opaque_item(&opaque, MESSAGE_KIND, item));
         }
         events
@@ -2155,6 +2163,55 @@ mod tests {
             replaced.raw_arguments.as_deref(),
             Some("{\"query\":\"rust\"}")
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_message_without_text_emits_no_empty_text_part() -> Result<(), Box<dyn StdError>> {
+        // A refusal-only or empty assistant message streams no output_text.
+        // Blocking decode of the same body pushes no text part, and the
+        // streamed response must match: only the opaque replay item, no
+        // Text("") and no stray start/end pair.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let item = json!({
+            "type": "message",
+            "id": "msg_1",
+            "status": "completed",
+            "role": "assistant",
+            "content": [{ "type": "refusal", "refusal": "I can't help with that." }],
+        });
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": { "type": "message", "id": "msg_1", "role": "assistant", "content": [] },
+            }),
+            json!({
+                "type": "response.output_item.done",
+                "output_index": 0,
+                "item": item,
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        assert_block_boundaries(&events)?;
+        let response = completed(&events)?;
+        let [ContentPart::Opaque { kind, data }] = response.content.as_slice() else {
+            return Err(
+                format!("expected only the opaque item, got {:?}", response.content).into(),
+            );
+        };
+        assert_eq!(kind, MESSAGE_KIND);
+        assert_eq!(data, &item);
         Ok(())
     }
 

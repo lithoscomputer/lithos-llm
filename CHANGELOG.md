@@ -58,6 +58,9 @@ work:
   blocks with its id, usage, and status salvaged, and a gateway that
   flattens the document into the event itself is read field-by-field
   instead of failing or discarding a fully delivered answer.
+- Responses: a streamed `message` item opens its text block on the first
+  text that arrives, so a refusal-only or empty assistant message no longer
+  emits an empty `Text` part the blocking decode of the same body omits.
 
 ### Round-2 parity fixes
 
