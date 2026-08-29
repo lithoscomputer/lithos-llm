@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Changed
+
+- The minimum supported Rust version is 1.88 (from 1.85): the codecs now
+  use let-chains, which need it.
+
 ### Built-in catalog: Venice
 
 - The built-in catalog now ships one TOML file per provider

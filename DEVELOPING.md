@@ -41,7 +41,7 @@ This project follows the pinned Brynary Rust Style Guide. Run
 `mise run setup`, then read `.ai/style-guides/rust-style-guide/SKILL.md` before
 changing Rust code, configuration, project structure, or tests.
 
-The project uses Rust 2024 and declares Rust 1.85 as its minimum supported
+The project uses Rust 2024 and declares Rust 1.88 as its minimum supported
 version. Mise pins the development compiler and the nightly formatter.
 
 ## Feature checks

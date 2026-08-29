@@ -9,7 +9,7 @@ minimum_release_age = "24h"
 "cargo:cargo-nextest" = { version = "0.9.140", locked = true }
 rust = [
   { version = "1.97.1", profile = "minimal", components = ["clippy"] },
-  { version = "1.85.0", profile = "minimal" },
+  { version = "1.88.0", profile = "minimal" },
   { version = "nightly-2026-04-14", profile = "minimal", components = ["rustfmt"] },
 ]
 zizmor = "1.29.0"
@@ -92,7 +92,7 @@ run = "cargo nextest run --locked --release --all-targets --all-features --no-te
 [tasks."check:msrv"]
 description = "Check all targets with the declared minimum Rust version"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/msrv" }
-run = "cargo +1.85.0 check --locked --all-targets --all-features"
+run = "cargo +1.88.0 check --locked --all-targets --all-features"
 
 [tasks."check:actions"]
 description = "Audit GitHub Actions workflows"
