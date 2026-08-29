@@ -12,6 +12,23 @@ expression: rendered
     {
       "type": "text",
       "text": "Hello there."
+    },
+    {
+      "type": "opaque",
+      "kind": "openai.message",
+      "data": {
+        "content": [
+          {
+            "annotations": [],
+            "text": "Hello there.",
+            "type": "output_text"
+          }
+        ],
+        "id": "msg_text",
+        "role": "assistant",
+        "status": "completed",
+        "type": "message"
+      }
     }
   ],
   "finish_reason": "stop",

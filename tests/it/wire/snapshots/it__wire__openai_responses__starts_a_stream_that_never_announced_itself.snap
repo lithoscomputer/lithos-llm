@@ -4,31 +4,31 @@ expression: rendered
 ---
 [
   {
-    "id": "resp_cut",
+    "id": null,
     "type": "started"
   },
   {
-    "id": "msg_cut",
+    "id": "msg_late",
     "kind": {
       "type": "text"
     },
     "type": "content_block_start"
   },
   {
-    "id": "msg_cut",
-    "text": "Half a sen",
+    "id": "msg_late",
+    "text": "No preamble.",
     "type": "text_delta"
   },
   {
-    "id": "msg_cut",
+    "id": "msg_late",
     "part": {
-      "text": "Half a sen",
+      "text": "No preamble.",
       "type": "text"
     },
     "type": "content_block_end"
   },
   {
-    "id": "msg_cut-item",
+    "id": "msg_late-item",
     "kind": {
       "kind": "openai.message",
       "type": "opaque"
@@ -36,17 +36,18 @@ expression: rendered
     "type": "content_block_start"
   },
   {
-    "id": "msg_cut-item",
+    "id": "msg_late-item",
     "part": {
       "data": {
         "content": [
           {
-            "text": "Half a sen",
+            "text": "No preamble.",
             "type": "output_text"
           }
         ],
-        "id": "msg_cut",
+        "id": "msg_late",
         "role": "assistant",
+        "status": "completed",
         "type": "message"
       },
       "kind": "openai.message",
@@ -55,33 +56,49 @@ expression: rendered
     "type": "content_block_end"
   },
   {
+    "type": "usage",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 0,
+      "output": 0,
+      "reasoning": 0
+    }
+  },
+  {
     "response": {
       "content": [
         {
-          "text": "Half a sen",
+          "text": "No preamble.",
           "type": "text"
         },
         {
           "data": {
             "content": [
               {
-                "text": "Half a sen",
+                "text": "No preamble.",
                 "type": "output_text"
               }
             ],
-            "id": "msg_cut",
+            "id": "msg_late",
             "role": "assistant",
+            "status": "completed",
             "type": "message"
           },
           "kind": "openai.message",
           "type": "opaque"
         }
       ],
-      "finish_reason": "incomplete",
-      "id": "resp_cut",
+      "finish_reason": "stop",
+      "id": "resp_late",
       "model": {
         "model": "gpt-5.6-luna",
         "provider": "openai"
+      },
+      "raw": {
+        "id": "resp_late",
+        "output": [],
+        "status": "completed"
       },
       "usage": {
         "cache_read": 0,

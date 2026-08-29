@@ -13,7 +13,7 @@
 
 use httpmock::{Method, MockServer};
 use lithos_llm::types::{
-    ContentPart, ErrorKind, ImageContent, MediaSource, Message, ResponseFormat,
+    ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ResponseFormat,
     RetryClassification, Role, ToolCall, ToolChoice, ToolDefinition, ToolResult,
 };
 use lithos_llm::{Client, Request};
@@ -157,6 +157,57 @@ fn custom_tool_call_document() -> Value {
 // ===========================================================================
 // The shared corpus
 // ===========================================================================
+
+/// A completed response whose output interleaves reasoning with the items it
+/// anchors.
+///
+/// This is the shape a replay has to reproduce exactly: each `reasoning` item
+/// names the item that must follow it, so the assistant `message` between the
+/// two reasoning items cannot be reordered or reconstructed without an `id`.
+fn interleaved_document() -> Value {
+    json!({
+        "id": "resp_interleaved",
+        "object": "response",
+        "status": "completed",
+        "model": API_MODEL,
+        "output": [
+            {
+                "type": "reasoning",
+                "id": "rs_first",
+                "summary": [],
+                "encrypted_content": "gAAAAAfirst-reasoning-state",
+            },
+            {
+                "type": "message",
+                "id": "msg_interleaved",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{ "type": "output_text", "text": "Checking now.", "annotations": [] }],
+            },
+            {
+                "type": "reasoning",
+                "id": "rs_second",
+                "summary": [],
+                "encrypted_content": "gAAAAAsecond-reasoning-state",
+            },
+            {
+                "type": "function_call",
+                "id": "fc_interleaved",
+                "call_id": "call_weather",
+                "name": "get_weather",
+                "arguments": "{\"city\":\"Paris\"}",
+                "status": "completed",
+            },
+        ],
+        "usage": {
+            "input_tokens": 20,
+            "input_tokens_details": { "cached_tokens": 0 },
+            "output_tokens": 9,
+            "output_tokens_details": { "reasoning_tokens": 4 },
+            "total_tokens": 29,
+        },
+    })
+}
 
 #[tokio::test]
 async fn encodes_the_base_request() {
@@ -353,8 +404,8 @@ async fn encodes_and_decodes_a_custom_tool_round_trip() {
 /// this warns rather than refusing the way audio does.
 ///
 /// The shared corpus has no tool result with media in it — every corpus tool
-/// result is text — so this request is built here. It is deliberately the only
-/// hand-built request in this file.
+/// result is text — so this request is built here, as the replay and JSON tool
+/// result tests below do for the same reason.
 #[tokio::test]
 async fn warns_when_a_tool_result_carries_media() {
     let (server, client) = wire().await;
@@ -634,6 +685,121 @@ async fn replays_its_own_namespace_and_skips_others() {
     crate::json_snapshot!(captured);
 }
 
+/// An assistant turn survives a complete round trip through this protocol.
+///
+/// This is the reference implementation's `reasoning_message_function_call`
+/// round trip, run end to end: the provider's own output items come back as
+/// content, the caller replays that content unchanged, and every item reaches
+/// the wire with the identity it was issued with.
+///
+/// Three things are pinned, all of which the provider enforces:
+///
+/// 1. The assistant `message` item is sent verbatim, with its `id` and
+///    `status`, rather than rebuilt from the text part. A reasoning item names
+///    the item that must follow it, and a reconstructed message has no id to be
+///    named by.
+/// 2. Items keep their original order, so each reasoning item still sits
+///    directly before the item it anchors. Hoisting the replay items to the
+///    front would pair `rs_second` with the wrong item.
+/// 3. The assistant's text travels once. It rides inside the preserved item, so
+///    the extracted text part must not also become an item of its own.
+#[tokio::test]
+async fn replays_an_assistant_turn_with_its_own_items() {
+    let (server, client) = wire().await;
+    let (_mock, slot) = support::mount_capture(&server, RESPONSES_PATH, &interleaved_document());
+
+    let first = client
+        .complete(support::base_request(&selector()))
+        .await
+        .expect("the first request should complete");
+
+    let replay = Request::builder()
+        .model(selector())
+        .user("What is the weather in Paris?")
+        .message(Message::new(Role::Assistant, first.content.clone()))
+        .max_output_tokens(128)
+        .build()
+        .expect("the replay request should build");
+    client
+        .complete(replay)
+        .await
+        .expect("the replay request should complete");
+
+    let captured = support::captured(&slot);
+    let input = captured.body["input"]
+        .as_array()
+        .expect("the replayed body should carry input items");
+    let identities: Vec<Value> = input
+        .iter()
+        .map(|item| json!([item.get("type"), item.get("id")]))
+        .collect();
+    assert_eq!(identities, vec![
+        json!([null, null]),
+        json!(["reasoning", "rs_first"]),
+        json!(["message", "msg_interleaved"]),
+        json!(["reasoning", "rs_second"]),
+        json!(["function_call", "fc_interleaved"]),
+    ]);
+    assert_eq!(
+        captured.body.to_string().matches("Checking now.").count(),
+        1,
+        "the preserved message item already carries the assistant text",
+    );
+    crate::json_snapshot!(captured);
+    crate::json_snapshot!(first);
+}
+
+/// A tool result that is only JSON sends the JSON, not the envelope around it.
+///
+/// A `function_call_output` takes a string, so the value has to be serialized.
+/// Serializing the `ContentPart` list instead would hand the model
+/// `[{"type":"json","value":…}]`, which is this crate's own shape rather than
+/// anything the tool returned.
+#[tokio::test]
+async fn sends_a_json_tool_result_as_the_bare_value() {
+    let (server, client) = wire().await;
+    let (_mock, slot) = support::mount_capture(&server, RESPONSES_PATH, &text_document());
+    let request = Request::builder()
+        .model(selector())
+        .user("What is the weather in Paris?")
+        .tool(ToolDefinition::function(
+            "get_weather",
+            "Looks up the weather",
+            json!({ "type": "object", "properties": {} }),
+        ))
+        .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+            ToolCall::function("call_weather", "get_weather", json!({ "city": "Paris" })),
+        )]))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: "call_weather".to_owned(),
+                name:         Some("get_weather".to_owned()),
+                content:      vec![ContentPart::Json {
+                    value: json!({ "temperature_c": 18, "sky": "clear" }),
+                }],
+                is_error:     false,
+            },
+        )]))
+        .max_output_tokens(128)
+        .build()
+        .expect("the JSON tool result request should build");
+
+    client
+        .complete(request)
+        .await
+        .expect("the JSON tool result request should complete");
+
+    let captured = support::captured(&slot);
+    let output = captured.body["input"][2]["output"]
+        .as_str()
+        .expect("the tool result should be a function_call_output");
+    assert_eq!(
+        serde_json::from_str::<Value>(output).expect("the output should be the tool's own JSON"),
+        json!({ "temperature_c": 18, "sky": "clear" }),
+    );
+    crate::json_snapshot!(captured);
+}
+
 // ===========================================================================
 // Dialect-specific decoding
 // ===========================================================================
@@ -683,6 +849,59 @@ async fn decodes_inclusive_usage_into_disjoint_buckets() {
         response.usage.total(),
         150,
         "the disjoint buckets must add up to the provider's own total",
+    );
+    crate::json_snapshot!(response);
+}
+
+/// A `function_call` with no name never becomes a tool call.
+///
+/// The model emits these for its own bookkeeping. There is no tool to route one
+/// to and no result to send back, so it is not content, and it must not make
+/// the turn look like a tool call to a caller branching on the finish reason.
+#[tokio::test]
+async fn drops_model_internal_tool_calls() {
+    let (server, client) = wire().await;
+    let document = json!({
+        "id": "resp_internal",
+        "object": "response",
+        "status": "completed",
+        "model": API_MODEL,
+        "output": [
+            {
+                "type": "function_call",
+                "id": "fc_internal",
+                "call_id": "call_internal",
+                "name": "",
+                "arguments": "{}",
+                "status": "completed",
+            },
+            {
+                "type": "message",
+                "id": "msg_internal",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{ "type": "output_text", "text": "All done.", "annotations": [] }],
+            },
+        ],
+    });
+    let (_mock, _slot) = support::mount_capture(&server, RESPONSES_PATH, &document);
+
+    let response = client
+        .complete(support::base_request(&selector()))
+        .await
+        .expect("the request should complete");
+
+    assert!(
+        !response
+            .content
+            .iter()
+            .any(|part| matches!(part, ContentPart::ToolCall(_))),
+        "a call with no name is not a call the caller can answer",
+    );
+    assert_eq!(
+        response.finish_reason,
+        FinishReason::Stop,
+        "a model-internal item must not report a tool call",
     );
     crate::json_snapshot!(response);
 }
@@ -1208,6 +1427,111 @@ async fn a_truncated_stream_completes_as_incomplete() {
         "there is no provider document to carry when the stream was cut short",
     );
 
+    crate::json_snapshot!(events);
+}
+
+/// A `data:` frame that is not JSON is skipped, not fatal.
+///
+/// Proxies inject their own keepalive payloads into the stream. Killing a
+/// generation that is already half delivered because of a frame carrying no
+/// model output would trade a whole response for a comment.
+#[tokio::test]
+async fn ignores_a_stream_frame_that_is_not_json() {
+    let (server, client) = wire().await;
+    let transcript = support::sse_transcript(&[
+        (
+            "response.created",
+            r#"{"type":"response.created","response":{"id":"resp_keepalive","status":"in_progress"}}"#,
+        ),
+        ("ping", "keepalive"),
+        (
+            "response.output_item.added",
+            r#"{"type":"response.output_item.added","output_index":0,"item":{"type":"message","id":"msg_keepalive","role":"assistant","content":[]}}"#,
+        ),
+        (
+            "response.output_text.delta",
+            r#"{"type":"response.output_text.delta","item_id":"msg_keepalive","delta":"Still here."}"#,
+        ),
+        (
+            "response.output_item.done",
+            r#"{"type":"response.output_item.done","output_index":0,"item":{"type":"message","id":"msg_keepalive","status":"completed","role":"assistant","content":[{"type":"output_text","text":"Still here."}]}}"#,
+        ),
+        (
+            "response.completed",
+            r#"{"type":"response.completed","response":{"id":"resp_keepalive","status":"completed","output":[]}}"#,
+        ),
+    ]);
+    let (_mock, _slot) = support::mount_capture_sse(&server, RESPONSES_PATH, &transcript);
+
+    let stream = client
+        .stream(support::base_request(&selector()))
+        .await
+        .expect("the stream request should be accepted");
+    let events = support::collect_stream_events(stream).await;
+
+    support::assert_stream_contract(&events);
+    let completed = events.last().expect("the stream should produce events");
+    assert_eq!(
+        completed.get("type").and_then(Value::as_str),
+        Some("completed"),
+        "an unparseable frame must not end the stream",
+    );
+    assert_eq!(
+        completed.pointer("/response/content/0/text"),
+        Some(&json!("Still here.")),
+    );
+    crate::json_snapshot!(events);
+}
+
+/// A stream with no `response.created` still starts.
+///
+/// The response id rides that event, and a proxy is free not to forward it.
+/// Latching `Started` on the first event the provider does send keeps a
+/// consumer from seeing deltas for a stream it was never told about; the id is
+/// simply absent.
+#[tokio::test]
+async fn starts_a_stream_that_never_announced_itself() {
+    let (server, client) = wire().await;
+    let transcript = support::sse_transcript(&[
+        (
+            "response.output_item.added",
+            r#"{"type":"response.output_item.added","output_index":0,"item":{"type":"message","id":"msg_late","role":"assistant","content":[]}}"#,
+        ),
+        (
+            "response.output_text.delta",
+            r#"{"type":"response.output_text.delta","item_id":"msg_late","delta":"No preamble."}"#,
+        ),
+        (
+            "response.output_item.done",
+            r#"{"type":"response.output_item.done","output_index":0,"item":{"type":"message","id":"msg_late","status":"completed","role":"assistant","content":[{"type":"output_text","text":"No preamble."}]}}"#,
+        ),
+        (
+            "response.completed",
+            r#"{"type":"response.completed","response":{"id":"resp_late","status":"completed","output":[]}}"#,
+        ),
+    ]);
+    let (_mock, _slot) = support::mount_capture_sse(&server, RESPONSES_PATH, &transcript);
+
+    let stream = client
+        .stream(support::base_request(&selector()))
+        .await
+        .expect("the stream request should be accepted");
+    let events = support::collect_stream_events(stream).await;
+
+    support::assert_stream_contract(&events);
+    assert_eq!(
+        events.first().and_then(|event| event.get("type")),
+        Some(&json!("started")),
+        "a stream must start before it delivers anything",
+    );
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| event.get("type") == Some(&json!("started")))
+            .count(),
+        1,
+        "a later event must not start the stream a second time",
+    );
     crate::json_snapshot!(events);
 }
 
