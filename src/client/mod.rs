@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures_util::StreamExt as _;
 use futures_util::stream::unfold;
@@ -11,8 +11,8 @@ use thiserror::Error;
 use tokio::time::{Instant as TokioInstant, sleep_until};
 
 use crate::adapter::{
-    AdapterBuildError, AdapterContext, AdapterFactory, AdapterRegistry, InputTokenCount,
-    ProviderAdapter, ResolvedCall,
+    AdapterBuildError, AdapterContext, AdapterFactory, AdapterRegistry,
+    DEFAULT_STREAM_IDLE_TIMEOUT, InputTokenCount, ProviderAdapter, ResolvedCall,
 };
 use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
 #[cfg(all(
@@ -36,6 +36,12 @@ use crate::resolver::{
 use crate::types::{
     ContentPart, Error, ErrorKind, Message, Request, Response, ResponseFormat, ResponseStream,
 };
+
+/// How long the default HTTP client waits to establish a connection.
+///
+/// A provider whose endpoint accepts no connection fails here rather than
+/// waiting for the operating system's own limit.
+const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// An immutable provider-neutral client.
 #[derive(Clone)]
@@ -352,13 +358,15 @@ fn deadline_error() -> Error {
 /// Builds a client from immutable catalog data and runtime extensions.
 #[must_use]
 pub struct ClientBuilder {
-    catalog:     Option<Catalog>,
-    resolver:    Arc<dyn ModelResolver>,
-    credentials: Arc<dyn CredentialProvider>,
-    http:        Option<reqwest::Client>,
-    middleware:  Vec<Arc<dyn Middleware>>,
-    registry:    AdapterRegistry,
-    enabled:     Option<BTreeSet<ProviderId>>,
+    catalog:             Option<Catalog>,
+    resolver:            Arc<dyn ModelResolver>,
+    credentials:         Arc<dyn CredentialProvider>,
+    http:                Option<reqwest::Client>,
+    connect_timeout:     Option<Duration>,
+    stream_idle_timeout: Option<Duration>,
+    middleware:          Vec<Arc<dyn Middleware>>,
+    registry:            AdapterRegistry,
+    enabled:             Option<BTreeSet<ProviderId>>,
 }
 
 impl Default for ClientBuilder {
@@ -370,6 +378,8 @@ impl Default for ClientBuilder {
             resolver: Arc::new(CatalogResolver),
             credentials: Arc::new(NoCredentials),
             http: None,
+            connect_timeout: Some(DEFAULT_CONNECT_TIMEOUT),
+            stream_idle_timeout: Some(DEFAULT_STREAM_IDLE_TIMEOUT),
             middleware: Vec::new(),
             registry,
             enabled: None,
@@ -410,9 +420,38 @@ impl ClientBuilder {
     /// Injects an application-configured HTTP client.
     ///
     /// Every built-in adapter uses this client. Without it the builder creates
-    /// a default client that sends the Lithos user agent.
+    /// a default client that sends the Lithos user agent and applies
+    /// [`connect_timeout`](Self::connect_timeout). An injected client carries
+    /// its own connect timeout, so this builder does not change it.
     pub fn http(mut self, client: reqwest::Client) -> Self {
         self.http = Some(client);
+        self
+    }
+
+    /// Replaces the connect timeout of the default HTTP client.
+    ///
+    /// The default is 30 seconds. `None` waits as long as the operating
+    /// system allows, which can be minutes.
+    ///
+    /// This applies only to the client this builder creates. A client passed
+    /// to [`http`](Self::http) keeps the timeouts it was built with.
+    pub fn connect_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.connect_timeout = timeout;
+        self
+    }
+
+    /// Replaces the longest a response stream may stall between two chunks.
+    ///
+    /// The default is 300 seconds. A provider that stops sending mid-stream
+    /// then fails with a retryable timeout instead of hanging. `None` waits
+    /// forever, which suits an application that bounds the call some other
+    /// way, such as
+    /// [`TimeoutMiddleware`](crate::middleware::TimeoutMiddleware).
+    ///
+    /// This reaches every built-in adapter through
+    /// [`AdapterContext::stream_idle_timeout`].
+    pub fn stream_idle_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.stream_idle_timeout = timeout;
         self
     }
 
@@ -485,12 +524,15 @@ impl ClientBuilder {
     /// enabled provider id that is not a canonical catalog provider.
     pub fn build(self) -> Result<ClientBuild, ClientBuildError> {
         let catalog = self.catalog.ok_or(ClientBuildError::MissingCatalog)?;
-        let http = match self.http {
-            Some(http) => http,
-            None => reqwest::Client::builder()
-                .user_agent(concat!("lithos-llm/", env!("CARGO_PKG_VERSION")))
-                .build()
-                .map_err(ClientBuildError::HttpClient)?,
+        let http = if let Some(http) = self.http {
+            http
+        } else {
+            let mut builder = reqwest::Client::builder()
+                .user_agent(concat!("lithos-llm/", env!("CARGO_PKG_VERSION")));
+            if let Some(connect_timeout) = self.connect_timeout {
+                builder = builder.connect_timeout(connect_timeout);
+            }
+            builder.build().map_err(ClientBuildError::HttpClient)?
         };
         if let Some(enabled) = &self.enabled {
             for provider in enabled {
@@ -501,7 +543,8 @@ impl ClientBuilder {
                 }
             }
         }
-        let context = AdapterContext::new(http, self.credentials);
+        let context = AdapterContext::new(http, self.credentials)
+            .with_stream_idle_timeout(self.stream_idle_timeout);
         let mut adapters = BTreeMap::new();
         let mut issues = Vec::new();
         for provider in catalog.providers() {

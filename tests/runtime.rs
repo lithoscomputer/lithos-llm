@@ -16,8 +16,8 @@ use lithos_llm::middleware::{
     Call, CallContext, Middleware, Next, Output, RetryMiddleware, RetryPolicy, TimeoutMiddleware,
 };
 use lithos_llm::types::{
-    ContentBlockId, ContentPart, Error, ErrorKind, ImageContent, MediaSource, Message,
-    RequestBuildError, Response, ResponseStream, RetryClassification, Role, StreamEvent,
+    ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
+    Message, RequestBuildError, Response, ResponseStream, RetryClassification, Role, StreamEvent,
 };
 use lithos_llm::{Client, Request};
 use tokio::spawn;
@@ -282,6 +282,252 @@ async fn retry_does_not_replay_after_visible_output() -> Result<(), Box<dyn StdE
     assert!(events[0].is_ok());
     assert!(events[1].is_err());
     assert_eq!(calls.load(Ordering::SeqCst), 1);
+    Ok(())
+}
+
+fn throttled_error(retry_after: Duration) -> Error {
+    Error::new(ErrorKind::RateLimit, "slow down")
+        .with_retry(RetryClassification::after(retry_after))
+}
+
+/// An adapter whose complete calls fail with a fixed error until the given
+/// attempt succeeds.
+struct ThrottledAdapter {
+    id:       AdapterId,
+    calls:    Arc<AtomicUsize>,
+    failures: usize,
+    error:    Arc<dyn Fn() -> Error + Send + Sync>,
+}
+
+#[async_trait]
+impl ProviderAdapter for ThrottledAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        let call_index = self.calls.fetch_add(1, Ordering::SeqCst);
+        if call_index < self.failures {
+            return Err((self.error)());
+        }
+        Ok(success_response(call, "done"))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        Err(Error::new(ErrorKind::Middleware, "not used"))
+    }
+}
+
+fn throttled_client(
+    calls: &Arc<AtomicUsize>,
+    failures: usize,
+    error: impl Fn() -> Error + Send + Sync + 'static,
+    policy: RetryPolicy,
+) -> Result<Client, Box<dyn StdError>> {
+    Ok(Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", ThrottledAdapter {
+            id: AdapterId::new("test-adapter"),
+            calls: calls.clone(),
+            failures,
+            error: Arc::new(error),
+        })
+        .middleware(RetryMiddleware::new(policy))
+        .build()?
+        .client)
+}
+
+#[tokio::test]
+async fn retry_waits_the_exact_retry_after_within_the_cap() -> Result<(), Box<dyn StdError>> {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let client = throttled_client(
+        &calls,
+        1,
+        || throttled_error(Duration::from_millis(60)),
+        // A backoff cap far below the header value: the header wins.
+        RetryPolicy::exponential()
+            .max_attempts(2)
+            .initial_delay(Duration::ZERO)
+            .max_delay(Duration::from_millis(1)),
+    )?;
+
+    let started = Instant::now();
+    let response = client.complete(request()?).await?;
+
+    assert_eq!(response.text(), "done");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert!(
+        started.elapsed() >= Duration::from_millis(60),
+        "the exact Retry-After value should be honored"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn retry_stops_when_retry_after_exceeds_the_cap() -> Result<(), Box<dyn StdError>> {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let client = throttled_client(
+        &calls,
+        5,
+        || throttled_error(Duration::from_secs(120)),
+        RetryPolicy::exponential()
+            .max_attempts(5)
+            .initial_delay(Duration::ZERO)
+            .retry_after_cap(Duration::from_secs(60)),
+    )?;
+
+    let error = client
+        .complete(request()?)
+        .await
+        .expect_err("a long Retry-After should end the retries");
+
+    assert_eq!(error.kind(), ErrorKind::RateLimit);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    Ok(())
+}
+
+/// An adapter whose stream sends bookkeeping before it fails, then succeeds.
+struct BookkeepingAdapter {
+    id:    AdapterId,
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl ProviderAdapter for BookkeepingAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, _call: &ResolvedCall) -> Result<Response, Error> {
+        Err(Error::new(ErrorKind::Middleware, "not used"))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        let call_index = self.calls.fetch_add(1, Ordering::SeqCst);
+        let mut events = vec![
+            Ok(StreamEvent::Started {
+                id: Some(format!("resp-{call_index}")),
+            }),
+            Ok(StreamEvent::ContentBlockStart {
+                id:   ContentBlockId::new("block-0"),
+                kind: ContentBlockKind::Text,
+            }),
+        ];
+        if call_index == 0 {
+            events.push(Err(retryable_error()));
+        } else {
+            events.push(Ok(StreamEvent::TextDelta {
+                id:   ContentBlockId::new("block-0"),
+                text: "done".to_owned(),
+            }));
+        }
+        Ok(Box::pin(iter(events)))
+    }
+}
+
+#[tokio::test]
+async fn a_retried_stream_starts_once() -> Result<(), Box<dyn StdError>> {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", BookkeepingAdapter {
+            id:    AdapterId::new("test-adapter"),
+            calls: calls.clone(),
+        })
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential()
+                .max_attempts(2)
+                .initial_delay(Duration::ZERO),
+        ))
+        .build()?
+        .client;
+
+    let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    let starts = events
+        .iter()
+        .filter(|event| matches!(event, Ok(StreamEvent::Started { .. })))
+        .count();
+    let block_starts = events
+        .iter()
+        .filter(|event| matches!(event, Ok(StreamEvent::ContentBlockStart { .. })))
+        .count();
+    assert_eq!(starts, 1, "one logical stream, one Started");
+    assert_eq!(block_starts, 1, "a block starts once");
+    // The surviving Started is the attempt the consumer actually reads.
+    assert!(matches!(
+        events.first(),
+        Some(Ok(StreamEvent::Started { id })) if id.as_deref() == Some("resp-1")
+    ));
+    assert!(matches!(
+        events.last(),
+        Some(Ok(StreamEvent::TextDelta { text, .. })) if text == "done"
+    ));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_call_timeout_is_never_retried() -> Result<(), Box<dyn StdError>> {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", CountingPendingAdapter {
+            id:    AdapterId::new("test-adapter"),
+            calls: calls.clone(),
+        })
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential()
+                .max_attempts(3)
+                .initial_delay(Duration::ZERO),
+        ))
+        .middleware(TimeoutMiddleware::new(Duration::from_millis(5)))
+        .build()?
+        .client;
+
+    let error = client
+        .complete(request()?)
+        .await
+        .expect_err("the call should time out");
+
+    assert_eq!(error.kind(), ErrorKind::Timeout);
+    assert_eq!(error.retry_classification(), RetryClassification::Never);
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "a timeout is not repeated");
+    Ok(())
+}
+
+struct CountingPendingAdapter {
+    id:    AdapterId,
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl ProviderAdapter for CountingPendingAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, _call: &ResolvedCall) -> Result<Response, Error> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        pending().await
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(Box::pin(pending_stream()))
+    }
+}
+
+#[test]
+fn timeout_knobs_are_configurable() -> Result<(), Box<dyn StdError>> {
+    let build = Client::builder()
+        .catalog(catalog()?)
+        .connect_timeout(Some(Duration::from_secs(5)))
+        .stream_idle_timeout(None)
+        .adapter("test", FakeAdapter::successful())
+        .build()?;
+
+    assert!(build.client.available_providers().iter().next().is_some());
     Ok(())
 }
 
