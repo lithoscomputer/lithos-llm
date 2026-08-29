@@ -17,6 +17,10 @@ work:
   message object, a tool call missing its id or name, and a stream chunk that
   is not JSON — are classified retryable (`Safe`), restoring the reference
   retry behavior for transiently garbled bodies.
+- A Chat stream that carried tool calls finishes as `ToolCall` when the wire
+  said `stop` or reported no reason, matching the Responses codec's rule and
+  the reference client; an explicit non-stop reason such as `length` still
+  wins.
 
 ### Round-2 parity fixes
 

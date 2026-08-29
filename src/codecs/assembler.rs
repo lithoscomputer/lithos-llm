@@ -434,6 +434,11 @@ impl StreamAssembler {
         self.finish_reason = Some(reason);
     }
 
+    /// The recorded finish reason, when one arrived.
+    pub(crate) fn finish_reason(&self) -> Option<&FinishReason> {
+        self.finish_reason.as_ref()
+    }
+
     /// Records the provider's response id.
     pub(crate) fn set_id(&mut self, id: impl Into<String>) {
         self.response_id = Some(id.into());

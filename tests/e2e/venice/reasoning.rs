@@ -115,6 +115,17 @@ mod round_trip {
     );
 }
 
+/// A question hard enough that a reasoning model actually reasons.
+///
+/// Adaptive thinkers skip reasoning on questions they can answer from
+/// memory, so an easy prompt ("is 91 prime?") makes a zero reasoning count
+/// ambiguous: inert effort, or no effort needed. This one takes a real
+/// enumeration — 7n + 3p = 118 with n, p ≥ 1 has six solutions — so a zero
+/// count with reasoning requested means the request had no effect.
+const HARD_PROMPT: &str = "A bookshop sells notebooks at $7 and pens at $3. Anna spent exactly \
+     $118 and bought at least one of each. How many different combinations of notebooks and pens \
+     could she have bought? Answer with just the number.";
+
 /// The roster rows fabro's catalog marks `reasoning_by_default`, where
 /// missing reasoning evidence is a failure rather than an observation.
 const REASONS_BY_DEFAULT: &[&str] = &[
@@ -132,9 +143,7 @@ async fn shows_reasoning_evidence(model: &str) -> TestResult {
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");
     };
-    let request = venice::request(model)
-        .user("How many prime numbers are less than 30? Work it out step by step.")
-        .build()?;
+    let request = venice::request(model).user(HARD_PROMPT).build()?;
     let stream = client.stream(request).await?;
     let (events, response) = support::checked_stream(stream).await?;
 
@@ -163,7 +172,7 @@ async fn accepts_the_effort_level(model: &str, effort: ReasoningEffort) -> TestR
         return support::skip("VENICE_API_KEY is unset");
     };
     let request = venice::request(model)
-        .user("Is 91 prime? Answer yes or no.")
+        .user(HARD_PROMPT)
         .reasoning_effort(effort)
         .build()?;
     let response = client.complete(request).await?;
@@ -175,6 +184,21 @@ async fn accepts_the_effort_level(model: &str, effort: ReasoningEffort) -> TestR
         "effort {effort:?} was not answered normally: {:?}",
         response.finish_reason
     );
+    support::observe(&format!(
+        "{model} effort {effort:?}: reasoning tokens {}",
+        response.usage.reasoning
+    ));
+    // On a question this hard, a model that takes effort levels must spend
+    // reasoning tokens at the high end of its vocabulary.
+    if matches!(
+        effort,
+        ReasoningEffort::High | ReasoningEffort::Xhigh | ReasoningEffort::Max
+    ) {
+        assert!(
+            response.usage.reasoning > 0,
+            "{model} spent no reasoning tokens at effort {effort:?} on a hard question"
+        );
+    }
     Ok(())
 }
 
@@ -184,7 +208,7 @@ async fn probes_the_effort_vocabulary(model: &str) -> TestResult {
     };
     for effort in [ReasoningEffort::Low, ReasoningEffort::High] {
         let request = venice::request(model)
-            .user("Is 91 prime? Answer yes or no.")
+            .user(HARD_PROMPT)
             .reasoning_effort(effort)
             .build()?;
         match client.complete(request).await {

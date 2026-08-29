@@ -30,7 +30,7 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Cost, CostSource, Error, ErrorKind,
-    ImageContent, MediaSource, Message, ReasoningContent, ReasoningEffort, Response,
+    FinishReason, ImageContent, MediaSource, Message, ReasoningContent, ReasoningEffort, Response,
     ResponseFormat, RetryClassification, Role, StreamEvent, TokenCounts, ToolCall, ToolCallKind,
     ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
 };
@@ -413,6 +413,18 @@ impl StreamDecoder for ChatStreamDecoder {
     fn finish(&mut self) -> Result<Vec<StreamEvent>, Error> {
         if !self.refusal.is_empty() {
             return Err(refusal(&self.route, Some(&self.refusal), None));
+        }
+        // Some skins stream tool calls yet report `stop`, or no reason at
+        // all. The streamed blocks are the ground truth for whether the model
+        // called a tool — the same rule the Responses codec applies to a
+        // trimmed terminal document.
+        if self.assembler.has_tool_call()
+            && matches!(
+                self.assembler.finish_reason(),
+                None | Some(FinishReason::Stop)
+            )
+        {
+            self.assembler.set_finish_reason(FinishReason::ToolCall);
         }
         Ok(self.assembler.complete())
     }
@@ -1056,9 +1068,9 @@ mod tests {
     use crate::resolver::ResolvedRoute;
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, Message, ReasoningEffort,
-        Request, Response, RetryClassification, Role, Speed, StreamEvent, ToolCall, ToolDefinition,
-        ToolResult,
+        ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, FinishReason, Message,
+        ReasoningEffort, Request, Response, RetryClassification, Role, Speed, StreamEvent,
+        ToolCall, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -1528,6 +1540,62 @@ mod tests {
 
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_tool_call_wins_over_a_stop_finish_reason() -> Result<(), Box<dyn StdError>> {
+        // Some skins stream tool calls yet report `finish_reason: "stop"`.
+        // The streamed blocks are the ground truth — an agent loop keyed on
+        // `ToolCall` must see the calls it is meant to execute.
+        let events = stream(vec![
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "id": "call-1",
+                  "function": { "name": "search", "arguments": "{\"q\":\"rust\"}" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": {}, "finish_reason": "stop" }] }),
+        ])?;
+
+        let responses = completed(&events);
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].finish_reason, FinishReason::ToolCall);
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_tool_call_sets_the_finish_reason_when_none_arrived()
+    -> Result<(), Box<dyn StdError>> {
+        // A skin that never reports a finish reason still called the tool;
+        // completing as `incomplete` would end an agent loop mid-round.
+        let events = stream(vec![json!({ "id": "chatcmpl-1", "choices": [{ "delta": {
+            "tool_calls": [
+                { "index": 0, "id": "call-1",
+                  "function": { "name": "search", "arguments": "{}" } },
+            ],
+        } }] })])?;
+
+        let responses = completed(&events);
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].finish_reason, FinishReason::ToolCall);
+        Ok(())
+    }
+
+    #[test]
+    fn a_non_stop_finish_reason_is_kept_despite_streamed_tool_calls()
+    -> Result<(), Box<dyn StdError>> {
+        // Truncation trumps inference: a `length` stop on a partial call is
+        // still a truncated answer.
+        let events = stream(vec![
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "id": "call-1",
+                  "function": { "name": "search", "arguments": "{\"q\":" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": {}, "finish_reason": "length" }] }),
+        ])?;
+
+        let responses = completed(&events);
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].finish_reason, FinishReason::Length);
         Ok(())
     }
 
