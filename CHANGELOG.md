@@ -42,6 +42,10 @@ work:
   `openai_compat_reasoning_details` opaque kind into `reasoning_details`,
   so histories the reference implementation persisted keep their signed
   reasoning.
+- Bedrock: a thinking budget always travels with an explicit `maxTokens`
+  (request limit, else the catalog limit, else 65,536; lifted when the
+  budget would not fit under it), so a request without a caller limit can
+  no longer draw a ValidationException from AWS's per-model default.
 
 ### Round-2 parity fixes
 

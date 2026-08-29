@@ -70,8 +70,11 @@ impl Codec for BedrockConverseCodec {
         // levels takes `output_config.effort`, an older reasoning model takes
         // an explicit thinking budget, and a forced tool choice suppresses
         // both because the upstream model rejects thinking alongside it. The
-        // budget must sit strictly below `maxTokens`, so a caller limit that
-        // would not fit grows the same way the Anthropic encoder grows it.
+        // budget must sit strictly below `maxTokens`, and a request that
+        // sends none leaves AWS's per-model default in charge — a default at
+        // or below the budget draws a ValidationException. So a budget always
+        // travels with an explicit `maxTokens`, lifted when the budget would
+        // not fit under it, the same way the Anthropic encoder grows it.
         if let Some(effort) = request.reasoning_effort() {
             if !forces_tool_use(request.tool_choice()) {
                 if route.model().capabilities().reasoning_effort_levels {
@@ -80,15 +83,14 @@ impl Codec for BedrockConverseCodec {
                         json!({ "output_config": { "effort": bedrock_effort(effort) } }),
                     );
                 } else {
-                    let budget = thinking_budget(effort, budget_limit(call));
-                    if let Some(max_tokens) = request.max_output_tokens() {
-                        if max_tokens <= budget {
-                            inference.insert(
-                                "maxTokens".to_owned(),
-                                budget.saturating_add(MIN_THINKING_BUDGET).into(),
-                            );
-                        }
-                    }
+                    let limit = budget_limit(call);
+                    let budget = thinking_budget(effort, limit);
+                    let max_tokens = if limit <= budget {
+                        budget.saturating_add(MIN_THINKING_BUDGET)
+                    } else {
+                        limit
+                    };
+                    inference.insert("maxTokens".to_owned(), max_tokens.into());
                     body.insert(
                         "additionalModelRequestFields".to_owned(),
                         json!({ "thinking": { "type": "enabled", "budget_tokens": budget } }),
@@ -1372,6 +1374,33 @@ mod tests {
             json!(null)
         );
         assert_eq!(body["inferenceConfig"]["maxTokens"], 4096);
+        Ok(())
+    }
+
+    #[test]
+    fn a_thinking_budget_without_a_caller_limit_still_sends_max_tokens()
+    -> Result<(), Box<dyn StdError>> {
+        // With no caller limit the budget derives from the fallback output
+        // limit, and AWS's per-model default `maxTokens` would be in charge —
+        // a default at or below the budget draws a ValidationException. The
+        // effective limit therefore always goes on the wire, lifted when the
+        // budget equals it.
+        let call = resolved_in(
+            BUDGET_CATALOG,
+            Request::builder()
+                .model("bedrock/older-claude")
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::Max)
+                .build()?,
+        )?;
+
+        let body = BedrockConverseCodec.encode(&call, false)?.body;
+
+        assert_eq!(
+            body["additionalModelRequestFields"]["thinking"],
+            json!({ "type": "enabled", "budget_tokens": 65_536 })
+        );
+        assert_eq!(body["inferenceConfig"]["maxTokens"], 66_560);
         Ok(())
     }
 
