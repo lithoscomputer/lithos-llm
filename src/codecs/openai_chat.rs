@@ -1150,8 +1150,8 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         CacheHint, ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, FinishReason,
-        Message, ReasoningEffort, Request, Response, RetryClassification, Role, Speed, StreamEvent,
-        ToolCall, ToolDefinition, ToolResult,
+        Message, ReasoningContent, ReasoningEffort, Request, Response, RetryClassification, Role,
+        Speed, StreamEvent, ToolCall, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
