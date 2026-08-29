@@ -12,8 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, flattens_system_content, flattens_tool_result_content, merge_options,
-    parse_arguments, plain_text, reject_unencodable, sampling, wire_options,
+    cache_routing_key, endpoint, flattens_system_content, flattens_tool_result_content,
+    merge_options, parse_arguments, plain_text, reject_unencodable, sampling, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -88,8 +88,11 @@ impl Codec for OpenAiResponsesCodec {
         reject_unencodable(call.route(), request, |part| {
             matches!(part, ContentPart::Audio(_)).then_some("audio content")
         })?;
-        let (options, _controls) = wire_options(call);
+        let (options, controls) = wire_options(call);
         let mut body = self.generation_body(call, stream);
+        if let Some(key) = cache_routing_key(call, controls) {
+            body.insert("prompt_cache_key".to_owned(), key.into());
+        }
         merge_options(&mut body, options);
 
         let mut encoded = EncodedRequest::new(
@@ -1689,6 +1692,41 @@ mod tests {
             encoded.body["include"],
             json!(["reasoning.encrypted_content"])
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_routing_model_sends_the_cache_fingerprint() -> Result<(), Box<dyn StdError>> {
+        let call = resolved_in(
+            r#"
+            schema_version = 1
+
+            [providers.openai]
+            display_name = "OpenAI"
+            adapter = "openai"
+            codec = "openai-responses"
+            base_url = "https://api.openai.com"
+            default_model = "routed"
+            auth = { type = "bearer" }
+
+            [providers.openai.models.routed]
+            display_name = "Routed"
+            api_model = "routed-v1"
+            capabilities = { text = true, caching = true, cache_routing = true }
+            "#,
+            Request::builder()
+                .model("openai/routed")
+                .system("Keep it short.")
+                .user("hi")
+                .build()?,
+        )?;
+
+        let encoded = codec().encode(&call, false)?;
+
+        let key = encoded.body["prompt_cache_key"]
+            .as_str()
+            .ok_or("no prompt_cache_key was sent")?;
+        assert!(key.starts_with("lithos-"), "unexpected key shape: {key}");
         Ok(())
     }
 

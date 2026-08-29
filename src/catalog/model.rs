@@ -39,6 +39,16 @@ pub struct ModelCapabilities {
     /// control gate on `caching` and ignore this flag.
     #[serde(default)]
     pub cache_breakpoints:       bool,
+    /// The model's endpoint takes a cache routing hint.
+    ///
+    /// OpenAI and the compatible gateways spell it `prompt_cache_key`. A
+    /// gateway that shards requests across replicas needs the hint for cache
+    /// hits at all — Venice writes the same Claude cache entry on every call
+    /// and never reads one without it — so a request's
+    /// [`CacheHint`](crate::types::CacheHint) only reaches the wire where
+    /// this flag is claimed.
+    #[serde(default)]
+    pub cache_routing:           bool,
     #[serde(default)]
     pub sampling:                bool,
 }

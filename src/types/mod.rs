@@ -14,7 +14,7 @@ pub use content::{
 };
 pub use error::{Error, ErrorData, ErrorKind, RetryClassification};
 pub use request::{
-    ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
+    CacheHint, ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
 };
 pub use response::{Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Warning};
 #[cfg(feature = "runtime")]

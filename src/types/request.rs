@@ -46,6 +46,32 @@ pub enum ResponseFormat {
     JsonSchema { name: String, schema: Value },
 }
 
+/// How a request steers provider cache routing.
+///
+/// A backend that shards requests across replicas takes a routing hint —
+/// `prompt_cache_key` on the OpenAI-style protocols — so a repeated prompt
+/// lands on the replica that holds its cache entry. Without the hint, a
+/// gateway such as Venice can write the same cache entry on every call and
+/// never read one.
+///
+/// The catalog declares support per model with the `cache_routing`
+/// capability. An unset hint behaves as [`CacheHint::Auto`].
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum CacheHint {
+    /// Send a stable fingerprint of the cacheable prefix — the system
+    /// messages and the tool definitions — where the catalog claims
+    /// `cache_routing`. This is the default, and `auto_cache: false` turns
+    /// it off along with the other automatic cache behavior.
+    Auto,
+    /// Send exactly this key, for callers that already partition their
+    /// prompts, for example per tenant or per conversation.
+    Key { key: String },
+    /// Send no routing hint, even where the backend takes one.
+    Disabled,
+}
+
 /// A provider-neutral inference request.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Request {
@@ -65,6 +91,8 @@ pub struct Request {
     top_p:             Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reasoning_effort:  Option<ReasoningEffort>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cache_hint:        Option<CacheHint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     speed:             Option<Speed>,
     #[serde(
@@ -122,6 +150,10 @@ impl Request {
         self.reasoning_effort
     }
 
+    pub fn cache_hint(&self) -> Option<&CacheHint> {
+        self.cache_hint.as_ref()
+    }
+
     pub fn speed(&self) -> Option<Speed> {
         self.speed
     }
@@ -169,6 +201,7 @@ pub struct RequestBuilder {
     temperature:       Option<f32>,
     top_p:             Option<f32>,
     reasoning_effort:  Option<ReasoningEffort>,
+    cache_hint:        Option<CacheHint>,
     speed:             Option<Speed>,
     timeout:           Option<Duration>,
     stop_sequences:    Vec<String>,
@@ -232,6 +265,17 @@ impl RequestBuilder {
     pub fn reasoning_effort(mut self, effort: ReasoningEffort) -> Self {
         self.reasoning_effort = Some(effort);
         self
+    }
+
+    /// Sets how the request steers provider cache routing.
+    pub fn cache_hint(mut self, hint: CacheHint) -> Self {
+        self.cache_hint = Some(hint);
+        self
+    }
+
+    /// Sets an exact cache routing key. Shorthand for [`CacheHint::Key`].
+    pub fn cache_key(self, key: impl Into<String>) -> Self {
+        self.cache_hint(CacheHint::Key { key: key.into() })
     }
 
     pub fn speed(mut self, speed: Speed) -> Self {
@@ -381,6 +425,7 @@ impl RequestBuilder {
             temperature: self.temperature,
             top_p: self.top_p,
             reasoning_effort: self.reasoning_effort,
+            cache_hint: self.cache_hint,
             speed: self.speed,
             timeout: self.timeout,
             stop_sequences: self.stop_sequences,

@@ -690,6 +690,33 @@ async fn catalog_capabilities_reject_unsupported_content() -> Result<(), Box<dyn
     Ok(())
 }
 
+#[tokio::test]
+async fn an_explicit_cache_hint_needs_the_routing_capability() -> Result<(), Box<dyn StdError>> {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut adapter = FakeAdapter::successful();
+    adapter.complete_calls = calls.clone();
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", adapter)
+        .build()?
+        .client;
+    let request = Request::builder()
+        .model("test/model")
+        .user("Hello")
+        .cache_key("tenant-42")
+        .build()?;
+
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("the catalog does not claim cache routing");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    Ok(())
+}
+
 struct PendingAdapter {
     id: AdapterId,
 }

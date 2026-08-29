@@ -25,6 +25,16 @@ The first live E2E runs against Venice
 - A complete Chat response that carries tool calls finishes as `ToolCall`
   when the wire said `stop`, matching the rule the streaming path already
   applied (qwen on Venice answers forced tool calls this way).
+- A typed cache-routing hint: `Request::cache_hint` takes
+  `CacheHint::{Auto, Key, Disabled}`, with `cache_key(..)` as builder
+  shorthand. Where a model row claims the new `cache_routing` capability,
+  the default sends a stable fingerprint of the system messages and tool
+  definitions as `prompt_cache_key` on the OpenAI-style protocols, so
+  every turn of a conversation routes to the replica holding its cache
+  entry. Without the hint, Venice wrote the same Claude cache entry on
+  every call and never read one. `auto_cache: false` or
+  `CacheHint::Disabled` turns it off; a raw `prompt_cache_key` in
+  `provider_options` still wins.
 
 ### Round-3 parity fixes
 

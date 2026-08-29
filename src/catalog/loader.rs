@@ -28,7 +28,7 @@ display_name = "GPT-5.6 Luna"
 aliases = ["luna"]
 api_model = "gpt-5.6-luna"
 limits = { context_tokens = 272000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
 pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000 }
 
 [providers.anthropic]

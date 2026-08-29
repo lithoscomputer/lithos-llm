@@ -34,7 +34,8 @@ use crate::resolver::{
     AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
 };
 use crate::types::{
-    ContentPart, Error, ErrorKind, Message, Request, Response, ResponseFormat, ResponseStream,
+    CacheHint, ContentPart, Error, ErrorKind, Message, Request, Response, ResponseFormat,
+    ResponseStream,
 };
 
 /// How long the default HTTP client waits to establish a connection.
@@ -258,6 +259,15 @@ fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Erro
     }
     if (request.temperature().is_some() || request.top_p().is_some()) && !capabilities.sampling {
         return Err(unsupported_capability(route, "sampling"));
+    }
+    // `Disabled` asks for nothing and is honored anywhere; the explicit
+    // positive hints ask for a wire field the model must take.
+    if matches!(
+        request.cache_hint(),
+        Some(CacheHint::Auto | CacheHint::Key { .. })
+    ) && !capabilities.cache_routing
+    {
+        return Err(unsupported_capability(route, "cache routing"));
     }
     if let Some(limits) = route.model().limits() {
         if request

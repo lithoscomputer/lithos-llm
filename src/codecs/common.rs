@@ -13,14 +13,9 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::classify;
 #[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
 use crate::types::ReasoningContent;
-#[cfg(any(
-    feature = "anthropic",
-    feature = "bedrock",
-    feature = "gemini",
-    feature = "openai"
-))]
-use crate::types::Role;
-use crate::types::{ContentPart, Error, ErrorKind, FinishReason, Message, Request};
+use crate::types::{
+    CacheHint, ContentPart, Error, ErrorKind, FinishReason, Message, Request, Role,
+};
 
 /// Raw provider option keys a codec consumes as behavior controls.
 ///
@@ -182,6 +177,57 @@ fn split_controls(mut options: Map<String, Value>) -> (Map<String, Value>, Contr
     }
 
     (options, controls)
+}
+
+/// The cache routing key this call sends, or `None` for no hint.
+///
+/// The hint reaches the wire only where the catalog claims `cache_routing`.
+/// An explicit [`CacheHint::Key`] is sent verbatim; [`CacheHint::Disabled`]
+/// sends nothing; the [`CacheHint::Auto`] default — an unset hint included —
+/// sends the prefix fingerprint, and follows `auto_cache` and the `caching`
+/// capability like every other automatic cache behavior. A raw
+/// `prompt_cache_key` in the provider options still wins, because codecs
+/// merge raw options over the encoded body.
+pub(crate) fn cache_routing_key(call: &ResolvedCall, controls: Controls) -> Option<String> {
+    let capabilities = call.route().model().capabilities();
+    if !capabilities.cache_routing {
+        return None;
+    }
+    match call.request().cache_hint() {
+        Some(CacheHint::Disabled) => None,
+        Some(CacheHint::Key { key }) => Some(key.clone()),
+        Some(CacheHint::Auto) | None => (controls.auto_cache && capabilities.caching)
+            .then(|| prefix_fingerprint(call.request())),
+    }
+}
+
+/// A stable fingerprint of the request's cacheable prefix.
+///
+/// The prefix is the system and developer messages plus the tool
+/// definitions: the content a prompt cache keys on that stays identical
+/// across the turns of an agent loop, so every turn of one conversation
+/// routes to the same replica. The hash is FNV-1a over the serialized
+/// prefix — a routing hint, not a security boundary.
+fn prefix_fingerprint(request: &Request) -> String {
+    let system: Vec<Value> = request
+        .messages()
+        .iter()
+        .filter(|message| matches!(message.role(), Role::System | Role::Developer))
+        .map(|message| serde_json::to_value(message).unwrap_or(Value::Null))
+        .collect();
+    let tools: Vec<Value> = request
+        .tools()
+        .iter()
+        .map(|tool| serde_json::to_value(tool).unwrap_or(Value::Null))
+        .collect();
+    let prefix = json!({ "system": system, "tools": tools }).to_string();
+
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in prefix.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("lithos-{hash:016x}")
 }
 
 /// Merges raw provider options over an already encoded request body.

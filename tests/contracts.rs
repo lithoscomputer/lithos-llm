@@ -13,6 +13,7 @@ fn request_json_round_trips() -> Result<(), Box<dyn StdError>> {
         .max_output_tokens(100)
         .stop_sequence("STOP")
         .metadata_entry("tenant", "acme")
+        .cache_key("tenant-acme")
         .provider_option("openai", "service_tier", json!("flex"))
         .build()?;
 

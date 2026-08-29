@@ -45,21 +45,15 @@ async fn caches_a_shared_prefix(model: &str) -> TestResult {
     };
     let prefix = large_prefix();
 
-    // `prompt_cache_key` is Venice's routing hint for cache hits. Without
-    // it, the pair can land on different backend replicas: on 2026-08-29
-    // the Claude path wrote 13k tokens of cache on BOTH calls and read
-    // nothing, and the same pair with a stable key read the full prefix
-    // back. The crate does not set the key itself, so it rides the raw
-    // provider-options escape hatch here.
-    let cache_key = format!("lithos-e2e-{model}");
+    // Venice routes cache hits by `prompt_cache_key`: without it, the pair
+    // can land on different backend replicas, and on 2026-08-29 the Claude
+    // path wrote 13k tokens of cache on BOTH calls and read nothing. The
+    // codec now derives the key automatically (`CacheHint::Auto` over the
+    // shared system prefix), so this pair exercises exactly what an
+    // application gets by default.
     let first = client
         .complete(
             venice::request(model)
-                .provider_option(
-                    venice::PROVIDER,
-                    "prompt_cache_key",
-                    cache_key.clone().into(),
-                )
                 .system(prefix.clone())
                 .user("How many reading rooms are there? Answer with just the number.")
                 .build()?,
@@ -75,11 +69,6 @@ async fn caches_a_shared_prefix(model: &str) -> TestResult {
         let response = client
             .complete(
                 venice::request(model)
-                    .provider_option(
-                        venice::PROVIDER,
-                        "prompt_cache_key",
-                        cache_key.clone().into(),
-                    )
                     .system(prefix.clone())
                     .user("Does the library have an observatory? Answer yes or no.")
                     .build()?,

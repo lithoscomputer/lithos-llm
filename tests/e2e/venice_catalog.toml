@@ -46,19 +46,19 @@ api_model = "kimi-k3"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
 # Effort levels: the live API claims support; fabro's catalog lists none.
 # Sampling: fabro marks sampling_params = false.
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
 
 [providers.venice.models."kimi-k3-fast"]
 display_name = "Kimi K3 Fast"
 api_model = "kimi-k3-fast-api"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
 
 [providers.venice.models."grok-4.6"]
 display_name = "Grok 4.6"
 api_model = "grok-4-6"
 limits = { context_tokens = 500000, max_output_tokens = 200000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
 
 [providers.venice.models."glm-5.3"]
 display_name = "GLM 5.3"
@@ -66,26 +66,26 @@ api_model = "z-ai-glm-5-3"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
 # Effort levels: fabro claims low/high/max, but the live API says the model
 # takes no effort level, so this row follows the live API.
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, sampling = true }
 
 [providers.venice.models."deepseek-v4-flash"]
 display_name = "DeepSeek V4 Flash"
 api_model = "deepseek-v4-flash-0731"
 limits = { context_tokens = 1000000, max_output_tokens = 32768 }
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
 
 [providers.venice.models."deepseek-v4-pro"]
 display_name = "DeepSeek V4 Pro"
 api_model = "deepseek-v4-pro-0813"
 limits = { context_tokens = 1000000, max_output_tokens = 32768 }
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true }
+capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true }
 
 [providers.venice.models."qwen3.8-max"]
 display_name = "Qwen 3.8 Max"
 api_model = "qwen-3-8-max"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
 # Structured output: the live API says the model takes no response schema.
-capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, cache_routing = true, sampling = true }
 
 [providers.venice.models."qwen3.8-27b"]
 display_name = "Qwen 3.8 27B"
@@ -109,46 +109,46 @@ capabilities = { text = true, images = true, tools = true, structured_output = t
 display_name = "Claude Fable 5"
 api_model = "claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_breakpoints = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
 
 [providers.venice.models."claude-opus-5"]
 display_name = "Claude Opus 5"
 api_model = "claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_breakpoints = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
 
 [providers.venice.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5"
 api_model = "claude-sonnet-5"
 limits = { context_tokens = 1000000, max_output_tokens = 64000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_breakpoints = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
 
 [providers.venice.models."claude-opus-4.8"]
 display_name = "Claude Opus 4.8"
 api_model = "claude-opus-4-8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_breakpoints = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
 
 [providers.venice.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"
 api_model = "openai-gpt-56-sol"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
 
 [providers.venice.models."gpt-5.6-terra"]
 display_name = "GPT-5.6 Terra"
 api_model = "openai-gpt-56-terra"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
 
 [providers.venice.models."gpt-5.6-luna"]
 display_name = "GPT-5.6 Luna"
 api_model = "openai-gpt-56-luna"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
 
 [providers.venice.models."gpt-5.5"]
 display_name = "GPT-5.5"
 api_model = "openai-gpt-55"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }

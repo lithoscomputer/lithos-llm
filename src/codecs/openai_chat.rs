@@ -21,8 +21,9 @@ use serde_json::{Map, Value, json, to_string};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    endpoint, finish_reason, flattens_tool_result_content, merge_options, parse_arguments,
-    plain_text, refusal, reject_unencodable, sampling, unsupported_capability, wire_options,
+    cache_routing_key, endpoint, finish_reason, flattens_tool_result_content, merge_options,
+    parse_arguments, plain_text, refusal, reject_unencodable, sampling, unsupported_capability,
+    wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -138,6 +139,10 @@ impl Codec for OpenAiChatCodec {
         }
         if let Some(format) = request.response_format() {
             body.insert("response_format".to_owned(), encode_response_format(format));
+        }
+
+        if let Some(key) = cache_routing_key(call, controls) {
+            body.insert("prompt_cache_key".to_owned(), key.into());
         }
 
         // Raw provider options are merged last so an application can override
@@ -1125,8 +1130,8 @@ mod tests {
     use crate::resolver::ResolvedRoute;
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, FinishReason, Message,
-        ReasoningEffort, Request, Response, RetryClassification, Role, Speed, StreamEvent,
+        CacheHint, ContentBlockKind, ContentPart, CostSource, Error, ErrorKind, FinishReason,
+        Message, ReasoningEffort, Request, Response, RetryClassification, Role, Speed, StreamEvent,
         ToolCall, ToolDefinition, ToolResult,
     };
 
@@ -1867,6 +1872,129 @@ mod tests {
         api_model = "fronted-v1"
         capabilities = { text = true, caching = true, cache_breakpoints = true }
     "#;
+
+    /// A one-provider catalog whose model takes a cache routing hint, the
+    /// way Venice and OpenAI take `prompt_cache_key`.
+    const ROUTING_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.gateway]
+        display_name = "Gateway"
+        adapter = "openai-compatible"
+        codec = "openai-chat"
+        base_url = "http://127.0.0.1"
+        default_model = "routed"
+        auth = { type = "bearer" }
+
+        [providers.gateway.models.routed]
+        display_name = "Routed"
+        api_model = "routed-v1"
+        capabilities = { text = true, tools = true, caching = true, cache_routing = true }
+    "#;
+
+    fn routed(request: Request) -> Result<Value, Box<dyn StdError>> {
+        let call = resolved_in(ROUTING_CATALOG, request)?;
+        Ok(OpenAiChatCodec.encode(&call, false)?.body)
+    }
+
+    #[test]
+    fn the_default_cache_hint_sends_a_stable_fingerprint() -> Result<(), Box<dyn StdError>> {
+        let request = || {
+            Request::builder()
+                .model("gateway/routed")
+                .system("Keep it short.")
+                .user("Hello")
+                .build()
+        };
+        let first = routed(request()?)?;
+        let second = routed(request()?)?;
+
+        let key = first["prompt_cache_key"]
+            .as_str()
+            .ok_or("no prompt_cache_key was sent")?;
+        assert!(key.starts_with("lithos-"), "unexpected key shape: {key}");
+        assert_eq!(first["prompt_cache_key"], second["prompt_cache_key"]);
+
+        // A different system prefix routes elsewhere; a different user turn
+        // does not, so an agent loop keeps one replica.
+        let other_system = routed(
+            Request::builder()
+                .model("gateway/routed")
+                .system("Answer in French.")
+                .user("Hello")
+                .build()?,
+        )?;
+        assert_ne!(first["prompt_cache_key"], other_system["prompt_cache_key"]);
+        let other_turn = routed(
+            Request::builder()
+                .model("gateway/routed")
+                .system("Keep it short.")
+                .user("A different question entirely")
+                .build()?,
+        )?;
+        assert_eq!(first["prompt_cache_key"], other_turn["prompt_cache_key"]);
+        Ok(())
+    }
+
+    #[test]
+    fn an_explicit_cache_key_is_sent_verbatim() -> Result<(), Box<dyn StdError>> {
+        let body = routed(
+            Request::builder()
+                .model("gateway/routed")
+                .user("Hello")
+                .cache_key("tenant-42")
+                .build()?,
+        )?;
+        assert_eq!(body["prompt_cache_key"], json!("tenant-42"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_disabled_cache_hint_sends_nothing() -> Result<(), Box<dyn StdError>> {
+        let body = routed(
+            Request::builder()
+                .model("gateway/routed")
+                .user("Hello")
+                .cache_hint(CacheHint::Disabled)
+                .build()?,
+        )?;
+        assert_eq!(body.get("prompt_cache_key"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn auto_cache_off_suppresses_the_fingerprint() -> Result<(), Box<dyn StdError>> {
+        let body = routed(
+            Request::builder()
+                .model("gateway/routed")
+                .user("Hello")
+                .provider_option("gateway", "auto_cache", json!(false))
+                .build()?,
+        )?;
+        assert_eq!(body.get("prompt_cache_key"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn a_raw_prompt_cache_key_wins_over_the_fingerprint() -> Result<(), Box<dyn StdError>> {
+        let body = routed(
+            Request::builder()
+                .model("gateway/routed")
+                .user("Hello")
+                .provider_option("gateway", "prompt_cache_key", json!("raw-key"))
+                .build()?,
+        )?;
+        assert_eq!(body["prompt_cache_key"], json!("raw-key"));
+        Ok(())
+    }
+
+    #[test]
+    fn no_routing_capability_means_no_fingerprint() -> Result<(), Box<dyn StdError>> {
+        let call = resolved_in(BREAKPOINT_CATALOG, multi_turn("gateway/fronted")?)?;
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        assert_eq!(encoded.body.get("prompt_cache_key"), None);
+        Ok(())
+    }
 
     /// A one-provider catalog with provider-level default request options,
     /// the way a Venice row turns off the injected system prompt.
