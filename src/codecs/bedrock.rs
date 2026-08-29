@@ -77,33 +77,33 @@ impl Codec for BedrockConverseCodec {
         // or below the budget draws a ValidationException. So a budget always
         // travels with an explicit `maxTokens`, lifted when the budget would
         // not fit under it, the same way the Anthropic encoder grows it.
-        if let Some(effort) = request.reasoning_effort() {
-            if !forces_tool_use(request.tool_choice()) {
-                // A passthrough model takes the modern effort dialect, like
-                // the Anthropic codec: it is uncataloged precisely because it
-                // is newer than the catalog, and a guessed thinking budget is
-                // a manual toggle the always-adaptive models reject.
-                if route.model().capabilities().reasoning_effort_levels
-                    || route.model().is_passthrough()
-                {
-                    body.insert(
-                        "additionalModelRequestFields".to_owned(),
-                        json!({ "output_config": { "effort": bedrock_effort(effort) } }),
-                    );
+        if let Some(effort) = request.reasoning_effort()
+            && !forces_tool_use(request.tool_choice())
+        {
+            // A passthrough model takes the modern effort dialect, like
+            // the Anthropic codec: it is uncataloged precisely because it
+            // is newer than the catalog, and a guessed thinking budget is
+            // a manual toggle the always-adaptive models reject.
+            if route.model().capabilities().reasoning_effort_levels
+                || route.model().is_passthrough()
+            {
+                body.insert(
+                    "additionalModelRequestFields".to_owned(),
+                    json!({ "output_config": { "effort": bedrock_effort(effort) } }),
+                );
+            } else {
+                let limit = budget_limit(call);
+                let budget = thinking_budget(effort, limit);
+                let max_tokens = if limit <= budget {
+                    budget.saturating_add(MIN_THINKING_BUDGET)
                 } else {
-                    let limit = budget_limit(call);
-                    let budget = thinking_budget(effort, limit);
-                    let max_tokens = if limit <= budget {
-                        budget.saturating_add(MIN_THINKING_BUDGET)
-                    } else {
-                        limit
-                    };
-                    inference.insert("maxTokens".to_owned(), max_tokens.into());
-                    body.insert(
-                        "additionalModelRequestFields".to_owned(),
-                        json!({ "thinking": { "type": "enabled", "budget_tokens": budget } }),
-                    );
-                }
+                    limit
+                };
+                inference.insert("maxTokens".to_owned(), max_tokens.into());
+                body.insert(
+                    "additionalModelRequestFields".to_owned(),
+                    json!({ "thinking": { "type": "enabled", "budget_tokens": budget } }),
+                );
             }
         }
         if !inference.is_empty() {
@@ -409,14 +409,15 @@ fn conversation(
         }
         // A tool message whose result rides on the message rather than in a
         // `ToolResult` part still has to reach the wire as a `toolResult`.
-        if blocks.is_empty() && message.role() == Role::Tool {
-            if let Some(tool_call_id) = message.tool_call_id() {
-                blocks.push(tool_result_block(
-                    tool_call_id,
-                    vec![json!({ "text": plain_text(message.content()) })],
-                    false,
-                ));
-            }
+        if blocks.is_empty()
+            && message.role() == Role::Tool
+            && let Some(tool_call_id) = message.tool_call_id()
+        {
+            blocks.push(tool_result_block(
+                tool_call_id,
+                vec![json!({ "text": plain_text(message.content()) })],
+                false,
+            ));
         }
         if blocks.is_empty() {
             continue;

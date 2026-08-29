@@ -925,11 +925,11 @@ fn decode_tool_call(item: &Value, kind: ToolCallKind) -> ToolCall {
         raw_arguments: (!raw.is_empty()).then(|| raw.to_owned()),
         provider_metadata: BTreeMap::new(),
     };
-    if let (Some(call_id), Some(item_id)) = (call_id, item_id) {
-        if call_id != item_id {
-            call.provider_metadata
-                .insert(NAMESPACE.to_owned(), json!({ "item_id": item_id }));
-        }
+    if let (Some(call_id), Some(item_id)) = (call_id, item_id)
+        && call_id != item_id
+    {
+        call.provider_metadata
+            .insert(NAMESPACE.to_owned(), json!({ "item_id": item_id }));
     }
 
     call
@@ -1168,14 +1168,14 @@ impl ResponsesStream {
                 // the fallback block, the terminal item event lands here and
                 // restores the call id and name the fallback lost.
                 self.assembler.repair_tool_identity(id, identity);
-                if let (Some(call_id), Some(item_id)) = (call_id, item_id) {
-                    if call_id != item_id {
-                        events.extend(self.assembler.provider_metadata(
-                            id,
-                            NAMESPACE,
-                            json!({ "item_id": item_id }),
-                        ));
-                    }
+                if let (Some(call_id), Some(item_id)) = (call_id, item_id)
+                    && call_id != item_id
+                {
+                    events.extend(self.assembler.provider_metadata(
+                        id,
+                        NAMESPACE,
+                        json!({ "item_id": item_id }),
+                    ));
                 }
                 events
             }

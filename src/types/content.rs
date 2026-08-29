@@ -194,12 +194,11 @@ impl MediaSource {
     /// Every other input, including a bare base64 payload, becomes
     /// [`MediaSource::Url`].
     pub fn parse(source: &str) -> Self {
-        if let Some(rest) = source.strip_prefix("data:") {
-            if let Some((parameters, data)) = rest.split_once(',') {
-                if let Some(media_type) = parameters.strip_suffix(";base64") {
-                    return Self::base64(data, media_type);
-                }
-            }
+        if let Some(rest) = source.strip_prefix("data:")
+            && let Some((parameters, data)) = rest.split_once(',')
+            && let Some(media_type) = parameters.strip_suffix(";base64")
+        {
+            return Self::base64(data, media_type);
         }
         Self::url(source)
     }

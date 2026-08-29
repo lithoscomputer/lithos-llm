@@ -518,10 +518,10 @@ impl ChatStreamDecoder {
             .with_provider(self.route.provider().id().clone())
             .with_retry(RetryClassification::Safe));
         }
-        if let Some(fragment) = call.pointer("/function/arguments").and_then(Value::as_str) {
-            if !fragment.is_empty() {
-                events.extend(self.assembler.arguments(&block, fragment));
-            }
+        if let Some(fragment) = call.pointer("/function/arguments").and_then(Value::as_str)
+            && !fragment.is_empty()
+        {
+            events.extend(self.assembler.arguments(&block, fragment));
         }
         Ok(events)
     }
