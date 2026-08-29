@@ -464,12 +464,23 @@ impl ChatStreamDecoder {
     /// An argument fragment for a slot no earlier fragment opened fails the
     /// stream: the opening fragment was lost in transit, and assembling the
     /// remainder would fabricate a nameless call that poisons the replayed
-    /// conversation. The failure is retryable, like any other garbled stream.
+    /// conversation. A fragment without a valid `index` fails the same way:
+    /// defaulting the slot would silently merge parallel calls into one
+    /// garbled call, where the reference decoder failed the chunk. Both
+    /// failures are retryable, like any other garbled stream.
     fn decode_tool_call_delta(&mut self, call: &Value) -> Result<Vec<StreamEvent>, Error> {
-        let index = call
-            .get("index")
-            .and_then(Value::as_u64)
-            .unwrap_or_default();
+        let Some(index) = call.get("index").and_then(Value::as_u64) else {
+            return Err(Error::new(
+                ErrorKind::StreamDecode,
+                format!(
+                    "provider {} streamed a tool-call fragment without an index",
+                    self.route.provider().id()
+                ),
+            )
+            .with_provider(self.route.provider().id().clone())
+            .with_raw_data(call.clone())
+            .with_retry(RetryClassification::Safe));
+        };
         let block = ContentBlockId::new(format!("tool-{index}"));
 
         let id = call.get("id").and_then(Value::as_str);
@@ -1681,6 +1692,34 @@ mod tests {
             })
             .err()
             .ok_or("expected the truncated chunk to fail the stream")?;
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_call_fragment_without_an_index_fails_retryably() -> Result<(), Box<dyn StdError>> {
+        // `index` is the accumulation slot. Defaulting a missing one to slot
+        // 0 would silently merge parallel calls into one call with garbled
+        // arguments; the reference decoder required the field and failed the
+        // chunk retryably.
+        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+
+        let error = decoder
+            .decode(SseEvent {
+                event: None,
+                data:  json!({
+                    "id": "chatcmpl-1",
+                    "choices": [{ "delta": { "tool_calls": [{
+                        "id": "call-1",
+                        "function": { "name": "weather", "arguments": "{}" },
+                    }] } }],
+                })
+                .to_string(),
+            })
+            .err()
+            .ok_or("expected the index-less fragment to fail the stream")?;
 
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);

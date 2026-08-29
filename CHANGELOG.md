@@ -70,6 +70,10 @@ work:
   never arrived fails the stream retryably instead of fabricating a
   nameless tool call — the contract the Chat and Bedrock codecs already
   apply.
+- Chat: a streamed `tool_calls` fragment without a valid `index` fails the
+  stream retryably, as the reference decoder did, instead of defaulting to
+  slot 0 — which silently merged parallel calls into one call with the
+  second call's identity and garbled arguments.
 
 ### Round-3 parity fixes
 
