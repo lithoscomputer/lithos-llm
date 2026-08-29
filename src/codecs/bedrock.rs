@@ -466,10 +466,6 @@ fn encode_reasoning(reasoning: &ReasoningContent) -> Value {
 
 /// Encodes a tool call as a `toolUse` block.
 ///
-/// Converse requires `toolUse.input` to be a JSON object document and rejects
-/// a no-argument call whose input is null, so any other value becomes `{}`.
-/// Encodes a tool call as a `toolUse` block.
-///
 /// `toolUse.input` is a document, not an object, so an array or a scalar is a
 /// legal value. Replacing anything that is not an object with `{}` discarded
 /// the arguments of a replayed call whose tool takes a list. `Null` still
@@ -527,15 +523,6 @@ fn tool_result_block(tool_call_id: &str, content: Vec<Value>, is_error: bool) ->
     json!({ "toolResult": Value::Object(block) })
 }
 
-/// Maps a media type onto Bedrock's media `format` enum.
-/// Maps a declared media type onto the Converse format enum.
-///
-/// `None` means the source declared nothing, and the caller's `default` stands
-/// in. A declared type this protocol has no enum member for returns `None`,
-/// because labelling the bytes with a format they are not would tell the
-/// provider something the caller never said — `image/heic` sent as `png`.
-/// Bedrock is the only dialect that must map onto an enum; the others pass the
-/// declared type through verbatim, so only this one can misdescribe content.
 /// Refuses media whose declared type has no Converse format.
 fn unsupported_media_type(route: &ResolvedRoute, media_type: Option<&str>) -> Error {
     unsupported_capability(
@@ -544,6 +531,12 @@ fn unsupported_media_type(route: &ResolvedRoute, media_type: Option<&str>) -> Er
     )
 }
 
+/// Maps a declared media type onto the Converse format enum.
+///
+/// `None` means the source declared nothing, and the caller's `default` stands
+/// in. A declared type this protocol has no enum member for returns `None`,
+/// because labelling the bytes with a format they are not would tell the
+/// provider something the caller never said — `image/heic` sent as `png`.
 fn media_format<'a>(media_type: Option<&'a str>, default: &'a str) -> Option<&'a str> {
     let Some(media_type) = media_type else {
         return Some(default);

@@ -55,10 +55,15 @@ impl Codec for GeminiGenerateCodec {
         if flattens_system_content(call.request()) {
             encoded = encoded.unsupported_control("non-text system content");
         }
+        // An all-JSON result rides `functionResponse.response` natively, so
+        // only a mix that must flatten is reported.
         if flattens_tool_result_content(call.request(), |parts| {
             parts
                 .iter()
                 .all(|part| matches!(part, ContentPart::Text { .. }))
+                || parts
+                    .iter()
+                    .all(|part| matches!(part, ContentPart::Json { .. }))
         }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
@@ -432,11 +437,33 @@ fn encode_tool_call(call: &ToolCall) -> Value {
 /// itself, then from the assistant turn that made the call, and only then from
 /// the call id, which is a last resort that names no declared function.
 fn encode_tool_result(result: &ToolResult, names: &HashMap<&str, &str>) -> Value {
-    let text = plain_text(&result.content);
+    // Structured results travel natively: `response` is a free-form struct,
+    // so a JSON value goes under the conventional key instead of being
+    // flattened to the empty text a Json-only result would otherwise yield.
+    let payload = match result.content.as_slice() {
+        [ContentPart::Json { value }] => value.clone(),
+        parts
+            if !parts.is_empty()
+                && parts
+                    .iter()
+                    .all(|part| matches!(part, ContentPart::Json { .. })) =>
+        {
+            Value::Array(
+                parts
+                    .iter()
+                    .filter_map(|part| match part {
+                        ContentPart::Json { value } => Some(value.clone()),
+                        _ => None,
+                    })
+                    .collect(),
+            )
+        }
+        _ => Value::String(plain_text(&result.content)),
+    };
     let response = if result.is_error {
-        json!({ "error": text })
+        json!({ "error": payload })
     } else {
-        json!({ "output": text })
+        json!({ "output": payload })
     };
     let name = result
         .name
@@ -1586,6 +1613,41 @@ mod tests {
         assert!(
             response.get("is_error").is_none(),
             "a boolean flag beside `output` reads to the model as ordinary output"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_json_tool_result_rides_the_response_struct() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model("gemini/gemini-2.5-pro")
+            .user("Look it up.")
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: "call-1".to_owned(),
+                    name:         Some("weather".to_owned()),
+                    content:      vec![ContentPart::Json {
+                        value: json!({ "temperature": 21, "unit": "C" }),
+                    }],
+                    is_error:     false,
+                },
+            )]))
+            .build()?;
+
+        let encoded = GeminiGenerateCodec.encode(&resolved(request)?, false)?;
+
+        let response = &encoded.body["contents"][0]["parts"][1]["functionResponse"]["response"];
+        assert_eq!(
+            response,
+            &json!({ "output": { "temperature": 21, "unit": "C" } }),
+            "a JSON result must reach the model, not flatten to empty text"
+        );
+        assert!(
+            !encoded
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("tool result")),
+            "carried content must not warn"
         );
         Ok(())
     }
