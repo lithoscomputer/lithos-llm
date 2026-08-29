@@ -1190,6 +1190,62 @@ mod tests {
     }
 
     #[test]
+    fn a_signature_repeated_on_start_and_delta_is_not_doubled() -> Result<(), Box<dyn StdError>> {
+        // The documented protocol sends one signature_delta and none on the
+        // start snapshot — but a provider that puts the whole blob in both
+        // places must not produce a concatenated signature the replay
+        // verifier rejects. Each arrival replaces, as the reference decoder
+        // did.
+        let events = stream(vec![
+            sse(
+                "message_start",
+                &json!({ "type": "message_start", "message": { "id": "msg_1" } }),
+            ),
+            sse(
+                "content_block_start",
+                &json!({
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": { "type": "thinking", "thinking": "", "signature": "sig-1" },
+                }),
+            ),
+            sse(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "thinking_delta", "thinking": "step one" },
+                }),
+            ),
+            sse(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "signature_delta", "signature": "sig-1" },
+                }),
+            ),
+            sse(
+                "content_block_stop",
+                &json!({ "type": "content_block_stop", "index": 0 }),
+            ),
+        ])?;
+
+        let reasoning = events
+            .iter()
+            .find_map(|event| match event {
+                StreamEvent::ContentBlockEnd {
+                    part: ContentPart::Reasoning(part),
+                    ..
+                } => Some(part),
+                _ => None,
+            })
+            .ok_or("expected a reasoning part")?;
+        assert_eq!(reasoning.signature.as_deref(), Some("sig-1"));
+        Ok(())
+    }
+
+    #[test]
     fn a_streamed_server_tool_use_block_keeps_its_streamed_input() -> Result<(), Box<dyn StdError>>
     {
         // A server-side block opens with an empty `input` and streams the

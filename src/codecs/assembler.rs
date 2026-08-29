@@ -288,20 +288,20 @@ impl StreamAssembler {
         events
     }
 
-    /// Accumulates a reasoning signature fragment.
+    /// Records a reasoning signature, replacing any earlier one.
     ///
-    /// The signature is not a delta and produces no event of its own. The
-    /// returned vector is empty unless the block had to be opened first.
+    /// The signature is not a delta and produces no event of its own; every
+    /// protocol sends each signature whole, so a repeat is a newer snapshot
+    /// rather than a continuation — appending would corrupt the blob a
+    /// provider verifies on replay. The returned vector is empty unless the
+    /// block had to be opened first.
     pub(crate) fn signature(&mut self, id: &ContentBlockId, signature: &str) -> Vec<StreamEvent> {
         let events = self.latch(id, ContentBlockKind::Reasoning);
         let Some(block) = self.open_block(id) else {
             return events;
         };
 
-        block
-            .signature
-            .get_or_insert_with(String::new)
-            .push_str(signature);
+        block.signature = Some(signature.to_owned());
         events
     }
 
@@ -827,8 +827,10 @@ mod tests {
 
         let mut events = assembler.reasoning(&reasoning, "step ");
         events.extend(assembler.reasoning(&reasoning, "one"));
-        events.extend(assembler.signature(&reasoning, "sig-"));
-        events.extend(assembler.signature(&reasoning, "tail"));
+        // Signatures arrive whole; a repeat is a newer snapshot and replaces
+        // the earlier value — appending would corrupt the verified blob.
+        events.extend(assembler.signature(&reasoning, "sig-stale"));
+        events.extend(assembler.signature(&reasoning, "sig-final"));
         events.extend(assembler.set_redacted(&reasoning));
         events.extend(assembler.end(&reasoning));
 
@@ -847,7 +849,7 @@ mod tests {
             return Err("expected a reasoning part".into());
         };
         assert_eq!(reasoning_part.text, "step one");
-        assert_eq!(reasoning_part.signature.as_deref(), Some("sig-tail"));
+        assert_eq!(reasoning_part.signature.as_deref(), Some("sig-final"));
         assert!(reasoning_part.redacted);
 
         let ContentPart::ToolCall(call) = &parts[1] else {

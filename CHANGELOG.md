@@ -64,6 +64,11 @@ work:
 - Responses: a text-only Tool message answering a custom tool call routes
   to `custom_tool_call_output` by the seen custom call ids as well as the
   declared names, the same rule the `ToolResult` path already applies.
+- Streamed reasoning signatures replace instead of appending: every
+  protocol sends each signature whole, so a blob repeated on a start
+  snapshot and a delta no longer concatenates into a signature the
+  provider rejects on replay — the reference decoders' behavior on both
+  Anthropic and Bedrock.
 
 ### Round-2 parity fixes
 
