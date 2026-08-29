@@ -840,7 +840,17 @@ pub(crate) fn apply_catalog_cost(
     speed: Option<Speed>,
 ) {
     if response.cost.is_none() {
-        response.cost = catalog_cost(response.usage, route.model().pricing().as_ref(), speed);
+        let anthropic_rates = matches!(
+            route.provider().codec().as_str(),
+            crate::catalog::codec_ids::ANTHROPIC_MESSAGES
+                | crate::catalog::codec_ids::BEDROCK_CONVERSE
+        );
+        response.cost = catalog_cost(
+            response.usage,
+            route.model().pricing().as_ref(),
+            speed,
+            anthropic_rates,
+        );
     }
 }
 
@@ -848,8 +858,12 @@ pub(crate) fn apply_catalog_cost(
 ///
 /// The five [`TokenCounts`] buckets are disjoint, so each is priced once.
 /// Reasoning tokens bill at the output rate. Cache reads bill at the
-/// cached-input rate and cache writes at the cache-write rate, each falling
-/// back to the plain input rate when the catalog omits it.
+/// cached-input rate and cache writes at the cache-write rate. A cache bucket
+/// the catalog does not price bills at zero rather than the input rate, with
+/// one exception: `anthropic_rates` derives a missing cache-write rate as
+/// 1.25x input, Anthropic's published premium for the default five-minute
+/// cache, so a migrated Anthropic or Bedrock entry without the explicit field
+/// keeps estimating what the provider charges.
 ///
 /// A long-context rate tier is selected on the whole prompt, which is the input
 /// bucket plus both cache buckets. Speed rates apply last, so a speed rate wins
@@ -867,6 +881,7 @@ fn catalog_cost(
     usage: TokenCounts,
     pricing: Option<&Pricing>,
     speed: Option<Speed>,
+    anthropic_rates: bool,
 ) -> Option<Cost> {
     let prompt = usage
         .input
@@ -881,16 +896,16 @@ fn catalog_cost(
     let input = token_cost(usage.input, pricing.input_usd_micros_per_million);
     let cache_read = token_cost(
         usage.cache_read,
-        pricing
-            .cached_input_usd_micros_per_million
-            .or(pricing.input_usd_micros_per_million),
+        pricing.cached_input_usd_micros_per_million,
     );
-    let cache_write = token_cost(
-        usage.cache_write,
-        pricing
-            .cache_write_usd_micros_per_million
-            .or(pricing.input_usd_micros_per_million),
-    );
+    let cache_write_rate = pricing.cache_write_usd_micros_per_million.or_else(|| {
+        anthropic_rates.then(|| {
+            pricing
+                .input_usd_micros_per_million
+                .map(|rate| rate.saturating_mul(5) / 4)
+        })?
+    });
+    let cache_write = token_cost(usage.cache_write, cache_write_rate);
     let output = token_cost(
         usage.billable_output(),
         pricing.output_usd_micros_per_million,
@@ -958,7 +973,7 @@ mod tests {
 
     #[test]
     fn prices_reasoning_at_the_output_rate_and_each_cache_bucket_at_its_own() {
-        let cost = catalog_cost(usage(), Some(&pricing()), None);
+        let cost = catalog_cost(usage(), Some(&pricing()), None, false);
 
         // 1000 input + 100 cache read + 500 cache write + 4000 for the 2000
         // tokens billed at the output rate.
@@ -967,22 +982,50 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_the_input_rate_for_missing_cache_rates() {
+    fn unpriced_cache_buckets_bill_at_zero() {
         let pricing = Pricing {
             cached_input_usd_micros_per_million: None,
             cache_write_usd_micros_per_million: None,
             ..pricing()
         };
 
-        let cost = catalog_cost(usage(), Some(&pricing), None);
+        let cost = catalog_cost(usage(), Some(&pricing), None, false);
 
-        // Both cache buckets now bill at the plain input rate.
-        assert_eq!(cost.map(|cost| cost.usd_micros), Some(7_000));
+        // 1000 input + 4000 output; neither cache bucket has a rate, and
+        // billing them at the input rate would overstate providers whose
+        // cache reads are discounted or free.
+        assert_eq!(cost.map(|cost| cost.usd_micros), Some(5_000));
+    }
+
+    #[test]
+    fn anthropic_rates_derive_the_cache_write_premium() {
+        let pricing = Pricing {
+            cached_input_usd_micros_per_million: None,
+            cache_write_usd_micros_per_million: None,
+            ..pricing()
+        };
+
+        let cost = catalog_cost(usage(), Some(&pricing), None, true);
+
+        // Anthropic bills cache writes at 1.25x input, so the derived rate
+        // adds 1250 to the 1000 input + 4000 output; cache reads without a
+        // rate still bill at zero.
+        assert_eq!(cost.map(|cost| cost.usd_micros), Some(6_250));
+
+        // An explicit catalog rate always wins over the derivation.
+        let explicit = Pricing {
+            cache_write_usd_micros_per_million: Some(500_000),
+            ..pricing
+        };
+        assert_eq!(
+            catalog_cost(usage(), Some(&explicit), None, true).map(|cost| cost.usd_micros),
+            Some(5_500)
+        );
     }
 
     #[test]
     fn prices_nothing_without_catalog_rates() {
-        assert_eq!(catalog_cost(usage(), None, None), None);
+        assert_eq!(catalog_cost(usage(), None, None, false), None);
         assert_eq!(
             catalog_cost(
                 usage(),
@@ -991,7 +1034,8 @@ mod tests {
                     output_usd_micros_per_million: None,
                     ..pricing()
                 }),
-                None
+                None,
+                false
             ),
             None
         );
@@ -1012,7 +1056,7 @@ mod tests {
             ..pricing()
         };
 
-        let cost = catalog_cost(usage(), Some(&pricing), None);
+        let cost = catalog_cost(usage(), Some(&pricing), None, false);
 
         // Every rate doubles: 2000 + 200 + 1000 + 8000.
         assert_eq!(cost.map(|cost| cost.usd_micros), Some(11_200));
@@ -1035,17 +1079,18 @@ mod tests {
 
         // The standard rates bill 5600, so the doubled tier bills 11200.
         assert_eq!(
-            catalog_cost(usage(), Some(&pricing), Some(Speed::Fast)).map(|cost| cost.usd_micros),
+            catalog_cost(usage(), Some(&pricing), Some(Speed::Fast), false)
+                .map(|cost| cost.usd_micros),
             Some(11_200)
         );
         // A speed the model does not price keeps the base rates.
         assert_eq!(
-            catalog_cost(usage(), Some(&pricing), Some(Speed::Economical))
+            catalog_cost(usage(), Some(&pricing), Some(Speed::Economical), false)
                 .map(|cost| cost.usd_micros),
             Some(5_600)
         );
         assert_eq!(
-            catalog_cost(usage(), Some(&pricing), None).map(|cost| cost.usd_micros),
+            catalog_cost(usage(), Some(&pricing), None, false).map(|cost| cost.usd_micros),
             Some(5_600)
         );
     }
