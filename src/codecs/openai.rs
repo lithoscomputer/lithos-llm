@@ -1163,9 +1163,14 @@ impl ResponsesStream {
         }
         if is_internal_call(item) {
             self.skipped.insert(id.clone());
-            // Closes whatever an early delta opened before the name was known.
-            // Nothing opens here, so this is normally empty.
-            return self.assembler.end(id);
+            // A lost `output_item.added` lets the argument deltas latch a
+            // fallback block before the name is known. The terminal item
+            // reveals the call is model-internal: the end event closes what
+            // consumers saw open, but the part is discarded — blocking decode
+            // drops the item, and a nameless call must not become content or
+            // flip the finish reason. Nothing opens on the normal path, so
+            // this is usually empty.
+            return self.assembler.discard(id);
         }
         if item.get("type").and_then(Value::as_str) == Some("reasoning") {
             return self.end_reasoning(id, item);
@@ -2128,6 +2133,49 @@ mod tests {
         assert_eq!(recovered.id, "call_abc");
         assert_eq!(recovered.name, "search");
         assert_eq!(recovered.arguments, json!({ "query": "rust" }));
+        Ok(())
+    }
+
+    #[test]
+    fn a_lost_added_for_an_internal_call_leaves_no_phantom_part() -> Result<(), Box<dyn StdError>> {
+        // Argument deltas for an unannounced item latch the fallback block,
+        // and the terminal item then reveals a model-internal call with no
+        // name. Blocking decode drops the item, and the stream must match:
+        // the latched block closes for consumers that saw it open, but no
+        // nameless ToolCall joins the content and the finish reason stays
+        // the document's.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_9",
+                "delta": "{\"q\":1}",
+            }),
+            json!({
+                "type": "response.output_item.done",
+                "output_index": 0,
+                "item": { "type": "function_call", "id": "fc_9", "arguments": "{\"q\":1}" },
+            }),
+            json!({
+                "type": "response.completed",
+                "response": { "id": "resp_1", "status": "completed", "output": [] },
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        assert_block_boundaries(&events)?;
+        let response = completed(&events)?;
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Stop);
         Ok(())
     }
 

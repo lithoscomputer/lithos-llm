@@ -554,6 +554,28 @@ impl StreamAssembler {
         events
     }
 
+    /// Ends an open block and discards its part.
+    ///
+    /// For a block that exists only because a lost start event let its deltas
+    /// latch it, when the terminal item then reveals content the response
+    /// must not carry. The end event keeps the start/end pairing for
+    /// consumers that saw the block open, but the part joins neither the
+    /// completed content nor the tool-call count.
+    pub(crate) fn discard(&mut self, id: &ContentBlockId) -> Vec<StreamEvent> {
+        let Some(index) = self.find(id) else {
+            return Vec::new();
+        };
+        if !self.blocks[index].open {
+            return Vec::new();
+        }
+
+        let part = self.blocks.remove(index).into_part();
+        vec![StreamEvent::ContentBlockEnd {
+            id: id.clone(),
+            part,
+        }]
+    }
+
     /// Whether any block of this stream, open or closed, is a tool call.
     pub(crate) fn has_tool_call(&self) -> bool {
         self.blocks

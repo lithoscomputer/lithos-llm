@@ -92,6 +92,11 @@ work:
 - Chat: several replayed reasoning parts join into `reasoning_content`
   unseparated, byte for byte what the reference client sent, instead of
   with a `"\n\n"` separator — the same rule the text join follows.
+- Responses: a lost `output_item.added` for a model-internal call no longer
+  leaves a phantom nameless `ToolCall` part in the streamed content or
+  flips the finish reason — the fallback-latched block closes for
+  consumers but its part is discarded, matching blocking decode of the
+  same body.
 
 ### Round-3 parity fixes
 
