@@ -106,13 +106,19 @@ impl Codec for OpenAiResponsesCodec {
 
         // Reasoning text has no input item in this protocol; only an
         // `openai.reasoning` opaque part replays. Dropping it is correct, but
-        // it must not be silent.
-        if request
-            .messages()
-            .iter()
-            .flat_map(Message::content)
-            .any(|part| matches!(part, ContentPart::Reasoning(_)))
-        {
+        // it must not be silent — unless an opaque reasoning item sits in the
+        // same message, because this codec's own decoder emits the readable
+        // part BESIDE the opaque item that replays the same text, and warning
+        // on the codec's own round trip would claim a loss on every turn.
+        if request.messages().iter().any(|message| {
+            let parts = message.content();
+            parts
+                .iter()
+                .any(|part| matches!(part, ContentPart::Reasoning(_)))
+                && !parts.iter().any(
+                    |part| matches!(part, ContentPart::Opaque { kind, .. } if kind == REASONING_KIND),
+                )
+        }) {
             encoded = encoded.unsupported_control("replaying reasoning text");
         }
 
@@ -2891,6 +2897,52 @@ mod tests {
             encoded.body.to_string().matches("Checking now.").count(),
             1,
             "the preserved item already carries the assistant text",
+        );
+        Ok(())
+    }
+
+    /// The decoder emits a readable reasoning part BESIDE the opaque item
+    /// that replays the same text, so the codec's own round trip must not
+    /// warn about dropped reasoning — nothing is lost. Reasoning without an
+    /// opaque sibling in its message still warns.
+    #[test]
+    fn a_reasoning_part_beside_its_opaque_item_does_not_warn() -> Result<(), Box<dyn StdError>> {
+        let reasoning = ContentPart::Reasoning(ReasoningContent {
+            text:             "Let me check.".to_owned(),
+            signature:        None,
+            signature_origin: None,
+            redacted:         false,
+        });
+        let item = json!({
+            "type": "reasoning",
+            "id": "rs_1",
+            "summary": [{ "type": "summary_text", "text": "Let me check." }],
+        });
+
+        let round_trip = Request::builder()
+            .model(MODEL)
+            .user("List the files")
+            .message(Message::new(Role::Assistant, [
+                reasoning.clone(),
+                ContentPart::opaque(REASONING_KIND, item),
+                ContentPart::Text {
+                    text: "Checking now.".to_owned(),
+                },
+            ]))
+            .build()?;
+        let encoded = codec().encode(&call(round_trip)?, false)?;
+        assert_eq!(encoded.warnings, vec![], "the round trip loses nothing");
+
+        let orphaned = Request::builder()
+            .model(MODEL)
+            .user("List the files")
+            .message(Message::new(Role::Assistant, [reasoning]))
+            .build()?;
+        let encoded = codec().encode(&call(orphaned)?, false)?;
+        assert_eq!(
+            encoded.warnings.len(),
+            1,
+            "reasoning with no opaque sibling is dropped and must warn"
         );
         Ok(())
     }
