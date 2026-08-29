@@ -36,6 +36,21 @@ The first live E2E runs against Venice
   `CacheHint::Disabled` turns it off; a raw `prompt_cache_key` in
   `provider_options` still wins.
 
+### Round-4 parity fixes
+
+A fourth differential review against the reference implementation
+(`.ai/reviews/lithos-llm-vs-fabro-llm-round-4.md`, punch list in
+`.ai/plans/lithos-llm-punch-list-4.md`) landed these on top of the round-3
+work:
+
+- Structural decode failures and garbled stream data are classified
+  retryable (`Safe`) on every codec, extending the round-3 Chat rule to
+  Anthropic, Gemini, Bedrock, and OpenAI Responses — a 200 missing the
+  fields its protocol requires, a stream event that is not JSON, and every
+  Bedrock event-stream framing failure (checksum, length, header block,
+  non-UTF-8 payload). The reference client retried all of these; stream
+  failures still stop retrying once visible output has streamed.
+
 ### Round-3 parity fixes
 
 A third differential review against the reference implementation

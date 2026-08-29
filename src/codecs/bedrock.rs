@@ -204,6 +204,10 @@ impl Codec for BedrockConverseCodec {
             .pointer("/output/message/content")
             .is_some_and(Value::is_array)
         {
+            // A structurally malformed 200 is indistinguishable from a
+            // garbled or truncated body, so a fresh attempt is safe — the
+            // same classification the transport gives a 200 whose body is
+            // not JSON at all.
             return Err(Error::new(
                 ErrorKind::ResponseDecode,
                 format!(
@@ -212,7 +216,8 @@ impl Codec for BedrockConverseCodec {
                 ),
             )
             .with_provider(route.provider().id().clone())
-            .with_raw_data(value));
+            .with_raw_data(value)
+            .with_retry(RetryClassification::Safe));
         }
 
         let content = value
@@ -251,12 +256,14 @@ impl Codec for BedrockConverseCodec {
             .get("inputTokens")
             .and_then(Value::as_u64)
             .ok_or_else(|| {
+                // Malformed like any other garbled 200, so retrying is safe.
                 Error::new(
                     ErrorKind::ResponseDecode,
                     "Bedrock returned a count-tokens body without an inputTokens count",
                 )
                 .with_provider(route.provider().id().clone())
                 .with_raw_data(value)
+                .with_retry(RetryClassification::Safe)
             })
     }
 }
@@ -993,6 +1000,9 @@ struct BedrockStreamDecoder {
 
 impl StreamDecoder for BedrockStreamDecoder {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
+        // An event payload that is not JSON is indistinguishable from
+        // mid-stream corruption, so the failure is retryable like any other
+        // garbled stream.
         let value: Value = serde_json::from_str(&event.data).map_err(|source| {
             Error::new(
                 ErrorKind::StreamDecode,
@@ -1000,6 +1010,7 @@ impl StreamDecoder for BedrockStreamDecoder {
             )
             .with_provider(self.route.provider().id().clone())
             .with_source(source)
+            .with_retry(RetryClassification::Safe)
         })?;
 
         if let Some(error) = self.exception(&value) {
@@ -1262,7 +1273,25 @@ mod tests {
                 .decode_response(call.route(), body)
                 .expect_err("a structureless 200 must fail to decode");
             assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+            assert_eq!(error.retry_classification(), RetryClassification::Safe);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn a_stream_event_that_is_not_json_fails_retryably() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let mut decoder = BedrockConverseCodec.stream_decoder(call.route());
+
+        let error = decoder
+            .decode(SseEvent {
+                event: Some("contentBlockDelta".to_owned()),
+                data:  "not json".to_owned(),
+            })
+            .expect_err("a garbled event must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 
@@ -2274,6 +2303,7 @@ mod tests {
             .err()
             .ok_or("expected a malformed count body to fail")?;
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 

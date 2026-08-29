@@ -23,8 +23,9 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, MediaSource, Message,
-    ReasoningContent, ReasoningEffort, Response, ResponseFormat, Role, Speed, StreamEvent,
-    TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
+    ReasoningContent, ReasoningEffort, Response, ResponseFormat, RetryClassification, Role, Speed,
+    StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition,
+    ToolDefinitionKind,
 };
 
 /// The opaque-part namespace this codec owns.
@@ -156,12 +157,17 @@ impl Codec for AnthropicMessagesCodec {
         // envelope, or another protocol answering on this URL. Decoding it as
         // an empty success would report a model that said nothing.
         if let Some(field) = missing_response_field(&value) {
+            // A structurally malformed 200 is indistinguishable from a
+            // garbled or truncated body, so a fresh attempt is safe — the
+            // same classification the transport gives a 200 whose body is
+            // not JSON at all.
             return Err(Error::new(
                 ErrorKind::ResponseDecode,
                 format!("Anthropic returned a response without the {field} field"),
             )
             .with_provider(route.provider().id().clone())
-            .with_raw_data(value));
+            .with_raw_data(value)
+            .with_retry(RetryClassification::Safe));
         }
 
         let content = value
@@ -913,6 +919,9 @@ struct AnthropicStreamDecoder {
 
 impl StreamDecoder for AnthropicStreamDecoder {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
+        // An event that is not JSON is indistinguishable from mid-stream
+        // corruption, so the failure is retryable like any other garbled
+        // stream.
         let value: Value = serde_json::from_str(&event.data).map_err(|source| {
             Error::new(
                 ErrorKind::StreamDecode,
@@ -920,6 +929,7 @@ impl StreamDecoder for AnthropicStreamDecoder {
             )
             .with_provider(self.route.provider().id().clone())
             .with_source(source)
+            .with_retry(RetryClassification::Safe)
         })?;
         let kind = value
             .get("type")
@@ -1132,8 +1142,8 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         ContentPart, ErrorKind, ImageContent, MediaSource, Message, ReasoningContent,
-        ReasoningEffort, Request, ResponseFormat, Role, Speed, StreamEvent, ToolChoice,
-        ToolDefinition, ToolResult,
+        ReasoningEffort, Request, ResponseFormat, RetryClassification, Role, Speed, StreamEvent,
+        ToolChoice, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "anthropic/claude-sonnet-4-6";
@@ -1877,6 +1887,40 @@ mod tests {
 
         assert_eq!(error.provider_code(), Some("overloaded_error"));
         assert!(error.message().contains("Overloaded"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_success_body_that_is_not_a_messages_response_fails_retryably()
+    -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+
+        // A gateway error page reserialized as a 200 is indistinguishable
+        // from a garbled body, so the failure must stay retryable — the
+        // classification the reference client gave it.
+        let error = AnthropicMessagesCodec
+            .decode_response(call.route(), json!({ "error": "gateway" }))
+            .expect_err("a structureless 200 must fail to decode");
+
+        assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn a_stream_event_that_is_not_json_fails_retryably() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let mut decoder = AnthropicMessagesCodec.stream_decoder(call.route());
+
+        let error = decoder
+            .decode(SseEvent {
+                event: None,
+                data:  "not json".to_owned(),
+            })
+            .expect_err("a garbled event must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 

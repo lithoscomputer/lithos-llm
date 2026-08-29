@@ -21,9 +21,9 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, MediaSource,
-    Message, ReasoningContent, Request, Response, ResponseFormat, Role, Speed, StreamEvent,
-    TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
-    ToolResult,
+    Message, ReasoningContent, Request, Response, ResponseFormat, RetryClassification, Role, Speed,
+    StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition,
+    ToolDefinitionKind, ToolResult,
 };
 
 /// The provider namespace this codec owns.
@@ -959,6 +959,10 @@ fn decode_usage(usage: Option<&Value>) -> TokenCounts {
 }
 
 /// The error a malformed success body produces.
+///
+/// A structurally malformed 200 is indistinguishable from a garbled or
+/// truncated body, so a fresh attempt is safe — the same classification the
+/// transport gives a 200 whose body is not JSON at all.
 fn decode_error(route: &ResolvedRoute, detail: impl Into<String>, raw: Value) -> Error {
     Error::new(
         ErrorKind::ResponseDecode,
@@ -966,6 +970,7 @@ fn decode_error(route: &ResolvedRoute, detail: impl Into<String>, raw: Value) ->
     )
     .with_provider(route.provider().id().clone())
     .with_raw_data(raw)
+    .with_retry(RetryClassification::Safe)
 }
 
 /// Decodes one `/v1/responses` stream.
@@ -1387,7 +1392,8 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         ContentBlockId, ContentPart, ErrorKind, FinishReason, Message, ReasoningContent, Request,
-        Response, Role, StreamEvent, ToolCall, ToolCallKind, ToolDefinition, ToolResult,
+        Response, RetryClassification, Role, StreamEvent, ToolCall, ToolCallKind, ToolDefinition,
+        ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -1776,6 +1782,7 @@ mod tests {
                 .err()
                 .ok_or("expected a body without output to fail")?;
             assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+            assert_eq!(error.retry_classification(), RetryClassification::Safe);
         }
         Ok(())
     }
@@ -2657,6 +2664,7 @@ mod tests {
 
         assert_eq!(tokens, 123);
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 

@@ -928,8 +928,12 @@ fn frame_end(buffer: &[u8]) -> Option<(usize, usize)> {
     feature = "openai-compatible"
 ))]
 fn parse_frame(frame: &[u8]) -> Result<Option<SseEvent>, Error> {
+    // Garbled framing is indistinguishable from mid-stream corruption, so
+    // the failure is retryable like any other garbled stream.
     let frame = from_utf8(frame).map_err(|source| {
-        Error::new(ErrorKind::StreamDecode, "an SSE frame was not UTF-8").with_source(source)
+        Error::new(ErrorKind::StreamDecode, "an SSE frame was not UTF-8")
+            .with_source(source)
+            .with_retry(RetryClassification::Safe)
     })?;
     let mut event = None;
     let mut data = Vec::new();
@@ -972,6 +976,7 @@ fn event_stream_events_from(
                 )
                 .with_provider(provider.clone())
                 .with_source(source)
+                .with_retry(RetryClassification::Safe)
             })?;
             if frame.is_failure() {
                 let body = serde_json::from_str::<Value>(&data).ok();

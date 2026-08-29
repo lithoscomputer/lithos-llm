@@ -11,7 +11,7 @@ expression: rendered
       "provider": "anthropic",
       "raw_data": {},
       "retry": {
-        "type": "never"
+        "type": "safe"
       }
     }
   },
@@ -30,7 +30,7 @@ expression: rendered
         }
       },
       "retry": {
-        "type": "never"
+        "type": "safe"
       }
     }
   },
@@ -51,7 +51,7 @@ expression: rendered
         "model": "claude-sonnet-4-6"
       },
       "retry": {
-        "type": "never"
+        "type": "safe"
       }
     }
   },
@@ -66,7 +66,7 @@ expression: rendered
         "upstream": "anthropic"
       },
       "retry": {
-        "type": "never"
+        "type": "safe"
       }
     }
   }

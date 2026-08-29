@@ -17,8 +17,8 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, MediaSource,
-    Message, ReasoningContent, Request, Response, ResponseFormat, Role, StreamEvent, TokenCounts,
-    ToolCall, ToolCallKind, ToolChoice, ToolDefinitionKind, ToolResult,
+    Message, ReasoningContent, Request, Response, ResponseFormat, RetryClassification, Role,
+    StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinitionKind, ToolResult,
 };
 
 /// The replay namespace this codec claims.
@@ -574,12 +574,17 @@ fn no_candidates(route: &ResolvedRoute, value: Value) -> Error {
         .pointer("/promptFeedback/blockReason")
         .and_then(Value::as_str)
     else {
+        // A structurally malformed 200 is indistinguishable from a garbled
+        // or truncated body, so a fresh attempt is safe — the same
+        // classification the transport gives a 200 whose body is not JSON
+        // at all.
         return Error::new(
             ErrorKind::ResponseDecode,
             "Gemini returned no candidates in the response",
         )
         .with_provider(route.provider().id().clone())
-        .with_raw_data(value);
+        .with_raw_data(value)
+        .with_retry(RetryClassification::Safe);
     };
 
     let classified = json!({
@@ -874,6 +879,9 @@ impl GeminiStreamDecoder {
 
     /// Translates one chunk into stream events.
     fn chunk(&mut self, event: &SseEvent) -> Result<Vec<StreamEvent>, Error> {
+        // A chunk that is not JSON is indistinguishable from mid-stream
+        // corruption, so the failure is retryable like any other garbled
+        // stream.
         let value: Value = serde_json::from_str(&event.data).map_err(|source| {
             Error::new(
                 ErrorKind::StreamDecode,
@@ -881,6 +889,7 @@ impl GeminiStreamDecoder {
             )
             .with_provider(self.route.provider().id().clone())
             .with_source(source)
+            .with_retry(RetryClassification::Safe)
         })?;
 
         if value.get("error").is_some() {
@@ -1261,6 +1270,29 @@ mod tests {
         let error = decode_failure(json!({ "responseId": "resp-1" }))?;
 
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn a_stream_chunk_that_is_not_json_fails_retryably() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .build()?,
+        )?;
+        let mut decoder = GeminiGenerateCodec.stream_decoder(call.route());
+
+        let error = decoder
+            .decode(SseEvent {
+                event: None,
+                data:  "not json".to_owned(),
+            })
+            .expect_err("a garbled chunk must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 

@@ -11,7 +11,7 @@ use std::str::from_utf8;
 
 use crc32fast::hash;
 
-use crate::types::{Error, ErrorKind};
+use crate::types::{Error, ErrorKind, RetryClassification};
 
 /// The fixed prelude: total length, headers length, and the prelude CRC32.
 const PRELUDE_LENGTH: usize = 12;
@@ -96,10 +96,14 @@ pub(crate) fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<EventStreamFram
         // also means neither length can be trusted, so decoding ends here.
         if hash(&buffer[..8]) != read_u32(&buffer[8..PRELUDE_LENGTH]) {
             buffer.clear();
+            // Frame corruption is a transient transport fault, so every
+            // decode failure below is retryable — the retry window still
+            // closes once visible output has streamed.
             frames.push(Err(Error::new(
                 ErrorKind::StreamDecode,
                 "Bedrock returned an event-stream frame with an invalid prelude checksum",
-            )));
+            )
+            .with_retry(RetryClassification::Safe)));
             break;
         }
         let total_length = read_length(&buffer[0..4]);
@@ -111,7 +115,8 @@ pub(crate) fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<EventStreamFram
             frames.push(Err(Error::new(
                 ErrorKind::StreamDecode,
                 "Bedrock returned an invalid event-stream frame length",
-            )));
+            )
+            .with_retry(RetryClassification::Safe)));
             break;
         }
         if buffer.len() < total_length {
@@ -124,7 +129,8 @@ pub(crate) fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<EventStreamFram
             frames.push(Err(Error::new(
                 ErrorKind::StreamDecode,
                 "Bedrock returned an event-stream frame with an invalid checksum",
-            )));
+            )
+            .with_retry(RetryClassification::Safe)));
             continue;
         }
 
@@ -182,7 +188,8 @@ fn parse_headers(mut block: &[u8]) -> Result<BTreeMap<String, String>, Error> {
                 return Err(Error::new(
                     ErrorKind::StreamDecode,
                     format!("Bedrock sent an event-stream header with unknown value type {other}"),
-                ));
+                )
+                .with_retry(RetryClassification::Safe));
             }
         };
         if let Some(value) = value {
@@ -213,6 +220,7 @@ fn truncated_header_block() -> Error {
         ErrorKind::StreamDecode,
         "Bedrock returned an event-stream frame with a truncated header block",
     )
+    .with_retry(RetryClassification::Safe)
 }
 
 fn decode_utf8(bytes: &[u8], part: &str) -> Result<String, Error> {
@@ -222,6 +230,7 @@ fn decode_utf8(bytes: &[u8], part: &str) -> Result<String, Error> {
             format!("a Bedrock event-stream {part} was not UTF-8"),
         )
         .with_source(source)
+        .with_retry(RetryClassification::Safe)
     })
 }
 
@@ -230,7 +239,7 @@ mod tests {
     use crc32fast::hash;
 
     use super::{EventStreamFrame, PRELUDE_LENGTH, extract_frames};
-    use crate::types::{Error, ErrorKind};
+    use crate::types::{Error, ErrorKind, RetryClassification};
 
     /// Appends one string header in the AWS event-stream header encoding.
     fn push_string_header(block: &mut Vec<u8>, name: &str, value: &str) {
@@ -366,6 +375,7 @@ mod tests {
         let frames = extract_frames(&mut buffer);
         let error = expect_error(&frames);
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         assert!(error.message().contains("checksum"));
     }
 
@@ -378,6 +388,7 @@ mod tests {
         let frames = extract_frames(&mut buffer);
         let error = expect_error(&frames);
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         assert!(error.message().contains("checksum"));
     }
 
@@ -393,6 +404,7 @@ mod tests {
         let frames = extract_frames(&mut buffer);
         let error = expect_error(&frames);
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         assert!(error.message().contains("length"));
         assert!(buffer.is_empty(), "the stream position is abandoned");
     }
@@ -410,6 +422,7 @@ mod tests {
         let frames = extract_frames(&mut buffer);
         let error = expect_error(&frames);
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         assert!(error.message().contains("prelude"));
         assert!(buffer.is_empty(), "the stream position is abandoned");
     }
