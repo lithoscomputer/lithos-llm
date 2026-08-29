@@ -393,9 +393,9 @@ fn encode_tool_choice(choice: &ToolChoice) -> Value {
 fn encode_part(part: &ContentPart, names: &HashMap<&str, &str>) -> Option<Value> {
     match part {
         ContentPart::Text { text } => Some(json!({ "text": text })),
-        ContentPart::Image(image) => Some(encode_media(&image.source)),
-        ContentPart::Audio(audio) => Some(encode_media(&audio.source)),
-        ContentPart::Document(document) => Some(encode_media(&document.source)),
+        ContentPart::Image(image) => Some(encode_media(&image.source, "image/png")),
+        ContentPart::Audio(audio) => Some(encode_media(&audio.source, "audio/wav")),
+        ContentPart::Document(document) => Some(encode_media(&document.source, "application/pdf")),
         // A signature another provider family minted cannot verify here and
         // fails the request, so the part is skipped; the encoder reports it.
         ContentPart::Reasoning(reasoning) if foreign_signature(reasoning, GEMINI_SIGNATURES) => {
@@ -424,20 +424,23 @@ fn encode_part(part: &ContentPart, names: &HashMap<&str, &str>) -> Option<Value>
 }
 
 /// Encodes media as inline bytes or as a remote file reference.
-fn encode_media(source: &MediaSource) -> Value {
+///
+/// A declared media type passes through verbatim. Vertex-style surfaces
+/// require `fileData.mimeType`, so a URL source that declares none gets
+/// `default_type` by attachment kind — the old library's defaults of
+/// `image/png` for images, `audio/wav` for audio, and `application/pdf` for
+/// documents.
+fn encode_media(source: &MediaSource, default_type: &str) -> Value {
     match source {
         MediaSource::Base64 { data, media_type } => json!({
             "inlineData": { "mimeType": media_type, "data": data }
         }),
-        // Vertex-style surfaces require `mimeType` on file references, so a
-        // declared type goes on the wire. A URL without one is still sent —
-        // some endpoints determine the type from the fetched file.
-        MediaSource::Url { url, media_type } => match media_type {
-            Some(media_type) => json!({
-                "fileData": { "fileUri": url, "mimeType": media_type }
-            }),
-            None => json!({ "fileData": { "fileUri": url } }),
-        },
+        MediaSource::Url { url, media_type } => json!({
+            "fileData": {
+                "fileUri": url,
+                "mimeType": media_type.as_deref().unwrap_or(default_type),
+            }
+        }),
     }
 }
 
@@ -1068,9 +1071,9 @@ mod tests {
     use crate::codecs::test_support::resolved;
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentPart, DocumentContent, Error, ErrorKind, FinishReason, ImageContent, MediaSource,
-        Message, ReasoningEffort, Request, Response, ResponseFormat, RetryClassification, Role,
-        Speed, StreamEvent, ToolCall, ToolDefinition, ToolResult,
+        AudioContent, ContentPart, DocumentContent, Error, ErrorKind, FinishReason, ImageContent,
+        MediaSource, Message, ReasoningEffort, Request, Response, ResponseFormat,
+        RetryClassification, Role, Speed, StreamEvent, ToolCall, ToolDefinition, ToolResult,
     };
 
     fn object(value: Value) -> Result<Map<String, Value>, Box<dyn StdError>> {
@@ -1207,7 +1210,7 @@ mod tests {
         );
         assert_eq!(
             encoded.body["contents"][0]["parts"][1]["fileData"],
-            json!({ "fileUri": "https://example.com/cat.png" })
+            json!({ "mimeType": "image/png", "fileUri": "https://example.com/cat.png" })
         );
         // A declared media type reaches the wire: Vertex-style surfaces
         // require `mimeType` on file references.
@@ -1228,6 +1231,59 @@ mod tests {
         assert_eq!(
             encoded.body["contents"][0]["parts"][3]["functionResponse"]["name"],
             "weather"
+        );
+        Ok(())
+    }
+
+    /// Encodes one user message holding `part` and returns the `fileData`
+    /// member of the part it produced.
+    fn encoded_file_data(part: ContentPart) -> Result<Value, Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .message(Message::new(Role::User, [part]))
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+        Ok(encoded.body["contents"][0]["parts"][0]["fileData"].clone())
+    }
+
+    #[test]
+    fn a_url_image_defaults_its_mime_type() -> Result<(), Box<dyn StdError>> {
+        let file_data = encoded_file_data(ContentPart::Image(ImageContent::new(
+            MediaSource::url("https://example.com/cat.png"),
+        )))?;
+
+        assert_eq!(
+            file_data,
+            json!({ "mimeType": "image/png", "fileUri": "https://example.com/cat.png" })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_url_audio_defaults_its_mime_type() -> Result<(), Box<dyn StdError>> {
+        let file_data = encoded_file_data(ContentPart::Audio(AudioContent::new(
+            MediaSource::url("https://example.com/note.wav"),
+        )))?;
+
+        assert_eq!(
+            file_data,
+            json!({ "mimeType": "audio/wav", "fileUri": "https://example.com/note.wav" })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_url_document_defaults_its_mime_type() -> Result<(), Box<dyn StdError>> {
+        let file_data = encoded_file_data(ContentPart::Document(DocumentContent::new(
+            MediaSource::url("https://example.com/report.pdf"),
+        )))?;
+
+        assert_eq!(
+            file_data,
+            json!({ "mimeType": "application/pdf", "fileUri": "https://example.com/report.pdf" })
         );
         Ok(())
     }

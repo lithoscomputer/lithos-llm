@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/gemini.rs
+assertion_line: 424
 expression: rendered
 ---
 {
@@ -12,12 +13,14 @@ expression: rendered
           },
           {
             "fileData": {
-              "fileUri": "https://example.com/cat.png"
+              "fileUri": "https://example.com/cat.png",
+              "mimeType": "image/png"
             }
           },
           {
             "fileData": {
-              "fileUri": "https://example.com/report.pdf"
+              "fileUri": "https://example.com/report.pdf",
+              "mimeType": "application/pdf"
             }
           }
         ],
@@ -41,7 +44,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "330"
+      "382"
     ],
     [
       "content-type",

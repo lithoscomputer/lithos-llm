@@ -406,18 +406,19 @@ async fn url_attachments_request() {
     // line this crate draws. The alternative — dropping the part — would be
     // silent data loss.
     //
-    // It declares no `mimeType`, because these URL sources declare no media
-    // type and inventing one would be worse (a declared type goes on the
-    // wire), and it drops the image `detail` hint, which this protocol has no
-    // field for.
+    // A URL source that declares no media type still needs a `mimeType` on
+    // Vertex-style surfaces, so the attachment kind fills it in with the old
+    // library's defaults: `image/png`, `audio/wav`, `application/pdf`. A
+    // declared type goes on the wire verbatim. The image `detail` hint is
+    // still dropped, since this protocol has no field for it.
     let parts = &request.body["contents"][0]["parts"];
     assert_eq!(
         parts[1]["fileData"],
-        json!({ "fileUri": "https://example.com/cat.png" })
+        json!({ "mimeType": "image/png", "fileUri": "https://example.com/cat.png" })
     );
     assert_eq!(
         parts[2]["fileData"],
-        json!({ "fileUri": "https://example.com/report.pdf" })
+        json!({ "mimeType": "application/pdf", "fileUri": "https://example.com/report.pdf" })
     );
 
     crate::json_snapshot!(request);
