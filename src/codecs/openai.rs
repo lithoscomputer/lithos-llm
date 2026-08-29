@@ -697,12 +697,18 @@ fn tool_output_item(call_id: &str, output: &str, is_error: bool, custom: bool) -
 /// A result whose content is only structured JSON sends the bare value — one
 /// value on its own, several as an array — rather than the `ContentPart`
 /// envelope that wraps it, because the tool's own JSON is what the model was
-/// promised. Anything else falls back to the serialized parts, which keeps
+/// promised. Text-only content sends the joined text even when it is empty —
+/// a command with no output answered with nothing, not with a serialized
+/// envelope. Anything else falls back to the serialized parts, which keeps
 /// mixed content readable instead of dropping the half this protocol has no
 /// field for.
 fn result_output(result: &ToolResult) -> String {
     let text = plain_text(&result.content);
-    if !text.is_empty() {
+    let text_only = result
+        .content
+        .iter()
+        .all(|part| matches!(part, ContentPart::Text { .. }));
+    if !text.is_empty() || text_only {
         return text;
     }
 
@@ -2975,6 +2981,35 @@ mod tests {
             serde_json::from_str::<Value>(output)?,
             json!({ "matches": 2 })
         );
+        Ok(())
+    }
+
+    #[test]
+    fn an_empty_text_tool_result_sends_an_empty_output() -> Result<(), Box<dyn StdError>> {
+        // A command with no stdout answers with nothing. Serializing the
+        // ContentPart envelope instead would hand the model spurious JSON as
+        // the tool's answer.
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Make the directory")
+            .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                ToolCall::function("call_1", "shell", json!({ "cmd": "mkdir foo" })),
+            )]))
+            .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                ToolResult {
+                    tool_call_id: "call_1".to_owned(),
+                    name:         Some("shell".to_owned()),
+                    content:      vec![ContentPart::Text {
+                        text: String::new(),
+                    }],
+                    is_error:     false,
+                },
+            )]))
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        assert_eq!(encoded.body["input"][2]["output"], json!(""));
         Ok(())
     }
 }

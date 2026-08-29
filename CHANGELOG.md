@@ -50,6 +50,10 @@ work:
   Bedrock event-stream framing failure (checksum, length, header block,
   non-UTF-8 payload). The reference client retried all of these; stream
   failures still stop retrying once visible output has streamed.
+- A tool result whose text is empty — a command with no stdout — encodes as
+  the empty string on both OpenAI codecs, as the reference client sent it,
+  instead of a serialized `ContentPart` envelope the model would read as
+  the tool's answer.
 
 ### Round-3 parity fixes
 

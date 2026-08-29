@@ -889,12 +889,18 @@ fn wire_arguments(call: &ToolCall) -> String {
 /// Encodes one tool result as its own `tool` message.
 ///
 /// This protocol takes a string here and nothing else, so the content is
-/// flattened. Text wins when there is any. A result made only of JSON parts
-/// sends the bare values instead — a tool that answers with structured data
-/// means the data, not the `ContentPart` envelope that carried it.
+/// flattened. Text wins when there is any, and text-only content sends its
+/// joined text even when that is empty — a command with no output answered
+/// with nothing, not with a serialized envelope. A result made only of JSON
+/// parts sends the bare values instead — a tool that answers with structured
+/// data means the data, not the `ContentPart` envelope that carried it.
 fn encode_tool_result(result: &ToolResult) -> Value {
     let text = plain_text(&result.content);
-    let content = if !text.is_empty() {
+    let text_only = result
+        .content
+        .iter()
+        .all(|part| matches!(part, ContentPart::Text { .. }));
+    let content = if !text.is_empty() || text_only {
         text
     } else if let Some(json) = json_result_text(&result.content) {
         json
@@ -1566,6 +1572,33 @@ mod tests {
             json!(r#"{"city":"Boston","temp_c":4}"#),
             "the value itself, not the ContentPart envelope"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn an_empty_text_tool_result_sends_an_empty_string() -> Result<(), Box<dyn StdError>> {
+        // A command with no stdout answers with nothing. Serializing the
+        // ContentPart envelope instead would hand the model spurious JSON as
+        // the tool's answer.
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                    ToolResult {
+                        tool_call_id: "call-1".to_owned(),
+                        name:         Some("shell".to_owned()),
+                        content:      vec![ContentPart::Text {
+                            text: String::new(),
+                        }],
+                        is_error:     false,
+                    },
+                )]))
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(encoded.body["messages"][0]["content"], json!(""));
         Ok(())
     }
 
