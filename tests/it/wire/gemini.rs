@@ -1408,6 +1408,9 @@ async fn count_input_tokens_wraps_the_whole_generate_body() {
     assert!(wrapped.get("tools").is_some());
     assert!(wrapped.get("systemInstruction").is_some());
     assert_eq!(wrapped["generationConfig"]["maxOutputTokens"], json!(128));
+    // The API reference marks the nested `model` required; the model in the
+    // URL path does not populate it.
+    assert_eq!(wrapped["model"], "models/gemini-2.5-pro-002");
 
     // The response field is camelCase, unlike every snake_case count response
     // in the other dialects.

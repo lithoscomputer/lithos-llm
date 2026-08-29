@@ -149,8 +149,16 @@ fn model_endpoint(route: &ResolvedRoute, operation: &str) -> String {
 /// single key. Nothing is stripped: the sampling parameters, the tools, and any
 /// raw provider options all count toward the reported total, so the count
 /// matches what the generation request would actually send.
+///
+/// The nested request carries its own `model` field: the API reference marks
+/// `generateContentRequest.model` required, and the model in the URL path does
+/// not populate it.
 fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
-    let body = generate_body(call)?;
+    let mut body = generate_body(call)?;
+    body.insert(
+        "model".to_owned(),
+        format!("models/{}", call.route().api_model()).into(),
+    );
 
     Ok(EncodedRequest::new(
         Method::POST,
