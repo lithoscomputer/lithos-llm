@@ -22,7 +22,7 @@ use serde_json::{Map, Value, json, to_string};
 use super::assembler::StreamAssembler;
 use super::common::{
     endpoint, finish_reason, flattens_tool_result_content, merge_options, parse_arguments,
-    plain_text, reject_unencodable, sampling, unsupported_capability, wire_options,
+    plain_text, refusal, reject_unencodable, sampling, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -204,6 +204,17 @@ impl Codec for OpenAiChatCodec {
             ));
         }
         let message = choice.get("message").unwrap_or(&Value::Null);
+        // A refusal is a failure, not a short answer — the same contract the
+        // Anthropic and Bedrock codecs apply. OpenAI reports it in a channel
+        // of its own precisely so it cannot be mistaken for content.
+        if let Some(text) = message
+            .get("refusal")
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+        {
+            let explanation = text.to_owned();
+            return Err(refusal(route, Some(&explanation), Some(value)));
+        }
 
         let mut content = Vec::new();
         // The structured reasoning channel comes first, ahead of the readable
@@ -264,6 +275,7 @@ impl Codec for OpenAiChatCodec {
             started:   false,
             details:   ReasoningDetails::default(),
             slots:     BTreeSet::new(),
+            refusal:   String::new(),
         })
     }
 
@@ -291,6 +303,9 @@ struct ChatStreamDecoder {
     details:   ReasoningDetails,
     /// The tool-call slots an opening fragment has named.
     slots:     BTreeSet<u64>,
+    /// Refusal text accumulated across chunks; a non-empty value fails the
+    /// stream when it ends.
+    refusal:   String,
 }
 
 impl StreamDecoder for ChatStreamDecoder {
@@ -358,6 +373,11 @@ impl StreamDecoder for ChatStreamDecoder {
             let block = ContentBlockId::new(TEXT_BLOCK);
             events.extend(self.assembler.text(&block, text));
         }
+        // Refusal fragments accumulate silently; the whole explanation fails
+        // the stream once it ends, matching the blocking decoder's contract.
+        if let Some(text) = non_empty(delta, "refusal") {
+            self.refusal.push_str(text);
+        }
         for call in delta
             .get("tool_calls")
             .and_then(Value::as_array)
@@ -387,6 +407,9 @@ impl StreamDecoder for ChatStreamDecoder {
     }
 
     fn finish(&mut self) -> Result<Vec<StreamEvent>, Error> {
+        if !self.refusal.is_empty() {
+            return Err(refusal(&self.route, Some(&self.refusal), None));
+        }
         Ok(self.assembler.complete())
     }
 }
@@ -1446,6 +1469,56 @@ mod tests {
 
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn a_refusal_fails_instead_of_decoding() -> Result<(), Box<dyn StdError>> {
+        // The structured-output refusal channel: content null, refusal text.
+        // Decoding it as an empty success would hide the refusal from the
+        // caller and from failover — the contract H8 set for Anthropic and
+        // Bedrock extends here.
+        let body = json!({
+            "id": "chatcmpl-1",
+            "choices": [{
+                "message": { "role": "assistant", "content": null, "refusal": "I can't do that." },
+                "finish_reason": "stop",
+            }],
+        });
+
+        let error = OpenAiChatCodec
+            .decode_response(&route()?, body.clone())
+            .expect_err("a refusal must fail the call");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert!(error.to_string().contains("I can't do that."), "{error}");
+        assert_eq!(error.raw_data(), Some(&body));
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_refusal_fails_the_stream_with_the_whole_explanation()
+    -> Result<(), Box<dyn StdError>> {
+        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        for fragment in ["I can't ", "do that."] {
+            decoder.decode(SseEvent {
+                event: None,
+                data:  json!({
+                    "id": "chatcmpl-1",
+                    "choices": [{ "delta": { "refusal": fragment } }],
+                })
+                .to_string(),
+            })?;
+        }
+
+        let error = decoder
+            .finish()
+            .expect_err("a streamed refusal must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert!(error.to_string().contains("I can't do that."), "{error}");
         Ok(())
     }
 

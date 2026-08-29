@@ -4,7 +4,12 @@ use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
-#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
+#[cfg(any(
+    feature = "anthropic",
+    feature = "bedrock",
+    feature = "openai-compatible",
+    test
+))]
 use crate::transport::classify;
 #[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
 use crate::types::ReasoningContent;
@@ -28,7 +33,12 @@ pub(crate) const CONTROL_KEYS: &[&str] = &["auto_cache"];
 ///
 /// [`classify`](crate::transport::classify) registers this code among the
 /// content-filter codes, which is what makes a refusal failover-eligible.
-#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
+#[cfg(any(
+    feature = "anthropic",
+    feature = "bedrock",
+    feature = "openai-compatible",
+    test
+))]
 const REFUSAL_CODE: &str = "refusal";
 
 /// The signature family of Claude-minted reasoning signatures.
@@ -384,7 +394,12 @@ pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
 /// the kind and the retry classification. `explanation` is the provider's own
 /// account of the refusal, when the payload carried one, and `raw` is the
 /// payload the codec decoded.
-#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
+#[cfg(any(
+    feature = "anthropic",
+    feature = "bedrock",
+    feature = "openai-compatible",
+    test
+))]
 pub(crate) fn refusal(
     route: &ResolvedRoute,
     explanation: Option<&str>,
