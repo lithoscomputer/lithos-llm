@@ -523,6 +523,11 @@ fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
             ContentPart::Opaque { data, .. } if claims_opaque(part) => {
                 items.push(data.clone());
             }
+            // A nameless call cannot be encoded — the provider rejects an
+            // empty function name. This decoder never produces one, but a
+            // caller-built or foreign-history call can carry one; the
+            // reference client skipped those.
+            ContentPart::ToolCall(call) if call.name.is_empty() => {}
             ContentPart::ToolCall(call) => items.push(tool_call_item(call)),
             ContentPart::ToolResult(result) => items.push(tool_output_item(
                 &result.tool_call_id,
@@ -2915,6 +2920,27 @@ mod tests {
             1,
             "the preserved item already carries the assistant text",
         );
+        Ok(())
+    }
+
+    /// A history tool call with an empty name encodes to nothing, as the
+    /// reference client did — `{"name": ""}` draws a provider 400.
+    #[test]
+    fn an_empty_name_tool_call_in_history_is_skipped() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .user("List the files")
+            .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                ToolCall::function("call_1", "", json!({})),
+            )]))
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        let input = encoded.body["input"]
+            .as_array()
+            .ok_or("expected an input array")?;
+        assert_eq!(input.len(), 1, "only the user turn may travel: {input:?}");
         Ok(())
     }
 
