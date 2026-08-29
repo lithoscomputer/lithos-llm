@@ -44,6 +44,13 @@ description = "Run the tests with the default feature set"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
 run = "cargo nextest run --locked --all-targets --no-tests=pass"
 
+[tasks."test:e2e"]
+description = "Run the live provider E2E suite (spends provider credits)"
+# Sources .env for the provider keys, then runs the e2e target with its
+# ignored (live) tests included. Nextest gives every test its own process,
+# so --test-threads is what caps concurrent live requests per run.
+run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-tests=pass'"
+
 [tasks."test:release"]
 description = "Run all Rust tests in release mode"
 run = "cargo nextest run --locked --release --all-targets --all-features --no-tests=pass"
