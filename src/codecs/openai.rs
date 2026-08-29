@@ -372,7 +372,7 @@ fn shared_body(request: &Request) -> Map<String, Value> {
     }
     if let Some(speed) = request.speed() {
         let tier = match speed {
-            Speed::Fast => "fast",
+            Speed::Fast => "priority",
             Speed::Balanced => "auto",
             Speed::Economical => "flex",
         };
@@ -1465,8 +1465,8 @@ mod tests {
     use crate::transport::SseEvent;
     use crate::types::{
         ContentBlockId, ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
-        ReasoningContent, Request, Response, RetryClassification, Role, StreamEvent, ToolCall,
-        ToolCallKind, ToolDefinition, ToolResult,
+        ReasoningContent, Request, Response, RetryClassification, Role, Speed, StreamEvent,
+        ToolCall, ToolCallKind, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -1671,6 +1671,26 @@ mod tests {
             encoded.warnings.is_empty(),
             "this protocol expresses both controls",
         );
+        Ok(())
+    }
+
+    #[test]
+    fn each_speed_selects_its_service_tier() -> Result<(), Box<dyn StdError>> {
+        for (speed, tier) in [
+            (Speed::Fast, "priority"),
+            (Speed::Balanced, "auto"),
+            (Speed::Economical, "flex"),
+        ] {
+            let request = Request::builder()
+                .model(MODEL)
+                .user("Hello")
+                .speed(speed)
+                .build()?;
+
+            let encoded = codec().encode(&call(request)?, false)?;
+
+            assert_eq!(encoded.body["service_tier"], json!(tier));
+        }
         Ok(())
     }
 
