@@ -25,8 +25,9 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, classify};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, MediaSource,
-    ReasoningContent, ReasoningEffort, Request, Response, Role, Speed, StreamEvent, TokenCounts,
-    ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
+    Message, ReasoningContent, ReasoningEffort, Request, Response, Role, Speed, StreamEvent,
+    TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
+    ToolResult,
 };
 
 /// The opaque replay namespace this codec claims.
@@ -132,6 +133,16 @@ impl Codec for BedrockConverseCodec {
         // report the Anthropic codec makes for this combination.
         if request.reasoning_effort().is_some() && forces_tool_use(request.tool_choice()) {
             encoded = encoded.unsupported_control("reasoning effort with a forced tool choice");
+        }
+        // The tools stayed on the wire despite `tool_choice: none`, because
+        // Converse rejects a request whose history carries tool blocks
+        // without a `toolConfig`. The model may therefore still call a tool.
+        if matches!(request.tool_choice(), Some(ToolChoice::None))
+            && !request.tools().is_empty()
+            && history_carries_tool_blocks(request)
+        {
+            encoded =
+                encoded.unsupported_control("tool_choice none alongside historical tool blocks");
         }
         // Converse has no portable structured-output field. A caller who asked
         // for JSON gets prose, so say so rather than letting them discover it
@@ -719,10 +730,19 @@ fn reject_tool_identifier(
 
 /// The `toolConfig` object, with a cache point after the last tool.
 ///
-/// Converse has no "call no tool" choice, so `ToolChoice::None` drops the whole
-/// tool configuration: withholding the tools is the only faithful encoding.
+/// Converse has no "call no tool" choice, so `ToolChoice::None` drops the
+/// whole tool configuration: withholding the tools is the only faithful
+/// encoding — except when the history already carries toolUse or toolResult
+/// blocks. Converse requires `toolConfig` alongside those blocks, so the
+/// common agent-loop ending ("now answer in prose") keeps the tools on the
+/// wire and the encoder reports the choice it could not express.
 fn tool_config(request: &Request, cached: bool) -> Option<Value> {
-    if request.tools().is_empty() || matches!(request.tool_choice(), Some(ToolChoice::None)) {
+    if request.tools().is_empty() {
+        return None;
+    }
+    if matches!(request.tool_choice(), Some(ToolChoice::None))
+        && !history_carries_tool_blocks(request)
+    {
         return None;
     }
 
@@ -762,6 +782,15 @@ fn tool_config(request: &Request, cached: bool) -> Option<Value> {
         Some(ToolChoice::Auto | ToolChoice::None) | None => {}
     }
     Some(Value::Object(config))
+}
+
+/// Whether the message history already carries toolUse or toolResult blocks.
+fn history_carries_tool_blocks(request: &Request) -> bool {
+    request
+        .messages()
+        .iter()
+        .flat_map(Message::content)
+        .any(|part| matches!(part, ContentPart::ToolCall(_) | ContentPart::ToolResult(_)))
 }
 
 /// Normalizes a tool schema for `toolSpec.inputSchema.json`.
@@ -1345,6 +1374,77 @@ mod tests {
             "{:?}",
             encoded.warnings
         );
+        Ok(())
+    }
+
+    #[test]
+    fn tool_choice_none_keeps_the_tools_when_the_history_carries_tool_blocks()
+    -> Result<(), Box<dyn StdError>> {
+        // Converse requires `toolConfig` whenever messages carry toolUse or
+        // toolResult blocks, so the agent-loop ending — answer in prose after
+        // a tool exchange — must keep the tools on the wire, force nothing,
+        // and report the choice it could not express.
+        let encoded = BedrockConverseCodec.encode(
+            &resolved(
+                Request::builder()
+                    .model(MODEL)
+                    .user("What is the weather?")
+                    .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                        ToolCall::function("call-1", "get_weather", json!({ "city": "Paris" })),
+                    )]))
+                    .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                        ToolResult {
+                            tool_call_id: "call-1".to_owned(),
+                            name:         Some("get_weather".to_owned()),
+                            content:      vec![ContentPart::Text {
+                                text: "18C".to_owned(),
+                            }],
+                            is_error:     false,
+                        },
+                    )]))
+                    .tool(ToolDefinition::function(
+                        "get_weather",
+                        "weather",
+                        json!({}),
+                    ))
+                    .tool_choice(ToolChoice::None)
+                    .build()?,
+            )?,
+            false,
+        )?;
+
+        assert_eq!(
+            encoded.body["toolConfig"]["tools"][0]["toolSpec"]["name"],
+            "get_weather"
+        );
+        assert_eq!(encoded.body["toolConfig"].get("toolChoice"), None);
+        assert!(
+            encoded
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("tool_choice none")),
+            "{:?}",
+            encoded.warnings
+        );
+
+        // Without tool blocks in the history, withholding the tools stays the
+        // faithful encoding of `none`.
+        let clean = BedrockConverseCodec.encode(
+            &resolved(
+                Request::builder()
+                    .model(MODEL)
+                    .user("Hello")
+                    .tool(ToolDefinition::function(
+                        "get_weather",
+                        "weather",
+                        json!({}),
+                    ))
+                    .tool_choice(ToolChoice::None)
+                    .build()?,
+            )?,
+            false,
+        )?;
+        assert_eq!(clean.body.get("toolConfig"), None);
         Ok(())
     }
 
