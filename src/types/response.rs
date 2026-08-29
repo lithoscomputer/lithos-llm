@@ -112,19 +112,23 @@ impl<'de> Visitor<'de> for FinishReasonVisitor {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TokenCounts {
     /// Prompt tokens that were neither read from nor written to a cache.
-    #[serde(default)]
+    ///
+    /// The aliases load usage the reference implementation persisted under
+    /// its `*_tokens` field names; without them an old document deserializes
+    /// without error into all-zero buckets.
+    #[serde(default, alias = "input_tokens")]
     pub input:       u64,
     /// Completion tokens that are not reasoning tokens.
-    #[serde(default)]
+    #[serde(default, alias = "output_tokens")]
     pub output:      u64,
     /// Completion tokens spent on reasoning, billed at the output rate.
-    #[serde(default)]
+    #[serde(default, alias = "reasoning_tokens")]
     pub reasoning:   u64,
     /// Prompt tokens served from a provider cache.
-    #[serde(default)]
+    #[serde(default, alias = "cache_read_tokens")]
     pub cache_read:  u64,
     /// Prompt tokens written into a provider cache.
-    #[serde(default)]
+    #[serde(default, alias = "cache_write_tokens")]
     pub cache_write: u64,
 }
 
@@ -405,6 +409,30 @@ mod tests {
         };
 
         assert_eq!(usage.billable_output(), 50);
+    }
+
+    #[test]
+    fn usage_persisted_under_the_legacy_field_names_still_loads() {
+        // The reference implementation serialized `input_tokens`-style names.
+        // Every field defaults, so without the aliases an old document loads
+        // without error into all-zero buckets — silent wrong usage and cost.
+        let stored = serde_json::json!({
+            "input_tokens": 100,
+            "output_tokens": 40,
+            "reasoning_tokens": 25,
+            "cache_read_tokens": 30,
+            "cache_write_tokens": 10,
+        });
+
+        let usage: TokenCounts = serde_json::from_value(stored).expect("legacy usage loads");
+
+        assert_eq!(usage, TokenCounts {
+            input:       100,
+            output:      40,
+            reasoning:   25,
+            cache_read:  30,
+            cache_write: 10,
+        });
     }
 
     #[test]

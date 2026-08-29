@@ -35,6 +35,9 @@ work:
   `openai_reasoning` and `openai_message` are read like this crate's dotted
   kinds, and a tool call's un-namespaced `id` metadata still restores the
   `fc_` item id, so `store: false` tool calling keeps its reasoning chain.
+- Migration compatibility: `TokenCounts` deserializes the reference
+  implementation's `input_tokens`-style field names as aliases, so persisted
+  usage keeps its values instead of silently loading as all-zero buckets.
 
 ### Round-2 parity fixes
 
