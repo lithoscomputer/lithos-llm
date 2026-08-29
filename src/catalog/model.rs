@@ -29,6 +29,16 @@ pub struct ModelCapabilities {
     pub reasoning_effort_levels: bool,
     #[serde(default)]
     pub caching:                 bool,
+    /// The model's endpoint accepts Anthropic-style `cache_control`
+    /// breakpoints.
+    ///
+    /// Only the OpenAI-compatible codec reads this: an aggregator fronting an
+    /// Anthropic model forwards breakpoints upstream, while a skin whose
+    /// caching is automatic rejects the rewritten content, so `caching` alone
+    /// does not justify the annotation there. Protocols with a native cache
+    /// control gate on `caching` and ignore this flag.
+    #[serde(default)]
+    pub cache_breakpoints:       bool,
     #[serde(default)]
     pub sampling:                bool,
 }

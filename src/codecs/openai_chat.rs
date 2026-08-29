@@ -86,9 +86,13 @@ impl Codec for OpenAiChatCodec {
 
         let mut messages: Vec<Value> = request.messages().iter().flat_map(encode_message).collect();
         // An aggregator fronting an Anthropic model forwards the breakpoints
-        // upstream. A model that cannot cache would reject them, and a caller
-        // can turn them off with the `auto_cache` control.
-        if controls.auto_cache && route.model().capabilities().caching {
+        // upstream, and the catalog opts such a model in explicitly. A skin
+        // that caches automatically (DeepSeek, Moonshot) declares `caching`
+        // for its pricing without `cache_breakpoints`, and rewriting its
+        // string content into part arrays could get the request rejected. A
+        // caller can also turn breakpoints off with the `auto_cache` control.
+        let capabilities = route.model().capabilities();
+        if controls.auto_cache && capabilities.caching && capabilities.cache_breakpoints {
             mark_cache_breakpoints(&mut messages);
         }
         body.insert("messages".to_owned(), Value::Array(messages));
@@ -962,7 +966,7 @@ mod tests {
     use serde_json::{Map, Value, json, to_string};
 
     use super::{Codec, OpenAiChatCodec};
-    use crate::codecs::test_support::resolved;
+    use crate::codecs::test_support::{resolved, resolved_in};
     use crate::resolver::ResolvedRoute;
     use crate::transport::SseEvent;
     use crate::types::{
@@ -1367,17 +1371,38 @@ mod tests {
         Ok(())
     }
 
+    /// A one-provider catalog whose model opts into `cache_control`
+    /// breakpoints, the way an aggregator fronting an Anthropic model does.
+    const BREAKPOINT_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.gateway]
+        display_name = "Gateway"
+        adapter = "openai-compatible"
+        codec = "openai-chat"
+        base_url = "http://127.0.0.1"
+        default_model = "fronted"
+        auth = { type = "bearer" }
+
+        [providers.gateway.models.fronted]
+        display_name = "Fronted"
+        api_model = "fronted-v1"
+        capabilities = { text = true, caching = true, cache_breakpoints = true }
+    "#;
+
+    fn multi_turn(model: &str) -> Result<Request, Box<dyn StdError>> {
+        Ok(Request::builder()
+            .model(model)
+            .system("Keep it short.")
+            .user("What is the capital of France?")
+            .message(Message::text(Role::Assistant, "Paris."))
+            .user("And of Spain?")
+            .build()?)
+    }
+
     #[test]
     fn auto_cache_marks_the_system_message_and_the_prefix() -> Result<(), Box<dyn StdError>> {
-        let call = resolved(
-            Request::builder()
-                .model(MODEL)
-                .system("Keep it short.")
-                .user("What is the capital of France?")
-                .message(Message::text(Role::Assistant, "Paris."))
-                .user("And of Spain?")
-                .build()?,
-        )?;
+        let call = resolved_in(BREAKPOINT_CATALOG, multi_turn("gateway/fronted")?)?;
 
         let encoded = OpenAiChatCodec.encode(&call, false)?;
 
@@ -1403,14 +1428,15 @@ mod tests {
 
     #[test]
     fn auto_cache_false_places_no_breakpoints() -> Result<(), Box<dyn StdError>> {
-        let call = resolved(
+        let call = resolved_in(
+            BREAKPOINT_CATALOG,
             Request::builder()
-                .model(MODEL)
+                .model("gateway/fronted")
                 .system("Keep it short.")
                 .user("What is the capital of France?")
                 .message(Message::text(Role::Assistant, "Paris."))
                 .user("And of Spain?")
-                .provider_option(NAMESPACE, "auto_cache", json!(false))
+                .provider_option("gateway", "auto_cache", json!(false))
                 .build()?,
         )?;
 
@@ -1419,6 +1445,26 @@ mod tests {
         assert_eq!(
             to_string(&encoded.body)?.matches("cache_control").count(),
             0
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn caching_without_breakpoint_support_places_no_breakpoints() -> Result<(), Box<dyn StdError>> {
+        // The builtin model declares `caching` for its pricing but not
+        // `cache_breakpoints`. A skin whose caching is automatic can reject
+        // the part-array rewrite, so its content must stay untouched.
+        let call = resolved(multi_turn(MODEL)?)?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(
+            to_string(&encoded.body)?.matches("cache_control").count(),
+            0
+        );
+        assert!(
+            encoded.body["messages"][0]["content"].is_string(),
+            "unmarked messages keep the plain string form"
         );
         Ok(())
     }

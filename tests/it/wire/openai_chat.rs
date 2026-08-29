@@ -78,12 +78,13 @@ fn plain_catalog(base_url: &str) -> Catalog {
 /// makes the client refuse those requests up front.
 const TEXT_AND_IMAGE_CAPABILITIES: &str = "{ text = true, images = true, audio = false, \
      documents = false, tools = true, structured_output = true, reasoning = true, caching = true, \
-     sampling = true }";
+     cache_breakpoints = true, sampling = true }";
 
 /// The same set for a model that declares no prompt caching.
 ///
-/// The prompt-cache breakpoints are gated on this bit, so a fixture that pins
-/// their absence needs a catalog entry that denies it.
+/// The prompt-cache breakpoints are gated on `caching` and
+/// `cache_breakpoints` together, so a fixture that pins their absence needs a
+/// catalog entry that denies them.
 const NO_CACHING_CAPABILITIES: &str = "{ text = true, images = true, audio = true, \
      documents = true, tools = true, structured_output = true, reasoning = true, caching = false, \
      sampling = true }";
