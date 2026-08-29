@@ -49,7 +49,9 @@ description = "Run the live provider E2E suite (spends provider credits)"
 # Sources .env for the provider keys, then runs the e2e target with its
 # ignored (live) tests included. Nextest gives every test its own process,
 # so --test-threads is what caps concurrent live requests per run.
-run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-tests=pass'"
+# --success-output final keeps passing tests' stderr in the log: the effort,
+# cache-bucket, and rate-limit probes report through it.
+run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass'"
 
 [tasks."test:release"]
 description = "Run all Rust tests in release mode"

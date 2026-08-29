@@ -152,15 +152,17 @@ fn repeated_version<'a>(base: &str, path: &'a str) -> Option<&'a str> {
 ///
 /// This reads **only** the namespace of the route's canonical catalog provider
 /// id. Namespaces belonging to other providers are ignored, so one request can
-/// carry options for several failover candidates. The returned map is what a
-/// codec passes to [`merge_options`]; the returned [`Controls`] are consumed by
-/// the codec and never sent.
+/// carry options for several failover candidates. The provider's catalog
+/// [`default_options`](crate::catalog::CatalogProvider::default_options) seed
+/// the map and the request's own options merge over them, so a request always
+/// wins a collision. The returned map is what a codec passes to
+/// [`merge_options`]; the returned [`Controls`] are consumed by the codec and
+/// never sent.
 pub(crate) fn wire_options(call: &ResolvedCall) -> (Map<String, Value>, Controls) {
-    let options = call
-        .request()
-        .options_for(call.route().provider().id())
-        .cloned()
-        .unwrap_or_default();
+    let mut options = call.route().provider().default_options().clone();
+    if let Some(request_options) = call.request().options_for(call.route().provider().id()) {
+        merge_options(&mut options, request_options.clone());
+    }
 
     split_controls(options)
 }

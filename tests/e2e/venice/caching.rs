@@ -10,6 +10,10 @@
 //! One family representative each keeps the token cost bounded: the shared
 //! prefix is the expensive part of the whole Venice suite.
 
+use std::time::Duration;
+
+use tokio::time::sleep;
+
 use crate::support::{self, TestResult};
 use crate::venice::{self, family_tests};
 
@@ -41,22 +45,53 @@ async fn caches_a_shared_prefix(model: &str) -> TestResult {
     };
     let prefix = large_prefix();
 
+    // `prompt_cache_key` is Venice's routing hint for cache hits. Without
+    // it, the pair can land on different backend replicas: on 2026-08-29
+    // the Claude path wrote 13k tokens of cache on BOTH calls and read
+    // nothing, and the same pair with a stable key read the full prefix
+    // back. The crate does not set the key itself, so it rides the raw
+    // provider-options escape hatch here.
+    let cache_key = format!("lithos-e2e-{model}");
     let first = client
         .complete(
             venice::request(model)
+                .provider_option(
+                    venice::PROVIDER,
+                    "prompt_cache_key",
+                    cache_key.clone().into(),
+                )
                 .system(prefix.clone())
                 .user("How many reading rooms are there? Answer with just the number.")
                 .build()?,
         )
         .await?;
-    let second = client
-        .complete(
-            venice::request(model)
-                .system(prefix)
-                .user("Does the library have an observatory? Answer yes or no.")
-                .build()?,
-        )
-        .await?;
+    // A fresh cache entry takes a few seconds to become readable — a
+    // controlled pair against deepseek read nothing back-to-back and the
+    // full prefix five seconds later — so the read side retries on a short
+    // ladder before the verdict.
+    let mut second = None;
+    for _ in 0..4 {
+        sleep(Duration::from_secs(5)).await;
+        let response = client
+            .complete(
+                venice::request(model)
+                    .provider_option(
+                        venice::PROVIDER,
+                        "prompt_cache_key",
+                        cache_key.clone().into(),
+                    )
+                    .system(prefix.clone())
+                    .user("Does the library have an observatory? Answer yes or no.")
+                    .build()?,
+            )
+            .await?;
+        let read = response.usage.cache_read;
+        second = Some(response);
+        if read > 0 {
+            break;
+        }
+    }
+    let second = second.expect("the retry ladder always runs at least once");
 
     support::observe(&format!(
         "{model} cache buckets: first write={} read={}, second write={} read={}",

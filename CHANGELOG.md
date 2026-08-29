@@ -6,6 +6,26 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Venice live-testing findings
+
+The first live E2E runs against Venice
+(`.ai/plans/live-e2e-test-matrix.md`, production plan in
+`.ai/plans/venice-production-fixes.md`) landed these:
+
+- A catalog provider row can declare `default_options`: raw request options
+  for the provider's own namespace, applied to every request, with
+  request-level `provider_options` winning key by key. The E2E Venice
+  catalog uses it to turn off Venice's injected system prompt
+  (`venice_parameters.include_venice_system_prompt = false`), which
+  otherwise costs every request roughly two thousand prompt tokens.
+- The Chat codec decodes Anthropic-style cache writes: a skin fronting a
+  Claude model reports `cache_creation_input_tokens` (Venice sends it
+  nested and flat), which previously decoded as a zero `cache_write`
+  bucket.
+- A complete Chat response that carries tool calls finishes as `ToolCall`
+  when the wire said `stop`, matching the rule the streaming path already
+  applied (qwen on Venice answers forced tool calls this way).
+
 ### Round-3 parity fixes
 
 A third differential review against the reference implementation

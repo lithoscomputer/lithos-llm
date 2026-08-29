@@ -97,13 +97,10 @@ async fn calls_the_forced_tool(model: &str) -> TestResult {
     assert_eq!(call.name, "get_weather");
     assert!(!call.id.is_empty(), "the tool call carries no id");
     assert_weather_call(&call.arguments);
-    // qwen3.8-27b answers a forced call with `finish_reason: "stop"` even
-    // though the call itself is present and correct — verified against the
-    // raw wire on 2026-08-29 — so the finish-reason half of the contract is
-    // waived for that row alone.
-    if model != "qwen3.8-27b" {
-        assert_eq!(response.finish_reason, FinishReason::ToolCall);
-    }
+    // qwen3.8-27b on Venice reports `finish_reason: "stop"` for this call
+    // on the wire; the codec normalizes a stop that carries tool calls, so
+    // every row meets the same contract here.
+    assert_eq!(response.finish_reason, FinishReason::ToolCall);
     Ok(())
 }
 

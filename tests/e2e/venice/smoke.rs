@@ -141,11 +141,14 @@ async fn carries_the_conversation(model: &str) -> TestResult {
 }
 
 async fn truncates_at_the_output_cap(model: &str) -> TestResult {
-    // grok-4.6 on Venice ignores the output cap outright: a raw call with
-    // `max_tokens: 32` on 2026-08-29 returned 894 completion tokens and
-    // finish reason "stop". Pinned here until Venice forwards the cap.
+    // grok-4.6 exempts reasoning tokens from `max_tokens`: a raw call with
+    // `max_tokens: 32` on 2026-08-29 returned 894 completion tokens, 862 of
+    // them reasoning, with the visible output at the cap — and the same
+    // request through OpenRouter behaves the same way, so this is xAI
+    // semantics, not a Venice defect. The finish reason stays "stop" even
+    // when the visible output is truncated, which is what breaks this test.
     if model == "grok-4.6" {
-        return support::skip("the upstream model ignores the output cap");
+        return support::skip("the upstream model exempts reasoning from the output cap");
     }
     let Some(client) = venice::live_client() else {
         return support::skip("VENICE_API_KEY is unset");

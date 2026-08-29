@@ -195,6 +195,8 @@ pub struct CatalogProvider {
     default_headers:   BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     adapter_options:   Value,
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    default_options:   serde_json::Map<String, Value>,
     #[serde(default, skip_serializing_if = "Metadata::is_empty")]
     metadata:          Metadata,
     #[serde(default)]
@@ -261,6 +263,25 @@ impl CatalogProvider {
     /// [`Value::Null`] when the catalog declares no options.
     pub fn adapter_options(&self) -> &Value {
         &self.adapter_options
+    }
+
+    /// Default request options for this provider's own namespace.
+    ///
+    /// Codecs treat these exactly like request-level
+    /// [`provider_options`](crate::Request::provider_options) for this
+    /// provider, except that request-level values win a collision. This is
+    /// where a catalog turns off a gateway behavior for every request, such
+    /// as Venice's injected system prompt:
+    ///
+    /// ```toml
+    /// [providers.venice.default_options]
+    /// venice_parameters = { include_venice_system_prompt = false }
+    /// ```
+    ///
+    /// Control keys such as `auto_cache` work here too and are consumed, not
+    /// sent.
+    pub fn default_options(&self) -> &serde_json::Map<String, Value> {
+        &self.default_options
     }
 
     pub fn metadata(&self) -> &Metadata {

@@ -33,6 +33,13 @@ default_model = "deepseek-v4-flash"
 [providers.venice.auth]
 type = "bearer"
 
+# Venice injects its own system prompt (~1,800-2,700 tokens per request)
+# unless a request turns it off. lithos-llm applications set their own
+# system prompts, so the catalog turns the injection off for every request;
+# a request can set it back through `provider_options`.
+[providers.venice.default_options]
+venice_parameters = { include_venice_system_prompt = false }
+
 [providers.venice.models."kimi-k3"]
 display_name = "Kimi K3"
 api_model = "kimi-k3"
@@ -91,6 +98,13 @@ capabilities = { text = true, images = true, tools = true, structured_output = t
 # Venice's Anthropic upstream caches nothing automatically (all four buckets
 # zero across a shared-prefix pair), so the codec must forward
 # Anthropic-style cache_control markers.
+#
+# `reasoning_effort_levels` on these rows follows Venice's listing (true only
+# for claude-fable-5), and that listing is wrong about the models: Claude
+# Opus 5 takes effort levels upstream, proven through OpenRouter. The flags
+# are moot for now because Venice's Anthropic path returns no reasoning at
+# all (see `.ai/repros/venice_claude_reasoning_repro.py`); when Venice fixes
+# that path, re-probe and set these from live behavior, not the listing.
 [providers.venice.models."claude-fable-5"]
 display_name = "Claude Fable 5"
 api_model = "claude-fable-5"

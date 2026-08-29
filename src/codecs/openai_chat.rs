@@ -265,6 +265,18 @@ impl Codec for OpenAiChatCodec {
             .and_then(Value::as_str)
             .map(ToOwned::to_owned);
         response.finish_reason = finish_reason(choice.get("finish_reason").and_then(Value::as_str));
+        // Some skins answer a tool call with `finish_reason: "stop"` — qwen
+        // on Venice does. The streaming path already lets an assembled tool
+        // call win over a stop reason, and both paths must decode one
+        // exchange the same way, so the complete path applies the same rule.
+        if response.finish_reason == FinishReason::Stop
+            && response
+                .content
+                .iter()
+                .any(|part| matches!(part, ContentPart::ToolCall(_)))
+        {
+            response.finish_reason = FinishReason::ToolCall;
+        }
         response.usage = value.get("usage").map(token_counts).unwrap_or_default();
         response.cost = provider_cost(&value);
         response.raw = Some(value);
@@ -1417,6 +1429,29 @@ mod tests {
     }
 
     #[test]
+    fn a_complete_tool_call_wins_over_a_stop_finish_reason() -> Result<(), Box<dyn StdError>> {
+        // The complete-path twin of
+        // `a_streamed_tool_call_wins_over_a_stop_finish_reason`: qwen on
+        // Venice answers a forced tool call with `finish_reason: "stop"`,
+        // and both paths must decode that exchange the same way.
+        let response = decode(json!({
+            "choices": [{
+                "message": {
+                    "content": "",
+                    "tool_calls": [{
+                        "id": "call-1",
+                        "function": { "name": "weather", "arguments": "{\"city\":\"Boston\"}" },
+                    }],
+                },
+                "finish_reason": "stop",
+            }],
+        }))?;
+
+        assert_eq!(response.finish_reason, FinishReason::ToolCall);
+        Ok(())
+    }
+
+    #[test]
     fn raw_provider_options_win_and_controls_never_reach_the_wire() -> Result<(), Box<dyn StdError>>
     {
         let options = object(json!({
@@ -1832,6 +1867,95 @@ mod tests {
         api_model = "fronted-v1"
         capabilities = { text = true, caching = true, cache_breakpoints = true }
     "#;
+
+    /// A one-provider catalog with provider-level default request options,
+    /// the way a Venice row turns off the injected system prompt.
+    const DEFAULT_OPTIONS_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.gateway]
+        display_name = "Gateway"
+        adapter = "openai-compatible"
+        codec = "openai-chat"
+        base_url = "http://127.0.0.1"
+        default_model = "fronted"
+        auth = { type = "bearer" }
+
+        [providers.gateway.default_options]
+        venice_parameters = { include_venice_system_prompt = false, strip_thinking_response = false }
+
+        [providers.gateway.models.fronted]
+        display_name = "Fronted"
+        api_model = "fronted-v1"
+        capabilities = { text = true }
+    "#;
+
+    #[test]
+    fn catalog_default_options_reach_the_wire() -> Result<(), Box<dyn StdError>> {
+        let call = resolved_in(
+            DEFAULT_OPTIONS_CATALOG,
+            Request::builder()
+                .model("gateway/fronted")
+                .user("Hello")
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["venice_parameters"]["include_venice_system_prompt"],
+            json!(false)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn request_options_win_over_catalog_defaults_key_by_key() -> Result<(), Box<dyn StdError>> {
+        let call = resolved_in(
+            DEFAULT_OPTIONS_CATALOG,
+            Request::builder()
+                .model("gateway/fronted")
+                .user("Hello")
+                .provider_option(
+                    "gateway",
+                    "venice_parameters",
+                    json!({ "include_venice_system_prompt": true }),
+                )
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        // The request overrides the one key it names; the default's sibling
+        // key survives, because option namespaces merge recursively.
+        assert_eq!(
+            encoded.body["venice_parameters"]["include_venice_system_prompt"],
+            json!(true)
+        );
+        assert_eq!(
+            encoded.body["venice_parameters"]["strip_thinking_response"],
+            json!(false)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_control_key_in_catalog_defaults_is_consumed() -> Result<(), Box<dyn StdError>> {
+        let catalog = BREAKPOINT_CATALOG.replace(
+            "[providers.gateway.models.fronted]",
+            "[providers.gateway.default_options]\n\
+             auto_cache = false\n\n\
+             [providers.gateway.models.fronted]",
+        );
+        let call = resolved_in(&catalog, multi_turn("gateway/fronted")?)?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        let rendered = to_string(&encoded.body)?;
+        assert_eq!(rendered.matches("cache_control").count(), 0);
+        assert_eq!(encoded.body.get("auto_cache"), None);
+        Ok(())
+    }
 
     fn multi_turn(model: &str) -> Result<Request, Box<dyn StdError>> {
         Ok(Request::builder()
