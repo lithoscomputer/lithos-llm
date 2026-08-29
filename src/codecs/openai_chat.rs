@@ -154,7 +154,11 @@ impl Codec for OpenAiChatCodec {
             endpoint(route.provider().base_url(), "/v1/chat/completions"),
             Value::Object(body),
         )
-        .with_timeout(request.timeout());
+        .with_timeout(request.timeout())
+        // Every chunk is one `data:` line of JSON, and lenient compatible
+        // skins and proxies separate them with single newlines rather than
+        // the blank line the SSE specification requires.
+        .with_data_line_framing();
         // Only OpenAI itself documents `metadata` on this endpoint, and a
         // strict skin rejects the whole request over one unknown field. The
         // tags are dropped rather than risking that, and a caller who knows

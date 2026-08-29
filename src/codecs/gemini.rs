@@ -47,7 +47,11 @@ impl Codec for GeminiGenerateCodec {
             model_endpoint(call.route(), operation),
             Value::Object(body),
         )
-        .with_timeout(call.request().timeout());
+        .with_timeout(call.request().timeout())
+        // `?alt=sse` sends one JSON document per `data:` line, so each line
+        // decodes on its own even when a proxy drops the blank line between
+        // events.
+        .with_data_line_framing();
         if !call.request().metadata().is_empty() {
             encoded = encoded.unsupported_control("request metadata");
         }

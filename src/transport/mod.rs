@@ -79,6 +79,16 @@ pub(crate) struct EncodedRequest {
     /// cannot express the requested speed leaves this empty, so a request the
     /// provider serves at standard speed is billed at standard rates.
     pub applied_speed: Option<Speed>,
+    /// How the transport frames this request's SSE response stream.
+    ///
+    /// Only the streaming path reads this; a JSON response has no frames.
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    pub framing:       SseFraming,
 }
 
 impl EncodedRequest {
@@ -92,6 +102,13 @@ impl EncodedRequest {
             timeout: None,
             warnings: Vec::new(),
             applied_speed: None,
+            #[cfg(any(
+                feature = "openai",
+                feature = "anthropic",
+                feature = "gemini",
+                feature = "openai-compatible"
+            ))]
+            framing: SseFraming::Spec,
         }
     }
 
@@ -123,6 +140,39 @@ impl EncodedRequest {
         });
         self
     }
+
+    /// Frames the SSE response stream at every complete `data:` line.
+    ///
+    /// Lenient skins and proxies for this codec's dialect separate events with
+    /// single newlines rather than the blank line the SSE specification
+    /// requires, and every event is one `data:` line of JSON.
+    #[cfg(any(feature = "gemini", feature = "openai-compatible"))]
+    #[must_use]
+    pub(crate) fn with_data_line_framing(mut self) -> Self {
+        self.framing = SseFraming::DataLines;
+        self
+    }
+}
+
+/// How the transport splits an SSE byte stream into events.
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible"
+))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SseFraming {
+    /// A blank line ends a frame, whose `data:` lines join with `\n`, as the
+    /// SSE specification requires.
+    Spec,
+    /// Every complete `data:` line is one event on its own, delivered as soon
+    /// as its newline arrives.
+    #[cfg_attr(
+        not(any(feature = "gemini", feature = "openai-compatible")),
+        allow(dead_code, reason = "only the gemini and openai_chat codecs opt in")
+    )]
+    DataLines,
 }
 
 #[derive(Clone, Debug)]
@@ -211,6 +261,7 @@ impl HttpTransport {
         provider: &CatalogProvider,
         credentials: Credentials,
     ) -> Result<EventResponse, Error> {
+        let framing = request.framing;
         let response = self
             .send(request, provider, credentials, TimeoutRetry::Safe)
             .await?;
@@ -228,7 +279,7 @@ impl HttpTransport {
         });
         let chunks = with_idle_timeout(chunks, self.stream_idle_timeout, provider_id);
         Ok(EventResponse {
-            events: Box::pin(sse_frames(chunks)),
+            events: Box::pin(sse_frames(chunks, framing)),
             rate_limits,
         })
     }
@@ -506,7 +557,7 @@ where
     })
 }
 
-/// Turns response chunks into SSE frames.
+/// Turns response chunks into SSE frames, split as `framing` directs.
 ///
 /// A stream that ends without the trailing blank line still delivers its last
 /// frame: the leftover buffer is flushed at end of stream rather than dropped.
@@ -516,23 +567,28 @@ where
     feature = "gemini",
     feature = "openai-compatible"
 ))]
-fn sse_frames<C, S>(chunks: S) -> impl Stream<Item = Result<SseEvent, Error>> + Send + 'static
+fn sse_frames<C, S>(
+    chunks: S,
+    framing: SseFraming,
+) -> impl Stream<Item = Result<SseEvent, Error>> + Send + 'static
 where
     S: Stream<Item = Result<C, Error>> + Send + 'static,
     C: AsRef<[u8]> + Send + 'static,
 {
     struct FrameState<S> {
-        chunks: Pin<Box<S>>,
-        buffer: Vec<u8>,
-        ready:  VecDeque<Result<SseEvent, Error>>,
-        ended:  bool,
+        chunks:  Pin<Box<S>>,
+        buffer:  Vec<u8>,
+        ready:   VecDeque<Result<SseEvent, Error>>,
+        framing: SseFraming,
+        ended:   bool,
     }
 
     let state = FrameState {
         chunks: Box::pin(chunks),
         buffer: Vec::new(),
-        ready:  VecDeque::new(),
-        ended:  false,
+        ready: VecDeque::new(),
+        framing,
+        ended: false,
     };
     unfold(state, |mut state| async move {
         loop {
@@ -545,7 +601,9 @@ where
             match state.chunks.next().await {
                 Some(Ok(chunk)) => {
                     state.buffer.extend_from_slice(chunk.as_ref());
-                    state.ready.extend(extract_frames(&mut state.buffer));
+                    state
+                        .ready
+                        .extend(extract_frames(&mut state.buffer, state.framing));
                 }
                 Some(Err(error)) => {
                     state.ready.push_back(Err(error));
@@ -868,9 +926,9 @@ pub(crate) fn provider_error(
     feature = "gemini",
     feature = "openai-compatible"
 ))]
-fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<SseEvent, Error>> {
+fn extract_frames(buffer: &mut Vec<u8>, framing: SseFraming) -> Vec<Result<SseEvent, Error>> {
     let mut events = Vec::new();
-    while let Some((end, delimiter_len)) = frame_end(buffer) {
+    while let Some((end, delimiter_len)) = frame_end(buffer, framing) {
         let frame: Vec<_> = buffer.drain(..end).collect();
         buffer.drain(..delimiter_len);
         match parse_frame(&frame) {
@@ -911,17 +969,25 @@ fn flush_frame(buffer: &mut Vec<u8>) -> Vec<Result<SseEvent, Error>> {
     feature = "gemini",
     feature = "openai-compatible"
 ))]
-fn frame_end(buffer: &[u8]) -> Option<(usize, usize)> {
-    buffer
-        .windows(2)
-        .position(|window| window == b"\n\n")
-        .map(|index| (index, 2))
-        .or_else(|| {
-            buffer
-                .windows(4)
-                .position(|window| window == b"\r\n\r\n")
-                .map(|index| (index, 4))
-        })
+fn frame_end(buffer: &[u8], framing: SseFraming) -> Option<(usize, usize)> {
+    match framing {
+        SseFraming::Spec => buffer
+            .windows(2)
+            .position(|window| window == b"\n\n")
+            .map(|index| (index, 2))
+            .or_else(|| {
+                buffer
+                    .windows(4)
+                    .position(|window| window == b"\r\n\r\n")
+                    .map(|index| (index, 4))
+            }),
+        // A newline never lands inside a multi-byte UTF-8 character, so a
+        // frame that ends here always carries complete characters.
+        SseFraming::DataLines => buffer
+            .iter()
+            .position(|&byte| byte == b'\n')
+            .map(|index| (index, 1)),
+    }
 }
 
 #[cfg(any(
@@ -1028,18 +1094,18 @@ mod tests {
     use httpmock::{Method as MockMethod, MockServer};
     use serde_json::{Value, json};
 
+    use super::{
+        AuthScheme, Client, CredentialHeader, Credentials, EncodedRequest, ErrorKind, HeaderMap,
+        HeaderValue, HttpAuthentication, HttpTransport, Method, ProviderId, RetryClassification,
+        SecretValue, merge_headers, rate_limits, with_idle_timeout,
+    };
     #[cfg(any(
         feature = "openai",
         feature = "anthropic",
         feature = "gemini",
         feature = "openai-compatible"
     ))]
-    use super::extract_frames;
-    use super::{
-        AuthScheme, Client, CredentialHeader, Credentials, EncodedRequest, ErrorKind, HeaderMap,
-        HeaderValue, HttpAuthentication, HttpTransport, Method, ProviderId, RetryClassification,
-        SecretValue, merge_headers, rate_limits, with_idle_timeout,
-    };
+    use super::{SseFraming, extract_frames};
     use crate::codecs::test_support;
     use crate::credentials::HttpCredentials;
     use crate::resolver::ResolvedRoute;
@@ -1167,13 +1233,107 @@ mod tests {
     #[test]
     fn parses_frames_across_chunks() {
         let mut buffer = b"event: delta\ndata: {\"text\":\"hel".to_vec();
-        assert!(extract_frames(&mut buffer).is_empty());
+        assert!(extract_frames(&mut buffer, SseFraming::Spec).is_empty());
         buffer.extend_from_slice(b"lo\"}\n\ndata: [DONE]\n\n");
-        let events = extract_frames(&mut buffer);
+        let events = extract_frames(&mut buffer, SseFraming::Spec);
         assert_eq!(events.len(), 1);
         let event = events[0].as_ref().expect("frame should parse");
         assert_eq!(event.event.as_deref(), Some("delta"));
         assert_eq!(event.data, r#"{"text":"hello"}"#);
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[test]
+    fn spec_framing_joins_single_newline_data_lines_into_one_frame() {
+        let mut buffer = b"data: {\"n\":1}\ndata: {\"n\":2}\n\n".to_vec();
+
+        let events = extract_frames(&mut buffer, SseFraming::Spec);
+
+        assert_eq!(events.len(), 1);
+        let event = events[0].as_ref().expect("the frame should parse");
+        assert_eq!(event.data, "{\"n\":1}\n{\"n\":2}");
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[test]
+    fn data_line_framing_splits_single_newline_data_lines() {
+        let mut buffer = b"data: {\"n\":1}\ndata: {\"n\":2}\n\n".to_vec();
+
+        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].as_ref().expect("line one").data, r#"{"n":1}"#);
+        assert_eq!(events[1].as_ref().expect("line two").data, r#"{"n":2}"#);
+        assert!(buffer.is_empty(), "the blank line is not a frame");
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[test]
+    fn data_line_framing_skips_comments_terminators_and_non_data_lines() {
+        let mut buffer = b": keep-alive\nevent: x\ndata: [DONE]\ndata: {\"n\":1}\n".to_vec();
+
+        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].as_ref().expect("the data line").data,
+            r#"{"n":1}"#
+        );
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[test]
+    fn data_line_framing_handles_crlf_line_endings() {
+        let mut buffer = b"data: {\"n\":1}\r\n\r\ndata: {\"n\":2}\r\n".to_vec();
+
+        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].as_ref().expect("line one").data, r#"{"n":1}"#);
+        assert_eq!(events[1].as_ref().expect("line two").data, r#"{"n":2}"#);
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[test]
+    fn data_line_framing_buffers_a_split_utf8_character() {
+        let text = "data: {\"t\":\"é\"}\n";
+        // Split inside the two-byte `é` so the first chunk is not UTF-8.
+        let split = 13;
+        assert!(!text.is_char_boundary(split));
+
+        let bytes = text.as_bytes();
+        let mut buffer = bytes[..split].to_vec();
+        assert!(extract_frames(&mut buffer, SseFraming::DataLines).is_empty());
+        buffer.extend_from_slice(&bytes[split..]);
+        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].as_ref().expect("the line").data, r#"{"t":"é"}"#);
     }
 
     #[test]
@@ -1205,7 +1365,7 @@ mod tests {
     fn flushes_a_last_frame_that_has_no_trailing_blank_line() {
         let mut buffer = b"data: {\"text\":\"bye\"}".to_vec();
 
-        assert!(extract_frames(&mut buffer).is_empty());
+        assert!(extract_frames(&mut buffer, SseFraming::Spec).is_empty());
         let events = super::flush_frame(&mut buffer);
 
         assert_eq!(events.len(), 1);
@@ -1333,6 +1493,40 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert_eq!(
             events[1].as_ref().expect("the tail should parse").data,
+            r#"{"n":2}"#
+        );
+        Ok(())
+    }
+
+    #[cfg(any(feature = "gemini", feature = "openai-compatible"))]
+    #[tokio::test]
+    async fn a_data_line_framed_stream_splits_events_without_blank_lines()
+    -> Result<(), Box<dyn StdError>> {
+        let server = MockServer::start_async().await;
+        server
+            .mock_async(|when, then| {
+                when.method(MockMethod::POST).path("/stream");
+                then.status(200)
+                    .header("content-type", "text/event-stream")
+                    .body("data: {\"n\":1}\ndata: {\"n\":2}");
+            })
+            .await;
+        let route = route()?;
+        let transport = HttpTransport::new(Client::new());
+
+        let response = transport
+            .sse_events(
+                post(server.url("/stream")).with_data_line_framing(),
+                route.provider(),
+                Credentials::none(),
+            )
+            .await?;
+        let events: Vec<_> = response.events.collect().await;
+
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].as_ref().expect("line one").data, r#"{"n":1}"#);
+        assert_eq!(
+            events[1].as_ref().expect("the tail should flush").data,
             r#"{"n":2}"#
         );
         Ok(())
