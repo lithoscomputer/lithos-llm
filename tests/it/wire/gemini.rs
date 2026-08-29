@@ -298,20 +298,19 @@ async fn tool_choice_named() {
 
 #[tokio::test]
 async fn tool_round_trip_request() {
-    // Two deliberate departures from Google's own conventions are pinned here.
-    // Both were reviewed and kept.
+    // Two deliberate departures from the reference implementation are pinned
+    // here. Both were reviewed and kept.
     //
-    // 1. Each canonical tool-result message becomes its own `contents` entry rather
-    //    than being folded into one turn, so two parallel calls answer across two
-    //    one `user` turn holding both `functionResponse` parts, which is Gemini's
-    //    canonical shape. Each result arrives as its own canonical message, and
-    //    consecutive same-role messages merge so a run of `user` turns never
-    //    reaches the wire. Anthropic and Bedrock require the same merge, since both
-    //    protocols alternate roles strictly.
+    // 1. Each tool result arrives as its own canonical message, and consecutive
+    //    same-role messages merge into one turn — so two parallel calls answer in a
+    //    single `user` turn holding both `functionResponse` parts, which is
+    //    Gemini's canonical shape. The reference sent each result as its own turn.
+    //    Anthropic and Bedrock require the same merge, since both protocols
+    //    alternate roles strictly.
     // 2. A failed tool result has no separate wire shape: it rides inside the
-    //    free-form `functionResponse.response` object as `is_error`. Google's
-    //    guidance prefers an `error` key there. `response` is a free-form struct,
-    //    so nothing rejects this and the model reads the failure either way.
+    //    free-form `functionResponse.response` object, under the `error` key
+    //    Google's guidance prefers. The reference sent an `is_error` flag there,
+    //    which the model reads as ordinary output rather than as a failure.
     let (request, response) = complete(
         support::tool_round_trip_request(&selector()),
         &text_response(),
