@@ -1051,16 +1051,19 @@ impl ResponsesStream {
                 };
                 let call_id = item.get("call_id").and_then(Value::as_str);
                 let item_id = item.get("id").and_then(Value::as_str);
-                let mut events = self
-                    .assembler
-                    .start(id.clone(), ContentBlockKind::ToolCall {
-                        id:   call_id.or(item_id).unwrap_or_default().to_owned(),
-                        name: item
-                            .get("name")
-                            .and_then(Value::as_str)
-                            .map(ToOwned::to_owned),
-                        kind: call_kind,
-                    });
+                let identity = ContentBlockKind::ToolCall {
+                    id:   call_id.or(item_id).unwrap_or_default().to_owned(),
+                    name: item
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .map(ToOwned::to_owned),
+                    kind: call_kind,
+                };
+                let mut events = self.assembler.start(id.clone(), identity.clone());
+                // When a lost `output_item.added` let an early fragment latch
+                // the fallback block, the terminal item event lands here and
+                // restores the call id and name the fallback lost.
+                self.assembler.repair_tool_identity(id, identity);
                 if let (Some(call_id), Some(item_id)) = (call_id, item_id) {
                     if call_id != item_id {
                         events.extend(self.assembler.provider_metadata(
@@ -1763,6 +1766,57 @@ mod tests {
         };
         assert_eq!(reasoning.text, "checked");
         assert_eq!(opaque.opaque_namespace(), Some("openai"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_lost_item_announcement_recovers_the_call_identity() -> Result<(), Box<dyn StdError>> {
+        // The argument fragments arrive before any `output_item.added`, so
+        // they latch the assembler's fallback block — call id equal to the
+        // item id, no name. The terminal item event carries the real
+        // identity, and the assembled part must not keep the fallback's.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_123",
+                "delta": "{\"query\":",
+            }),
+            json!({
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_123",
+                "delta": "\"rust\"}",
+            }),
+            json!({
+                "type": "response.output_item.done",
+                "output_index": 0,
+                "item": {
+                    "type": "function_call",
+                    "id": "fc_123",
+                    "call_id": "call_abc",
+                    "name": "search",
+                    "arguments": "{\"query\":\"rust\"}",
+                },
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        let parts = ended_parts(&events);
+        let [ContentPart::ToolCall(recovered)] = parts.as_slice() else {
+            return Err(format!("expected one tool call part, got {parts:?}").into());
+        };
+        assert_eq!(recovered.id, "call_abc");
+        assert_eq!(recovered.name, "search");
+        assert_eq!(recovered.arguments, json!({ "query": "rust" }));
         Ok(())
     }
 

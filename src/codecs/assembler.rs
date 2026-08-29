@@ -272,6 +272,25 @@ impl StreamAssembler {
         events
     }
 
+    /// Replaces the identity of an open tool-call block.
+    ///
+    /// A fragment that arrives before its item was announced latches the
+    /// fallback block, whose call id is the block id text and whose name is
+    /// empty. A codec that later learns the real identity — a terminal item
+    /// event carries it — repairs the block here so the assembled part does
+    /// not misname the call. The buffered fragments are kept, and a block
+    /// that is not an open tool call is left alone.
+    pub(crate) fn repair_tool_identity(&mut self, id: &ContentBlockId, identity: ContentBlockKind) {
+        let Some(block) = self.open_block(id) else {
+            return;
+        };
+        if matches!(block.kind, ContentBlockKind::ToolCall { .. })
+            && matches!(identity, ContentBlockKind::ToolCall { .. })
+        {
+            block.kind = identity;
+        }
+    }
+
     /// Marks a reasoning block as redacted by the provider.
     ///
     /// The returned vector is empty unless the block had to be opened first.
