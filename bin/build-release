@@ -15,7 +15,7 @@ if [[ "$version" != "$manifest_version" ]]; then
   exit 1
 fi
 
-cargo package --locked
+cargo package --locked -p lithos-llm
 
 package_name="lithos-llm-${version}.crate"
 output_dir="dist-release"

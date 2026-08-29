@@ -20,7 +20,7 @@ run = "bin/style-guides prepare"
 
 [tasks.dev]
 description = "Check all default-feature targets"
-run = "cargo check --locked --all-targets"
+run = "cargo check --locked --workspace --all-targets"
 
 [tasks.fmt]
 description = "Format Rust with the pinned nightly formatter"
@@ -33,16 +33,16 @@ run = "cargo +nightly-2026-04-14 fmt --check --all"
 [tasks.lint]
 description = "Lint all Rust targets with warnings denied"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/clippy" }
-run = "cargo clippy --locked --all-targets --all-features -- -D warnings"
+run = "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings"
 
 [tasks.test]
 description = "Run all Rust tests with Nextest"
-run = "cargo nextest run --locked --all-targets --all-features --no-tests=pass"
+run = "cargo nextest run --locked --workspace --all-targets --all-features --no-tests=pass"
 
 [tasks."test:default-features"]
 description = "Run the tests with the default feature set"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
-run = "cargo nextest run --locked --all-targets --no-tests=pass"
+run = "cargo nextest run --locked --workspace --all-targets --no-tests=pass"
 
 # The E2E suite runs against one of three backends. `test:e2e` (the
 # default) replays the committed recording offline through a twin-openai
@@ -129,12 +129,12 @@ run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; LITHOS_E2E_BACKEND=live c
 
 [tasks."test:release"]
 description = "Run all Rust tests in release mode"
-run = "cargo nextest run --locked --release --all-targets --all-features --no-tests=pass"
+run = "cargo nextest run --locked --release --workspace --all-targets --all-features --no-tests=pass"
 
 [tasks."check:msrv"]
 description = "Check all targets with the declared minimum Rust version"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/msrv" }
-run = "cargo +1.88.0 check --locked --all-targets --all-features"
+run = "cargo +1.88.0 check --locked --workspace --all-targets --all-features"
 
 [tasks."check:actions"]
 description = "Audit GitHub Actions workflows"
@@ -143,8 +143,8 @@ run = "zizmor .github/workflows"
 [tasks."check:catalog-only"]
 description = "Verify that catalog-only builds exclude runtime dependencies"
 run = '''
-cargo check --locked --no-default-features --features builtin-catalog
-if cargo tree --locked -e normal --no-default-features --features builtin-catalog | grep -Eq '(^| )(tokio|reqwest|aws-[a-z0-9_-]+) v'; then
+cargo check --locked -p lithos-llm --no-default-features --features builtin-catalog
+if cargo tree --locked -p lithos-llm -e normal --no-default-features --features builtin-catalog | grep -Eq '(^| )(tokio|reqwest|aws-[a-z0-9_-]+) v'; then
   echo "catalog-only feature unexpectedly includes a runtime dependency" >&2
   exit 1
 fi
@@ -154,7 +154,7 @@ fi
 description = "Check each additive feature and the AWS SDK boundary"
 run = '''
 for feature in runtime openai anthropic gemini openai-compatible bedrock bedrock-aws; do
-  cargo check --locked --no-default-features --features "$feature"
+  cargo check --locked -p lithos-llm --no-default-features --features "$feature"
 done
 
 # `aws-lc-rs` and `aws-lc-sys` are the rustls TLS backend, not AWS SDK crates.
@@ -167,8 +167,8 @@ assert_no_aws_sdk() {
   fi
 }
 
-assert_no_aws_sdk "default features"
-assert_no_aws_sdk "the bedrock feature" --no-default-features --features bedrock
+assert_no_aws_sdk "default features" -p lithos-llm
+assert_no_aws_sdk "the bedrock feature" -p lithos-llm --no-default-features --features bedrock
 '''
 
 [tasks."check:whitespace"]

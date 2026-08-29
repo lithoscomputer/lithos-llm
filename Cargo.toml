@@ -18,6 +18,10 @@ include = [
   "/LICENSE-APACHE",
 ]
 
+[workspace]
+members = [".", "cli"]
+resolver = "3"
+
 [features]
 default = [
   "builtin-catalog",
@@ -85,11 +89,14 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
 # transcript-recording revision until the twins stack merges.
 twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "b0691fb2a70b57ae1a68b8ee093320b738696e9d" }
 
-[lints.rust]
+[lints]
+workspace = true
+
+[workspace.lints.rust]
 unsafe_code = "deny"
 unreachable_pub = "warn"
 
-[lints.clippy]
+[workspace.lints.clippy]
 pedantic = { level = "warn", priority = -2 }
 allow_attributes_without_reason = "warn"
 

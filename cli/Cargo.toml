@@ -1,0 +1,39 @@
+[package]
+name = "lithos-llm-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+description = "Stateless command-line interface for lithos-llm"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/lithoscomputer/lithos-llm"
+
+[[bin]]
+name = "lithos"
+path = "src/main.rs"
+
+[features]
+default = []
+bedrock = ["lithos-llm/bedrock"]
+bedrock-aws = ["lithos-llm/bedrock-aws"]
+
+[dependencies]
+base64 = "=0.22.1"
+clap = { version = "=4.5.47", features = ["derive"] }
+futures-util = "=0.3.32"
+humantime = "=2.2.0"
+infer = "=0.19.0"
+lithos-llm = { path = ".." }
+mime = "=0.3.17"
+mime_guess = "=2.0.5"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
+thiserror = "=2.0.16"
+tokio = { version = "=1.49.0", features = ["io-std", "macros", "rt-multi-thread", "signal"] }
+url = "=2.5.8"
+
+[dev-dependencies]
+async-trait = "=0.1.89"
+
+[lints]
+workspace = true
