@@ -61,6 +61,9 @@ work:
 - Responses: a streamed `message` item opens its text block on the first
   text that arrives, so a refusal-only or empty assistant message no longer
   emits an empty `Text` part the blocking decode of the same body omits.
+- Responses: a text-only Tool message answering a custom tool call routes
+  to `custom_tool_call_output` by the seen custom call ids as well as the
+  declared names, the same rule the `ToolResult` path already applies.
 
 ### Round-2 parity fixes
 

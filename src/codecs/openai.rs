@@ -457,9 +457,14 @@ fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
         // message-level label is the only place that id survives.
         if let Some(call_id) = message.tool_call_id() {
             let mut items: Vec<Value> = opaque_items(message).cloned().collect();
-            let custom = message
-                .name()
-                .is_some_and(|name| custom.names.contains(name));
+            // The same routing the ToolResult path applies: a result
+            // answering a custom call earlier in the request is custom even
+            // when the tool is not redeclared and the message carries no
+            // name.
+            let custom = custom.calls.contains(call_id)
+                || message
+                    .name()
+                    .is_some_and(|name| custom.names.contains(name));
             items.push(tool_output_item(
                 call_id,
                 &plain_text(message.content()),
@@ -2162,6 +2167,41 @@ mod tests {
         assert_eq!(
             replaced.raw_arguments.as_deref(),
             Some("{\"query\":\"rust\"}")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_text_only_tool_message_answering_a_custom_call_routes_as_custom()
+    -> Result<(), Box<dyn StdError>> {
+        // The custom call rides earlier in the request; the answering tool
+        // message carries only text and a call id — no name, and the tool is
+        // not redeclared. A function_call_output against a custom_tool_call
+        // is rejected by the provider, so the call-id route must apply here
+        // exactly as it does on the ToolResult path.
+        let request = Request::builder()
+            .model(MODEL)
+            .user("Patch the file")
+            .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                ToolCall::custom("call_001", "apply_patch", "*** Begin Patch"),
+            )]))
+            .message(
+                Message::new(Role::Tool, [ContentPart::Text {
+                    text: "Success".to_owned(),
+                }])
+                .with_tool_call_id("call_001"),
+            )
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        assert_eq!(
+            encoded.body["input"][2],
+            json!({
+                "type": "custom_tool_call_output",
+                "call_id": "call_001",
+                "output": "Success",
+            })
         );
         Ok(())
     }
