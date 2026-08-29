@@ -15,13 +15,15 @@ use crate::types::{ErrorKind, RetryClassification};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ProviderFailure {
     /// The normalized category.
-    pub kind:    ErrorKind,
+    pub kind:        ErrorKind,
     /// Whether repeating the same resolved call is safe.
-    pub retry:   RetryClassification,
+    pub retry:       RetryClassification,
+    /// The provider's advised wait, kept whatever the kind.
+    pub retry_after: Option<Duration>,
     /// The provider's human-readable message, when the body carried one.
-    pub message: Option<String>,
+    pub message:     Option<String>,
     /// The provider's stable error code, when the body carried one.
-    pub code:    Option<String>,
+    pub code:        Option<String>,
 }
 
 /// Codes that report spent credit, a billing cap, or an exhausted plan quota.
@@ -227,16 +229,21 @@ pub(crate) fn classify(
         kind
     };
 
+    // The advised wait is kept on every kind: same-call retries honor it only
+    // for the retryable kinds below, but an application scheduling its own
+    // failover wants the hint on a spent-quota 429 too.
+    let advised = retry_after.and_then(parse_retry_after);
     let retry = match kind {
-        ErrorKind::RateLimit | ErrorKind::Server => retry_after
-            .and_then(parse_retry_after)
-            .map_or(RetryClassification::Safe, RetryClassification::after),
+        ErrorKind::RateLimit | ErrorKind::Server => {
+            advised.map_or(RetryClassification::Safe, RetryClassification::after)
+        }
         _ => RetryClassification::Never,
     };
 
     ProviderFailure {
         kind,
         retry,
+        retry_after: advised,
         message: message.map(ToOwned::to_owned),
         code: code.map(ToOwned::to_owned),
     }
@@ -680,6 +687,10 @@ mod tests {
 
         let quota = classify(Some(429), Some("insufficient_quota"), None, Some("5"));
         assert_eq!(quota.retry, RetryClassification::Never);
+        // The advised wait survives on the never-retried kind: same-call
+        // retries ignore it, but an application scheduling its own failover
+        // still reads the provider's hint.
+        assert_eq!(quota.retry_after, Some(Duration::from_secs(5)));
     }
 
     #[test]

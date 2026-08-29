@@ -1467,6 +1467,7 @@ async fn classifies_throttling_with_an_http_date_retry_after() {
     // match twice.
     let mut data = error_json(&error);
     data["retry"] = json!({ "type": "after", "after_millis": "[COUNTDOWN]" });
+    data["provider_retry_after_millis"] = json!("[COUNTDOWN]");
     crate::json_snapshot!(data);
 }
 

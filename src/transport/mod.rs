@@ -847,6 +847,9 @@ pub(crate) fn provider_error(
     let mut error = Error::new(failure.kind, format!("provider {} {detail}", provider.id()))
         .with_provider(provider.id().clone())
         .with_retry(failure.retry);
+    if let Some(delay) = failure.retry_after {
+        error = error.with_provider_retry_after(delay);
+    }
     if let Some(status) = status {
         error = error.with_status(status);
     }

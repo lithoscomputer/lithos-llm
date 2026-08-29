@@ -123,6 +123,10 @@ pub struct ErrorData {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raw_data: Option<Value>,
 
+    /// The provider's advised wait in milliseconds, whatever the kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_retry_after_millis: Option<u64>,
+
     /// The `Display` text of the immediate source, when there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_message: Option<String>,
@@ -132,14 +136,15 @@ pub struct ErrorData {
 #[derive(Debug)]
 #[must_use]
 pub struct Error {
-    kind:          ErrorKind,
-    message:       String,
-    provider:      Option<ProviderId>,
-    status:        Option<u16>,
-    provider_code: Option<String>,
-    retry:         RetryClassification,
-    raw_data:      Option<Box<Value>>,
-    source:        Option<Box<dyn StdError + Send + Sync>>,
+    kind:                 ErrorKind,
+    message:              String,
+    provider:             Option<ProviderId>,
+    status:               Option<u16>,
+    provider_code:        Option<String>,
+    retry:                RetryClassification,
+    provider_retry_after: Option<Duration>,
+    raw_data:             Option<Box<Value>>,
+    source:               Option<Box<dyn StdError + Send + Sync>>,
 }
 
 impl Error {
@@ -151,6 +156,7 @@ impl Error {
             status: None,
             provider_code: None,
             retry: RetryClassification::Never,
+            provider_retry_after: None,
             raw_data: None,
             source: None,
         }
@@ -173,6 +179,12 @@ impl Error {
 
     pub fn with_retry(mut self, retry: RetryClassification) -> Self {
         self.retry = retry;
+        self
+    }
+
+    /// Records the provider's advised wait, whatever the error kind.
+    pub fn with_provider_retry_after(mut self, delay: Duration) -> Self {
+        self.provider_retry_after = Some(delay);
         self
     }
 
@@ -214,6 +226,17 @@ impl Error {
         self.retry.delay()
     }
 
+    /// The provider's advised wait, whatever the error kind.
+    ///
+    /// [`retry_after`](Self::retry_after) carries the delay only when the
+    /// classification says repeating the same call is safe. A provider also
+    /// sends `Retry-After` on failures this crate never retries — a 429
+    /// classified as spent quota — and an application scheduling its own
+    /// failover still wants that hint.
+    pub fn provider_retry_after(&self) -> Option<Duration> {
+        self.provider_retry_after
+    }
+
     pub fn raw_data(&self) -> Option<&Value> {
         self.raw_data.as_deref()
     }
@@ -224,13 +247,16 @@ impl Error {
     /// [`ErrorData::source_message`].
     pub fn data(&self) -> ErrorData {
         ErrorData {
-            kind:           self.kind,
-            message:        self.message.clone(),
-            provider:       self.provider.clone(),
-            status:         self.status,
-            provider_code:  self.provider_code.clone(),
-            retry:          self.retry,
-            raw_data:       self.raw_data.as_deref().cloned(),
+            kind: self.kind,
+            message: self.message.clone(),
+            provider: self.provider.clone(),
+            status: self.status,
+            provider_code: self.provider_code.clone(),
+            retry: self.retry,
+            provider_retry_after_millis: self
+                .provider_retry_after
+                .map(|delay| u64::try_from(delay.as_millis()).unwrap_or(u64::MAX)),
+            raw_data: self.raw_data.as_deref().cloned(),
             source_message: self.source.as_ref().map(ToString::to_string),
         }
     }

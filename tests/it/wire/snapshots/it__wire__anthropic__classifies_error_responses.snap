@@ -70,6 +70,7 @@ expression: rendered
       "message": "provider anthropic Number of requests has exceeded your rate limit.",
       "provider": "anthropic",
       "provider_code": "rate_limit_error",
+      "provider_retry_after_millis": 30000,
       "raw_data": {
         "error": {
           "message": "Number of requests has exceeded your rate limit.",
