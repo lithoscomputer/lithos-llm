@@ -72,6 +72,10 @@ work:
 - The AWS event-stream parser validates the prelude CRC as soon as the
   12-byte prelude arrives, so a corrupted in-bounds frame length fails the
   stream immediately instead of stalling silently until the idle timeout.
+- Chat: text-only content always uses the plain string form, joining
+  several text parts unseparated as the reference client did; the
+  part-array form is reserved for messages carrying media, so strict
+  text-only skins no longer receive a shape they reject.
 
 ### Round-2 parity fixes
 

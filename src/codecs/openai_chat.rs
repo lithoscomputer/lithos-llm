@@ -735,12 +735,23 @@ fn encode_chat_message(message: &Message) -> Value {
         .iter()
         .filter_map(encode_content_part)
         .collect();
+    let all_text = !parts.is_empty()
+        && parts
+            .iter()
+            .all(|part| part.get("type").and_then(Value::as_str) == Some("text"));
     let content = match parts.as_slice() {
-        // A lone text part uses the plain string form every skin accepts.
-        [part] if part.get("type").and_then(Value::as_str) == Some("text") => {
-            part.get("text").cloned().unwrap_or(Value::Null)
-        }
         [] => Value::Null,
+        // Text-only content uses the plain string form every skin accepts —
+        // the part-array form is reserved for content only media-capable
+        // skins receive, because a strict text-only skin rejects it. The
+        // texts join unseparated, as the reference client sent them.
+        _ if all_text => Value::String(
+            parts
+                .iter()
+                .filter_map(|part| part.get("text").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join(""),
+        ),
         _ => Value::Array(parts),
     };
 
@@ -1514,6 +1525,34 @@ mod tests {
             encoded.body["messages"][0]["content"],
             json!(r#"{"city":"Boston","temp_c":4}"#),
             "the value itself, not the ContentPart envelope"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn several_text_parts_join_into_the_plain_string_form() -> Result<(), Box<dyn StdError>> {
+        // A strict text-only skin accepts only string content; the part-array
+        // form is reserved for messages carrying media. Two text parts join
+        // unseparated, as the reference client sent them.
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .message(Message::new(Role::User, [
+                    ContentPart::Text {
+                        text: "First paragraph. ".to_owned(),
+                    },
+                    ContentPart::Text {
+                        text: "Second paragraph.".to_owned(),
+                    },
+                ]))
+                .build()?,
+        )?;
+
+        let encoded = OpenAiChatCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["messages"][0]["content"],
+            json!("First paragraph. Second paragraph.")
         );
         Ok(())
     }
