@@ -1,0 +1,29 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "kind": "content_filter",
+  "message": "provider anthropic refused the request: This asks for working malware.",
+  "provider": "anthropic",
+  "provider_code": "refusal",
+  "retry": {
+    "type": "never"
+  },
+  "raw_data": {
+    "content": [],
+    "id": "msg_01WireRefusal",
+    "model": "claude-sonnet-4-6",
+    "role": "assistant",
+    "stop_details": {
+      "explanation": "This asks for working malware.",
+      "type": "refusal"
+    },
+    "stop_reason": "refusal",
+    "type": "message",
+    "usage": {
+      "input_tokens": 19,
+      "output_tokens": 3
+    }
+  }
+}

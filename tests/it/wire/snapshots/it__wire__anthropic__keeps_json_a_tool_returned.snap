@@ -16,7 +16,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "613"
+      "607"
     ],
     [
       "content-type",
@@ -41,7 +41,7 @@ expression: rendered
       {
         "content": [
           {
-            "text": "Chart last week's sales.",
+            "text": "What is the weather in Paris?",
             "type": "text"
           }
         ],
@@ -50,11 +50,11 @@ expression: rendered
       {
         "content": [
           {
-            "id": "call_chart",
+            "id": "call_weather",
             "input": {
-              "range": "7d"
+              "city": "Paris"
             },
-            "name": "render_chart",
+            "name": "get_weather",
             "type": "tool_use"
           }
         ],
@@ -65,20 +65,16 @@ expression: rendered
           {
             "content": [
               {
-                "text": "Here is the chart.",
+                "text": "{\"city\":\"Paris\",\"high_c\":21}",
                 "type": "text"
               },
               {
-                "source": {
-                  "data": "Y2hhcnQtYnl0ZXM=",
-                  "media_type": "image/png",
-                  "type": "base64"
-                },
-                "type": "image"
+                "text": "Fetched at 09:00.",
+                "type": "text"
               }
             ],
             "is_error": false,
-            "tool_use_id": "call_chart",
+            "tool_use_id": "call_weather",
             "type": "tool_result"
           }
         ],
@@ -89,11 +85,11 @@ expression: rendered
     "stream": false,
     "tools": [
       {
-        "description": "Renders a chart",
+        "description": "Reads the current weather for a city",
         "input_schema": {
           "type": "object"
         },
-        "name": "render_chart"
+        "name": "get_weather"
       }
     ]
   }

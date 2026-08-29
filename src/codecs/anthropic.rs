@@ -22,7 +22,7 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, MediaSource, Message,
-    ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat, Role, Speed, StreamEvent,
+    ReasoningContent, ReasoningEffort, Response, ResponseFormat, Role, Speed, StreamEvent,
     TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
 };
 
@@ -36,10 +36,25 @@ const NAMESPACE: &str = "anthropic";
 /// The API version every request declares.
 const API_VERSION: &str = "2023-06-01";
 
-/// The `max_tokens` used when the request sets no output limit.
+/// The `max_tokens` used when neither the request nor the catalog sets one.
 ///
-/// Anthropic requires the field, so there is no "omit it" option.
-const DEFAULT_MAX_TOKENS: u32 = 4096;
+/// Anthropic requires the field, so there is no "omit it" option. This is the
+/// last resort: a request that names no limit and a model the catalog records
+/// no output limit for. It is deliberately generous, because a limit picked
+/// here truncates a long generation silently.
+const DEFAULT_MAX_TOKENS: u32 = 65_536;
+
+/// The beta the `speed: "fast"` tier is gated behind.
+///
+/// The body field alone is not enough: without this beta the endpoint ignores
+/// the tier, so the two always travel together.
+const FAST_MODE_BETA: &str = "fast-mode-2026-02-01";
+
+/// The raw provider option that names extra `anthropic-beta` values.
+///
+/// This is a header control, not a body field, so the codec consumes it before
+/// the remaining options are merged into the body.
+const BETA_HEADERS_OPTION: &str = "beta_headers";
 
 /// The smallest `thinking.budget_tokens` the API accepts.
 ///
@@ -76,7 +91,8 @@ impl Codec for AnthropicMessagesCodec {
         })?;
 
         let request = call.request();
-        let (options, controls) = wire_options(call);
+        let (mut options, controls) = wire_options(call);
+        let betas = beta_headers(&mut options, request.speed());
         let mut body = message_body(call, controls.auto_cache);
         body.insert("stream".to_owned(), stream.into());
         merge_options(&mut body, options);
@@ -86,7 +102,7 @@ impl Codec for AnthropicMessagesCodec {
             endpoint(call.route().provider().base_url(), "/v1/messages"),
             Value::Object(body),
         )
-        .with_headers(version_headers())
+        .with_headers(headers(&betas))
         .with_timeout(request.timeout());
         // The system field of this protocol takes text only, so anything else
         // a system message carries is dropped. The text still reaches the
@@ -95,9 +111,23 @@ impl Codec for AnthropicMessagesCodec {
             encoded = encoded.unsupported_control("non-text system content");
         }
         if flattens_tool_result_content(request, |part| {
-            matches!(part, ContentPart::Text { .. } | ContentPart::Image(_))
+            matches!(
+                part,
+                ContentPart::Text { .. } | ContentPart::Json { .. } | ContentPart::Image(_)
+            )
         }) {
             encoded = encoded.unsupported_control("non-text tool result content");
+        }
+        // A forced tool choice drops both output controls; see
+        // `forces_tool_use`. Neither reaches the model, so both are reported.
+        if forces_tool_use(request.tool_choice()) {
+            if request.reasoning_effort().is_some() {
+                encoded = encoded.unsupported_control("reasoning effort with a forced tool choice");
+            }
+            if request.response_format().and_then(json_schema).is_some() {
+                encoded =
+                    encoded.unsupported_control("structured output with a forced tool choice");
+            }
         }
         Ok(encoded)
     }
@@ -111,6 +141,18 @@ impl Codec for AnthropicMessagesCodec {
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
             return Err(refusal(route, explanation.as_deref(), Some(value)));
+        }
+        // A body that carries none of the fields every Messages response has
+        // is not a Messages response: a gateway error page, an empty
+        // envelope, or another protocol answering on this URL. Decoding it as
+        // an empty success would report a model that said nothing.
+        if let Some(field) = missing_response_field(&value) {
+            return Err(Error::new(
+                ErrorKind::ResponseDecode,
+                format!("Anthropic returned a response without the {field} field"),
+            )
+            .with_provider(route.provider().id().clone())
+            .with_raw_data(value));
         }
 
         let content = value
@@ -160,9 +202,65 @@ impl Codec for AnthropicMessagesCodec {
 
 /// The dialect headers both endpoints send.
 ///
-/// Authentication is the transport's job; this is the protocol version only.
-fn version_headers() -> Vec<(String, String)> {
-    vec![("anthropic-version".to_owned(), API_VERSION.to_owned())]
+/// Authentication is the transport's job; this is the protocol version and,
+/// when the request needs one, the `anthropic-beta` opt-in list. Anthropic
+/// takes several betas in one comma-separated header value.
+fn headers(betas: &[String]) -> Vec<(String, String)> {
+    let mut headers = vec![("anthropic-version".to_owned(), API_VERSION.to_owned())];
+    if !betas.is_empty() {
+        headers.push(("anthropic-beta".to_owned(), betas.join(",")));
+    }
+    headers
+}
+
+/// The betas this request opts into, consuming the option that names them.
+///
+/// `beta_headers` is a header control rather than a body field, so it is taken
+/// out of the raw options before they are merged: left in, it would land in
+/// the JSON body and the endpoint would reject the request. The key is removed
+/// whatever its value, so a malformed option cannot reach the wire either.
+///
+/// The fast tier is added on top, because the body field alone does nothing
+/// without its beta. A caller who already listed it does not get it twice.
+fn beta_headers(options: &mut Map<String, Value>, speed: Option<Speed>) -> Vec<String> {
+    let named = options.remove(BETA_HEADERS_OPTION);
+    let mut betas: Vec<String> = named
+        .as_ref()
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if speed == Some(Speed::Fast) && !betas.iter().any(|beta| beta == FAST_MODE_BETA) {
+        betas.push(FAST_MODE_BETA.to_owned());
+    }
+    betas
+}
+
+/// The first field a Messages response must carry and this body does not.
+///
+/// Every real response carries all four, so their absence means the body is
+/// not one. Fields the API genuinely omits — `stop_reason` on a streamed
+/// message, `stop_details` on anything but a refusal — stay optional.
+fn missing_response_field(value: &Value) -> Option<&'static str> {
+    if !value.get("id").is_some_and(Value::is_string) {
+        return Some("id");
+    }
+    if !value.get("model").is_some_and(Value::is_string) {
+        return Some("model");
+    }
+    if !value.get("content").is_some_and(Value::is_array) {
+        return Some("content");
+    }
+    if !value.get("usage").is_some_and(Value::is_object) {
+        return Some("usage");
+    }
+    None
 }
 
 /// Rejects a request the Messages API cannot express.
@@ -197,7 +295,11 @@ fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
         matches!(part, ContentPart::Audio(_)).then_some("audio content")
     })?;
 
-    let (options, controls) = wire_options(call);
+    let (mut options, controls) = wire_options(call);
+    // Counting sends the same betas generation sends: a beta can change what
+    // the body means, and a count taken under different terms is not the
+    // count the generation will be billed for.
+    let betas = beta_headers(&mut options, call.request().speed());
     let mut body = message_body(call, controls.auto_cache);
     merge_options(&mut body, options);
     body.retain(|key, _| COUNT_TOKENS_FIELDS.contains(&key.as_str()));
@@ -210,7 +312,7 @@ fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
         ),
         Value::Object(body),
     )
-    .with_headers(version_headers())
+    .with_headers(headers(&betas))
     .with_timeout(call.request().timeout()))
 }
 
@@ -259,26 +361,33 @@ fn message_body(call: &ResolvedCall, auto_cache: bool) -> Map<String, Value> {
     }
 
     // Effort has two wire dialects. A model with effort levels takes
-    // `output_config.effort`; an older reasoning model takes an explicit
-    // `thinking` budget instead. The budget must sit strictly below
-    // `max_tokens`, so the limit grows when the budget would not fit under
-    // it. The count endpoint drops `max_tokens` but keeps `thinking`, which
-    // is why both are encoded here rather than per endpoint.
-    let mut max_tokens = output_limit(request);
-    if let Some(budget) = thinking_budget(call, max_tokens) {
-        if max_tokens <= budget {
-            max_tokens = budget.saturating_add(MIN_THINKING_BUDGET);
+    // `output_config.effort` and an adaptive thinking object; an older
+    // reasoning model takes an explicit `thinking` budget instead. The budget
+    // must sit strictly below `max_tokens`, so the limit grows when the budget
+    // would not fit under it. The count endpoint drops `max_tokens` but keeps
+    // `thinking`, which is why both are encoded here rather than per endpoint.
+    let thinking_allowed = !forces_tool_use(request.tool_choice());
+    let mut max_tokens = output_limit(call);
+    if thinking_allowed {
+        if let Some(budget) = thinking_budget(call, max_tokens) {
+            if max_tokens <= budget {
+                max_tokens = budget.saturating_add(MIN_THINKING_BUDGET);
+            }
+            body.insert(
+                "thinking".to_owned(),
+                json!({ "type": "enabled", "budget_tokens": budget }),
+            );
+        } else if takes_adaptive_thinking(route) {
+            body.insert("thinking".to_owned(), json!({ "type": "adaptive" }));
         }
-        body.insert(
-            "thinking".to_owned(),
-            json!({ "type": "enabled", "budget_tokens": budget }),
-        );
     }
     body.insert("max_tokens".to_owned(), max_tokens.into());
 
-    let output_config = output_config(call);
-    if !output_config.is_empty() {
-        body.insert("output_config".to_owned(), output_config.into());
+    if thinking_allowed {
+        let output_config = output_config(call);
+        if !output_config.is_empty() {
+            body.insert("output_config".to_owned(), output_config.into());
+        }
     }
     if let Some(speed) = request.speed() {
         let (key, value) = match speed {
@@ -346,8 +455,50 @@ fn anthropic_effort(effort: ReasoningEffort) -> &'static str {
 }
 
 /// The output-token limit this request sends as `max_tokens`.
-fn output_limit(request: &Request) -> u32 {
-    request.max_output_tokens().unwrap_or(DEFAULT_MAX_TOKENS)
+///
+/// Anthropic requires the field. The request's own limit wins; a request that
+/// names none takes the model's catalog limit, which is the largest answer the
+/// model can give, and only a model the catalog records no limit for falls back
+/// to [`DEFAULT_MAX_TOKENS`]. A small fixed default here would cut off a long
+/// generation with nothing but a `max_tokens` finish reason to show for it.
+fn output_limit(call: &ResolvedCall) -> u32 {
+    if let Some(tokens) = call.request().max_output_tokens() {
+        return tokens;
+    }
+    // A catalog limit past `u32` is not a real model limit, so a request that
+    // meets one keeps the largest value the field can carry.
+    call.route()
+        .model()
+        .limits()
+        .map_or(DEFAULT_MAX_TOKENS, |limits| {
+            u32::try_from(limits.max_output_tokens).unwrap_or(u32::MAX)
+        })
+}
+
+/// Whether this model wants an adaptive thinking object on every request.
+///
+/// A model with effort levels lets the provider size its own thinking, but it
+/// has to be told to: without a `thinking` object the model does not reason at
+/// all, which changes answer quality, latency, and spend for a caller who asked
+/// for nothing unusual. Effort does not replace it — effort guides how the
+/// allocation is spent — so a levels model gets both.
+///
+/// A model without levels is either natively adaptive, and rejects the toggle,
+/// or takes the explicit budget [`thinking_budget`] computes.
+///
+/// A caller who wants something else sets `thinking` in the raw provider
+/// options, which is merged over this.
+fn takes_adaptive_thinking(route: &ResolvedRoute) -> bool {
+    route.model().capabilities().reasoning_effort_levels
+}
+
+/// Whether the tool choice makes a tool call mandatory.
+///
+/// Anthropic rejects extended thinking together with a forced tool choice, so
+/// a forced choice suppresses both thinking and `output_config`. `auto` and
+/// `none` leave the model free to answer in prose and keep them.
+fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
+    matches!(choice, Some(ToolChoice::Required | ToolChoice::Tool { .. }))
 }
 
 /// The explicit thinking budget for a model without effort levels.
@@ -476,6 +627,11 @@ fn wire_messages(messages: &[Message]) -> Vec<WireMessage> {
 /// accepts text and image blocks. Encoding them keeps an image a tool produced
 /// instead of flattening the result to its text and losing the picture.
 ///
+/// Structured JSON a tool returned has no block of its own, so it travels as
+/// the text a tool would have printed — the same translation message content
+/// uses. Filtering it out instead would send the model a result the tool never
+/// produced, and a JSON-only result would arrive empty.
+///
 /// A text-only result stays a plain string, which this protocol also accepts
 /// and which is what the overwhelming majority of results are. The block array
 /// appears only when a result carries something a string cannot hold, so the
@@ -495,6 +651,10 @@ fn tool_result_content(parts: &[ContentPart]) -> Value {
         .iter()
         .filter_map(|part| match part {
             ContentPart::Text { text } => Some(json!({ "type": "text", "text": text })),
+            ContentPart::Json { value } => Some(json!({
+                "type": "text",
+                "text": value.to_string(),
+            })),
             ContentPart::Image(image) => Some(json!({
                 "type": "image",
                 "source": media_source(&image.source),
@@ -987,7 +1147,10 @@ mod tests {
         assert_eq!(encoded.body["speed"], "fast");
         assert_eq!(encoded.body["stop_sequences"], json!(["END", "STOP"]));
         assert_eq!(encoded.body["metadata"], json!({ "user_id": "u-1" }));
-        assert_eq!(encoded.body["max_tokens"], 4096);
+        // The model takes effort levels, so it also gets the adaptive
+        // thinking object, and no request limit means the model's own.
+        assert_eq!(encoded.body["thinking"], json!({ "type": "adaptive" }));
+        assert_eq!(encoded.body["max_tokens"], 64000);
         assert_eq!(encoded.body["stream"], false);
         assert!(encoded.url.ends_with("/v1/messages"));
         assert!(
@@ -995,11 +1158,17 @@ mod tests {
                 .headers
                 .contains(&("anthropic-version".to_owned(), "2023-06-01".to_owned()))
         );
+        // The fast tier is a beta, so the body field travels with its header.
+        assert!(encoded.headers.contains(&(
+            "anthropic-beta".to_owned(),
+            "fast-mode-2026-02-01".to_owned()
+        )));
 
         let response = codec.decode_response(
             call.route(),
             json!({
                 "id": "msg-1",
+                "model": "claude-sonnet-4-6",
                 "content": [
                     { "type": "thinking", "thinking": "checked", "signature": "sig" },
                     { "type": "tool_use", "id": "tool-1", "name": "lookup", "input": { "q": "x" } }
@@ -1026,6 +1195,8 @@ mod tests {
         let response = AnthropicMessagesCodec.decode_response(
             call.route(),
             json!({
+                "id": "msg-1",
+                "model": "claude-sonnet-4-6",
                 "content": [],
                 "usage": {
                     "input_tokens": 50,
@@ -1187,8 +1358,11 @@ mod tests {
         let response = codec.decode_response(
             call.route(),
             json!({
+                "id": "msg-1",
+                "model": "claude-sonnet-4-6",
                 "content": [{ "type": "redacted_thinking", "data": "ENCRYPTED" }],
-                "stop_reason": "end_turn"
+                "stop_reason": "end_turn",
+                "usage": { "input_tokens": 4, "output_tokens": 2 }
             }),
         )?;
 

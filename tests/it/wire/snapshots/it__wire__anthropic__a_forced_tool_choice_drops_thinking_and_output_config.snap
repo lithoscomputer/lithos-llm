@@ -1,0 +1,60 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "output_config": {
+      "effort": "high",
+      "format": {
+        "schema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "json_schema"
+      }
+    },
+    "thinking": {
+      "type": "adaptive"
+    },
+    "tool_choice": {
+      "type": "auto"
+    },
+    "warnings": []
+  },
+  {
+    "output_config": null,
+    "thinking": null,
+    "tool_choice": {
+      "type": "any"
+    },
+    "warnings": [
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support reasoning effort with a forced tool choice"
+      },
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support structured output with a forced tool choice"
+      }
+    ]
+  },
+  {
+    "output_config": null,
+    "thinking": null,
+    "tool_choice": {
+      "name": "get_weather",
+      "type": "tool"
+    },
+    "warnings": [
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support reasoning effort with a forced tool choice"
+      },
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support structured output with a forced tool choice"
+      }
+    ]
+  }
+]

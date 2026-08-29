@@ -1,0 +1,73 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "case": "empty object",
+    "error": {
+      "kind": "response_decode",
+      "message": "Anthropic returned a response without the id field",
+      "provider": "anthropic",
+      "raw_data": {},
+      "retry": {
+        "type": "never"
+      }
+    }
+  },
+  {
+    "case": "no content",
+    "error": {
+      "kind": "response_decode",
+      "message": "Anthropic returned a response without the content field",
+      "provider": "anthropic",
+      "raw_data": {
+        "id": "msg_01WireBare",
+        "model": "claude-sonnet-4-6",
+        "usage": {
+          "input_tokens": 4,
+          "output_tokens": 0
+        }
+      },
+      "retry": {
+        "type": "never"
+      }
+    }
+  },
+  {
+    "case": "no usage",
+    "error": {
+      "kind": "response_decode",
+      "message": "Anthropic returned a response without the usage field",
+      "provider": "anthropic",
+      "raw_data": {
+        "content": [
+          {
+            "text": "Hello back.",
+            "type": "text"
+          }
+        ],
+        "id": "msg_01WireBare",
+        "model": "claude-sonnet-4-6"
+      },
+      "retry": {
+        "type": "never"
+      }
+    }
+  },
+  {
+    "case": "a gateway document",
+    "error": {
+      "kind": "response_decode",
+      "message": "Anthropic returned a response without the id field",
+      "provider": "anthropic",
+      "raw_data": {
+        "status": "ok",
+        "upstream": "anthropic"
+      },
+      "retry": {
+        "type": "never"
+      }
+    }
+  }
+]

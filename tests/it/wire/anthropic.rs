@@ -19,8 +19,8 @@
 
 use httpmock::{Method, Mock, MockServer};
 use lithos_llm::types::{
-    ContentPart, ErrorKind, ImageContent, MediaSource, Message, ResponseFormat,
-    RetryClassification, Role, ToolCall, ToolChoice, ToolDefinition, ToolResult,
+    ContentPart, ErrorKind, ImageContent, MediaSource, Message, ReasoningEffort, ResponseFormat,
+    RetryClassification, Role, Speed, ToolCall, ToolChoice, ToolDefinition, ToolResult,
 };
 use lithos_llm::{Client, Request};
 use serde_json::{Value, json};
@@ -914,6 +914,433 @@ async fn auto_cache_disabled_sends_no_breakpoints() {
 }
 
 // ===========================================================================
+// Output controls, betas, and limits
+// ===========================================================================
+
+/// Capabilities for a model that takes named effort levels, as
+/// claude-sonnet-4-6 does.
+const LEVELS_CAPABILITIES: &str = "{ text = true, tools = true, structured_output = true, \
+                                    reasoning = true, reasoning_effort_levels = true }";
+
+/// Capabilities for a reasoning model that takes no effort levels, as
+/// claude-sonnet-4-5 does. Effort reaches such a model as a thinking budget.
+const BUDGET_CAPABILITIES: &str =
+    "{ text = true, tools = true, structured_output = true, reasoning = true }";
+
+/// The catalog output limit the model-limit fixture declares.
+const CATALOG_LIMITS: &str = "{ context_tokens = 200000, max_output_tokens = 64000 }";
+
+/// Builds a client whose model declares `capabilities` and, when one is given,
+/// catalog `limits`.
+///
+/// `WireProvider` renders the model table last, so an appended key lands on
+/// the model.
+fn client_with(server: &MockServer, capabilities: &str, limits: Option<&str>) -> (Client, String) {
+    let provider = anthropic().with_capabilities(capabilities);
+    let mut toml = provider.toml(&server.base_url());
+    if let Some(limits) = limits {
+        toml.push_str("limits = ");
+        toml.push_str(limits);
+        toml.push('\n');
+    }
+    let client = support::client_for(
+        support::catalog_from_toml("wire", &toml),
+        PROVIDER,
+        support::header_credentials("x-api-key"),
+    );
+    (client, provider.selector())
+}
+
+/// A request that asks for reasoning effort under an explicit output limit.
+///
+/// A thinking budget is a share of that limit, so the limit has to be pinned
+/// for the budget to be.
+fn effort_request(model: &str, effort: ReasoningEffort) -> Request {
+    Request::builder()
+        .model(model)
+        .user("Plan a trip to Paris.")
+        .reasoning_effort(effort)
+        .max_output_tokens(8000)
+        .build()
+        .expect("the effort request should build")
+}
+
+/// A request carrying a tool choice, reasoning effort, and a JSON answer.
+///
+/// All three output controls at once, so one fixture shows which of them a
+/// forced tool choice suppresses.
+fn tool_choice_effort_request(model: &str, choice: ToolChoice) -> Request {
+    Request::builder()
+        .model(model)
+        .user("What is the weather in Paris?")
+        .tool(ToolDefinition::function(
+            "get_weather",
+            "Reads the current weather for a city",
+            json!({
+                "type": "object",
+                "properties": { "city": { "type": "string" } },
+                "required": ["city"],
+            }),
+        ))
+        .tool_choice(choice)
+        .reasoning_effort(ReasoningEffort::High)
+        .response_format(ResponseFormat::JsonObject)
+        .max_output_tokens(8000)
+        .build()
+        .expect("the tool choice effort request should build")
+}
+
+/// A tool result carrying a structured document the tool returned.
+///
+/// The shared corpus has only text-only tool results, so nothing else reaches
+/// the JSON translation this pins.
+fn json_tool_result_request(model: &str) -> Request {
+    Request::builder()
+        .model(model)
+        .user("What is the weather in Paris?")
+        .tool(ToolDefinition::function(
+            "get_weather",
+            "Reads the current weather for a city",
+            json!({ "type": "object" }),
+        ))
+        .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+            ToolCall::function("call_weather", "get_weather", json!({ "city": "Paris" })),
+        )]))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: "call_weather".to_owned(),
+                name:         Some("get_weather".to_owned()),
+                content:      vec![
+                    ContentPart::Json {
+                        value: json!({ "city": "Paris", "high_c": 21 }),
+                    },
+                    ContentPart::Text {
+                        text: "Fetched at 09:00.".to_owned(),
+                    },
+                ],
+                is_error:     false,
+            },
+        )]))
+        .provider_option(PROVIDER, "auto_cache", json!(false))
+        .max_output_tokens(128)
+        .build()
+        .expect("the JSON tool result request should build")
+}
+
+#[tokio::test]
+async fn a_levels_model_takes_an_effort_level_and_adaptive_thinking() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_with(&server, LEVELS_CAPABILITIES, None);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    client
+        .complete(effort_request(&model, ReasoningEffort::High))
+        .await
+        .expect("the effort request should complete");
+
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body["output_config"]["effort"], json!("high"));
+    // Effort guides the thinking allocation rather than replacing it: without
+    // a `thinking` object the model does not reason at all, so a levels model
+    // gets both.
+    assert_eq!(captured.body["thinking"], json!({ "type": "adaptive" }));
+
+    crate::json_snapshot!(captured);
+}
+
+#[tokio::test]
+async fn a_model_without_effort_levels_takes_a_thinking_budget() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_with(&server, BUDGET_CAPABILITIES, None);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    client
+        .complete(effort_request(&model, ReasoningEffort::High))
+        .await
+        .expect("the effort request should complete");
+
+    let captured = support::captured(&slot);
+    // Three quarters of the output limit, which is what `high` means to a
+    // model that takes a budget instead of a level.
+    assert_eq!(
+        captured.body["thinking"],
+        json!({ "type": "enabled", "budget_tokens": 6000 })
+    );
+    assert_eq!(captured.body["max_tokens"], json!(8000));
+    // Sending `effort` too would ask the model to honor a control it does not
+    // take, which is the request the endpoint rejects.
+    assert_eq!(captured.body.get("output_config"), None);
+
+    crate::json_snapshot!(captured);
+}
+
+#[tokio::test]
+async fn a_thinking_budget_lifts_an_output_limit_it_would_not_fit_under() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_with(&server, BUDGET_CAPABILITIES, None);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    client
+        .complete(effort_request(&model, ReasoningEffort::Max))
+        .await
+        .expect("the effort request should complete");
+
+    // The highest effort budgets the whole limit, and the budget has to sit
+    // strictly below `max_tokens`, so the limit grows to make room for it.
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body["thinking"]["budget_tokens"], json!(8000));
+    assert_eq!(captured.body["max_tokens"], json!(9024));
+}
+
+#[tokio::test]
+async fn thinking_follows_the_model_when_no_effort_is_asked_for() {
+    let server = MockServer::start_async().await;
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    let (levels_client, model) = client_with(&server, LEVELS_CAPABILITIES, None);
+    levels_client
+        .complete(support::base_request(&model))
+        .await
+        .expect("the base request should complete");
+
+    // A levels model reasons only when the request says so, so the adaptive
+    // object goes out even though the caller asked for no effort.
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body["thinking"], json!({ "type": "adaptive" }));
+    assert_eq!(captured.body.get("output_config"), None);
+
+    let (budget_client, model) = client_with(&server, BUDGET_CAPABILITIES, None);
+    budget_client
+        .complete(support::base_request(&model))
+        .await
+        .expect("the base request should complete");
+
+    // A model without levels is either natively adaptive, and rejects the
+    // toggle, or takes an explicit budget the caller did not ask for.
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body.get("thinking"), None);
+}
+
+#[tokio::test]
+async fn a_forced_tool_choice_drops_thinking_and_output_config() {
+    let mut encoded = Vec::new();
+
+    for choice in [ToolChoice::Auto, ToolChoice::Required, ToolChoice::Tool {
+        name: "get_weather".to_owned(),
+    }] {
+        let server = MockServer::start_async().await;
+        let (client, model) = client_with(&server, LEVELS_CAPABILITIES, None);
+        let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &tool_use_response());
+        let forced = !matches!(choice, ToolChoice::Auto);
+
+        let response = client
+            .complete(tool_choice_effort_request(&model, choice))
+            .await
+            .expect("the tool choice effort request should complete");
+
+        let captured = support::captured(&slot);
+        let codes: Vec<&str> = response
+            .warnings
+            .iter()
+            .map(|warning| warning.code.as_str())
+            .collect();
+        if forced {
+            // Anthropic rejects extended thinking together with a forced tool
+            // choice, so both output controls go — the effort level, and the
+            // structured-output format that shares the object with it.
+            assert_eq!(captured.body.get("thinking"), None, "{captured:?}");
+            assert_eq!(captured.body.get("output_config"), None, "{captured:?}");
+            // Dropping a control the caller asked for is reported, never
+            // silent.
+            assert_eq!(codes, ["unsupported_control", "unsupported_control"]);
+        } else {
+            assert_eq!(captured.body["thinking"], json!({ "type": "adaptive" }));
+            assert_eq!(captured.body["output_config"]["effort"], json!("high"));
+            assert!(codes.is_empty(), "{:?}", response.warnings);
+        }
+
+        encoded.push(json!({
+            "tool_choice": captured.body.get("tool_choice"),
+            "thinking": captured.body.get("thinking"),
+            "output_config": captured.body.get("output_config"),
+            "warnings": response.warnings,
+        }));
+    }
+
+    crate::json_snapshot!(encoded);
+}
+
+#[tokio::test]
+async fn max_tokens_falls_back_to_the_model_limit() {
+    let server = MockServer::start_async().await;
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    let (limited_client, model) = client_with(&server, LEVELS_CAPABILITIES, Some(CATALOG_LIMITS));
+    limited_client
+        .complete(uncapped_request(&model))
+        .await
+        .expect("the uncapped request should complete");
+
+    // Anthropic requires `max_tokens`, and the model's own output limit is
+    // the only honest answer for a caller who named none. A small fixed
+    // default truncates a long generation with nothing to show for it.
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body["max_tokens"], json!(64_000));
+
+    let (unlimited_client, model) = client_with(&server, LEVELS_CAPABILITIES, None);
+    unlimited_client
+        .complete(uncapped_request(&model))
+        .await
+        .expect("the uncapped request should complete");
+
+    // A model the catalog records no limit for falls back to the generous
+    // default rather than to a small one.
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body["max_tokens"], json!(65_536));
+}
+
+/// A request that names no output limit, so the codec has to pick one.
+fn uncapped_request(model: &str) -> Request {
+    Request::builder()
+        .model(model)
+        .user("Write the whole report.")
+        .build()
+        .expect("the uncapped request should build")
+}
+
+#[tokio::test]
+async fn beta_headers_leave_the_body_and_become_one_header() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_for(&server);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    client
+        .complete(
+            Request::builder()
+                .model(&model)
+                .user("Hello")
+                .max_output_tokens(128)
+                .provider_option(
+                    PROVIDER,
+                    "beta_headers",
+                    json!(["context-1m-2025-08-07", "files-api-2025-04-14"]),
+                )
+                .build()
+                .expect("the beta headers request should build"),
+        )
+        .await
+        .expect("the beta headers request should complete");
+
+    let captured = support::captured(&slot);
+    // Anthropic takes several betas as one comma-separated header value.
+    assert!(
+        has_header(
+            &captured,
+            "anthropic-beta",
+            "context-1m-2025-08-07,files-api-2025-04-14"
+        ),
+        "{:?}",
+        captured.headers
+    );
+    // This is a header control, not a body field. Left among the options it
+    // would be merged into the JSON body, which the endpoint rejects.
+    assert_eq!(captured.body.get("beta_headers"), None);
+
+    crate::json_snapshot!(captured);
+}
+
+#[tokio::test]
+async fn the_fast_speed_tier_carries_its_own_beta() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_for(&server);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    client
+        .complete(fast_request(&model, None))
+        .await
+        .expect("the fast request should complete");
+
+    // The body field alone does nothing: without the beta the endpoint
+    // ignores the tier, and the caller waits at standard latency for a
+    // request they meant to be fast.
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body["speed"], json!("fast"));
+    assert!(
+        has_header(&captured, "anthropic-beta", "fast-mode-2026-02-01"),
+        "{:?}",
+        captured.headers
+    );
+
+    crate::json_snapshot!(captured);
+
+    client
+        .complete(fast_request(
+            &model,
+            Some(json!(["fast-mode-2026-02-01", "files-api-2025-04-14"])),
+        ))
+        .await
+        .expect("the fast request should complete");
+
+    // A caller who already listed the fast beta does not get it twice.
+    let captured = support::captured(&slot);
+    assert!(
+        has_header(
+            &captured,
+            "anthropic-beta",
+            "fast-mode-2026-02-01,files-api-2025-04-14"
+        ),
+        "{:?}",
+        captured.headers
+    );
+}
+
+/// A fast-tier request, optionally naming betas of its own.
+fn fast_request(model: &str, betas: Option<Value>) -> Request {
+    let mut builder = Request::builder()
+        .model(model)
+        .user("Hello")
+        .speed(Speed::Fast)
+        .max_output_tokens(128);
+    if let Some(betas) = betas {
+        builder = builder.provider_option(PROVIDER, "beta_headers", betas);
+    }
+    builder.build().expect("the fast request should build")
+}
+
+#[tokio::test]
+async fn keeps_json_a_tool_returned() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_for(&server);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    let response = client
+        .complete(json_tool_result_request(&model))
+        .await
+        .expect("the JSON tool result request should complete");
+
+    let captured = support::captured(&slot);
+    let result = &captured.body["messages"][2]["content"][0];
+    // Anthropic has no structured-output block, so the document travels as
+    // the text a tool would have printed — the same translation message
+    // content uses. Filtering it out sent the model an EMPTY result.
+    assert_eq!(result["content"][0]["type"], json!("text"));
+    assert_eq!(
+        result["content"][0]["text"],
+        json!("{\"city\":\"Paris\",\"high_c\":21}")
+    );
+    assert_eq!(result["content"][1]["text"], json!("Fetched at 09:00."));
+
+    // Nothing was lost, so nothing is reported.
+    assert!(
+        response.warnings.is_empty(),
+        "content the codec carries must not warn: {:?}",
+        response.warnings
+    );
+
+    crate::json_snapshot!(captured);
+}
+
+// ===========================================================================
 // Usage, raw payloads, headers, and rate limits
 // ===========================================================================
 
@@ -1394,6 +1821,54 @@ async fn a_truncated_stream_completes_once_and_says_it_is_incomplete() {
     crate::json_snapshot!(events);
 }
 
+#[tokio::test]
+async fn a_streamed_refusal_fails_the_stream() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_for(&server);
+    let transcript = support::sse_transcript(&[
+        (
+            "message_start",
+            r#"{"type":"message_start","message":{"id":"msg_01WireRefusal","type":"message","role":"assistant","model":"claude-sonnet-4-6","content":[],"usage":{"input_tokens":19,"output_tokens":0}}}"#,
+        ),
+        (
+            "message_delta",
+            r#"{"type":"message_delta","delta":{"stop_reason":"refusal","stop_details":{"type":"refusal","explanation":"This asks for working malware."}},"usage":{"output_tokens":3}}"#,
+        ),
+        ("message_stop", r#"{"type":"message_stop"}"#),
+    ]);
+    let (_mock, _slot) = support::mount_capture_sse(&server, MESSAGES_PATH, &transcript);
+
+    let stream = client
+        .stream(support::base_request(&model))
+        .await
+        .expect("the stream should start");
+    let events = support::collect_stream_events(stream).await;
+
+    support::assert_stream_contract(&events);
+
+    let last = events.last().expect("the stream produced events");
+    assert_eq!(last["type"], json!("error"));
+    // A refusal is a failure, not a short answer. The stream fails on the
+    // event that carries the reason, before `message_stop` can complete it as
+    // a success a caller would read as the model having nothing to say.
+    assert_eq!(last["error"]["kind"], json!("content_filter"));
+    assert_eq!(last["error"]["provider_code"], json!("refusal"));
+    assert_eq!(last["error"]["retry"], json!({ "type": "never" }));
+    // The provider's own account of the refusal reaches the caller.
+    assert!(
+        last["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("This asks for working malware.")),
+        "{last:?}"
+    );
+    assert!(
+        !events.iter().any(|event| event["type"] == "completed"),
+        "a refused stream must not complete: {events:?}"
+    );
+
+    crate::json_snapshot!(events);
+}
+
 // ===========================================================================
 // Error classification
 // ===========================================================================
@@ -1530,6 +2005,96 @@ async fn classifies_error_responses() {
     );
 
     crate::json_snapshot!(classified);
+}
+
+#[tokio::test]
+async fn a_refusal_fails_instead_of_decoding_as_an_empty_answer() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_for(&server);
+    let _mock = mount_answer(
+        &server,
+        MESSAGES_PATH,
+        200,
+        &[],
+        &json!({
+            "id": "msg_01WireRefusal",
+            "type": "message",
+            "role": "assistant",
+            "model": API_MODEL,
+            "content": [],
+            "stop_reason": "refusal",
+            "stop_details": {
+                "type": "refusal",
+                "explanation": "This asks for working malware."
+            },
+            "usage": { "input_tokens": 19, "output_tokens": 3 }
+        }),
+    );
+
+    let error = client
+        .complete(support::base_request(&model))
+        .await
+        .expect_err("a refusal is a failure, not a successful empty answer");
+
+    // The HTTP status is 200, so only the stop reason separates a refusal from
+    // an answer. Decoding it as success hid the refusal from the caller and
+    // from the middleware that classifies it.
+    assert_eq!(error.kind(), ErrorKind::ContentFilter);
+    assert_eq!(error.provider_code(), Some("refusal"));
+    assert_eq!(error.retry_classification(), RetryClassification::Never);
+    assert!(
+        error.message().contains("This asks for working malware."),
+        "the provider's explanation reaches the caller: {}",
+        error.message()
+    );
+
+    crate::json_snapshot!(error.data());
+}
+
+#[tokio::test]
+async fn rejects_a_success_body_that_is_not_a_messages_response() {
+    let mut rejected = Vec::new();
+
+    for (case, body) in [
+        ("empty object", json!({})),
+        (
+            "no content",
+            json!({
+                "id": "msg_01WireBare",
+                "model": API_MODEL,
+                "usage": { "input_tokens": 4, "output_tokens": 0 }
+            }),
+        ),
+        (
+            "no usage",
+            json!({
+                "id": "msg_01WireBare",
+                "model": API_MODEL,
+                "content": [{ "type": "text", "text": "Hello back." }]
+            }),
+        ),
+        (
+            "a gateway document",
+            json!({ "status": "ok", "upstream": "anthropic" }),
+        ),
+    ] {
+        let server = MockServer::start_async().await;
+        let (client, model) = client_for(&server);
+        let _mock = mount_answer(&server, MESSAGES_PATH, 200, &[], &body);
+
+        let error = match client.complete(support::base_request(&model)).await {
+            Ok(response) => panic!("the {case} case should fail, got {response:?}"),
+            Err(error) => error,
+        };
+
+        // A 200 that carries none of the fields every Messages response has is
+        // not a Messages response. Decoding it leniently reported a model that
+        // said nothing, which reads as a real, empty answer.
+        assert_eq!(error.kind(), ErrorKind::ResponseDecode, "{case}");
+        rejected.push(json!({ "case": case, "error": error.data() }));
+    }
+
+    crate::json_snapshot!(rejected);
 }
 
 // ===========================================================================
