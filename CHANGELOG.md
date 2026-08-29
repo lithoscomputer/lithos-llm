@@ -66,6 +66,10 @@ work:
   in round 1, Chat in round 2). A json_schema request the model refuses now
   fails visibly and failover-eligibly instead of handing the caller empty
   content.
+- Anthropic: an `input_json_delta` for a block whose `content_block_start`
+  never arrived fails the stream retryably instead of fabricating a
+  nameless tool call — the contract the Chat and Bedrock codecs already
+  apply.
 
 ### Round-3 parity fixes
 

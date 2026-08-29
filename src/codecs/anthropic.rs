@@ -5,7 +5,7 @@
 //! protocol, and `/v1/messages/count_tokens` for a provider-authoritative input
 //! token count.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reqwest::Method;
 use serde_json::{Map, Value, json};
@@ -193,9 +193,10 @@ impl Codec for AnthropicMessagesCodec {
 
     fn stream_decoder(&self, route: &ResolvedRoute) -> Box<dyn StreamDecoder> {
         Box::new(AnthropicStreamDecoder {
-            route:     route.clone(),
-            assembler: StreamAssembler::new(route),
-            opaque:    BTreeMap::new(),
+            route:       route.clone(),
+            assembler:   StreamAssembler::new(route),
+            opaque:      BTreeMap::new(),
+            tool_blocks: BTreeSet::new(),
         })
     }
 
@@ -918,8 +919,8 @@ fn block_id(value: &Value) -> ContentBlockId {
 
 /// Per-stream state for one Anthropic Messages response.
 struct AnthropicStreamDecoder {
-    route:     ResolvedRoute,
-    assembler: StreamAssembler,
+    route:       ResolvedRoute,
+    assembler:   StreamAssembler,
     /// Unknown server-side blocks that may stream their `input`.
     ///
     /// A `server_tool_use` block arrives as a start snapshot with an empty
@@ -927,7 +928,9 @@ struct AnthropicStreamDecoder {
     /// fragments accumulate here next to the snapshot and fold back into it
     /// when the block closes, so the replayed block matches what the blocking
     /// decoder keeps whole.
-    opaque:    BTreeMap<ContentBlockId, (Value, String)>,
+    opaque:      BTreeMap<ContentBlockId, (Value, String)>,
+    /// The blocks a `content_block_start` opened as tool calls.
+    tool_blocks: BTreeSet<ContentBlockId>,
 }
 
 impl StreamDecoder for AnthropicStreamDecoder {
@@ -968,7 +971,7 @@ impl StreamDecoder for AnthropicStreamDecoder {
                 }
             }
             Some("content_block_start") => events.extend(self.start_block(&value)),
-            Some("content_block_delta") => events.extend(self.block_delta(&value)),
+            Some("content_block_delta") => events.extend(self.block_delta(&value)?),
             Some("content_block_stop") => {
                 let id = block_id(&value);
                 events.extend(self.flush_opaque(&id));
@@ -1074,14 +1077,17 @@ impl AnthropicStreamDecoder {
             }
             // The provider's tool-call id belongs to the call, not to the
             // block, so it stays here and never becomes the block id.
-            Some("tool_use") => self.assembler.start(id, ContentBlockKind::ToolCall {
-                id:   field(block, "id").to_owned(),
-                name: block
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned),
-                kind: ToolCallKind::Function,
-            }),
+            Some("tool_use") => {
+                self.tool_blocks.insert(id.clone());
+                self.assembler.start(id, ContentBlockKind::ToolCall {
+                    id:   field(block, "id").to_owned(),
+                    name: block
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .map(ToOwned::to_owned),
+                    kind: ToolCallKind::Function,
+                })
+            }
             Some(kind) => {
                 let mut events = self.assembler.start(id.clone(), ContentBlockKind::Opaque {
                     kind: format!("{NAMESPACE}.{kind}"),
@@ -1095,13 +1101,13 @@ impl AnthropicStreamDecoder {
     }
 
     /// Applies one `content_block_delta` event.
-    fn block_delta(&mut self, value: &Value) -> Vec<StreamEvent> {
+    fn block_delta(&mut self, value: &Value) -> Result<Vec<StreamEvent>, Error> {
         let id = block_id(value);
         let Some(delta) = value.get("delta") else {
-            return Vec::new();
+            return Ok(Vec::new());
         };
 
-        match delta.get("type").and_then(Value::as_str) {
+        Ok(match delta.get("type").and_then(Value::as_str) {
             Some("text_delta") => self.assembler.text(&id, field(delta, "text")),
             Some("thinking_delta") => self.assembler.reasoning(&id, field(delta, "thinking")),
             // A signature is block state, not visible output, so it produces no
@@ -1114,12 +1120,31 @@ impl AnthropicStreamDecoder {
                 // tool-call buffer.
                 if let Some((_, buffer)) = self.opaque.get_mut(&id) {
                     buffer.push_str(fragment);
-                    return Vec::new();
+                    return Ok(Vec::new());
+                }
+                // Anthropic announces every tool call in a
+                // `content_block_start` carrying its id and name. A fragment
+                // for a block no start opened means the start was lost in
+                // transit; assembling the rest would fabricate a nameless
+                // call that poisons the replayed conversation, so the stream
+                // fails retryably instead — the same contract the Chat and
+                // Bedrock codecs apply.
+                if !self.tool_blocks.contains(&id) {
+                    return Err(Error::new(
+                        ErrorKind::StreamDecode,
+                        format!(
+                            "provider {} streamed tool-call input for a block whose start event \
+                             never arrived",
+                            self.route.provider().id()
+                        ),
+                    )
+                    .with_provider(self.route.provider().id().clone())
+                    .with_retry(RetryClassification::Safe));
                 }
                 self.assembler.arguments(&id, fragment)
             }
             _ => Vec::new(),
-        }
+        })
     }
 
     /// Folds a server-side block's streamed input back into its snapshot.
@@ -1931,6 +1956,33 @@ mod tests {
                 data:  "not json".to_owned(),
             })
             .expect_err("a garbled event must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn an_input_fragment_for_an_unopened_block_fails_the_stream() -> Result<(), Box<dyn StdError>> {
+        // Anthropic announces every tool call in a content_block_start
+        // carrying its id and name. When that start is lost, assembling the
+        // fragments would fabricate a nameless call whose replay poisons the
+        // conversation, so the stream fails retryably instead — the contract
+        // R2-24 set for the Chat codec and R3-10 for Bedrock.
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let mut decoder = AnthropicMessagesCodec.stream_decoder(call.route());
+
+        let error = decoder
+            .decode(sse(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "input_json_delta", "partial_json": "{\"q\":\"rust\"}" },
+                }),
+            ))
+            .err()
+            .ok_or("expected the orphan input fragment to fail the stream")?;
 
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);
