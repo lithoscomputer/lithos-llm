@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 1721
 expression: rendered
 ---
 [
@@ -9,11 +10,6 @@ expression: rendered
       "type": "reasoning"
     },
     "type": "content_block_start"
-  },
-  {
-    "id": "block-0",
-    "text": "EroBCkYIBBgCKkDx",
-    "type": "reasoning_delta"
   },
   {
     "id": "block-0",
