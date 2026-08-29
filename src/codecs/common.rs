@@ -275,13 +275,17 @@ pub(crate) fn plain_text(parts: &[ContentPart]) -> String {
 }
 
 /// Joins the text of every system and developer message.
+///
+/// A message whose text is only whitespace contributes nothing — templating
+/// commonly produces one, and a whitespace-only system field is a blank block
+/// providers reject rather than an instruction.
 #[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
 pub(crate) fn system_text(messages: &[Message]) -> String {
     messages
         .iter()
         .filter(|message| matches!(message.role(), Role::System | Role::Developer))
         .map(|message| plain_text(message.content()))
-        .filter(|text| !text.is_empty())
+        .filter(|text| !text.trim().is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
 }

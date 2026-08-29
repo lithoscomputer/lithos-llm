@@ -1312,6 +1312,25 @@ mod tests {
     }
 
     #[test]
+    fn a_whitespace_only_system_prompt_is_omitted() -> Result<(), Box<dyn StdError>> {
+        // Templating commonly leaves a system prompt of pure whitespace. The
+        // old encoder dropped it, and with auto-cache on it would otherwise
+        // become a blank cached text block the provider rejects.
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .system("   \n\t")
+                .user("Hello")
+                .build()?,
+        )?;
+
+        let encoded = AnthropicMessagesCodec.encode(&call, false)?;
+
+        assert_eq!(encoded.body.get("system"), None);
+        Ok(())
+    }
+
+    #[test]
     fn usage_buckets_stay_disjoint_without_subtraction() -> Result<(), Box<dyn StdError>> {
         let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
 
