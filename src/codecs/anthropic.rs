@@ -104,7 +104,8 @@ impl Codec for AnthropicMessagesCodec {
         let request = call.request();
         let (mut options, controls) = wire_options(call);
         let betas = beta_headers(&mut options, request.speed());
-        let mut body = message_body(call, controls.auto_cache, options.contains_key("thinking"));
+        let raw_thinking = options.contains_key("thinking");
+        let mut body = message_body(call, controls.auto_cache, raw_thinking);
         body.insert("stream".to_owned(), stream.into());
         merge_options(&mut body, options);
 
@@ -139,6 +140,9 @@ impl Codec for AnthropicMessagesCodec {
         }
         // A forced tool choice drops both output controls; see
         // `forces_tool_use`. Neither reaches the model, so both are reported.
+        // A raw `thinking` option stays in the body — raw options are
+        // authoritative — but Anthropic rejects the pair, so it is reported
+        // too.
         if forces_tool_use(request.tool_choice()) {
             if request.reasoning_effort().is_some() {
                 encoded = encoded.unsupported_control("reasoning effort with a forced tool choice");
@@ -146,6 +150,10 @@ impl Codec for AnthropicMessagesCodec {
             if request.response_format().and_then(json_schema).is_some() {
                 encoded =
                     encoded.unsupported_control("structured output with a forced tool choice");
+            }
+            if raw_thinking {
+                encoded = encoded
+                    .unsupported_control("a thinking provider option with a forced tool choice");
             }
         }
         Ok(encoded)
@@ -1690,6 +1698,38 @@ mod tests {
         assert_eq!(encoded.body["thinking"], json!({ "type": "enabled" }));
         assert_eq!(encoded.body.get("auto_cache"), None);
         assert_eq!(breakpoints(&encoded.body), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn a_raw_thinking_option_with_a_forced_tool_choice_warns() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .user("Look it up")
+                .tool(ToolDefinition::function(
+                    "lookup",
+                    "Look something up",
+                    json!({ "type": "object" }),
+                ))
+                .tool_choice(ToolChoice::Required)
+                .provider_option("anthropic", "thinking", json!({ "type": "enabled" }))
+                .build()?,
+        )?;
+
+        let encoded = AnthropicMessagesCodec.encode(&call, false)?;
+
+        // The raw option is authoritative, so it stays in the body even
+        // though Anthropic rejects it beside a forced choice; the warning is
+        // the caller's only signal before the provider's 400.
+        assert_eq!(encoded.body["thinking"], json!({ "type": "enabled" }));
+        assert_eq!(encoded.body["tool_choice"], json!({ "type": "any" }));
+        assert!(encoded.warnings.iter().any(|warning| {
+            warning.code == "unsupported_control"
+                && warning
+                    .message
+                    .contains("a thinking provider option with a forced tool choice")
+        }));
         Ok(())
     }
 
