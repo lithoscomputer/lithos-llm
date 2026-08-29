@@ -460,19 +460,20 @@ impl ChatStreamDecoder {
     ///
     /// The fragment's `index` is the provider's accumulation slot, so it names
     /// the content block. The provider's own tool-call id and the tool name
-    /// normally arrive on the first fragment for a slot and open the block —
-    /// but a skin may split them across fragments, so identity arriving late
-    /// still repairs the open block instead of being discarded.
+    /// normally arrive on the first fragment for a slot — but a skin may split
+    /// them across fragments, or stream argument text before any identity at
+    /// all, so any fragment opens its slot and identity arriving late repairs
+    /// the open block instead of being discarded. Identity that never arrives
+    /// leaves the fallback the block opened with — the synthesized block id as
+    /// the call id and an empty name — which is how the reference decoder
+    /// assembled an identity-less call.
     ///
     /// # Errors
     ///
-    /// An argument fragment for a slot no earlier fragment opened fails the
-    /// stream: the opening fragment was lost in transit, and assembling the
-    /// remainder would fabricate a nameless call that poisons the replayed
-    /// conversation. A fragment without a valid `index` fails the same way:
-    /// defaulting the slot would silently merge parallel calls into one
-    /// garbled call, where the reference decoder failed the chunk. Both
-    /// failures are retryable, like any other garbled stream.
+    /// A fragment without a valid `index` fails the stream: defaulting the
+    /// slot would silently merge parallel calls into one garbled call, where
+    /// the reference decoder failed the chunk. The failure is retryable, like
+    /// any other garbled stream.
     fn decode_tool_call_delta(&mut self, call: &Value) -> Result<Vec<StreamEvent>, Error> {
         let Some(index) = call.get("index").and_then(Value::as_u64) else {
             return Err(Error::new(
@@ -490,34 +491,20 @@ impl ChatStreamDecoder {
 
         let id = call.get("id").and_then(Value::as_str);
         let name = call.pointer("/function/name").and_then(Value::as_str);
-        let mut events = Vec::new();
-        if id.is_some() || name.is_some() {
-            let slot = self.slots.entry(index).or_default();
-            if let Some(id) = id {
-                slot.id = Some(id.to_owned());
-            }
-            if let Some(name) = name {
-                slot.name = Some(name.to_owned());
-            }
-            let identity = ContentBlockKind::ToolCall {
-                id:   slot.id.clone().unwrap_or_else(|| block.as_str().to_owned()),
-                name: slot.name.clone(),
-                kind: ToolCallKind::Function,
-            };
-            events.extend(self.assembler.start(block.clone(), identity.clone()));
-            self.assembler.repair_tool_identity(&block, identity);
-        } else if !self.slots.contains_key(&index) {
-            return Err(Error::new(
-                ErrorKind::StreamDecode,
-                format!(
-                    "provider {} streamed tool-call arguments for a slot whose opening fragment \
-                     never arrived",
-                    self.route.provider().id()
-                ),
-            )
-            .with_provider(self.route.provider().id().clone())
-            .with_retry(RetryClassification::Safe));
+        let slot = self.slots.entry(index).or_default();
+        if let Some(id) = id {
+            slot.id = Some(id.to_owned());
         }
+        if let Some(name) = name {
+            slot.name = Some(name.to_owned());
+        }
+        let identity = ContentBlockKind::ToolCall {
+            id:   slot.id.clone().unwrap_or_else(|| block.as_str().to_owned()),
+            name: slot.name.clone(),
+            kind: ToolCallKind::Function,
+        };
+        let mut events = self.assembler.start(block.clone(), identity.clone());
+        self.assembler.repair_tool_identity(&block, identity);
         if let Some(fragment) = call.pointer("/function/arguments").and_then(Value::as_str)
             && !fragment.is_empty()
         {
@@ -1835,30 +1822,63 @@ mod tests {
     }
 
     #[test]
-    fn an_argument_fragment_for_an_unopened_slot_fails_the_stream() -> Result<(), Box<dyn StdError>>
+    fn arguments_before_identity_assemble_once_identity_arrives() -> Result<(), Box<dyn StdError>> {
+        // Some skins deterministically stream `{index, function: {arguments}}`
+        // before the fragment that carries the call's identity. The slot
+        // opens on the arguments alone, and the late id and name repair the
+        // block; failing the stream instead would retry forever against such
+        // a skin.
+        let events = stream(vec![
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "function": { "arguments": "{\"q\":" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "id": "call-1",
+                  "function": { "name": "search", "arguments": "\"rust\"}" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": {}, "finish_reason": "tool_calls" }] }),
+        ])?;
+
+        let starts = events
+            .iter()
+            .filter(|event| matches!(event, StreamEvent::ContentBlockStart { .. }))
+            .count();
+        assert_eq!(starts, 1, "the late identity must not reopen the block");
+
+        let responses = completed(&events);
+        assert_eq!(responses.len(), 1);
+        let calls = tool_parts(responses[0]);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "call-1");
+        assert_eq!(calls[0].name, "search");
+        assert_eq!(calls[0].arguments, json!({ "q": "rust" }));
+        Ok(())
+    }
+
+    #[test]
+    fn arguments_only_to_stream_end_keep_the_synthesized_identity() -> Result<(), Box<dyn StdError>>
     {
-        // The opening fragment carries the call's id and name; when it is
-        // lost, assembling the rest would fabricate a nameless call that
-        // poisons the replayed conversation. The gap is indistinguishable
-        // from dropped chunks, so the stream fails retryably instead.
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        // When the identity never arrives at all, the call still assembles —
+        // the reference decoder emitted an identity-less call — with the
+        // synthesized block id standing in for the call id and an empty name.
+        let events = stream(vec![
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "function": { "arguments": "{\"q\":" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
+                { "index": 0, "function": { "arguments": "\"rust\"}" } },
+            ] } }] }),
+            json!({ "id": "chatcmpl-1", "choices": [{ "delta": {}, "finish_reason": "tool_calls" }] }),
+        ])?;
 
-        let error = decoder
-            .decode(SseEvent {
-                event: None,
-                data:  json!({
-                    "id": "chatcmpl-1",
-                    "choices": [{ "delta": { "tool_calls": [
-                        { "index": 0, "function": { "arguments": "{\"q\":\"rust\"}" } },
-                    ] } }],
-                })
-                .to_string(),
-            })
-            .err()
-            .ok_or("expected the orphan fragment to fail the stream")?;
-
-        assert_eq!(error.kind(), ErrorKind::StreamDecode);
-        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        let responses = completed(&events);
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].finish_reason, FinishReason::ToolCall);
+        let calls = tool_parts(responses[0]);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "tool-0");
+        assert_eq!(calls[0].name, "");
+        assert_eq!(calls[0].arguments, json!({ "q": "rust" }));
         Ok(())
     }
 
