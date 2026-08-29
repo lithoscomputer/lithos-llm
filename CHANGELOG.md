@@ -24,8 +24,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 - The built-in catalog now includes OpenRouter with live-verified model routes,
   provider-reported cost support, and conventional
   `OPENROUTER_API_KEY` credentials.
+- The Anthropic and Gemini E2E suites pin native token counting live: every
+  roster model answers `count_input_tokens`, which also confirms Gemini's
+  `countTokens` body shape (the `model` field nested inside
+  `generateContentRequest`) against the real API.
+- OpenAI's GPT-5.6 Luna declares `fast` (priority) and `economical` (flex)
+  speed pricing tiers at OpenAI's documented 2x and 0.5x service-tier
+  multipliers, so the client's speed gate admits those requests; the rates
+  await confirmation against a live account.
 
 ### Changed
+
+- Gemini deliberately declares no speed pricing tiers: the protocol has no
+  speed control, so `fast` and `economical` requests on its priced models
+  fail locally before dispatch. The OpenRouter Gemini 3.1 Pro long-context
+  tier states its cache-write rate explicitly (OpenRouter's listing prices
+  `input_cache_write` with no long-context override).
 
 - The built-in `default` selector now resolves Anthropic's Claude Sonnet 5,
   following the provider priority in the source catalog.
