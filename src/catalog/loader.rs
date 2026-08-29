@@ -435,11 +435,10 @@ mod tests {
 
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn the_builtin_venice_provider_carries_the_merged_roster() -> Result<(), Box<dyn StdError>> {
+    fn the_builtin_venice_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
 
         let venice = catalog.provider("venice")?;
-        assert_eq!(venice.models().len(), 16);
         assert_eq!(venice.default_model(), Some("deepseek-v4-flash"));
         assert!(
             venice.default_options().contains_key("venice_parameters"),
@@ -486,6 +485,51 @@ mod tests {
         assert_eq!(
             catalog.model("venice", "gpt-5.6-luna")?.api_model(),
             "openai-gpt-56-luna"
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_openrouter_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let openrouter = catalog.provider("openrouter")?;
+        assert_eq!(openrouter.default_model(), Some("claude-sonnet-5"));
+
+        assert_eq!(
+            catalog.model("openrouter", "sonnet")?.api_model(),
+            "anthropic/claude-sonnet-5"
+        );
+        assert_eq!(
+            catalog.model("openrouter", "deepseek")?.api_model(),
+            "deepseek/deepseek-v4-flash-0731"
+        );
+        assert_eq!(
+            catalog.model("openrouter", "grok-4.6")?.api_model(),
+            "x-ai/grok-4.6"
+        );
+
+        let flash = catalog.model("openrouter", "gemini-3.5-flash")?;
+        assert!(flash.capabilities().structured_output);
+        assert!(flash.capabilities().reasoning_effort_levels);
+        assert!(!flash.capabilities().audio);
+        assert!(
+            !catalog
+                .model("openrouter", "qwen3.6-flash")?
+                .capabilities()
+                .structured_output
+        );
+
+        let sol = catalog.model("openrouter", "gpt-5.6-sol")?;
+        let pricing = sol.pricing().ok_or("gpt-5.6-sol should be priced")?;
+        assert_eq!(pricing.input_usd_micros_per_million, Some(2_000_000));
+        assert_eq!(
+            pricing
+                .long_context
+                .as_ref()
+                .and_then(|rates| rates.output_usd_micros_per_million),
+            Some(15_000_000)
         );
         Ok(())
     }

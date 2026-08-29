@@ -13,8 +13,8 @@ feeds.
 1. `src/catalog/builtin/<provider>.toml` — the catalog rows.
 2. A `<PROVIDER>_API_KEY` entry in `EnvironmentCredentials::conventional()`
    (`src/credentials.rs`), with a test.
-3. A loader test that pins the roster
-   (`src/catalog/loader.rs`, mirror `the_builtin_venice_provider_carries_the_merged_roster`).
+3. Loader tests for provider-specific resolution and behavior
+   (`src/catalog/loader.rs`).
 4. `tests/e2e/<provider>/` — the E2E module tree, plus
    `tests/e2e/<provider>_catalog.toml`.
 5. `tests/e2e/recordings/<provider>.json` — the committed recording.
@@ -133,31 +133,28 @@ here is one red test you will not have to debug later.
 4. Skip `pricing` only when the provider reports cost in-band and the E2E
    suite will assert on that; the built-in rows should carry pricing.
 5. Add the conventional credential mapping in `src/credentials.rs`.
-6. Add the loader test that pins the roster.
+6. Add loader tests for provider-specific resolution and behavior.
 7. Run `mise run test`. The catalog must parse, validate, and resolve.
 
 ## Phase 4 — write the E2E module
 
 1. Copy `tests/e2e/venice/` to `tests/e2e/<provider>/` and register it in
    `tests/e2e/main.rs`. Adjust: the provider id, the key variable, the
-   roster in the `model_tests!` macro, the family-representative subset,
-   and the preflight `ROSTER` table.
+   roster in the `model_tests!` macro and the family-representative subset.
 2. Create `tests/e2e/<provider>_catalog.toml`. Same rows as the built-in
    file. Omit pricing when the provider reports cost in-band, so the cost
    assertion proves the in-band extraction.
-3. Add the drift-guard preflight test: built-in rows and the E2E roster
-   must match.
-4. Start with zero quirk pins. Do not copy Venice's skips (stop
+3. Start with zero quirk pins. Do not copy Venice's skips (stop
    sequences, output caps): those pin *Venice's upstreams*. Every skip
    needs its own dated evidence for this provider.
-5. Cost assertions differ by provider: `CostSource::Provider` where cost
+4. Cost assertions differ by provider: `CostSource::Provider` where cost
    arrives in-band (Venice, OpenRouter), `CostSource::Catalog` elsewhere.
-6. Check record/replay support. The twin proxies only
+5. Check record/replay support. The twin proxies only
    `/v1/chat/completions` and `/v1/responses`. A provider on another
    protocol (Anthropic, Gemini) runs live-only until the twin grows a
    passthrough for its paths — coordinate a twins change first, and guard
    the module with `support::live_only` in the meantime.
-7. Extend `examples/e2e_twin.rs` and the `test:e2e*` mise tasks for the
+6. Extend `examples/e2e_twin.rs` and the `test:e2e*` mise tasks for the
    new provider: its upstream URL, its own recording path, and its own
    twin port. One twin process serves one upstream.
 
@@ -204,8 +201,6 @@ tiny; a full run costs a few dollars.
 - [ ] `mise run check` is green, replay included.
 - [ ] The live run is green, or every remaining failure is a documented,
       dated pin with a repro report.
-- [ ] The built-in rows, the E2E catalog, and the E2E roster are pinned to
-      each other by tests.
 - [ ] Every capability claim in the catalog was verified against live
       behavior, and every conflict with fabro or the listing is a dated
       comment.
@@ -214,9 +209,9 @@ tiny; a full run costs a few dollars.
 
 ## Appendix: OpenRouter notes
 
-- Source: fabro's `openrouter.toml` — 29 models across the claude, gpt,
-  gemini, deepseek, kimi, qwen, glm, minimax, mimo, laguna, nemotron, and
-  devstral families. `base_url = "https://openrouter.ai/api/v1"`, bearer
+- Source: fabro's `openrouter.toml` — models across the claude, gpt,
+  gemini, deepseek, kimi, qwen, glm, minimax, mimo, laguna, and devstral
+  families. `base_url = "https://openrouter.ai/api/v1"`, bearer
   auth from `OPENROUTER_API_KEY`, priority 25. Seven Claude rows already
   carry `cache_control_breakpoints = true`, which maps straight to
   `cache_breakpoints`.

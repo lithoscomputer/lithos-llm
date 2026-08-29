@@ -30,5 +30,6 @@
 
 #![cfg(feature = "openai-compatible")]
 
+mod openrouter;
 mod support;
 mod venice;

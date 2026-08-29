@@ -83,7 +83,7 @@ tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.20", default-features = false, features = ["registry"] }
 # The record-and-replay proxy for the live E2E suite, pinned to the
 # transcript-recording revision until the twins stack merges.
-twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "324fb89e66bae68adf477fd8702903fa3c71ee2e" }
+twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "b0691fb2a70b57ae1a68b8ee093320b738696e9d" }
 
 [lints.rust]
 unsafe_code = "deny"

@@ -267,6 +267,7 @@ impl EnvironmentCredentials {
             .header("anthropic", "x-api-key", "ANTHROPIC_API_KEY")
             .header("gemini", "x-goog-api-key", "GEMINI_API_KEY")
             .or_header("gemini", "x-goog-api-key", "GOOGLE_API_KEY")
+            .bearer("openrouter", "OPENROUTER_API_KEY")
             .bearer("venice", "VENICE_API_KEY")
             .bedrock_bearer("bedrock", "AWS_BEARER_TOKEN_BEDROCK")
             .or_bedrock_bearer("bedrock", "BEDROCK_API_KEY");
@@ -693,6 +694,23 @@ mod tests {
         // With neither variable set, the error names the preferred one.
         let message = resolve("gemini", &[]).expect_err("gemini should not resolve");
         assert!(message.contains("GEMINI_API_KEY"), "{message}");
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn openrouter_reads_its_conventional_bearer_key() -> Result<(), String> {
+        let credentials = resolve("openrouter", &[("OPENROUTER_API_KEY", "openrouter-key")])?;
+        assert!(
+            matches!(
+                credentials,
+                Credentials::Http(HttpCredentials {
+                    auth: HttpAuthentication::Bearer(secret),
+                    ..
+                }) if secret.expose_secret() == "openrouter-key"
+            ),
+            "OpenRouter should resolve a bearer credential"
+        );
         Ok(())
     }
 

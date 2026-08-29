@@ -6,12 +6,14 @@
 //!
 //! - `LITHOS_E2E_TWIN_MODE=replay` (default): serve the committed recording in
 //!   strict fixture mode. No keys, no network.
-//! - `LITHOS_E2E_TWIN_MODE=record`: proxy to the live Venice API with
-//!   `VENICE_API_KEY` and rewrite the recording as verbatim transcripts.
+//! - `LITHOS_E2E_TWIN_MODE=record`: proxy to the configured live API and
+//!   rewrite the recording as verbatim transcripts.
 //!
 //! The bind address and recording path have fixed defaults the mise tasks
 //! and the test harness share; `LITHOS_E2E_TWIN_ADDR` and
-//! `LITHOS_E2E_RECORDING_PATH` override them together when needed.
+//! `LITHOS_E2E_RECORDING_PATH`, `LITHOS_E2E_UPSTREAM_URL`, and
+//! `LITHOS_E2E_API_KEY_VARIABLE` override them when needed. Set
+//! `LITHOS_E2E_RECORDING_APPEND=1` to add focused reruns to a recording.
 
 use std::env;
 use std::error::Error as StdError;
@@ -23,6 +25,7 @@ use twin_openai::config::{Config, Mode, RecordFormat};
 const DEFAULT_ADDR: &str = "127.0.0.1:3921";
 const DEFAULT_RECORDING: &str = "tests/e2e/recordings/venice.json";
 const VENICE_UPSTREAM: &str = "https://api.venice.ai/api";
+const VENICE_KEY_VARIABLE: &str = "VENICE_API_KEY";
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn StdError>> {
@@ -40,14 +43,21 @@ async fn main() -> Result<(), Box<dyn StdError>> {
             enable_admin: false,
             ..Config::default()
         },
-        "record" => Config {
-            mode: Mode::ProxyRecord,
-            upstream_url: VENICE_UPSTREAM.to_owned(),
-            upstream_api_key: Some(env::var("VENICE_API_KEY")?),
-            recording_path: Some(recording.into()),
-            record_format: RecordFormat::Transcript,
-            ..Config::default()
-        },
+        "record" => {
+            let upstream =
+                env::var("LITHOS_E2E_UPSTREAM_URL").unwrap_or_else(|_| VENICE_UPSTREAM.to_owned());
+            let key_variable = env::var("LITHOS_E2E_API_KEY_VARIABLE")
+                .unwrap_or_else(|_| VENICE_KEY_VARIABLE.to_owned());
+            Config {
+                mode: Mode::ProxyRecord,
+                upstream_url: upstream,
+                upstream_api_key: Some(env::var(key_variable)?),
+                recording_path: Some(recording.into()),
+                record_format: RecordFormat::Transcript,
+                recording_append: env::var("LITHOS_E2E_RECORDING_APPEND").as_deref() == Ok("1"),
+                ..Config::default()
+            }
+        }
         other => {
             return Err(
                 format!("LITHOS_E2E_TWIN_MODE must be replay or record, got {other}").into(),

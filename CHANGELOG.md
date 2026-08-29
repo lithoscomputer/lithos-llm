@@ -6,8 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- The built-in catalog now includes OpenRouter with live-verified model routes,
+  provider-reported cost support, and conventional
+  `OPENROUTER_API_KEY` credentials.
+
 ### Changed
 
+- Provider catalog tests now check resolution and behavior without copying
+  exact roster counts or model tables.
 - The minimum supported Rust version is 1.88 (from 1.85): the codecs now
   use let-chains, which need it.
 

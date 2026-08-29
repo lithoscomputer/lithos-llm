@@ -62,9 +62,15 @@ run = """
 set -e
 cargo build --locked --all-features --example e2e_twin
 LITHOS_E2E_TWIN_MODE=replay ./target/debug/examples/e2e_twin &
-TWIN_PID=$!
-trap 'kill $TWIN_PID 2>/dev/null || true' EXIT
+VENICE_TWIN_PID=$!
+LITHOS_E2E_TWIN_MODE=replay \
+LITHOS_E2E_TWIN_ADDR=127.0.0.1:3922 \
+LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/openrouter.json \
+./target/debug/examples/e2e_twin &
+OPENROUTER_TWIN_PID=$!
+trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3922/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 LITHOS_E2E_BACKEND=replay cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
 """
 
@@ -75,9 +81,17 @@ set -e
 set -a; [ -f .env ] && . ./.env; set +a
 cargo build --locked --all-features --example e2e_twin
 LITHOS_E2E_TWIN_MODE=record ./target/debug/examples/e2e_twin &
-TWIN_PID=$!
-trap 'kill $TWIN_PID 2>/dev/null || true' EXIT
+VENICE_TWIN_PID=$!
+LITHOS_E2E_TWIN_MODE=record \
+LITHOS_E2E_TWIN_ADDR=127.0.0.1:3922 \
+LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/openrouter.json \
+LITHOS_E2E_UPSTREAM_URL=https://openrouter.ai/api \
+LITHOS_E2E_API_KEY_VARIABLE=OPENROUTER_API_KEY \
+./target/debug/examples/e2e_twin &
+OPENROUTER_TWIN_PID=$!
+trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3922/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 LITHOS_E2E_BACKEND=record cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
 """
 
