@@ -13,7 +13,8 @@ use serde_json::{Map, Value, json};
 use super::assembler::StreamAssembler;
 use super::common::{
     cache_routing_key, endpoint, flattens_system_content, flattens_tool_result_content,
-    merge_options, parse_arguments, plain_text, reject_unencodable, sampling, wire_options,
+    merge_options, parse_arguments, plain_text, refusal, reject_unencodable, sampling,
+    wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -300,6 +301,13 @@ fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Response, Erro
             "returned a 200 body without a Responses output array",
             value,
         ));
+    }
+    // A refusal is a failure, not a short answer — the same contract every
+    // other codec applies. This protocol reports it as a `refusal` content
+    // part inside a message item.
+    if let Some(text) = refusal_text(&value) {
+        let explanation = text.to_owned();
+        return Err(refusal(route, Some(&explanation), Some(value)));
     }
 
     let content = decode_output(&value);
@@ -827,6 +835,24 @@ fn decode_output(value: &Value) -> Vec<ContentPart> {
     content
 }
 
+/// The refusal text carried by a document's message items, if any.
+///
+/// A non-empty `refusal` content part means the model declined instead of
+/// answering; an empty one is treated as absent, as the Chat codec treats an
+/// empty `refusal` field.
+fn refusal_text(value: &Value) -> Option<&str> {
+    value
+        .get("output")?
+        .as_array()?
+        .iter()
+        .filter(|item| item.get("type").and_then(Value::as_str) == Some("message"))
+        .filter_map(|item| item.get("content").and_then(Value::as_array))
+        .flatten()
+        .filter(|part| part.get("type").and_then(Value::as_str) == Some("refusal"))
+        .find_map(|part| part.get("refusal").and_then(Value::as_str))
+        .filter(|text| !text.is_empty())
+}
+
 /// The visible text of one `message` output item.
 fn message_text(item: &Value) -> String {
     item.get("content")
@@ -1062,7 +1088,15 @@ impl ResponsesStream {
                 Ok(self.arguments_delta(value))
             }
             "response.output_item.done" => Ok(self.end_item(&block_id(value), item(value))),
-            "response.completed" | "response.incomplete" => Ok(self.complete(value)),
+            "response.completed" | "response.incomplete" => {
+                // A refusal fails the stream instead of completing it as an
+                // empty answer — the same contract every other codec applies.
+                let document = value.get("response").unwrap_or(value);
+                if let Some(text) = refusal_text(document) {
+                    return Err(refusal(&self.route, Some(text), Some(document.clone())));
+                }
+                Ok(self.complete(value))
+            }
             // `response.created` lands here: its id already rode the latched
             // `Started` event, so it contributes nothing of its own.
             _ => Ok(Vec::new()),
@@ -2259,10 +2293,10 @@ mod tests {
 
     #[test]
     fn a_streamed_message_without_text_emits_no_empty_text_part() -> Result<(), Box<dyn StdError>> {
-        // A refusal-only or empty assistant message streams no output_text.
-        // Blocking decode of the same body pushes no text part, and the
-        // streamed response must match: only the opaque replay item, no
-        // Text("") and no stray start/end pair.
+        // An empty assistant message streams no output_text. Blocking decode
+        // of the same body pushes no text part, and the streamed response
+        // must match: only the opaque replay item, no Text("") and no stray
+        // start/end pair.
         let route = call(Request::builder().model(MODEL).user("hi").build()?)?
             .route()
             .clone();
@@ -2272,7 +2306,7 @@ mod tests {
             "id": "msg_1",
             "status": "completed",
             "role": "assistant",
-            "content": [{ "type": "refusal", "refusal": "I can't help with that." }],
+            "content": [],
         });
         let transcript = vec![
             json!({ "type": "response.created", "response": { "id": "resp_1" } }),
@@ -2303,6 +2337,88 @@ mod tests {
         };
         assert_eq!(kind, MESSAGE_KIND);
         assert_eq!(data, &item);
+        Ok(())
+    }
+
+    #[test]
+    fn a_refusal_part_fails_instead_of_decoding() -> Result<(), Box<dyn StdError>> {
+        // The structured-output refusal channel: a `refusal` content part in
+        // the message item. Decoding it as an empty success would hide the
+        // refusal from the caller and from failover — the contract H8 set
+        // for Anthropic and Bedrock, and R2-29 extended to Chat, extends
+        // here.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let body = json!({
+            "id": "resp_1",
+            "status": "completed",
+            "output": [{
+                "type": "message",
+                "id": "msg_1",
+                "role": "assistant",
+                "content": [{ "type": "refusal", "refusal": "I can't help with that." }],
+            }],
+        });
+
+        let error = codec()
+            .decode_response(&route, body.clone())
+            .expect_err("a refusal must fail the call");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert!(
+            error.to_string().contains("I can't help with that."),
+            "{error}"
+        );
+        assert_eq!(error.raw_data(), Some(&body));
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_refusal_fails_at_the_terminal_event() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let item = json!({
+            "type": "message",
+            "id": "msg_1",
+            "status": "completed",
+            "role": "assistant",
+            "content": [{ "type": "refusal", "refusal": "I can't help with that." }],
+        });
+        decoder.decode(sse(
+            &json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+        ))?;
+        decoder.decode(sse(&json!({
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": { "type": "message", "id": "msg_1", "role": "assistant", "content": [] },
+        })))?;
+        decoder.decode(sse(&json!({
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": item,
+        })))?;
+
+        let error = decoder
+            .decode(sse(&json!({
+                "type": "response.completed",
+                "response": {
+                    "id": "resp_1",
+                    "status": "completed",
+                    "output": [item],
+                },
+            })))
+            .expect_err("a refusal must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("refusal"));
+        assert!(
+            error.to_string().contains("I can't help with that."),
+            "{error}"
+        );
         Ok(())
     }
 
