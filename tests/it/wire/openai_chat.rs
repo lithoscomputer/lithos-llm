@@ -18,13 +18,16 @@
 //! opaque replay parts are keyed by the codec's own `openai_compatible`
 //! namespace. Two different names prove the two namespaces are independent.
 
+use std::net::TcpListener;
+use std::thread;
 use std::time::Duration;
 
+use futures_util::StreamExt as _;
 use httpmock::{Method, MockServer};
 use lithos_llm::catalog::{Catalog, adapter_ids, codec_ids};
 use lithos_llm::types::{
     ContentPart, CostSource, Error, ErrorKind, ImageContent, MediaSource, Message, ReasoningEffort,
-    ResponseFormat, Role, ToolCall, ToolChoice, ToolResult,
+    ResponseFormat, RetryClassification, Role, ToolCall, ToolChoice, ToolResult,
 };
 use lithos_llm::{Request, Response};
 use serde_json::{Value, json};
@@ -1323,6 +1326,63 @@ async fn a_200_with_no_choices_fails_to_decode() {
     mock.assert_async().await;
     assert_eq!(error.kind(), ErrorKind::ResponseDecode);
     crate::json_snapshot!(error_json(&error));
+}
+
+#[tokio::test]
+async fn a_request_timeout_expiring_mid_stream_is_never_retried() {
+    // A raw socket stands in for a provider that starts streaming and then
+    // stalls past the caller's request timeout; the mock server cannot stall
+    // mid-body. The provider is already executing the call when the budget
+    // expires, so the failure must keep the complete path's never-retry rule
+    // instead of classifying as a retryable network fault.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("a local socket should bind");
+    let base_url = format!(
+        "http://{}",
+        listener.local_addr().expect("the socket has an address")
+    );
+    thread::spawn(move || {
+        use std::io::{Read as _, Write as _};
+        if let Ok((mut socket, _)) = listener.accept() {
+            let mut request = [0_u8; 8192];
+            let _ = socket.read(&mut request);
+            let _ = socket.write_all(
+                b"HTTP/1.1 200 OK\r\n\
+                  content-type: text/event-stream\r\n\
+                  content-length: 65536\r\n\r\n\
+                  data: {\"id\":\"chatcmpl-1\",\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
+            );
+            let _ = socket.flush();
+            thread::sleep(Duration::from_secs(5));
+        }
+    });
+
+    let client = support::client_for(
+        plain_catalog(&base_url),
+        PROVIDER,
+        support::bearer_credentials(),
+    );
+    let request = Request::builder()
+        .model(selector())
+        .user("Hello")
+        .timeout(Duration::from_millis(300))
+        .build()
+        .expect("the request should build");
+
+    let mut stream = client
+        .stream(request)
+        .await
+        .expect("the headers arrive before the timeout, so the stream opens");
+    let mut terminal = None;
+    while let Some(item) = stream.next().await {
+        if let Err(error) = item {
+            terminal = Some(error);
+            break;
+        }
+    }
+
+    let error = terminal.expect("the stalled stream should fail");
+    assert_eq!(error.kind(), ErrorKind::Timeout);
+    assert_eq!(error.retry_classification(), RetryClassification::Never);
 }
 
 #[tokio::test]

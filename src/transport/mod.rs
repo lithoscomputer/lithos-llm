@@ -429,6 +429,12 @@ fn event_stream_response(
 }
 
 /// Builds the error for a failed response-body read.
+///
+/// The caller's whole-request timeout can expire while the body is still
+/// arriving. The provider is already executing that call, so a mid-stream
+/// expiry keeps the complete path's never-retry rule and reports as a timeout
+/// rather than a network fault; see [`json_response`] for the same rule on the
+/// complete body.
 #[cfg(any(
     feature = "openai",
     feature = "anthropic",
@@ -437,9 +443,14 @@ fn event_stream_response(
     feature = "bedrock"
 ))]
 fn chunk_error(provider: &ProviderId, message: &'static str, source: reqwest::Error) -> Error {
-    Error::new(ErrorKind::Network, message)
+    let (kind, retry) = if source.is_timeout() {
+        (ErrorKind::Timeout, RetryClassification::Never)
+    } else {
+        (ErrorKind::Network, RetryClassification::Safe)
+    };
+    Error::new(kind, message)
         .with_provider(provider.clone())
-        .with_retry(RetryClassification::Safe)
+        .with_retry(retry)
         .with_source(source)
 }
 
