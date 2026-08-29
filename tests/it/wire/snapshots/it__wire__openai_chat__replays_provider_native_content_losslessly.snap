@@ -19,7 +19,6 @@ expression: rendered
         "role": "user"
       },
       {
-        "content": null,
         "reasoning": {
           "encrypted_content": "opaque-payload",
           "id": "rs_replay"
@@ -76,7 +75,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "705"
+      "690"
     ],
     [
       "content-type",

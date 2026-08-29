@@ -770,22 +770,29 @@ fn encode_chat_message(message: &Message) -> Value {
             .iter()
             .all(|part| part.get("type").and_then(Value::as_str) == Some("text"));
     let content = match parts.as_slice() {
-        [] => Value::Null,
+        // A message with no encodable parts — an assistant turn that only
+        // calls tools — omits the member, the shape the reference client
+        // sent. Strict skins validate content as string-or-array and reject
+        // an explicit null.
+        [] => None,
         // Text-only content uses the plain string form every skin accepts —
         // the part-array form is reserved for content only media-capable
         // skins receive, because a strict text-only skin rejects it. The
         // texts join unseparated, as the reference client sent them.
-        _ if all_text => Value::String(
+        _ if all_text => Some(Value::String(
             parts
                 .iter()
                 .filter_map(|part| part.get("text").and_then(Value::as_str))
                 .collect::<Vec<_>>()
                 .join(""),
-        ),
-        _ => Value::Array(parts),
+        )),
+        _ => Some(Value::Array(parts)),
     };
 
-    let mut value = json!({ "role": role_name(message.role()), "content": content });
+    let mut value = json!({ "role": role_name(message.role()) });
+    if let Some(content) = content {
+        value["content"] = content;
+    }
     if let Some(name) = message.name() {
         value["name"] = name.into();
     }

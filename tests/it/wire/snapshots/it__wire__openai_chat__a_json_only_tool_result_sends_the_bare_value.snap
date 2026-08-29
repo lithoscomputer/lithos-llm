@@ -19,7 +19,6 @@ expression: rendered
         "role": "user"
       },
       {
-        "content": null,
         "role": "assistant",
         "tool_calls": [
           {
@@ -52,7 +51,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "447"
+      "432"
     ],
     [
       "content-type",
