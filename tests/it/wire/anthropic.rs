@@ -678,19 +678,10 @@ async fn encodes_a_json_object_response_format() {
         .await
         .expect("the JSON object format should complete");
 
-    let captured = support::captured(&slot);
-    // Anthropic carries structured output in `output_config.format`, not in a
-    // synthetic tool. Its strict-schema subset requires every object to be
-    // closed. With no caller-supplied fields, the portable schema is empty.
-    assert_eq!(
-        captured.body["output_config"]["format"]["schema"],
-        json!({
-            "type": "object",
-            "properties": {},
-            "additionalProperties": false,
-        })
-    );
-    crate::json_snapshot!(captured);
+    // No schema in Anthropic's structured-output subset says "any JSON
+    // object", so free-form JSON rides on the system text as a JSON-only
+    // instruction and no `output_config.format` is sent.
+    crate::json_snapshot!(support::captured(&slot));
     crate::json_snapshot!(response);
 }
 
@@ -994,7 +985,7 @@ fn tool_choice_effort_request(model: &str, choice: ToolChoice) -> Request {
         ))
         .tool_choice(choice)
         .reasoning_effort(ReasoningEffort::High)
-        .response_format(ResponseFormat::JsonObject)
+        .response_format(support::json_schema_format())
         .max_output_tokens(8000)
         .build()
         .expect("the tool choice effort request should build")

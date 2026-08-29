@@ -64,6 +64,15 @@ const BETA_HEADERS_OPTION: &str = "beta_headers";
 /// grow, because the budget has to sit strictly below `max_tokens`.
 const MIN_THINKING_BUDGET: u32 = 1024;
 
+/// The instruction [`ResponseFormat::JsonObject`] appends to the system text.
+///
+/// Free-form JSON has no schema: Anthropic's structured-output subset requires
+/// `additionalProperties: false`, so a schema loose enough for "any JSON
+/// object" is not expressible, and a strict one would pin the model to the
+/// empty object. A soft instruction asks for JSON without constraining its
+/// shape.
+const JSON_OBJECT_INSTRUCTION: &str = "You must respond with valid JSON only, no other text.";
+
 /// The only fields `/v1/messages/count_tokens` accepts.
 ///
 /// The count body is a narrowing of the generation body. Everything else the
@@ -357,7 +366,16 @@ fn message_body(
     let mut body = Map::new();
     body.insert("model".to_owned(), route.api_model().into());
 
-    let system = system_text(request.messages());
+    let mut system = system_text(request.messages());
+    // Free-form JSON output rides on the system text rather than a schema;
+    // see [`JSON_OBJECT_INSTRUCTION`]. The count endpoint keeps `system`, so
+    // counting sees the same instruction generation sends.
+    if matches!(request.response_format(), Some(ResponseFormat::JsonObject)) {
+        if !system.is_empty() {
+            system.push_str("\n\n");
+        }
+        system.push_str(JSON_OBJECT_INSTRUCTION);
+    }
     if !system.is_empty() {
         body.insert("system".to_owned(), system_value(system, cached));
     }
@@ -460,14 +478,13 @@ fn output_config(call: &ResolvedCall) -> Map<String, Value> {
 }
 
 /// The schema an output format asks the model to follow, if it asks for one.
+///
+/// `JsonObject` names no schema: it becomes the system-text instruction
+/// [`JSON_OBJECT_INSTRUCTION`] instead, because no schema in Anthropic's
+/// structured-output subset says "any JSON object".
 fn json_schema(format: &ResponseFormat) -> Option<Value> {
     match format {
-        ResponseFormat::Text => None,
-        ResponseFormat::JsonObject => Some(json!({
-            "type": "object",
-            "properties": {},
-            "additionalProperties": false,
-        })),
+        ResponseFormat::Text | ResponseFormat::JsonObject => None,
         ResponseFormat::JsonSchema { schema, .. } => Some(schema.clone()),
     }
 }
@@ -1552,6 +1569,56 @@ mod tests {
                 .any(|warning| warning.message.contains("signed by another provider")),
             "{:?}",
             encoded.warnings
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn json_object_instructs_the_system_text_instead_of_a_schema() -> Result<(), Box<dyn StdError>>
+    {
+        let codec = AnthropicMessagesCodec;
+
+        // No schema in Anthropic's structured-output subset says "any JSON
+        // object", so the format rides on the system text; a request with a
+        // system prompt gets the instruction appended after it.
+        let call = resolved(
+            Request::builder()
+                .model(MODEL)
+                .system("You are terse.")
+                .user("List the planets")
+                .response_format(ResponseFormat::JsonObject)
+                .provider_option("anthropic", "auto_cache", json!(false))
+                .build()?,
+        )?;
+        let encoded = codec.encode(&call, false)?;
+        assert_eq!(encoded.body.get("output_config"), None);
+        assert_eq!(
+            encoded.body["system"],
+            "You are terse.\n\nYou must respond with valid JSON only, no other text."
+        );
+
+        // Without one, the instruction is the whole system text, and the
+        // count body keeps it: counting must see what generation sends.
+        let bare = resolved(
+            Request::builder()
+                .model(MODEL)
+                .user("List the planets")
+                .response_format(ResponseFormat::JsonObject)
+                .provider_option("anthropic", "auto_cache", json!(false))
+                .build()?,
+        )?;
+        let encoded = codec.encode(&bare, false)?;
+        assert_eq!(encoded.body.get("output_config"), None);
+        assert_eq!(
+            encoded.body["system"],
+            "You must respond with valid JSON only, no other text."
+        );
+        let counted = codec
+            .encode_count_tokens(&bare)
+            .ok_or("Anthropic should count tokens")??;
+        assert_eq!(
+            counted.body["system"],
+            "You must respond with valid JSON only, no other text."
         );
         Ok(())
     }

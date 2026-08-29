@@ -40,7 +40,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "286"
+      "291"
     ],
     [
       "content-type",
@@ -59,6 +59,29 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "method": "POST",
-  "path": "/v1/messages"
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Give me the city and its population.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "system": [
+      {
+        "cache_control": {
+          "type": "ephemeral"
+        },
+        "text": "You must respond with valid JSON only, no other text.",
+        "type": "text"
+      }
+    ]
+  }
 }
