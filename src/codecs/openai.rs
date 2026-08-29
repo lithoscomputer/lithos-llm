@@ -280,6 +280,16 @@ fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Response, Erro
             value,
         ));
     }
+    // A body without an `output` array is not a Responses document. Decoding
+    // `{}` or an error-shaped 200 from a broken gateway as a successful empty
+    // response would hand the caller an answer the model never wrote.
+    if !value.get("output").is_some_and(Value::is_array) {
+        return Err(decode_error(
+            route,
+            "returned a 200 body without a Responses output array",
+            value,
+        ));
+    }
 
     let content = decode_output(&value);
     let mut response = Response::new(
@@ -1555,6 +1565,25 @@ mod tests {
         assert_eq!(response.usage.cache_write, 0);
         assert_eq!(response.usage.total(), 150);
         assert_eq!(response.cost, None);
+        Ok(())
+    }
+
+    #[test]
+    fn a_body_without_an_output_array_fails_to_decode() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+
+        // An empty object and an error-shaped 200 both lack the `output`
+        // array every Responses document carries; neither may decode as a
+        // successful empty response.
+        for body in [json!({}), json!({ "error": { "message": "boom" } })] {
+            let error = codec()
+                .decode_response(&route, body)
+                .err()
+                .ok_or("expected a body without output to fail")?;
+            assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        }
         Ok(())
     }
 

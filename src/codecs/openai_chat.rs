@@ -194,6 +194,15 @@ impl Codec for OpenAiChatCodec {
             return Err(no_choices(route, value));
         }
         let choice = value.pointer("/choices/0").unwrap_or(&Value::Null);
+        // A choice without a message object is not a completion. A truncated
+        // or error-shaped choice must not decode as an empty success.
+        if !choice.get("message").is_some_and(Value::is_object) {
+            return Err(decode_failure(
+                route,
+                "returned a choice without a message object",
+                value,
+            ));
+        }
         let message = choice.get("message").unwrap_or(&Value::Null);
 
         let mut content = Vec::new();
@@ -212,13 +221,23 @@ impl Codec for OpenAiChatCodec {
         if let Some(text) = message_text(message) {
             content.push(ContentPart::Text { text });
         }
+        let mut flaw = None;
         for call in message
             .get("tool_calls")
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
         {
-            content.push(decode_tool_call(call));
+            match decode_tool_call(call) {
+                Ok(part) => content.push(part),
+                Err(detail) => {
+                    flaw = Some(detail);
+                    break;
+                }
+            }
+        }
+        if let Some(detail) = flaw {
+            return Err(decode_failure(route, detail, value));
         }
 
         let mut response = Response::new(
@@ -512,12 +531,13 @@ fn complete_details(message: &Value) -> Option<ContentPart> {
 
 /// The error a 200 with no choices decodes into.
 fn no_choices(route: &ResolvedRoute, value: Value) -> Error {
+    decode_failure(route, "returned no choices in the response", value)
+}
+
+fn decode_failure(route: &ResolvedRoute, detail: &str, value: Value) -> Error {
     Error::new(
         ErrorKind::ResponseDecode,
-        format!(
-            "provider {} returned no choices in the response",
-            route.provider().id()
-        ),
+        format!("provider {} {detail}", route.provider().id()),
     )
     .with_provider(route.provider().id().clone())
     .with_raw_data(value)
@@ -849,27 +869,33 @@ fn effort_name(effort: ReasoningEffort) -> &'static str {
 }
 
 /// Decodes one complete tool call from a response message.
-fn decode_tool_call(call: &Value) -> ContentPart {
+fn decode_tool_call(call: &Value) -> Result<ContentPart, &'static str> {
+    // A call without its id cannot be answered, and one without its name
+    // cannot be dispatched; replaying either poisons the conversation. The
+    // old serde-strict decode failed retryably, and this keeps that contract.
+    let id = call.get("id").and_then(Value::as_str).unwrap_or_default();
+    if id.is_empty() {
+        return Err("returned a tool call without an id");
+    }
+    let name = call
+        .pointer("/function/name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if name.is_empty() {
+        return Err("returned a tool call without a function name");
+    }
     let raw = call
         .pointer("/function/arguments")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    ContentPart::ToolCall(ToolCall {
-        id:                call
-            .get("id")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned(),
-        name:              call
-            .pointer("/function/name")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned(),
+    Ok(ContentPart::ToolCall(ToolCall {
+        id:                id.to_owned(),
+        name:              name.to_owned(),
         arguments:         parse_arguments(raw),
         kind:              ToolCallKind::Function,
         raw_arguments:     (!raw.is_empty()).then(|| raw.to_owned()),
         provider_metadata: BTreeMap::new(),
-    })
+    }))
 }
 
 /// The visible text of a response message, in either wire shape.
@@ -1368,6 +1394,44 @@ mod tests {
             .ok_or("expected an empty choices array to fail")?;
 
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        Ok(())
+    }
+
+    #[test]
+    fn a_choice_without_a_message_fails_to_decode() -> Result<(), Box<dyn StdError>> {
+        let error = OpenAiChatCodec
+            .decode_response(
+                &route()?,
+                json!({ "id": "chatcmpl-1", "choices": [{ "finish_reason": "stop" }] }),
+            )
+            .err()
+            .ok_or("expected a choice without a message to fail")?;
+
+        assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_call_without_its_identity_fails_to_decode() -> Result<(), Box<dyn StdError>> {
+        // A call missing its id cannot be answered; one missing its name
+        // cannot be dispatched. Both must fail retryably instead of decoding
+        // into a part that poisons the replayed conversation.
+        for tool_call in [
+            json!({ "type": "function", "function": { "name": "f", "arguments": "{}" } }),
+            json!({ "id": "call-1", "type": "function", "function": { "arguments": "{}" } }),
+        ] {
+            let error = OpenAiChatCodec
+                .decode_response(
+                    &route()?,
+                    json!({
+                        "id": "chatcmpl-1",
+                        "choices": [{ "message": { "tool_calls": [tool_call] } }],
+                    }),
+                )
+                .err()
+                .ok_or("expected a tool call without id or name to fail")?;
+            assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        }
         Ok(())
     }
 

@@ -134,6 +134,24 @@ impl Codec for BedrockConverseCodec {
             return Err(refusal(route, None, Some(value)));
         }
 
+        // A body without the output message is not a Converse response.
+        // Decoding `{}` from a broken proxy as a successful empty answer
+        // would be indistinguishable from a real empty completion.
+        if !value
+            .pointer("/output/message/content")
+            .is_some_and(Value::is_array)
+        {
+            return Err(Error::new(
+                ErrorKind::ResponseDecode,
+                format!(
+                    "provider {} returned a 200 body without a Converse output message",
+                    route.provider().id()
+                ),
+            )
+            .with_provider(route.provider().id().clone())
+            .with_raw_data(value));
+        }
+
         let content = value
             .pointer("/output/message/content")
             .and_then(Value::as_array)
@@ -1080,6 +1098,22 @@ mod tests {
     }
 
     #[test]
+    fn a_body_without_the_output_message_fails_to_decode() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+
+        // `{}` from a broken proxy and a body whose message lost its content
+        // are both indistinguishable from a real empty answer; neither may
+        // decode as success.
+        for body in [json!({}), json!({ "output": { "message": {} } })] {
+            let error = BedrockConverseCodec
+                .decode_response(call.route(), body)
+                .expect_err("a structureless 200 must fail to decode");
+            assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        }
+        Ok(())
+    }
+
+    #[test]
     fn a_refusal_response_fails_instead_of_decoding() -> Result<(), Box<dyn StdError>> {
         let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
         let body = json!({
@@ -1247,20 +1281,26 @@ mod tests {
             other => return Err(format!("expected a tool call, got {other:?}").into()),
         }
 
+        let stop = |reason: &str| {
+            json!({
+                "output": { "message": { "content": [] } },
+                "stopReason": reason,
+            })
+        };
         assert_eq!(
-            decoded(json!({ "stopReason": "stop_sequence" }))?.finish_reason,
+            decoded(stop("stop_sequence"))?.finish_reason,
             FinishReason::Stop
         );
         assert_eq!(
-            decoded(json!({ "stopReason": "max_tokens" }))?.finish_reason,
+            decoded(stop("max_tokens"))?.finish_reason,
             FinishReason::Length
         );
         assert_eq!(
-            decoded(json!({ "stopReason": "guardrail_intervened" }))?.finish_reason,
+            decoded(stop("guardrail_intervened"))?.finish_reason,
             FinishReason::ContentFilter
         );
         assert_eq!(
-            decoded(json!({ "stopReason": "content_filtered" }))?.finish_reason,
+            decoded(stop("content_filtered"))?.finish_reason,
             FinishReason::ContentFilter
         );
         Ok(())
