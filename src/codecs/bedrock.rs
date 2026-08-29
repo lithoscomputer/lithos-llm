@@ -59,18 +59,43 @@ impl Codec for BedrockConverseCodec {
             Value::Array(conversation(request, route, cached)?),
         );
 
-        let inference = inference_config(request);
-        if !inference.is_empty() {
-            body.insert("inferenceConfig".to_owned(), Value::Object(inference));
-        }
+        let mut inference = inference_config(request);
         if let Some(tool_config) = tool_config(request, cached) {
             body.insert("toolConfig".to_owned(), tool_config);
         }
+        // Effort has the same two wire dialects as the Anthropic codec,
+        // carried through `additionalModelRequestFields`: a model with effort
+        // levels takes `output_config.effort`, an older reasoning model takes
+        // an explicit thinking budget, and a forced tool choice suppresses
+        // both because the upstream model rejects thinking alongside it. The
+        // budget must sit strictly below `maxTokens`, so a caller limit that
+        // would not fit grows the same way the Anthropic encoder grows it.
         if let Some(effort) = request.reasoning_effort() {
-            body.insert(
-                "additionalModelRequestFields".to_owned(),
-                json!({ "output_config": { "effort": bedrock_effort(effort) } }),
-            );
+            if !forces_tool_use(request.tool_choice()) {
+                if route.model().capabilities().reasoning_effort_levels {
+                    body.insert(
+                        "additionalModelRequestFields".to_owned(),
+                        json!({ "output_config": { "effort": bedrock_effort(effort) } }),
+                    );
+                } else {
+                    let budget = thinking_budget(effort, budget_limit(call));
+                    if let Some(max_tokens) = request.max_output_tokens() {
+                        if max_tokens <= budget {
+                            inference.insert(
+                                "maxTokens".to_owned(),
+                                budget.saturating_add(MIN_THINKING_BUDGET).into(),
+                            );
+                        }
+                    }
+                    body.insert(
+                        "additionalModelRequestFields".to_owned(),
+                        json!({ "thinking": { "type": "enabled", "budget_tokens": budget } }),
+                    );
+                }
+            }
+        }
+        if !inference.is_empty() {
+            body.insert("inferenceConfig".to_owned(), Value::Object(inference));
         }
         if let Some(speed) = request.speed() {
             let latency = if matches!(speed, Speed::Fast) {
@@ -102,6 +127,11 @@ impl Codec for BedrockConverseCodec {
         // than folded into some other field where it would change the prompt.
         if !request.metadata().is_empty() {
             encoded = encoded.unsupported_control("request metadata");
+        }
+        // The suppressed effort never reaches the model, so say so — the same
+        // report the Anthropic codec makes for this combination.
+        if request.reasoning_effort().is_some() && forces_tool_use(request.tool_choice()) {
+            encoded = encoded.unsupported_control("reasoning effort with a forced tool choice");
         }
         // Converse has no portable structured-output field. A caller who asked
         // for JSON gets prose, so say so rather than letting them discover it
@@ -761,6 +791,46 @@ fn bedrock_effort(effort: ReasoningEffort) -> &'static str {
     }
 }
 
+/// The smallest `thinking.budget_tokens` the upstream model accepts, and the
+/// headroom kept above the budget when `maxTokens` must grow.
+const MIN_THINKING_BUDGET: u32 = 1024;
+
+/// The output limit the thinking budget scales against.
+///
+/// The request's own limit wins, then the model's catalog limit, then the
+/// same fallback the Anthropic codec uses.
+fn budget_limit(call: &ResolvedCall) -> u32 {
+    if let Some(tokens) = call.request().max_output_tokens() {
+        return tokens;
+    }
+    call.route().model().limits().map_or(65_536, |limits| {
+        u32::try_from(limits.max_output_tokens).unwrap_or(u32::MAX)
+    })
+}
+
+/// Whether the tool choice makes a tool call mandatory.
+///
+/// The upstream model rejects extended thinking together with a forced tool
+/// choice, so a forced choice suppresses the effort encoding entirely.
+fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
+    matches!(choice, Some(ToolChoice::Required | ToolChoice::Tool { .. }))
+}
+
+/// The explicit thinking budget for a reasoning model without effort levels,
+/// scaling the same shares of the output limit as the Anthropic codec.
+fn thinking_budget(effort: ReasoningEffort, limit: u32) -> u32 {
+    let limit = u64::from(limit);
+    let share = match effort {
+        ReasoningEffort::Minimal | ReasoningEffort::Low => limit / 4,
+        ReasoningEffort::Medium => limit / 2,
+        ReasoningEffort::High => limit * 3 / 4,
+        ReasoningEffort::Xhigh => limit * 7 / 8,
+        ReasoningEffort::Max => limit,
+    };
+    let budget = share.max(u64::from(MIN_THINKING_BUDGET));
+    u32::try_from(budget).unwrap_or(u32::MAX)
+}
+
 /// Maps a Converse `stopReason` onto the normalized finish reason.
 ///
 /// `model_context_window_exceeded` is Converse's own name for a generation that
@@ -1047,7 +1117,7 @@ mod tests {
     use crate::types::{
         ContentPart, DocumentContent, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
         ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat, Role, Speed,
-        StreamEvent, ToolCall, ToolDefinition, ToolResult,
+        StreamEvent, ToolCall, ToolChoice, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "bedrock/anthropic.claude-sonnet-4-6";
@@ -1195,6 +1265,85 @@ mod tests {
         assert_eq!(
             body["additionalModelRequestFields"]["output_config"]["effort"],
             "high"
+        );
+        Ok(())
+    }
+
+    /// A Bedrock model that reasons with a thinking budget, not effort levels.
+    const BUDGET_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.bedrock]
+        display_name = "Amazon Bedrock"
+        adapter = "bedrock"
+        codec = "bedrock-converse"
+        base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+        default_model = "older-claude"
+        auth = { type = "none" }
+
+        [providers.bedrock.models.older-claude]
+        display_name = "Older Claude"
+        api_model = "us.anthropic.claude-3-7"
+        capabilities = { text = true, tools = true, reasoning = true }
+    "#;
+
+    #[test]
+    fn effort_becomes_a_thinking_budget_without_effort_levels() -> Result<(), Box<dyn StdError>> {
+        // A reasoning model without `reasoning_effort_levels` rejects
+        // `output_config.effort`; it takes an explicit thinking budget, the
+        // same translation the Anthropic codec applies. A caller limit the
+        // budget would not fit under grows to keep the budget strictly below
+        // `maxTokens`.
+        let call = resolved_in(
+            BUDGET_CATALOG,
+            Request::builder()
+                .model("bedrock/older-claude")
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::High)
+                .max_output_tokens(4096)
+                .build()?,
+        )?;
+
+        let body = BedrockConverseCodec.encode(&call, false)?.body;
+
+        assert_eq!(
+            body["additionalModelRequestFields"]["thinking"],
+            json!({ "type": "enabled", "budget_tokens": 3072 })
+        );
+        assert_eq!(
+            body["additionalModelRequestFields"]["output_config"],
+            json!(null)
+        );
+        assert_eq!(body["inferenceConfig"]["maxTokens"], 4096);
+        Ok(())
+    }
+
+    #[test]
+    fn a_forced_tool_choice_suppresses_the_effort_encoding() -> Result<(), Box<dyn StdError>> {
+        // The upstream model rejects thinking alongside a forced tool choice,
+        // so neither effort dialect may reach the wire, and the dropped
+        // control is reported.
+        let encoded = BedrockConverseCodec.encode(
+            &resolved(
+                Request::builder()
+                    .model(MODEL)
+                    .user("Hello")
+                    .tool(ToolDefinition::function("lookup", "look up", json!({})))
+                    .tool_choice(ToolChoice::Required)
+                    .reasoning_effort(ReasoningEffort::High)
+                    .build()?,
+            )?,
+            false,
+        )?;
+
+        assert_eq!(encoded.body.get("additionalModelRequestFields"), None);
+        assert!(
+            encoded
+                .warnings
+                .iter()
+                .any(|warning| warning.message.contains("forced tool choice")),
+            "{:?}",
+            encoded.warnings
         );
         Ok(())
     }
