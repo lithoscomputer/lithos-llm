@@ -347,8 +347,10 @@ impl StreamDecoder for ChatStreamDecoder {
         })?;
 
         // An error payload ends the stream. The same classifier runs here and
-        // on the HTTP error path, so one provider code means one thing.
-        if chunk.get("error").is_some() {
+        // on the HTTP error path, so one provider code means one thing. An
+        // explicit `"error": null` member is not an error — a skin spelling
+        // out the field on success chunks must not fail every stream.
+        if chunk.get("error").is_some_and(|error| !error.is_null()) {
             return Err(provider_error(
                 self.route.provider(),
                 None,
@@ -1737,6 +1739,31 @@ mod tests {
 
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn an_explicit_null_error_member_is_not_an_error() -> Result<(), Box<dyn StdError>> {
+        // A skin that spells out `"error": null` on success chunks must not
+        // fail every stream it serves.
+        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+
+        let events = decoder.decode(SseEvent {
+            event: None,
+            data:  json!({
+                "id": "chatcmpl-1",
+                "error": null,
+                "choices": [{ "delta": { "content": "hi" } }],
+            })
+            .to_string(),
+        })?;
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, StreamEvent::TextDelta { text, .. } if text == "hi")),
+            "{events:?}"
+        );
         Ok(())
     }
 

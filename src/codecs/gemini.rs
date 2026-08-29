@@ -892,7 +892,10 @@ impl GeminiStreamDecoder {
             .with_retry(RetryClassification::Safe)
         })?;
 
-        if value.get("error").is_some() {
+        // An explicit `"error": null` member is not an error — a gateway
+        // spelling out the field on success chunks must not fail every
+        // stream.
+        if value.get("error").is_some_and(|error| !error.is_null()) {
             return Err(provider_error(
                 self.route.provider(),
                 None,
@@ -1271,6 +1274,36 @@ mod tests {
 
         assert_eq!(error.kind(), ErrorKind::ResponseDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[test]
+    fn an_explicit_null_error_member_is_not_an_error() -> Result<(), Box<dyn StdError>> {
+        // A gateway that spells out `"error": null` on success chunks must
+        // not fail every stream it serves.
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .build()?,
+        )?;
+        let mut decoder = GeminiGenerateCodec.stream_decoder(call.route());
+
+        let events = decoder.decode(SseEvent {
+            event: None,
+            data:  json!({
+                "error": null,
+                "candidates": [{ "content": { "parts": [{ "text": "hi" }] } }],
+            })
+            .to_string(),
+        })?;
+
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, StreamEvent::TextDelta { text, .. } if text == "hi")),
+            "{events:?}"
+        );
         Ok(())
     }
 

@@ -97,6 +97,9 @@ work:
   flips the finish reason — the fallback-latched block closes for
   consumers but its part is discarded, matching blocking decode of the
   same body.
+- Chat and Gemini streams treat an explicit `"error": null` member on a
+  chunk as absent instead of failing the stream, so a skin that spells the
+  field out on success chunks keeps working.
 
 ### Round-3 parity fixes
 
