@@ -135,7 +135,7 @@ run = ["git diff --check", "git diff --cached --check"]
 
 [tasks.check]
 description = "Run the complete routine verification gate"
-depends = ["fmt:check", "lint", "test", "test:default-features", "check:actions", "check:catalog-only", "check:features", "check:whitespace"]
+depends = ["fmt:check", "lint", "test", "test:default-features", "test:e2e", "check:actions", "check:catalog-only", "check:features", "check:whitespace"]
 
 [tasks."check:nightly"]
 description = "Run the extended nightly verification gate"
