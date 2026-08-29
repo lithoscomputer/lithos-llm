@@ -247,9 +247,11 @@ impl Codec for BedrockConverseCodec {
 
     fn stream_decoder(&self, route: &ResolvedRoute) -> Box<dyn StreamDecoder> {
         Box::new(BedrockStreamDecoder {
-            route:       route.clone(),
-            assembler:   StreamAssembler::new(route),
-            tool_blocks: BTreeSet::new(),
+            route:           route.clone(),
+            assembler:       StreamAssembler::new(route),
+            tool_blocks:     BTreeSet::new(),
+            redacted_blocks: BTreeSet::new(),
+            text_blocks:     BTreeSet::new(),
         })
     }
 
@@ -998,10 +1000,14 @@ fn decode_reasoning_block(reasoning: &Value) -> Option<ContentPart> {
 
 /// Decodes one Bedrock ConverseStream.
 struct BedrockStreamDecoder {
-    route:       ResolvedRoute,
-    assembler:   StreamAssembler,
+    route:           ResolvedRoute,
+    assembler:       StreamAssembler,
     /// The blocks a `contentBlockStart` opened as tool calls.
-    tool_blocks: BTreeSet<ContentBlockId>,
+    tool_blocks:     BTreeSet<ContentBlockId>,
+    /// The blocks that received a sealed `redactedContent` payload.
+    redacted_blocks: BTreeSet<ContentBlockId>,
+    /// The blocks that received readable reasoning text.
+    text_blocks:     BTreeSet<ContentBlockId>,
 }
 
 impl StreamDecoder for BedrockStreamDecoder {
@@ -1121,7 +1127,7 @@ impl BedrockStreamDecoder {
             events.extend(self.assembler.arguments(&id, chunk));
         }
         if let Some(reasoning) = delta.get("reasoningContent") {
-            events.extend(self.reasoning_delta(&id, reasoning));
+            events.extend(self.reasoning_delta(&id, reasoning)?);
         }
         Ok(events)
     }
@@ -1133,19 +1139,47 @@ impl BedrockStreamDecoder {
     /// `redactedContent` payload and no text; it is kept as the block's text so
     /// the assembled part re-encodes to the `redactedContent` Bedrock expects
     /// on the next turn.
-    fn reasoning_delta(&mut self, id: &ContentBlockId, reasoning: &Value) -> Vec<StreamEvent> {
+    ///
+    /// A block never legitimately mixes the two members, and appending them
+    /// into one buffer would assemble a corrupted sealed payload that Bedrock
+    /// rejects on the next turn. Text after a blob is dropped — the blob is
+    /// the payload the provider verifies, as the reference decoder preferred
+    /// it. A blob after text cannot win the same way, because the text was
+    /// already delivered; that stream fails retryably instead of replaying
+    /// corruption.
+    fn reasoning_delta(
+        &mut self,
+        id: &ContentBlockId,
+        reasoning: &Value,
+    ) -> Result<Vec<StreamEvent>, Error> {
         let mut events = Vec::new();
-        if let Some(text) = reasoning.get("text").and_then(Value::as_str) {
+        if let Some(text) = reasoning.get("text").and_then(Value::as_str)
+            && !self.redacted_blocks.contains(id)
+        {
+            self.text_blocks.insert(id.clone());
             events.extend(self.assembler.reasoning(id, text));
         }
         if let Some(signature) = reasoning.get("signature").and_then(Value::as_str) {
             events.extend(self.assembler.signature(id, signature));
         }
         if let Some(sealed) = reasoning.get("redactedContent").and_then(Value::as_str) {
+            if self.text_blocks.contains(id) {
+                return Err(Error::new(
+                    ErrorKind::StreamDecode,
+                    format!(
+                        "provider {} streamed redacted reasoning into a block that already \
+                         carried reasoning text",
+                        self.route.provider().id()
+                    ),
+                )
+                .with_provider(self.route.provider().id().clone())
+                .with_retry(RetryClassification::Safe));
+            }
+            self.redacted_blocks.insert(id.clone());
             events.extend(self.assembler.set_redacted(id));
             events.extend(self.assembler.reasoning(id, sealed));
         }
-        events
+        Ok(events)
     }
 
     /// Classifies a payload that carries a modeled AWS exception.
@@ -2064,6 +2098,78 @@ mod tests {
         };
         assert!(reasoning.redacted);
         assert_eq!(reasoning.text, "sealed-blob");
+        Ok(())
+    }
+
+    #[test]
+    fn reasoning_text_after_a_redacted_blob_is_dropped() -> Result<(), Box<dyn StdError>> {
+        // The blob is the payload the provider verifies on replay; text mixed
+        // into the same buffer would corrupt it, so the blob wins.
+        let events = streamed(&[
+            ("messageStart", json!({ "role": "assistant" })),
+            (
+                "contentBlockDelta",
+                json!({
+                    "contentBlockIndex": 0,
+                    "delta": { "reasoningContent": { "redactedContent": "sealed-blob" } },
+                }),
+            ),
+            (
+                "contentBlockDelta",
+                json!({
+                    "contentBlockIndex": 0,
+                    "delta": { "reasoningContent": { "text": "stray text" } },
+                }),
+            ),
+            ("contentBlockStop", json!({ "contentBlockIndex": 0 })),
+            ("messageStop", json!({ "stopReason": "end_turn" })),
+        ])?;
+
+        let responses = completed(&events);
+        let [response] = responses.as_slice() else {
+            return Err(format!("expected one Completed, got {}", responses.len()).into());
+        };
+        let Some(ContentPart::Reasoning(reasoning)) = response.content.first() else {
+            return Err(format!("expected reasoning, got {:?}", response.content).into());
+        };
+        assert!(reasoning.redacted);
+        assert_eq!(reasoning.text, "sealed-blob");
+        Ok(())
+    }
+
+    #[test]
+    fn a_redacted_blob_after_reasoning_text_fails_the_stream() -> Result<(), Box<dyn StdError>> {
+        // The text was already delivered, so the blob cannot silently win;
+        // assembling text and blob together replays a corrupted sealed
+        // payload that Bedrock rejects next turn.
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+        let mut decoder = BedrockConverseCodec.stream_decoder(call.route());
+        decoder.decode(SseEvent {
+            event: Some("messageStart".to_owned()),
+            data:  json!({ "role": "assistant" }).to_string(),
+        })?;
+        decoder.decode(SseEvent {
+            event: Some("contentBlockDelta".to_owned()),
+            data:  json!({
+                "contentBlockIndex": 0,
+                "delta": { "reasoningContent": { "text": "step one" } },
+            })
+            .to_string(),
+        })?;
+
+        let error = decoder
+            .decode(SseEvent {
+                event: Some("contentBlockDelta".to_owned()),
+                data:  json!({
+                    "contentBlockIndex": 0,
+                    "delta": { "reasoningContent": { "redactedContent": "sealed-blob" } },
+                })
+                .to_string(),
+            })
+            .expect_err("a blob landing on a text block must fail the stream");
+
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
         Ok(())
     }
 
