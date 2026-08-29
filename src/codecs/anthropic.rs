@@ -95,7 +95,7 @@ impl Codec for AnthropicMessagesCodec {
         let request = call.request();
         let (mut options, controls) = wire_options(call);
         let betas = beta_headers(&mut options, request.speed());
-        let mut body = message_body(call, controls.auto_cache);
+        let mut body = message_body(call, controls.auto_cache, options.contains_key("thinking"));
         body.insert("stream".to_owned(), stream.into());
         merge_options(&mut body, options);
 
@@ -317,7 +317,7 @@ fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
     // the body means, and a count taken under different terms is not the
     // count the generation will be billed for.
     let betas = beta_headers(&mut options, call.request().speed());
-    let mut body = message_body(call, controls.auto_cache);
+    let mut body = message_body(call, controls.auto_cache, options.contains_key("thinking"));
     merge_options(&mut body, options);
     body.retain(|key, _| COUNT_TOKENS_FIELDS.contains(&key.as_str()));
 
@@ -337,7 +337,18 @@ fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
 ///
 /// Raw provider options are merged over the result by the caller, so a field
 /// encoded here is only a default the application can replace.
-fn message_body(call: &ResolvedCall, auto_cache: bool) -> Map<String, Value> {
+///
+/// `thinking_overridden` says a raw `thinking` option will replace the
+/// derived object wholesale. The recursive option merge replaces matching
+/// keys only, so a derived budget under a raw `{"type": "disabled"}` would
+/// leave a stray `budget_tokens` the API rejects; with the override the codec
+/// derives no object and keeps `max_tokens` unlifted, leaving both entirely
+/// to the caller.
+fn message_body(
+    call: &ResolvedCall,
+    auto_cache: bool,
+    thinking_overridden: bool,
+) -> Map<String, Value> {
     let request = call.request();
     let route = call.route();
     // A model that cannot cache would reject the breakpoints outright.
@@ -385,7 +396,7 @@ fn message_body(call: &ResolvedCall, auto_cache: bool) -> Map<String, Value> {
     // `thinking`, which is why both are encoded here rather than per endpoint.
     let thinking_allowed = !forces_tool_use(request.tool_choice());
     let mut max_tokens = output_limit(call);
-    if thinking_allowed {
+    if thinking_allowed && !thinking_overridden {
         if let Some(budget) = thinking_budget(call, max_tokens) {
             if max_tokens <= budget {
                 max_tokens = budget.saturating_add(MIN_THINKING_BUDGET);
@@ -433,10 +444,10 @@ fn output_config(call: &ResolvedCall) -> Map<String, Value> {
     // A model without effort levels gets a thinking budget instead; sending
     // `effort` too would ask the provider to honor a control the model does
     // not take.
-    if let Some(effort) = request.reasoning_effort() {
-        if takes_effort_levels(call.route()) {
-            config.insert("effort".to_owned(), anthropic_effort(effort).into());
-        }
+    if let Some(effort) = request.reasoning_effort()
+        && takes_effort_levels(call.route())
+    {
+        config.insert("effort".to_owned(), anthropic_effort(effort).into());
     }
     if let Some(schema) = request.response_format().and_then(json_schema) {
         config.insert(
@@ -2198,6 +2209,35 @@ mod tests {
             json!({ "type": "enabled", "budget_tokens": 6000 })
         );
         assert_eq!(counted.body.get("max_tokens"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn a_raw_thinking_option_replaces_the_derived_budget() -> Result<(), Box<dyn StdError>> {
+        // Merging the raw object into the derived budget would leave a stray
+        // `budget_tokens` beside `"type": "disabled"`, which the API rejects,
+        // and would keep an output limit lifted for a budget nobody sends.
+        let call = resolved_in(
+            BUDGET_MODEL_CATALOG,
+            Request::builder()
+                .model("anthropic/claude-sonnet-4-5")
+                .user("Hello")
+                .reasoning_effort(ReasoningEffort::Max)
+                .max_output_tokens(2048)
+                .provider_option("anthropic", "thinking", json!({ "type": "disabled" }))
+                .build()?,
+        )?;
+        let codec = AnthropicMessagesCodec;
+
+        let encoded = codec.encode(&call, false)?;
+        assert_eq!(encoded.body["thinking"], json!({ "type": "disabled" }));
+        assert_eq!(encoded.body["max_tokens"], 2048);
+
+        // The count body must carry the same clean object generation sends.
+        let counted = codec
+            .encode_count_tokens(&call)
+            .ok_or("Anthropic should count tokens")??;
+        assert_eq!(counted.body["thinking"], json!({ "type": "disabled" }));
         Ok(())
     }
 
