@@ -247,9 +247,11 @@ impl OpenAiResponsesCodec {
         // reasoning is asked for instead, so a reasoning item can be replayed
         // from the transcript on the next turn.
         body.insert("store".to_owned(), Value::Bool(false));
-        if call.route().model().capabilities().reasoning {
-            body.insert("include".to_owned(), json!(["reasoning.encrypted_content"]));
-        }
+        // Requested unconditionally, as the reference client did. Gating it
+        // on the catalog's `reasoning` flag silently breaks multi-turn tool
+        // calling for an overlay entry that omits the flag on a reasoning
+        // model, and a model without reasoning ignores the include.
+        body.insert("include".to_owned(), json!(["reasoning.encrypted_content"]));
 
         if !self.codex {
             if let Some(tokens) = request.max_output_tokens() {
@@ -846,9 +848,11 @@ fn decode_tool_call(item: &Value, kind: ToolCallKind) -> ToolCall {
 
 /// Decodes one `reasoning` output item into the parts it contributes.
 ///
-/// The visible summary becomes reasoning content. The whole item is kept
-/// verbatim whenever it carries encrypted or otherwise opaque state, because
-/// only the original item can be replayed on the next turn.
+/// The visible summary becomes reasoning content, and the whole item is kept
+/// verbatim — summary-only items included. Replaying a turn's function calls
+/// without their preceding reasoning item draws a provider 400 when the
+/// conversation is not stored, and only the original item, its id included,
+/// satisfies that pairing.
 fn decode_reasoning(item: &Value) -> Vec<ContentPart> {
     let text = reasoning_text(item);
     let mut parts = Vec::new();
@@ -859,9 +863,7 @@ fn decode_reasoning(item: &Value) -> Vec<ContentPart> {
             redacted: false,
         }));
     }
-    if is_opaque_reasoning(item) {
-        parts.push(ContentPart::opaque(REASONING_KIND, item.clone()));
-    }
+    parts.push(ContentPart::opaque(REASONING_KIND, item.clone()));
     parts
 }
 
@@ -875,14 +877,6 @@ fn reasoning_text(item: &Value) -> String {
         .filter_map(|part| part.get("text").and_then(Value::as_str))
         .collect::<Vec<_>>()
         .join("")
-}
-
-/// Whether a reasoning item must be preserved verbatim for replay.
-fn is_opaque_reasoning(item: &Value) -> bool {
-    let encrypted = item
-        .get("encrypted_content")
-        .is_some_and(|value| !value.is_null());
-    encrypted || reasoning_text(item).is_empty()
 }
 
 /// Normalizes the response status into a finish reason.
@@ -1158,10 +1152,8 @@ impl ResponsesStream {
         let visible = self.delivered.contains(id);
         events.extend(self.assembler.end(id));
 
-        if !is_opaque_reasoning(item) {
-            return events;
-        }
-
+        // Every reasoning item is kept whole, summary-only ones included;
+        // see `decode_reasoning` for the replay pairing that requires it.
         let opaque = if visible {
             ContentBlockId::new(format!("{}-item", id.as_str()))
         } else {
@@ -1309,7 +1301,7 @@ mod tests {
 
     use super::{COUNT_TOKENS_FIELDS, Codec, MESSAGE_KIND, OpenAiResponsesCodec, REASONING_KIND};
     use crate::adapter::ResolvedCall;
-    use crate::codecs::test_support::resolved;
+    use crate::codecs::test_support::{resolved, resolved_in};
     use crate::transport::SseEvent;
     use crate::types::{
         ContentBlockId, ContentPart, ErrorKind, FinishReason, Message, ReasoningContent, Request,
@@ -1580,6 +1572,74 @@ mod tests {
         assert_eq!(response.usage.cache_write, 0);
         assert_eq!(response.usage.total(), 150);
         assert_eq!(response.cost, None);
+        Ok(())
+    }
+
+    #[test]
+    fn encrypted_reasoning_is_requested_without_the_catalog_flag() -> Result<(), Box<dyn StdError>>
+    {
+        // An overlay entry that forgets `reasoning = true` on a reasoning
+        // model must not silently lose the encrypted content its next turn
+        // needs; a model without reasoning ignores the include.
+        let call = resolved_in(
+            r#"
+            schema_version = 1
+
+            [providers.openai]
+            display_name = "OpenAI"
+            adapter = "openai"
+            codec = "openai-responses"
+            base_url = "https://api.openai.com"
+            default_model = "overlay"
+            auth = { type = "bearer" }
+
+            [providers.openai.models.overlay]
+            display_name = "Overlay"
+            api_model = "overlay-v1"
+            capabilities = { text = true }
+            "#,
+            Request::builder()
+                .model("openai/overlay")
+                .user("hi")
+                .build()?,
+        )?;
+
+        let encoded = codec().encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["include"],
+            json!(["reasoning.encrypted_content"])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_summary_only_reasoning_item_is_kept_for_replay() -> Result<(), Box<dyn StdError>> {
+        // Function calls must replay behind their reasoning item, and only
+        // the original item with its id satisfies the pairing — even when it
+        // carries a visible summary and no encrypted payload.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let item = json!({
+            "type": "reasoning",
+            "id": "rs_1",
+            "summary": [{ "type": "summary_text", "text": "checked" }],
+        });
+
+        let response = codec().decode_response(
+            &route,
+            json!({ "id": "resp_1", "status": "completed", "output": [item.clone()] }),
+        )?;
+
+        assert_eq!(response.content, vec![
+            ContentPart::Reasoning(ReasoningContent {
+                text:      "checked".to_owned(),
+                signature: None,
+                redacted:  false,
+            }),
+            ContentPart::opaque(REASONING_KIND, item),
+        ]);
         Ok(())
     }
 
