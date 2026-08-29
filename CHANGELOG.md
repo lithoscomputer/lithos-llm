@@ -6,6 +6,77 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Round-2 parity fixes
+
+A second differential review against the reference implementation
+(`.ai/reviews/lithos-llm-vs-fabro-llm-round-2.md`, punch list in
+`.ai/plans/lithos-llm-punch-list-2.md`) landed these on top of the round-1
+work:
+
+- Passthrough routes skip capability validation: the catalog cannot describe
+  an uncataloged model, so tools, media, sampling, and structured output
+  dispatch and the provider judges them.
+- A `cache_breakpoints` model capability gates the OpenAI-compatible codec's
+  Anthropic-style breakpoints. `caching = true` alone no longer rewrites
+  string content into part arrays; entries for aggregator-fronted Anthropic
+  models must now set both flags.
+- Cost estimates price the speed the codec put on the wire, and the Chat
+  codec reports the speed control it cannot express instead of silently
+  billing a fast tier for a standard call.
+- Cache buckets without a catalog rate bill at zero instead of the input
+  rate, and the Anthropic and Bedrock protocols derive a missing cache-write
+  rate as 1.25x input, restoring the reference billing policy.
+- A 200 body without a Responses `output` array, a Chat choice without a
+  message object or with a tool call missing its id or function name, and a
+  Converse body without its output message are decode errors instead of
+  successful empty responses.
+- A refusal is a classified content-filter error on the Chat codec too, on
+  both the blocking and streaming paths.
+- A caller's request timeout expiring mid-stream keeps the never-retry rule
+  and reports as a timeout; a usage snapshot no longer closes the
+  stream-retry window before content exists.
+- Streaming replay integrity: an unknown Anthropic block keeps its streamed
+  `input`; each streamed Gemini thought signature seals its own reasoning
+  part instead of concatenating; a lost OpenAI `output_item.added` recovers
+  the call id and name from the terminal item event; and a Chat argument
+  fragment for a never-opened slot fails the stream instead of fabricating a
+  nameless call.
+- `ReasoningContent` records the signature family that minted its signature
+  (`signature_origin`), and each encoder skips a foreign-signed reasoning
+  part with a warning instead of replaying a signature the provider rejects.
+  Anthropic Messages and Bedrock Converse share one family, so failover
+  between them keeps signatures. Parts persisted without an origin replay
+  unchanged.
+- Migration compatibility: `"tool_calls"` still deserializes as the
+  tool-call finish reason, a stored `Warning` with `"code": null` loads, and
+  a Gemini `thoughtSignature` persisted at the metadata top level still
+  replays.
+- Bedrock: `reasoning_effort` gets the effort-levels gate, the thinking
+  budget translation, and forced-tool-choice suppression the Anthropic codec
+  applies; `tool_choice: none` keeps `toolConfig` when the history carries
+  tool blocks, since Converse requires it; streaming requests send
+  `accept: application/vnd.amazon.eventstream` again.
+- Whitespace-only system prompts are omitted again on Anthropic, Bedrock,
+  and Gemini.
+- Gemini `countTokens` carries the required nested
+  `generateContentRequest.model` field.
+- OpenAI Responses requests `reasoning.encrypted_content` unconditionally
+  and preserves every reasoning item — summary-only ones included — so
+  multi-turn tool calling with `store=false` survives an overlay catalog
+  that omits the `reasoning` flag.
+- An unknown Responses status keeps its spelling instead of collapsing into
+  `stop`, and a stream whose terminal document lost its output still reports
+  a tool-call finish reason from the assembled blocks.
+- Usage detail counters clamp to their parent totals, so an inconsistent
+  skin counter cannot inflate totals or estimated cost.
+
+Migration notes: `json_schema` response formats are always `strict: true`
+(the raw `response_format` provider option is the escape hatch); manual
+`provider_options.anthropic.thinking` toggles on always-adaptive models now
+fail at the provider instead of locally; `ReasoningContent` and
+`ModelCapabilities` gained public fields, which breaks struct-literal
+construction downstream.
+
 ### Added
 
 - Named catalog layers through `CatalogBuilder::toml_layer`, with the layer
