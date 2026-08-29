@@ -30,9 +30,9 @@ The first live E2E runs against Venice
   shorthand. Where a model row claims the new `cache_routing` capability,
   the default sends a stable fingerprint of the system messages and tool
   definitions as `prompt_cache_key` on the OpenAI-style protocols, so
-  every turn of a conversation routes to the replica holding its cache
-  entry. Without the hint, Venice wrote the same Claude cache entry on
-  every call and never read one. `auto_cache: false` or
+  every turn of a conversation routes to the backend session holding its
+  cache entry (OpenAI documents the field; Venice maps it to session
+  affinity on several of its backends). `auto_cache: false` or
   `CacheHint::Disabled` turns it off; a raw `prompt_cache_key` in
   `provider_options` still wins.
 
@@ -60,6 +60,12 @@ work:
   conservative passthrough capabilities previously routed it to a manual
   thinking budget, which the always-adaptive models — the models
   passthrough exists to reach — reject with a 400.
+- A Responses `refusal` content part is a classified `ContentFilter` error,
+  blocking and streaming, instead of a successful empty response — the last
+  codec brought under the refusal-as-error contract (Anthropic and Bedrock
+  in round 1, Chat in round 2). A json_schema request the model refuses now
+  fails visibly and failover-eligibly instead of handing the caller empty
+  content.
 
 ### Round-3 parity fixes
 

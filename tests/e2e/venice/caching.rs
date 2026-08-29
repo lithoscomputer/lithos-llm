@@ -25,15 +25,19 @@ mod round_trip {
 
 /// A deterministic prefix comfortably above every known minimum cacheable
 /// size (1024 tokens is the common floor; DeepSeek-style caches use 64-token
-/// blocks). Repetition keeps it cheap to author; determinism keeps the second
-/// call byte-identical, which is what a prefix cache keys on.
+/// blocks).
+///
+/// The text must be genuinely varied, not a repeated paragraph: on
+/// 2026-08-29 a paragraph repeated 120 times wrote a 13k-token cache entry
+/// on Venice's Claude path on every call and never read one, while varied
+/// prose of the same size read back cleanly — and Anthropic-direct refuses
+/// the same repetitive content outright. The crate's own changelog is
+/// committed, large, and varied, so it serves as the corpus.
 fn large_prefix() -> String {
-    let paragraph = "You are the reference desk for a fictional municipal library. \
-        The library has twelve reading rooms, a map archive, a seed vault, a tool \
-        lending desk, and a rooftop observatory. Opening hours differ per room and \
-        per season, fines are waived on rainy days, and the catalog is sorted by \
-        the second letter of each title. Answer every question from these rules. ";
-    paragraph.repeat(120)
+    format!(
+        "You answer questions about this changelog:\n\n{}",
+        include_str!("../../../CHANGELOG.md")
+    )
 }
 
 async fn caches_a_shared_prefix(model: &str) -> TestResult {
@@ -45,17 +49,17 @@ async fn caches_a_shared_prefix(model: &str) -> TestResult {
     };
     let prefix = large_prefix();
 
-    // Venice routes cache hits by `prompt_cache_key`: without it, the pair
-    // can land on different backend replicas, and on 2026-08-29 the Claude
-    // path wrote 13k tokens of cache on BOTH calls and read nothing. The
-    // codec now derives the key automatically (`CacheHint::Auto` over the
-    // shared system prefix), so this pair exercises exactly what an
-    // application gets by default.
+    // The codec derives a `prompt_cache_key` automatically
+    // (`CacheHint::Auto` over the shared system prefix), so this pair
+    // exercises exactly what an application gets by default. Venice uses
+    // the key for backend session affinity; Claude caching on Venice was
+    // verified to read back with and without it once the prefix is varied
+    // text and the read side waits out cache propagation.
     let first = client
         .complete(
             venice::request(model)
                 .system(prefix.clone())
-                .user("How many reading rooms are there? Answer with just the number.")
+                .user("Which project does this changelog describe? Answer with just its name.")
                 .build()?,
         )
         .await?;
@@ -70,7 +74,7 @@ async fn caches_a_shared_prefix(model: &str) -> TestResult {
             .complete(
                 venice::request(model)
                     .system(prefix.clone())
-                    .user("Does the library have an observatory? Answer yes or no.")
+                    .user("Does the changelog mention streaming? Answer yes or no.")
                     .build()?,
             )
             .await?;
