@@ -12,7 +12,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "342"
+      "438"
     ],
     [
       "content-type",
@@ -61,6 +61,12 @@ expression: rendered
         "type": "object"
       },
       "responseMimeType": "application/json"
-    }
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
   }
 }

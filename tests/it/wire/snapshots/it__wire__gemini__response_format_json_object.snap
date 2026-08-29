@@ -12,7 +12,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "169"
+      "265"
     ],
     [
       "content-type",
@@ -45,6 +45,12 @@ expression: rendered
     "generationConfig": {
       "maxOutputTokens": 128,
       "responseMimeType": "application/json"
-    }
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
   }
 }

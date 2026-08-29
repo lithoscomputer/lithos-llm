@@ -5,7 +5,7 @@ expression: rendered
 [
   {
     "type": "tool_call",
-    "id": "search-0",
+    "id": "search-0-resp-gemini-ids",
     "name": "search",
     "arguments": {
       "query": "rust"
@@ -18,7 +18,7 @@ expression: rendered
   },
   {
     "type": "tool_call",
-    "id": "search-1",
+    "id": "search-1-resp-gemini-ids",
     "name": "search",
     "arguments": {
       "query": "gemini"

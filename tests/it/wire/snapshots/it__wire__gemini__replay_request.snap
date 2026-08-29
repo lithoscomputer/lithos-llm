@@ -1,6 +1,5 @@
 ---
 source: tests/it/wire/gemini.rs
-assertion_line: 623
 expression: rendered
 ---
 {
@@ -13,7 +12,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "631"
+      "727"
     ],
     [
       "content-type",
@@ -78,6 +77,12 @@ expression: rendered
     "generationConfig": {
       "maxOutputTokens": 128
     },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ],
     "tools": [
       {
         "functionDeclarations": [

@@ -12,7 +12,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "174"
+      "270"
     ],
     [
       "content-type",
@@ -50,6 +50,12 @@ expression: rendered
       ],
       "temperature": 0.7,
       "topP": 0.9
-    }
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
   }
 }
