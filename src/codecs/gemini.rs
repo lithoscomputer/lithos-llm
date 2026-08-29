@@ -403,9 +403,15 @@ fn encode_media(source: &MediaSource) -> Value {
         MediaSource::Base64 { data, media_type } => json!({
             "inlineData": { "mimeType": media_type, "data": data }
         }),
-        // A URL source carries no media type, so none is declared and Gemini
-        // determines it from the fetched file.
-        MediaSource::Url { url } => json!({ "fileData": { "fileUri": url } }),
+        // Vertex-style surfaces require `mimeType` on file references, so a
+        // declared type goes on the wire. A URL without one is still sent —
+        // some endpoints determine the type from the fetched file.
+        MediaSource::Url { url, media_type } => match media_type {
+            Some(media_type) => json!({
+                "fileData": { "fileUri": url, "mimeType": media_type }
+            }),
+            None => json!({ "fileData": { "fileUri": url } }),
+        },
     }
 }
 
@@ -991,9 +997,9 @@ mod tests {
     use crate::codecs::test_support::resolved;
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentPart, Error, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
-        ReasoningEffort, Request, Response, ResponseFormat, RetryClassification, Role, Speed,
-        StreamEvent, ToolCall, ToolDefinition, ToolResult,
+        ContentPart, DocumentContent, Error, ErrorKind, FinishReason, ImageContent, MediaSource,
+        Message, ReasoningEffort, Request, Response, ResponseFormat, RetryClassification, Role,
+        Speed, StreamEvent, ToolCall, ToolDefinition, ToolResult,
     };
 
     fn object(value: Value) -> Result<Map<String, Value>, Box<dyn StdError>> {
@@ -1104,6 +1110,10 @@ mod tests {
                     ContentPart::Image(ImageContent::new(MediaSource::url(
                         "https://example.com/cat.png",
                     ))),
+                    ContentPart::Document(DocumentContent::new(MediaSource::url_with_media_type(
+                        "https://example.com/report.pdf",
+                        "application/pdf",
+                    ))),
                 ]))
                 .message(Message::new(Role::Tool, [ContentPart::ToolResult(
                     ToolResult {
@@ -1128,15 +1138,24 @@ mod tests {
             encoded.body["contents"][0]["parts"][1]["fileData"],
             json!({ "fileUri": "https://example.com/cat.png" })
         );
+        // A declared media type reaches the wire: Vertex-style surfaces
+        // require `mimeType` on file references.
+        assert_eq!(
+            encoded.body["contents"][0]["parts"][2]["fileData"],
+            json!({
+                "fileUri": "https://example.com/report.pdf",
+                "mimeType": "application/pdf"
+            })
+        );
         // The media message and the tool result both map to the `user` role,
         // so they merge into one turn rather than two consecutive ones.
         assert_eq!(encoded.body["contents"].as_array().map(Vec::len), Some(1));
         assert_eq!(
-            encoded.body["contents"][0]["parts"][2]["functionResponse"]["id"],
+            encoded.body["contents"][0]["parts"][3]["functionResponse"]["id"],
             "call-1"
         );
         assert_eq!(
-            encoded.body["contents"][0]["parts"][2]["functionResponse"]["name"],
+            encoded.body["contents"][0]["parts"][3]["functionResponse"]["name"],
             "weather"
         );
         Ok(())

@@ -810,7 +810,7 @@ fn content_block(part: &ContentPart) -> Option<Value> {
 /// Encodes a media source as an Anthropic `source` object.
 fn media_source(source: &MediaSource) -> Value {
     match source {
-        MediaSource::Url { url } => json!({ "type": "url", "url": url }),
+        MediaSource::Url { url, .. } => json!({ "type": "url", "url": url }),
         MediaSource::Base64 { data, media_type } => json!({
             "type": "base64",
             "media_type": media_type,

@@ -148,7 +148,14 @@ impl ContentPart {
 #[non_exhaustive]
 pub enum MediaSource {
     Url {
-        url: String,
+        url:        String,
+        /// The declared media type of the file behind the URL.
+        ///
+        /// Some protocols require it — Gemini's `fileData.mimeType` — and no
+        /// provider can be trusted to sniff one. Codecs send it when the
+        /// protocol has a field for it and otherwise ignore it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        media_type: Option<String>,
     },
     Base64 {
         data:       String,
@@ -159,7 +166,18 @@ pub enum MediaSource {
 impl MediaSource {
     /// Creates a source the provider fetches from a URL.
     pub fn url(url: impl Into<String>) -> Self {
-        Self::Url { url: url.into() }
+        Self::Url {
+            url:        url.into(),
+            media_type: None,
+        }
+    }
+
+    /// Creates a URL source with the media type of the file behind it.
+    pub fn url_with_media_type(url: impl Into<String>, media_type: impl Into<String>) -> Self {
+        Self::Url {
+            url:        url.into(),
+            media_type: Some(media_type.into()),
+        }
     }
 
     /// Creates an inline source from base64 data and its media type.
@@ -186,10 +204,13 @@ impl MediaSource {
         Self::url(source)
     }
 
-    /// The declared media type, which only an inline source carries.
+    /// The declared media type, when the source carries one.
+    ///
+    /// An inline source always has one; a URL source has one only when the
+    /// caller declared it.
     pub fn media_type(&self) -> Option<&str> {
         match self {
-            Self::Url { .. } => None,
+            Self::Url { media_type, .. } => media_type.as_deref(),
             Self::Base64 { media_type, .. } => Some(media_type),
         }
     }

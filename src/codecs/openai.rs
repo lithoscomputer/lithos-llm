@@ -592,7 +592,7 @@ fn message_content(message: &Message, skip_text: bool) -> Vec<Value> {
                 let mut item = json!({ "type": "input_file" });
                 if let Some(object) = item.as_object_mut() {
                     match &document.source {
-                        MediaSource::Url { url } => {
+                        MediaSource::Url { url, .. } => {
                             object.insert("file_url".to_owned(), Value::String(url.clone()));
                         }
                         MediaSource::Base64 { .. } => {
@@ -740,7 +740,7 @@ fn result_output(result: &ToolResult) -> String {
 /// Encodes one image or media source as the URL this protocol accepts.
 fn media_url(source: &MediaSource) -> String {
     match source {
-        MediaSource::Url { url } => url.clone(),
+        MediaSource::Url { url, .. } => url.clone(),
         MediaSource::Base64 { data, media_type } => format!("data:{media_type};base64,{data}"),
     }
 }

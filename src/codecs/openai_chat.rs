@@ -876,7 +876,7 @@ fn encode_content_part(part: &ContentPart) -> Option<Value> {
 /// accepts them; there is no separate base64 shape.
 fn encode_image(image: &ImageContent) -> Value {
     let url = match &image.source {
-        MediaSource::Url { url } => url.clone(),
+        MediaSource::Url { url, .. } => url.clone(),
         MediaSource::Base64 { data, media_type } => format!("data:{media_type};base64,{data}"),
     };
     let mut image_url = json!({ "url": url });

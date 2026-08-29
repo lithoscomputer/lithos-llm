@@ -401,9 +401,10 @@ async fn url_attachments_request() {
     // line this crate draws. The alternative — dropping the part — would be
     // silent data loss.
     //
-    // It declares no `mimeType`, because the canonical `MediaSource::Url`
-    // carries none and inventing one would be worse, and it drops the image
-    // `detail` hint, which this protocol has no field for.
+    // It declares no `mimeType`, because these URL sources declare no media
+    // type and inventing one would be worse (a declared type goes on the
+    // wire), and it drops the image `detail` hint, which this protocol has no
+    // field for.
     let parts = &request.body["contents"][0]["parts"];
     assert_eq!(
         parts[1]["fileData"],
