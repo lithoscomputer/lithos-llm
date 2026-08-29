@@ -221,10 +221,18 @@ async fn probes_the_effort_vocabulary(model: &str) -> TestResult {
             .reasoning_effort(effort)
             .build()?;
         match client.complete(request).await {
-            Ok(response) => support::observe(&format!(
-                "{model} accepted effort {effort:?} (reasoning tokens: {})",
-                response.usage.reasoning
-            )),
+            Ok(response) => {
+                let reasoning_parts = response
+                    .content
+                    .iter()
+                    .filter(|part| matches!(part, ContentPart::Reasoning(_)))
+                    .count();
+                support::observe(&format!(
+                    "{model} accepted effort {effort:?} (reasoning tokens: {}, reasoning parts: \
+                     {reasoning_parts})",
+                    response.usage.reasoning
+                ));
+            }
             Err(error)
                 if matches!(
                     error.kind(),

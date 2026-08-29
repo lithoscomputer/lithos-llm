@@ -943,8 +943,9 @@ fn decode_error(route: &ResolvedRoute, detail: impl Into<String>, raw: Value) ->
 struct ResponsesStream {
     assembler: StreamAssembler,
     route:     ResolvedRoute,
-    /// Blocks that already received content, so a terminal item does not
-    /// duplicate what the deltas delivered.
+    /// Blocks that already received content, so a terminal reasoning item
+    /// knows whether visible text streamed and its opaque replay block needs
+    /// a derived id.
     delivered: BTreeSet<ContentBlockId>,
     /// Blocks for model-internal items, whose deltas open no block at all.
     skipped:   BTreeSet<ContentBlockId>,
@@ -1094,9 +1095,7 @@ impl ResponsesStream {
         }
 
         let mut events = self.start_item(id, item);
-        if !self.delivered.contains(id) {
-            events.extend(self.recover_item(id, item));
-        }
+        events.extend(self.reconcile_item(id, item));
         events.extend(self.assembler.end(id));
 
         // The message item itself replays; the text block only carries what a
@@ -1109,33 +1108,40 @@ impl ResponsesStream {
         events
     }
 
-    /// Delivers the content of an item that streamed no deltas of its own.
-    fn recover_item(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
-        match item.get("type").and_then(Value::as_str) {
-            Some("message") => {
-                let text = message_text(item);
-                if text.is_empty() {
-                    return Vec::new();
-                }
-                self.deliver(id, |assembler| assembler.text(id, &text))
-            }
+    /// Reconciles a block with its terminal item event, which carries the
+    /// item's complete content.
+    ///
+    /// The terminal event is the ground truth: an item that streamed no
+    /// deltas is delivered whole, a delta lost in transit has its missing
+    /// tail appended, and a buffer that disagrees is replaced — so streaming
+    /// and blocking decode the same response identically.
+    fn reconcile_item(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
+        let (kind, content) = match item.get("type").and_then(Value::as_str) {
+            Some("message") => (ContentBlockKind::Text, message_text(item)),
             Some(kind @ ("function_call" | "custom_tool_call")) => {
                 let key = match kind {
                     "custom_tool_call" => "input",
                     _ => "arguments",
                 };
-                let arguments = item
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_owned();
-                if arguments.is_empty() {
-                    return Vec::new();
-                }
-                self.deliver(id, |assembler| assembler.arguments(id, &arguments))
+                let fallback = ContentBlockKind::ToolCall {
+                    id:   id.as_str().to_owned(),
+                    name: None,
+                    kind: ToolCallKind::Function,
+                };
+                (
+                    fallback,
+                    item.get(key)
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned(),
+                )
             }
-            _ => Vec::new(),
+            _ => return Vec::new(),
+        };
+        if content.is_empty() {
+            return Vec::new();
         }
+        self.deliver(id, |assembler| assembler.reconcile(id, kind, &content))
     }
 
     /// Closes a reasoning item, keeping the whole item when it must be
@@ -1147,8 +1153,12 @@ impl ResponsesStream {
     fn end_reasoning(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
         let text = reasoning_text(item);
         let mut events = Vec::new();
-        if !self.delivered.contains(id) && !text.is_empty() {
-            events.extend(self.deliver(id, |assembler| assembler.reasoning(id, &text)));
+        // The terminal item is the ground truth for the visible text, the
+        // same reconciliation the other item kinds get.
+        if !text.is_empty() {
+            events.extend(self.deliver(id, |assembler| {
+                assembler.reconcile(id, ContentBlockKind::Reasoning, &text)
+            }));
         }
         let visible = self.delivered.contains(id);
         events.extend(self.assembler.end(id));
@@ -1912,6 +1922,131 @@ mod tests {
         assert_eq!(recovered.id, "call_abc");
         assert_eq!(recovered.name, "search");
         assert_eq!(recovered.arguments, json!({ "query": "rust" }));
+        Ok(())
+    }
+
+    #[test]
+    fn a_lost_argument_delta_is_healed_by_the_terminal_item() -> Result<(), Box<dyn StdError>> {
+        // One argument fragment never arrives. The terminal item carries the
+        // complete arguments, so the assembled call must not keep the
+        // truncation — and the missing tail goes out as an ordinary delta so
+        // a consumer concatenating fragments stays correct too.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": {
+                    "type": "function_call",
+                    "id": "fc_123",
+                    "call_id": "call_abc",
+                    "name": "search",
+                },
+            }),
+            json!({
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_123",
+                "delta": "{\"query\":",
+            }),
+            // The fragment carrying "\"rust\"}" is lost in transit.
+            json!({
+                "type": "response.output_item.done",
+                "output_index": 0,
+                "item": {
+                    "type": "function_call",
+                    "id": "fc_123",
+                    "call_id": "call_abc",
+                    "name": "search",
+                    "arguments": "{\"query\":\"rust\"}",
+                },
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        let tails: Vec<&str> = events
+            .iter()
+            .filter_map(|event| match event {
+                StreamEvent::ToolCallDelta { arguments, .. } => Some(arguments.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(tails, ["{\"query\":", "\"rust\"}"]);
+        let parts = ended_parts(&events);
+        let [ContentPart::ToolCall(healed)] = parts.as_slice() else {
+            return Err(format!("expected one tool call part, got {parts:?}").into());
+        };
+        assert_eq!(healed.arguments, json!({ "query": "rust" }));
+        assert_eq!(
+            healed.raw_arguments.as_deref(),
+            Some("{\"query\":\"rust\"}")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_garbled_argument_buffer_is_replaced_by_the_terminal_item() -> Result<(), Box<dyn StdError>>
+    {
+        // The streamed fragments disagree with the terminal item — not a
+        // prefix, so something was mangled in transit. The terminal item is
+        // the ground truth and replaces the buffer outright.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": {
+                    "type": "function_call",
+                    "id": "fc_123",
+                    "call_id": "call_abc",
+                    "name": "search",
+                },
+            }),
+            json!({
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_123",
+                "delta": "\"rust\"}",
+            }),
+            json!({
+                "type": "response.output_item.done",
+                "output_index": 0,
+                "item": {
+                    "type": "function_call",
+                    "id": "fc_123",
+                    "call_id": "call_abc",
+                    "name": "search",
+                    "arguments": "{\"query\":\"rust\"}",
+                },
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        let parts = ended_parts(&events);
+        let [ContentPart::ToolCall(replaced)] = parts.as_slice() else {
+            return Err(format!("expected one tool call part, got {parts:?}").into());
+        };
+        assert_eq!(replaced.arguments, json!({ "query": "rust" }));
+        assert_eq!(
+            replaced.raw_arguments.as_deref(),
+            Some("{\"query\":\"rust\"}")
+        );
         Ok(())
     }
 

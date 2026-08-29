@@ -25,6 +25,11 @@ work:
   count, and shape — instead of passing through the stream coalescer, which
   merged same-type unindexed entries and dropped the second entry's
   signature.
+- A Responses stream reconciles every block with its terminal
+  `output_item.done` item: a delta lost in transit has its missing tail
+  delivered, and a buffer the deltas garbled is replaced, so streaming and
+  blocking decode the same response identically instead of keeping silently
+  truncated tool arguments.
 
 ### Round-2 parity fixes
 

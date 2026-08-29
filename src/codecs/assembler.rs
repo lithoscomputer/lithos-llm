@@ -324,6 +324,50 @@ impl StreamAssembler {
         }
     }
 
+    /// Reconciles a block's accumulated content with the authoritative whole.
+    ///
+    /// A protocol whose terminal item event carries the item's complete
+    /// content — OpenAI's `output_item.done` — treats that event as the
+    /// ground truth. A buffer that already matches is left alone; a buffer
+    /// the deltas left short gains the missing tail as an ordinary delta
+    /// event; a buffer that is not a prefix of the whole was garbled in
+    /// transit and is replaced outright, with no event, so the assembled
+    /// part still matches what a blocking decode of the same document
+    /// produces. An unknown, closed, or opaque block is ignored.
+    pub(crate) fn reconcile(
+        &mut self,
+        id: &ContentBlockId,
+        kind: ContentBlockKind,
+        content: &str,
+    ) -> Vec<StreamEvent> {
+        let mut events = self.latch(id, kind);
+        let Some(index) = self.find(id) else {
+            return events;
+        };
+        let block = &self.blocks[index];
+        if !block.open || block.buffer == content {
+            return events;
+        }
+
+        if let Some(missing) = content.strip_prefix(block.buffer.as_str()) {
+            let missing = missing.to_owned();
+            events.extend(match &block.kind {
+                ContentBlockKind::Text => self.text(id, &missing),
+                ContentBlockKind::Reasoning => self.reasoning(id, &missing),
+                ContentBlockKind::ToolCall { .. } => self.arguments(id, &missing),
+                ContentBlockKind::Opaque { .. } => Vec::new(),
+            });
+            return events;
+        }
+        if matches!(block.kind, ContentBlockKind::Opaque { .. }) {
+            return events;
+        }
+        let block = &mut self.blocks[index];
+        block.buffer.clear();
+        block.buffer.push_str(content);
+        events
+    }
+
     /// Marks a reasoning block as redacted by the provider.
     ///
     /// The returned vector is empty unless the block had to be opened first.
