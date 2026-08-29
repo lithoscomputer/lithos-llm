@@ -3,8 +3,43 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Give me the city and its population.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "output_config": {
+      "format": {
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "city": {
+              "type": "string"
+            },
+            "population": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "city",
+            "population"
+          ],
+          "type": "object"
+        },
+        "type": "json_schema"
+      }
+    },
+    "stream": false
+  },
   "headers": [
     [
       "accept",
@@ -35,41 +70,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Give me the city and its population."
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "output_config": {
-      "format": {
-        "type": "json_schema",
-        "schema": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "city": {
-              "type": "string"
-            },
-            "population": {
-              "type": "integer"
-            }
-          },
-          "required": [
-            "city",
-            "population"
-          ]
-        }
-      }
-    },
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

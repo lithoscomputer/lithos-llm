@@ -4,22 +4,22 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": null
+    "id": null,
+    "type": "started"
   },
   {
-    "type": "error",
     "error": {
       "kind": "content_filter",
       "message": "provider bedrock refused the request",
       "provider": "bedrock",
       "provider_code": "refusal",
-      "retry": {
-        "type": "never"
-      },
       "raw_data": {
         "stopReason": "refusal"
+      },
+      "retry": {
+        "type": "never"
       }
-    }
+    },
+    "type": "error"
   }
 ]

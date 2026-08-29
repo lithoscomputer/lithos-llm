@@ -3,8 +3,35 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/responses",
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Write one sentence.",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "max_output_tokens": 128,
+    "metadata": {
+      "tenant": "acme"
+    },
+    "model": "gpt-5.6-luna-2026-04-01",
+    "stop": [
+      "END",
+      "STOP"
+    ],
+    "store": false,
+    "stream": false,
+    "temperature": 0.7,
+    "top_p": 0.9
+  },
   "headers": [
     [
       "accept",
@@ -31,33 +58,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "model": "gpt-5.6-luna-2026-04-01",
-    "input": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "input_text",
-            "text": "Write one sentence."
-          }
-        ]
-      }
-    ],
-    "stream": false,
-    "store": false,
-    "include": [
-      "reasoning.encrypted_content"
-    ],
-    "max_output_tokens": 128,
-    "temperature": 0.7,
-    "top_p": 0.9,
-    "stop": [
-      "END",
-      "STOP"
-    ],
-    "metadata": {
-      "tenant": "acme"
-    }
-  }
+  "method": "POST",
+  "path": "/v1/responses"
 }

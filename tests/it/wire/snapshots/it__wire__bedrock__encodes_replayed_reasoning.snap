@@ -3,8 +3,55 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Is 91 prime?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "reasoningContent": {
+              "reasoningText": {
+                "signature": "sig-abc",
+                "text": "91 is 7 times 13."
+              }
+            }
+          },
+          {
+            "reasoningContent": {
+              "redactedContent": "cmVkYWN0ZWQtcGF5bG9hZA=="
+            }
+          },
+          {
+            "text": "No, 91 is not prime."
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "What about 97?"
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,53 +78,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "text": "Is 91 prime?"
-          },
-          {
-            "cachePoint": {
-              "type": "default"
-            }
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "reasoningContent": {
-              "reasoningText": {
-                "text": "91 is 7 times 13.",
-                "signature": "sig-abc"
-              }
-            }
-          },
-          {
-            "reasoningContent": {
-              "redactedContent": "cmVkYWN0ZWQtcGF5bG9hZA=="
-            }
-          },
-          {
-            "text": "No, 91 is not prime."
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "text": "What about 97?"
-          }
-        ]
-      }
-    ],
-    "inferenceConfig": {
-      "maxTokens": 128
-    }
-  }
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse"
 }

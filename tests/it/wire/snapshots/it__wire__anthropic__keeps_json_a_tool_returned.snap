@@ -3,8 +3,64 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "id": "call_weather",
+            "input": {
+              "city": "Paris"
+            },
+            "name": "get_weather",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": [
+              {
+                "text": "{\"city\":\"Paris\",\"high_c\":21}",
+                "type": "text"
+              },
+              {
+                "text": "Fetched at 09:00.",
+                "type": "text"
+              }
+            ],
+            "is_error": false,
+            "tool_use_id": "call_weather",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "tools": [
+      {
+        "description": "Reads the current weather for a city",
+        "input_schema": {
+          "type": "object"
+        },
+        "name": "get_weather"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -35,62 +91,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "What is the weather in Paris?"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "tool_use",
-            "id": "call_weather",
-            "name": "get_weather",
-            "input": {
-              "city": "Paris"
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "tool_result",
-            "tool_use_id": "call_weather",
-            "content": [
-              {
-                "type": "text",
-                "text": "{\"city\":\"Paris\",\"high_c\":21}"
-              },
-              {
-                "type": "text",
-                "text": "Fetched at 09:00."
-              }
-            ],
-            "is_error": false
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "tools": [
-      {
-        "name": "get_weather",
-        "description": "Reads the current weather for a city",
-        "input_schema": {
-          "type": "object"
-        }
-      }
-    ],
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

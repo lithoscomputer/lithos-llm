@@ -4,110 +4,110 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": null
+    "id": null,
+    "type": "started"
   },
   {
-    "type": "content_block_start",
     "id": "msg_late",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "msg_late",
-    "text": "No preamble."
+    "text": "No preamble.",
+    "type": "text_delta"
   },
   {
-    "type": "content_block_end",
     "id": "msg_late",
     "part": {
-      "type": "text",
-      "text": "No preamble."
-    }
+      "text": "No preamble.",
+      "type": "text"
+    },
+    "type": "content_block_end"
   },
   {
-    "type": "content_block_start",
     "id": "msg_late-item",
     "kind": {
-      "type": "opaque",
-      "kind": "openai.message"
-    }
+      "kind": "openai.message",
+      "type": "opaque"
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "content_block_end",
     "id": "msg_late-item",
     "part": {
-      "type": "opaque",
-      "kind": "openai.message",
       "data": {
-        "type": "message",
-        "id": "msg_late",
-        "status": "completed",
-        "role": "assistant",
         "content": [
           {
-            "type": "output_text",
-            "text": "No preamble."
+            "text": "No preamble.",
+            "type": "output_text"
           }
-        ]
-      }
-    }
+        ],
+        "id": "msg_late",
+        "role": "assistant",
+        "status": "completed",
+        "type": "message"
+      },
+      "kind": "openai.message",
+      "type": "opaque"
+    },
+    "type": "content_block_end"
   },
   {
     "type": "usage",
     "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
       "input": 0,
       "output": 0,
-      "reasoning": 0,
-      "cache_read": 0,
-      "cache_write": 0
+      "reasoning": 0
     }
   },
   {
-    "type": "completed",
     "response": {
-      "id": "resp_late",
-      "model": {
-        "provider": "openai",
-        "model": "gpt-5.6-luna"
-      },
       "content": [
         {
-          "type": "text",
-          "text": "No preamble."
+          "text": "No preamble.",
+          "type": "text"
         },
         {
-          "type": "opaque",
-          "kind": "openai.message",
           "data": {
-            "type": "message",
-            "id": "msg_late",
-            "status": "completed",
-            "role": "assistant",
             "content": [
               {
-                "type": "output_text",
-                "text": "No preamble."
+                "text": "No preamble.",
+                "type": "output_text"
               }
-            ]
-          }
+            ],
+            "id": "msg_late",
+            "role": "assistant",
+            "status": "completed",
+            "type": "message"
+          },
+          "kind": "openai.message",
+          "type": "opaque"
         }
       ],
       "finish_reason": "stop",
-      "usage": {
-        "input": 0,
-        "output": 0,
-        "reasoning": 0,
-        "cache_read": 0,
-        "cache_write": 0
+      "id": "resp_late",
+      "model": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai"
       },
       "raw": {
         "id": "resp_late",
-        "status": "completed",
-        "output": []
+        "output": [],
+        "status": "completed"
+      },
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 0,
+        "output": 0,
+        "reasoning": 0
       }
-    }
+    },
+    "type": "completed"
   }
 ]

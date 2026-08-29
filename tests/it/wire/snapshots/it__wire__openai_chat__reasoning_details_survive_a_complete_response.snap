@@ -3,70 +3,70 @@ source: tests/it/wire/openai_chat.rs
 expression: rendered
 ---
 {
-  "id": "chatcmpl-details",
-  "model": {
-    "provider": "compat",
-    "model": "compat-chat"
-  },
   "content": [
     {
-      "type": "opaque",
-      "kind": "openai_compatible.reasoning_details",
       "data": [
         {
-          "type": "reasoning.encrypted",
-          "id": "rs-1",
           "data": "AQ==",
-          "index": 0
+          "id": "rs-1",
+          "index": 0,
+          "type": "reasoning.encrypted"
         },
         {
-          "type": "reasoning.text",
+          "index": 1,
           "text": "Two cities to look up.",
-          "index": 1
+          "type": "reasoning.text"
         }
-      ]
+      ],
+      "kind": "openai_compatible.reasoning_details",
+      "type": "opaque"
     },
     {
-      "type": "text",
-      "text": "Hello."
+      "text": "Hello.",
+      "type": "text"
     }
   ],
   "finish_reason": "stop",
-  "usage": {
-    "input": 11,
-    "output": 5,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "chatcmpl-details",
+  "model": {
+    "model": "compat-chat",
+    "provider": "compat"
   },
   "raw": {
-    "id": "chatcmpl-details",
     "choices": [
       {
+        "finish_reason": "stop",
         "index": 0,
         "message": {
-          "role": "assistant",
           "content": "Hello.",
           "reasoning_details": [
             {
-              "type": "reasoning.encrypted",
-              "id": "rs-1",
               "data": "AQ==",
-              "index": 0
+              "id": "rs-1",
+              "index": 0,
+              "type": "reasoning.encrypted"
             },
             {
-              "type": "reasoning.text",
+              "index": 1,
               "text": "Two cities to look up.",
-              "index": 1
+              "type": "reasoning.text"
             }
-          ]
-        },
-        "finish_reason": "stop"
+          ],
+          "role": "assistant"
+        }
       }
     ],
+    "id": "chatcmpl-details",
     "usage": {
-      "prompt_tokens": 11,
-      "completion_tokens": 5
+      "completion_tokens": 5,
+      "prompt_tokens": 11
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 11,
+    "output": 5,
+    "reasoning": 0
   }
 }

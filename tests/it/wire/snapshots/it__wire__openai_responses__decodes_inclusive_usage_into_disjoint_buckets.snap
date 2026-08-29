@@ -3,26 +3,19 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "id": "resp_usage",
-  "model": {
-    "provider": "openai",
-    "model": "gpt-5.6-luna"
-  },
   "content": [],
   "finish_reason": "stop",
-  "usage": {
-    "input": 20,
-    "output": 30,
-    "reasoning": 20,
-    "cache_read": 80,
-    "cache_write": 0
+  "id": "resp_usage",
+  "model": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai"
   },
   "raw": {
     "id": "resp_usage",
-    "object": "response",
-    "status": "completed",
     "model": "gpt-5.6-luna-2026-04-01",
+    "object": "response",
     "output": [],
+    "status": "completed",
     "usage": {
       "input_tokens": 100,
       "input_tokens_details": {
@@ -34,5 +27,12 @@ expression: rendered
       },
       "total_tokens": 150
     }
+  },
+  "usage": {
+    "cache_read": 80,
+    "cache_write": 0,
+    "input": 20,
+    "output": 30,
+    "reasoning": 20
   }
 }

@@ -3,8 +3,28 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 8000,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Plan a trip to Paris.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "output_config": {
+      "effort": "high"
+    },
+    "stream": false,
+    "thinking": {
+      "type": "adaptive"
+    }
+  },
   "headers": [
     [
       "accept",
@@ -35,26 +55,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Plan a trip to Paris."
-          }
-        ]
-      }
-    ],
-    "thinking": {
-      "type": "adaptive"
-    },
-    "max_tokens": 8000,
-    "output_config": {
-      "effort": "high"
-    },
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

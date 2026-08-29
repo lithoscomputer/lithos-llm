@@ -3,9 +3,9 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
+  "cache_read": 180,
+  "cache_write": 0,
   "input": 420,
   "output": 200,
-  "reasoning": 300,
-  "cache_read": 180,
-  "cache_write": 0
+  "reasoning": 300
 }

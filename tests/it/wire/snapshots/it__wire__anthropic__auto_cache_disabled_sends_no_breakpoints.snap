@@ -3,8 +3,76 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "First",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Answer",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "Second",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Answer",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "Third",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "system": "Keep it short.",
+    "tools": [
+      {
+        "description": "Reads the current weather for a city",
+        "input_schema": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        },
+        "name": "get_weather"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -35,74 +103,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "system": "Keep it short.",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "First"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Second"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "text",
-            "text": "Answer"
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Third"
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "tools": [
-      {
-        "name": "get_weather",
-        "description": "Reads the current weather for a city",
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "city": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "city"
-          ]
-        }
-      }
-    ],
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

@@ -7,12 +7,12 @@ expression: rendered
   "message": "provider gemini blocked the prompt under its content policy (block reason SAFETY)",
   "provider": "gemini",
   "provider_code": "SAFETY",
-  "retry": {
-    "type": "never"
-  },
   "raw_data": {
     "promptFeedback": {
       "blockReason": "SAFETY"
     }
+  },
+  "retry": {
+    "type": "never"
   }
 }

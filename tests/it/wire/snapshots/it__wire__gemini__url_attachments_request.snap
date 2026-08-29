@@ -3,8 +3,37 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Describe both attachments."
+          },
+          {
+            "fileData": {
+              "fileUri": "https://example.com/cat.png"
+            }
+          },
+          {
+            "fileData": {
+              "fileUri": "https://example.com/report.pdf"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,35 +60,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "contents": [
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "Describe both attachments."
-          },
-          {
-            "fileData": {
-              "fileUri": "https://example.com/cat.png"
-            }
-          },
-          {
-            "fileData": {
-              "fileUri": "https://example.com/report.pdf"
-            }
-          }
-        ]
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128
-    },
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent"
 }

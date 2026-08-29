@@ -3,29 +3,22 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "id": "resp_interleaved",
-  "model": {
-    "provider": "openai",
-    "model": "gpt-5.6-luna"
-  },
   "content": [
     {
-      "type": "opaque",
-      "kind": "openai.reasoning",
       "data": {
         "encrypted_content": "gAAAAAfirst-reasoning-state",
         "id": "rs_first",
         "summary": [],
         "type": "reasoning"
-      }
+      },
+      "kind": "openai.reasoning",
+      "type": "opaque"
     },
     {
-      "type": "text",
-      "text": "Checking now."
+      "text": "Checking now.",
+      "type": "text"
     },
     {
-      "type": "opaque",
-      "kind": "openai.message",
       "data": {
         "content": [
           {
@@ -38,41 +31,41 @@ expression: rendered
         "role": "assistant",
         "status": "completed",
         "type": "message"
-      }
+      },
+      "kind": "openai.message",
+      "type": "opaque"
     },
     {
-      "type": "opaque",
-      "kind": "openai.reasoning",
       "data": {
         "encrypted_content": "gAAAAAsecond-reasoning-state",
         "id": "rs_second",
         "summary": [],
         "type": "reasoning"
-      }
+      },
+      "kind": "openai.reasoning",
+      "type": "opaque"
     },
     {
-      "type": "tool_call",
-      "id": "call_weather",
-      "name": "get_weather",
       "arguments": {
         "city": "Paris"
       },
+      "id": "call_weather",
       "kind": "function",
-      "raw_arguments": "{\"city\":\"Paris\"}",
+      "name": "get_weather",
       "provider_metadata": {
         "openai": {
           "item_id": "fc_interleaved"
         }
-      }
+      },
+      "raw_arguments": "{\"city\":\"Paris\"}",
+      "type": "tool_call"
     }
   ],
   "finish_reason": "tool_call",
-  "usage": {
-    "input": 20,
-    "output": 5,
-    "reasoning": 4,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "resp_interleaved",
+  "model": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai"
   },
   "raw": {
     "id": "resp_interleaved",
@@ -125,5 +118,12 @@ expression: rendered
       },
       "total_tokens": 29
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 20,
+    "output": 5,
+    "reasoning": 4
   }
 }

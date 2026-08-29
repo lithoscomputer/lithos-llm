@@ -7,14 +7,11 @@ expression: rendered
   "message": "provider bedrock refused the request",
   "provider": "bedrock",
   "provider_code": "refusal",
-  "retry": {
-    "type": "never"
-  },
   "raw_data": {
     "output": {
       "message": {
-        "role": "assistant",
-        "content": []
+        "content": [],
+        "role": "assistant"
       }
     },
     "stopReason": "refusal",
@@ -23,5 +20,8 @@ expression: rendered
       "outputTokens": 0,
       "totalTokens": 12
     }
+  },
+  "retry": {
+    "type": "never"
   }
 }

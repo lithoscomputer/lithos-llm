@@ -3,8 +3,80 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What is the weather in Paris?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "parts": [
+          {
+            "encrypted_content": "opaque-payload",
+            "id": "rs_replay"
+          },
+          {
+            "functionCall": {
+              "args": {
+                "city": "Paris"
+              },
+              "id": "call_replay",
+              "name": "get_weather"
+            }
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "parts": [
+          {
+            "functionResponse": {
+              "id": "call_replay",
+              "name": "get_weather",
+              "response": {
+                "output": "18C and clear"
+              }
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ],
+    "tools": [
+      {
+        "functionDeclarations": [
+          {
+            "description": "Reads the current weather for a city",
+            "name": "get_weather",
+            "parametersJsonSchema": {
+              "properties": {
+                "city": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "city"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,78 +103,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "contents": [
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "What is the weather in Paris?"
-          }
-        ]
-      },
-      {
-        "role": "model",
-        "parts": [
-          {
-            "id": "rs_replay",
-            "encrypted_content": "opaque-payload"
-          },
-          {
-            "functionCall": {
-              "id": "call_replay",
-              "name": "get_weather",
-              "args": {
-                "city": "Paris"
-              }
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "parts": [
-          {
-            "functionResponse": {
-              "id": "call_replay",
-              "name": "get_weather",
-              "response": {
-                "output": "18C and clear"
-              }
-            }
-          }
-        ]
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128
-    },
-    "tools": [
-      {
-        "functionDeclarations": [
-          {
-            "name": "get_weather",
-            "description": "Reads the current weather for a city",
-            "parametersJsonSchema": {
-              "type": "object",
-              "properties": {
-                "city": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "city"
-              ]
-            }
-          }
-        ]
-      }
-    ],
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent"
 }

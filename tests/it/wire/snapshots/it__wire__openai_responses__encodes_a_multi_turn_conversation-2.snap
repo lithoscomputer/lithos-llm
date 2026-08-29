@@ -3,19 +3,12 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "id": "resp_text",
-  "model": {
-    "provider": "openai",
-    "model": "gpt-5.6-luna"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "Hello there."
+      "text": "Hello there.",
+      "type": "text"
     },
     {
-      "type": "opaque",
-      "kind": "openai.message",
       "data": {
         "content": [
           {
@@ -28,16 +21,16 @@ expression: rendered
         "role": "assistant",
         "status": "completed",
         "type": "message"
-      }
+      },
+      "kind": "openai.message",
+      "type": "opaque"
     }
   ],
   "finish_reason": "stop",
-  "usage": {
-    "input": 12,
-    "output": 4,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "resp_text",
+  "model": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai"
   },
   "raw": {
     "created_at": 1772000000,
@@ -71,5 +64,12 @@ expression: rendered
       },
       "total_tokens": 16
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 12,
+    "output": 4,
+    "reasoning": 0
   }
 }

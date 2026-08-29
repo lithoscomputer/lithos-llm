@@ -4,93 +4,93 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": "resp_cut"
+    "id": "resp_cut",
+    "type": "started"
   },
   {
-    "type": "content_block_start",
     "id": "msg_cut",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "msg_cut",
-    "text": "Half a sen"
+    "text": "Half a sen",
+    "type": "text_delta"
   },
   {
-    "type": "content_block_end",
     "id": "msg_cut",
     "part": {
-      "type": "text",
-      "text": "Half a sen"
-    }
+      "text": "Half a sen",
+      "type": "text"
+    },
+    "type": "content_block_end"
   },
   {
-    "type": "content_block_start",
     "id": "msg_cut-item",
     "kind": {
-      "type": "opaque",
-      "kind": "openai.message"
-    }
+      "kind": "openai.message",
+      "type": "opaque"
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "content_block_end",
     "id": "msg_cut-item",
     "part": {
-      "type": "opaque",
-      "kind": "openai.message",
       "data": {
-        "type": "message",
-        "id": "msg_cut",
-        "role": "assistant",
         "content": [
           {
-            "type": "output_text",
-            "text": "Half a sen"
+            "text": "Half a sen",
+            "type": "output_text"
           }
-        ]
-      }
-    }
+        ],
+        "id": "msg_cut",
+        "role": "assistant",
+        "type": "message"
+      },
+      "kind": "openai.message",
+      "type": "opaque"
+    },
+    "type": "content_block_end"
   },
   {
-    "type": "completed",
     "response": {
-      "id": "resp_cut",
-      "model": {
-        "provider": "openai",
-        "model": "gpt-5.6-luna"
-      },
       "content": [
         {
-          "type": "text",
-          "text": "Half a sen"
+          "text": "Half a sen",
+          "type": "text"
         },
         {
-          "type": "opaque",
-          "kind": "openai.message",
           "data": {
-            "type": "message",
-            "id": "msg_cut",
-            "role": "assistant",
             "content": [
               {
-                "type": "output_text",
-                "text": "Half a sen"
+                "text": "Half a sen",
+                "type": "output_text"
               }
-            ]
-          }
+            ],
+            "id": "msg_cut",
+            "role": "assistant",
+            "type": "message"
+          },
+          "kind": "openai.message",
+          "type": "opaque"
         }
       ],
       "finish_reason": "incomplete",
+      "id": "resp_cut",
+      "model": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai"
+      },
       "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
         "input": 0,
         "output": 0,
-        "reasoning": 0,
-        "cache_read": 0,
-        "cache_write": 0
+        "reasoning": 0
       }
-    }
+    },
+    "type": "completed"
   }
 ]

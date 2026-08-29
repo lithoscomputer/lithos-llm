@@ -4,35 +4,35 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": null
+    "id": null,
+    "type": "started"
   },
   {
-    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "block-0",
-    "text": "Chec"
+    "text": "Chec",
+    "type": "text_delta"
   },
   {
-    "type": "error",
     "error": {
       "kind": "rate_limit",
       "message": "provider bedrock Too many requests, please wait before trying again.",
       "provider": "bedrock",
       "provider_code": "ThrottlingException",
-      "retry": {
-        "type": "safe"
-      },
       "raw_data": {
         "__type": "com.amazon.bedrock#ThrottlingException",
         "message": "Too many requests, please wait before trying again."
+      },
+      "retry": {
+        "type": "safe"
       }
-    }
+    },
+    "type": "error"
   }
 ]

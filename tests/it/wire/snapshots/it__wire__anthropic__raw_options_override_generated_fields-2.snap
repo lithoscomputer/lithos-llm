@@ -3,24 +3,17 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "id": "msg_01WireText",
-  "model": {
-    "provider": "anthropic",
-    "model": "claude"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "Hello back."
+      "text": "Hello back.",
+      "type": "text"
     }
   ],
   "finish_reason": "stop",
-  "usage": {
-    "input": 11,
-    "output": 5,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "msg_01WireText",
+  "model": {
+    "model": "claude",
+    "provider": "anthropic"
   },
   "raw": {
     "content": [
@@ -39,5 +32,12 @@ expression: rendered
       "input_tokens": 11,
       "output_tokens": 5
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 11,
+    "output": 5,
+    "reasoning": 0
   }
 }

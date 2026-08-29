@@ -4,38 +4,38 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": "resp_failed"
+    "id": "resp_failed",
+    "type": "started"
   },
   {
-    "type": "content_block_start",
     "id": "msg_failed",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "msg_failed",
-    "text": "Part"
+    "text": "Part",
+    "type": "text_delta"
   },
   {
-    "type": "error",
     "error": {
       "kind": "server",
       "message": "provider openai the model stream failed",
       "provider": "openai",
       "provider_code": "server_error",
-      "retry": {
-        "type": "safe"
-      },
       "raw_data": {
-        "type": "error",
         "code": "server_error",
         "message": "the model stream failed",
         "param": null,
-        "sequence_number": 4
+        "sequence_number": 4,
+        "type": "error"
+      },
+      "retry": {
+        "type": "safe"
       }
-    }
+    },
+    "type": "error"
   }
 ]

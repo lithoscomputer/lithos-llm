@@ -3,8 +3,68 @@ source: tests/it/wire/openai_chat.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/chat/completions",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "Use the tools when they help.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "content": "What is the weather in Paris?",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "stream": false,
+    "tool_choice": "none",
+    "tools": [
+      {
+        "function": {
+          "description": "Reads the current weather for a city",
+          "name": "get_weather",
+          "parameters": {
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Reads the current time in a time zone",
+          "name": "get_time",
+          "parameters": {
+            "properties": {
+              "zone": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "zone"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,66 +91,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "model": "vendor/compat-chat-v2",
-    "messages": [
-      {
-        "role": "system",
-        "content": [
-          {
-            "type": "text",
-            "text": "Use the tools when they help.",
-            "cache_control": {
-              "type": "ephemeral"
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": "What is the weather in Paris?"
-      }
-    ],
-    "stream": false,
-    "max_tokens": 128,
-    "tools": [
-      {
-        "type": "function",
-        "function": {
-          "name": "get_weather",
-          "description": "Reads the current weather for a city",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "city": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "city"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "get_time",
-          "description": "Reads the current time in a time zone",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "zone": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "zone"
-            ]
-          }
-        }
-      }
-    ],
-    "tool_choice": "none"
-  }
+  "method": "POST",
+  "path": "/v1/chat/completions"
 }

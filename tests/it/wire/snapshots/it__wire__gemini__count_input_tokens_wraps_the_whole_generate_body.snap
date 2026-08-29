@@ -3,8 +3,73 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:countTokens",
+  "body": {
+    "generateContentRequest": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "What is the weather in Paris?"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 128
+      },
+      "model": "models/gemini-2.5-pro-002",
+      "safetySettings": [
+        {
+          "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+          "threshold": "BLOCK_ONLY_HIGH"
+        }
+      ],
+      "systemInstruction": {
+        "parts": [
+          {
+            "text": "Use the tools when they help."
+          }
+        ]
+      },
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "description": "Reads the current weather for a city",
+              "name": "get_weather",
+              "parametersJsonSchema": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            {
+              "description": "Reads the current time in a time zone",
+              "name": "get_time",
+              "parametersJsonSchema": {
+                "properties": {
+                  "zone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "zone"
+                ],
+                "type": "object"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
   "headers": [
     [
       "accept",
@@ -31,71 +96,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "generateContentRequest": {
-      "systemInstruction": {
-        "parts": [
-          {
-            "text": "Use the tools when they help."
-          }
-        ]
-      },
-      "contents": [
-        {
-          "role": "user",
-          "parts": [
-            {
-              "text": "What is the weather in Paris?"
-            }
-          ]
-        }
-      ],
-      "generationConfig": {
-        "maxOutputTokens": 128
-      },
-      "tools": [
-        {
-          "functionDeclarations": [
-            {
-              "name": "get_weather",
-              "description": "Reads the current weather for a city",
-              "parametersJsonSchema": {
-                "type": "object",
-                "properties": {
-                  "city": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "city"
-                ]
-              }
-            },
-            {
-              "name": "get_time",
-              "description": "Reads the current time in a time zone",
-              "parametersJsonSchema": {
-                "type": "object",
-                "properties": {
-                  "zone": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "zone"
-                ]
-              }
-            }
-          ]
-        }
-      ],
-      "safetySettings": [
-        {
-          "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-          "threshold": "BLOCK_ONLY_HIGH"
-        }
-      ],
-      "model": "models/gemini-2.5-pro-002"
-    }
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:countTokens"
 }

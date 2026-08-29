@@ -3,8 +3,68 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Chart last week's sales.",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "id": "call_chart",
+            "input": {
+              "range": "7d"
+            },
+            "name": "render_chart",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": [
+              {
+                "text": "Here is the chart.",
+                "type": "text"
+              },
+              {
+                "source": {
+                  "data": "Y2hhcnQtYnl0ZXM=",
+                  "media_type": "image/png",
+                  "type": "base64"
+                },
+                "type": "image"
+              }
+            ],
+            "is_error": false,
+            "tool_use_id": "call_chart",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "tools": [
+      {
+        "description": "Renders a chart",
+        "input_schema": {
+          "type": "object"
+        },
+        "name": "render_chart"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -35,66 +95,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Chart last week's sales."
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "tool_use",
-            "id": "call_chart",
-            "name": "render_chart",
-            "input": {
-              "range": "7d"
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "tool_result",
-            "tool_use_id": "call_chart",
-            "content": [
-              {
-                "type": "text",
-                "text": "Here is the chart."
-              },
-              {
-                "type": "image",
-                "source": {
-                  "type": "base64",
-                  "media_type": "image/png",
-                  "data": "Y2hhcnQtYnl0ZXM="
-                }
-              }
-            ],
-            "is_error": false
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "tools": [
-      {
-        "name": "render_chart",
-        "description": "Renders a chart",
-        "input_schema": {
-          "type": "object"
-        }
-      }
-    ],
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

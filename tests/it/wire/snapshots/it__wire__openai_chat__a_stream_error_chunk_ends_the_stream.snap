@@ -4,38 +4,38 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": "chatcmpl-stream"
+    "id": "chatcmpl-stream",
+    "type": "started"
   },
   {
-    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "block-0",
-    "text": "Hel"
+    "text": "Hel",
+    "type": "text_delta"
   },
   {
-    "type": "error",
     "error": {
       "kind": "rate_limit",
       "message": "provider compat rate limit reached",
       "provider": "compat",
       "provider_code": "rate_limit_exceeded",
-      "retry": {
-        "type": "safe"
-      },
       "raw_data": {
         "error": {
+          "code": "rate_limit_exceeded",
           "message": "rate limit reached",
-          "type": "rate_limit_error",
-          "code": "rate_limit_exceeded"
+          "type": "rate_limit_error"
         }
+      },
+      "retry": {
+        "type": "safe"
       }
-    }
+    },
+    "type": "error"
   }
 ]

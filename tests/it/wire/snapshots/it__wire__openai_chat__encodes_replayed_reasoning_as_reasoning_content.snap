@@ -3,8 +3,34 @@ source: tests/it/wire/openai_chat.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/chat/completions",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "Is 91 prime?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "No, 91 is not prime.",
+        "reasoning_content": "91 is 7 times 13.",
+        "role": "assistant"
+      },
+      {
+        "content": "What about 97?",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "stream": false
+  },
   "headers": [
     [
       "accept",
@@ -31,32 +57,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "model": "vendor/compat-chat-v2",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Is 91 prime?",
-            "cache_control": {
-              "type": "ephemeral"
-            }
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": "No, 91 is not prime.",
-        "reasoning_content": "91 is 7 times 13."
-      },
-      {
-        "role": "user",
-        "content": "What about 97?"
-      }
-    ],
-    "stream": false,
-    "max_tokens": 128
-  }
+  "method": "POST",
+  "path": "/v1/chat/completions"
 }

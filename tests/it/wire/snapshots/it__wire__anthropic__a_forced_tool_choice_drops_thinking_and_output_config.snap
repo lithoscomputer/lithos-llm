@@ -4,30 +4,30 @@ expression: rendered
 ---
 [
   {
-    "tool_choice": {
-      "type": "auto"
+    "output_config": {
+      "effort": "high",
+      "format": {
+        "schema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "json_schema"
+      }
     },
     "thinking": {
       "type": "adaptive"
     },
-    "output_config": {
-      "effort": "high",
-      "format": {
-        "type": "json_schema",
-        "schema": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
+    "tool_choice": {
+      "type": "auto"
     },
     "warnings": []
   },
   {
+    "output_config": null,
+    "thinking": null,
     "tool_choice": {
       "type": "any"
     },
-    "thinking": null,
-    "output_config": null,
     "warnings": [
       {
         "code": "unsupported_control",
@@ -40,12 +40,12 @@ expression: rendered
     ]
   },
   {
-    "tool_choice": {
-      "type": "tool",
-      "name": "get_weather"
-    },
-    "thinking": null,
     "output_config": null,
+    "thinking": null,
+    "tool_choice": {
+      "name": "get_weather",
+      "type": "tool"
+    },
     "warnings": [
       {
         "code": "unsupported_control",

@@ -4,61 +4,61 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": "msg_01WireCut"
+    "id": "msg_01WireCut",
+    "type": "started"
   },
   {
     "type": "usage",
     "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
       "input": 8,
       "output": 0,
-      "reasoning": 0,
-      "cache_read": 0,
-      "cache_write": 0
+      "reasoning": 0
     }
   },
   {
-    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "block-0",
-    "text": "Half a sen"
+    "text": "Half a sen",
+    "type": "text_delta"
   },
   {
-    "type": "content_block_end",
     "id": "block-0",
     "part": {
-      "type": "text",
-      "text": "Half a sen"
-    }
+      "text": "Half a sen",
+      "type": "text"
+    },
+    "type": "content_block_end"
   },
   {
-    "type": "completed",
     "response": {
-      "id": "msg_01WireCut",
-      "model": {
-        "provider": "anthropic",
-        "model": "claude"
-      },
       "content": [
         {
-          "type": "text",
-          "text": "Half a sen"
+          "text": "Half a sen",
+          "type": "text"
         }
       ],
       "finish_reason": "incomplete",
+      "id": "msg_01WireCut",
+      "model": {
+        "model": "claude",
+        "provider": "anthropic"
+      },
       "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
         "input": 8,
         "output": 0,
-        "reasoning": 0,
-        "cache_read": 0,
-        "cache_write": 0
+        "reasoning": 0
       }
-    }
+    },
+    "type": "completed"
   }
 ]

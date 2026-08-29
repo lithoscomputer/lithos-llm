@@ -3,8 +3,24 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_output_tokens": 256,
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Hello",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "service_tier": "flex",
+    "stream": false
+  },
   "headers": [
     [
       "accept",
@@ -35,22 +51,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Hello"
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "stream": false,
-    "max_output_tokens": 256,
-    "service_tier": "flex"
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

@@ -3,8 +3,50 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What is the capital of France?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "parts": [
+          {
+            "text": "Paris."
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "parts": [
+          {
+            "text": "And of Spain?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ],
+    "systemInstruction": {
+      "parts": [
+        {
+          "text": "Keep it short."
+        }
+      ]
+    }
+  },
   "headers": [
     [
       "accept",
@@ -31,48 +73,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "systemInstruction": {
-      "parts": [
-        {
-          "text": "Keep it short."
-        }
-      ]
-    },
-    "contents": [
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "What is the capital of France?"
-          }
-        ]
-      },
-      {
-        "role": "model",
-        "parts": [
-          {
-            "text": "Paris."
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "And of Spain?"
-          }
-        ]
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128
-    },
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent"
 }

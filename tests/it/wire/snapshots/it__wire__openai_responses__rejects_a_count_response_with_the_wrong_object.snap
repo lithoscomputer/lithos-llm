@@ -6,11 +6,11 @@ expression: rendered
   "kind": "response_decode",
   "message": "provider openai returned an input token count with object response",
   "provider": "openai",
+  "raw_data": {
+    "input_tokens": 42,
+    "object": "response"
+  },
   "retry": {
     "type": "safe"
-  },
-  "raw_data": {
-    "object": "response",
-    "input_tokens": 42
   }
 }

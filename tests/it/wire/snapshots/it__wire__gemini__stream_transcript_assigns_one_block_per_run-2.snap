@@ -4,153 +4,153 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": "resp-gemini-stream"
+    "id": "resp-gemini-stream",
+    "type": "started"
   },
   {
-    "type": "content_block_start",
     "id": "reasoning-0",
     "kind": {
       "type": "reasoning"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "reasoning_delta",
     "id": "reasoning-0",
-    "text": "Let me check"
+    "text": "Let me check",
+    "type": "reasoning_delta"
   },
   {
     "type": "usage",
     "usage": {
+      "cache_read": 6,
+      "cache_write": 0,
       "input": 12,
       "output": 5,
-      "reasoning": 0,
-      "cache_read": 6,
-      "cache_write": 0
+      "reasoning": 0
     }
   },
   {
-    "type": "reasoning_delta",
     "id": "reasoning-0",
-    "text": " the forecast."
+    "text": " the forecast.",
+    "type": "reasoning_delta"
   },
   {
-    "type": "content_block_end",
     "id": "reasoning-0",
     "part": {
-      "type": "reasoning",
-      "text": "Let me check the forecast.",
       "signature": "sig-stream-think",
-      "signature_origin": "gemini"
-    }
+      "signature_origin": "gemini",
+      "text": "Let me check the forecast.",
+      "type": "reasoning"
+    },
+    "type": "content_block_end"
   },
   {
-    "type": "content_block_start",
     "id": "text-0",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "text-0",
-    "text": "Checking"
+    "text": "Checking",
+    "type": "text_delta"
   },
   {
-    "type": "text_delta",
     "id": "text-0",
-    "text": " now."
+    "text": " now.",
+    "type": "text_delta"
   },
   {
-    "type": "content_block_end",
     "id": "text-0",
     "part": {
-      "type": "text",
-      "text": "Checking now."
-    }
+      "text": "Checking now.",
+      "type": "text"
+    },
+    "type": "content_block_end"
   },
   {
-    "type": "content_block_start",
     "id": "tool-0",
     "kind": {
-      "type": "tool_call",
       "id": "get_weather-0-resp-gemini-stream",
+      "kind": "function",
       "name": "get_weather",
-      "kind": "function"
-    }
+      "type": "tool_call"
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "content_block_end",
     "id": "tool-0",
     "part": {
-      "type": "tool_call",
-      "id": "get_weather-0-resp-gemini-stream",
-      "name": "get_weather",
       "arguments": {
         "city": "Paris"
       },
+      "id": "get_weather-0-resp-gemini-stream",
       "kind": "function",
-      "raw_arguments": "{\"city\":\"Paris\"}",
+      "name": "get_weather",
       "provider_metadata": {
         "gemini": {
           "thoughtSignature": "sig-stream-call"
         }
-      }
-    }
+      },
+      "raw_arguments": "{\"city\":\"Paris\"}",
+      "type": "tool_call"
+    },
+    "type": "content_block_end"
   },
   {
     "type": "usage",
     "usage": {
+      "cache_read": 6,
+      "cache_write": 0,
       "input": 12,
       "output": 14,
-      "reasoning": 9,
-      "cache_read": 6,
-      "cache_write": 0
+      "reasoning": 9
     }
   },
   {
-    "type": "completed",
     "response": {
-      "id": "resp-gemini-stream",
-      "model": {
-        "provider": "gemini",
-        "model": "gemini-2.5-pro"
-      },
       "content": [
         {
-          "type": "reasoning",
-          "text": "Let me check the forecast.",
           "signature": "sig-stream-think",
-          "signature_origin": "gemini"
+          "signature_origin": "gemini",
+          "text": "Let me check the forecast.",
+          "type": "reasoning"
         },
         {
-          "type": "text",
-          "text": "Checking now."
+          "text": "Checking now.",
+          "type": "text"
         },
         {
-          "type": "tool_call",
-          "id": "get_weather-0-resp-gemini-stream",
-          "name": "get_weather",
           "arguments": {
             "city": "Paris"
           },
+          "id": "get_weather-0-resp-gemini-stream",
           "kind": "function",
-          "raw_arguments": "{\"city\":\"Paris\"}",
+          "name": "get_weather",
           "provider_metadata": {
             "gemini": {
               "thoughtSignature": "sig-stream-call"
             }
-          }
+          },
+          "raw_arguments": "{\"city\":\"Paris\"}",
+          "type": "tool_call"
         }
       ],
       "finish_reason": "tool_call",
+      "id": "resp-gemini-stream",
+      "model": {
+        "model": "gemini-2.5-pro",
+        "provider": "gemini"
+      },
       "usage": {
+        "cache_read": 6,
+        "cache_write": 0,
         "input": 12,
         "output": 14,
-        "reasoning": 9,
-        "cache_read": 6,
-        "cache_write": 0
+        "reasoning": 9
       }
-    }
+    },
+    "type": "completed"
   }
 ]

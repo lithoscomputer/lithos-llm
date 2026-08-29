@@ -3,8 +3,44 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/responses",
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Is 91 prime?",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "No, 91 is not prime.",
+            "type": "output_text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "What about 97?",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "max_output_tokens": 128,
+    "model": "gpt-5.6-luna-2026-04-01",
+    "store": false,
+    "stream": false
+  },
   "headers": [
     [
       "accept",
@@ -31,42 +67,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "model": "gpt-5.6-luna-2026-04-01",
-    "input": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "input_text",
-            "text": "Is 91 prime?"
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "output_text",
-            "text": "No, 91 is not prime."
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "input_text",
-            "text": "What about 97?"
-          }
-        ]
-      }
-    ],
-    "stream": false,
-    "store": false,
-    "include": [
-      "reasoning.encrypted_content"
-    ],
-    "max_output_tokens": 128
-  }
+  "method": "POST",
+  "path": "/v1/responses"
 }

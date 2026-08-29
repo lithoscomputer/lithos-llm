@@ -3,64 +3,57 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "id": "resp_raw",
-  "model": {
-    "provider": "openai",
-    "model": "gpt-5.6-luna"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "Sunny."
+      "text": "Sunny.",
+      "type": "text"
     },
     {
-      "type": "opaque",
-      "kind": "openai.message",
       "data": {
-        "type": "message",
-        "id": "msg_raw",
-        "role": "assistant",
         "content": [
           {
-            "type": "output_text",
-            "text": "Sunny."
+            "text": "Sunny.",
+            "type": "output_text"
           }
-        ]
-      }
+        ],
+        "id": "msg_raw",
+        "role": "assistant",
+        "type": "message"
+      },
+      "kind": "openai.message",
+      "type": "opaque"
     }
   ],
   "finish_reason": "stop",
-  "usage": {
-    "input": 5,
-    "output": 2,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "resp_raw",
+  "model": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai"
   },
   "raw": {
     "id": "resp_raw",
-    "object": "response",
-    "status": "completed",
     "model": "gpt-5.6-luna-2026-04-01",
-    "service_tier": "default",
+    "object": "response",
     "output": [
       {
-        "type": "web_search_call",
         "id": "ws_1",
-        "status": "completed"
+        "status": "completed",
+        "type": "web_search_call"
       },
       {
-        "type": "message",
-        "id": "msg_raw",
-        "role": "assistant",
         "content": [
           {
-            "type": "output_text",
-            "text": "Sunny."
+            "text": "Sunny.",
+            "type": "output_text"
           }
-        ]
+        ],
+        "id": "msg_raw",
+        "role": "assistant",
+        "type": "message"
       }
     ],
+    "service_tier": "default",
+    "status": "completed",
     "usage": {
       "input_tokens": 5,
       "input_tokens_details": {
@@ -72,5 +65,12 @@ expression: rendered
       },
       "total_tokens": 7
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 5,
+    "output": 2,
+    "reasoning": 0
   }
 }

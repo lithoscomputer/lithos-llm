@@ -3,8 +3,31 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/responses",
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Give me the city and its population.",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "max_output_tokens": 128,
+    "model": "gpt-5.6-luna-2026-04-01",
+    "store": false,
+    "stream": false,
+    "text": {
+      "format": {
+        "type": "json_object"
+      }
+    }
+  },
   "headers": [
     [
       "accept",
@@ -31,29 +54,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "model": "gpt-5.6-luna-2026-04-01",
-    "input": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "input_text",
-            "text": "Give me the city and its population."
-          }
-        ]
-      }
-    ],
-    "stream": false,
-    "store": false,
-    "include": [
-      "reasoning.encrypted_content"
-    ],
-    "max_output_tokens": 128,
-    "text": {
-      "format": {
-        "type": "json_object"
-      }
-    }
-  }
+  "method": "POST",
+  "path": "/v1/responses"
 }

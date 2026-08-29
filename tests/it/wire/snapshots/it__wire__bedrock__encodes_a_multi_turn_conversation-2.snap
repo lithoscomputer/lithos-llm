@@ -3,34 +3,27 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
-  "id": null,
-  "model": {
-    "provider": "bedrock",
-    "model": "sonnet"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "Hello."
+      "text": "Hello.",
+      "type": "text"
     }
   ],
   "finish_reason": "stop",
-  "usage": {
-    "input": 12,
-    "output": 7,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": null,
+  "model": {
+    "model": "sonnet",
+    "provider": "bedrock"
   },
   "raw": {
     "output": {
       "message": {
-        "role": "assistant",
         "content": [
           {
             "text": "Hello."
           }
-        ]
+        ],
+        "role": "assistant"
       }
     },
     "stopReason": "end_turn",
@@ -39,5 +32,12 @@ expression: rendered
       "outputTokens": 7,
       "totalTokens": 19
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 12,
+    "output": 7,
+    "reasoning": 0
   }
 }

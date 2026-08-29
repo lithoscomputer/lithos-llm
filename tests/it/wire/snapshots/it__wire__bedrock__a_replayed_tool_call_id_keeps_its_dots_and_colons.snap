@@ -3,8 +3,52 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "body": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "toolUse": {
+              "input": {
+                "city": "Paris"
+              },
+              "name": "get_weather",
+              "toolUseId": "functions.get_weather:4"
+            }
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "toolResult": {
+              "content": [
+                {
+                  "text": "18C and clear"
+                }
+              ],
+              "toolUseId": "functions.get_weather:4"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,50 +75,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "text": "What is the weather in Paris?"
-          },
-          {
-            "cachePoint": {
-              "type": "default"
-            }
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "toolUse": {
-              "toolUseId": "functions.get_weather:4",
-              "name": "get_weather",
-              "input": {
-                "city": "Paris"
-              }
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "toolResult": {
-              "toolUseId": "functions.get_weather:4",
-              "content": [
-                {
-                  "text": "18C and clear"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse"
 }

@@ -526,6 +526,31 @@ fn assert_usage_not_decreasing(previous: &Value, next: &Value, index: usize) {
 // Snapshots
 // ===========================================================================
 
+/// Recursively sorts every object's keys, so a snapshot never depends on
+/// JSON key order.
+///
+/// `serde_json` maps sort their keys by default but keep insertion order
+/// under the `preserve_order` feature, which any dependency can switch on
+/// for the whole test build through feature unification — the twin-openai
+/// dev-dependency does. Canonicalizing here makes the rendered snapshot
+/// identical either way. A JSON document embedded in a string is not
+/// reordered; it renders as the code under test produced it.
+pub(crate) fn canonical_json(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            let sorted: std::collections::BTreeMap<String, serde_json::Value> = map
+                .into_iter()
+                .map(|(key, value)| (key, canonical_json(value)))
+                .collect();
+            serde_json::Value::Object(sorted.into_iter().collect())
+        }
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.into_iter().map(canonical_json).collect())
+        }
+        other => other,
+    }
+}
+
 /// Matches an ISO-8601 timestamp anywhere in a rendered snapshot.
 pub(crate) const TIMESTAMP_FILTER: &str =
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})";
@@ -555,7 +580,9 @@ pub(crate) fn version_filter() -> String {
 #[macro_export]
 macro_rules! json_snapshot {
     ($value:expr) => {{
-        let rendered = ::serde_json::to_string_pretty(&$value)
+        let value = ::serde_json::to_value(&$value)
+            .expect("a snapshot value should convert to JSON");
+        let rendered = ::serde_json::to_string_pretty(&$crate::support::canonical_json(value))
             .expect("a snapshot value should serialize");
         let version = $crate::support::version_filter();
         let filters: Vec<(&str, &str)> = vec![

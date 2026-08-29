@@ -3,8 +3,40 @@ source: tests/it/wire/openai_chat.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/chat/completions",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "What is the weather in Paris?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "Looking it up.",
+        "reasoning_details": [
+          {
+            "data": "AQ==",
+            "id": "rs-1",
+            "type": "reasoning.encrypted"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": "Thanks.",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "stream": false
+  },
   "headers": [
     [
       "accept",
@@ -31,38 +63,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "model": "vendor/compat-chat-v2",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "What is the weather in Paris?",
-            "cache_control": {
-              "type": "ephemeral"
-            }
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": "Looking it up.",
-        "reasoning_details": [
-          {
-            "type": "reasoning.encrypted",
-            "id": "rs-1",
-            "data": "AQ=="
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": "Thanks."
-      }
-    ],
-    "stream": false,
-    "max_tokens": 128
-  }
+  "method": "POST",
+  "path": "/v1/chat/completions"
 }

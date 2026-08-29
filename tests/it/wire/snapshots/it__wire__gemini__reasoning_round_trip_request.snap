@@ -3,8 +3,52 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Is 91 prime?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "parts": [
+          {
+            "text": "91 is 7 times 13.",
+            "thought": true,
+            "thoughtSignature": "sig-abc"
+          },
+          {
+            "text": "cmVkYWN0ZWQtcGF5bG9hZA==",
+            "thought": true
+          },
+          {
+            "text": "No, 91 is not prime."
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "parts": [
+          {
+            "text": "What about 97?"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,50 +75,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "contents": [
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "Is 91 prime?"
-          }
-        ]
-      },
-      {
-        "role": "model",
-        "parts": [
-          {
-            "text": "91 is 7 times 13.",
-            "thought": true,
-            "thoughtSignature": "sig-abc"
-          },
-          {
-            "text": "cmVkYWN0ZWQtcGF5bG9hZA==",
-            "thought": true
-          },
-          {
-            "text": "No, 91 is not prime."
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "What about 97?"
-          }
-        ]
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128
-    },
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent"
 }

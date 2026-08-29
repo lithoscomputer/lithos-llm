@@ -3,8 +3,25 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "body": {
+    "guardrailConfig": {
+      "trace": "enabled"
+    },
+    "inferenceConfig": {
+      "maxTokens": 4096,
+      "temperature": 0.5
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Hello"
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,23 +48,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "text": "Hello"
-          }
-        ]
-      }
-    ],
-    "inferenceConfig": {
-      "temperature": 0.5,
-      "maxTokens": 4096
-    },
-    "guardrailConfig": {
-      "trace": "enabled"
-    }
-  }
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse"
 }

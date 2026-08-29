@@ -3,8 +3,39 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Describe both attachments.",
+            "type": "text"
+          },
+          {
+            "source": {
+              "data": "aW1hZ2UtYnl0ZXM=",
+              "media_type": "image/png",
+              "type": "base64"
+            },
+            "type": "image"
+          },
+          {
+            "source": {
+              "data": "cGRmLWJ5dGVz",
+              "media_type": "application/pdf",
+              "type": "base64"
+            },
+            "title": "report.pdf",
+            "type": "document"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false
+  },
   "headers": [
     [
       "accept",
@@ -35,37 +66,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Describe both attachments."
-          },
-          {
-            "type": "image",
-            "source": {
-              "type": "base64",
-              "media_type": "image/png",
-              "data": "aW1hZ2UtYnl0ZXM="
-            }
-          },
-          {
-            "type": "document",
-            "source": {
-              "type": "base64",
-              "media_type": "application/pdf",
-              "data": "cGRmLWJ5dGVz"
-            },
-            "title": "report.pdf"
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

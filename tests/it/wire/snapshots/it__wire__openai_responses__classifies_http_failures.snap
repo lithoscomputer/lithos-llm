@@ -9,18 +9,18 @@ expression: rendered
       "kind": "authentication",
       "message": "provider openai Incorrect API key provided.",
       "provider": "openai",
-      "status": 401,
       "provider_code": "invalid_api_key",
+      "raw_data": {
+        "error": {
+          "code": "invalid_api_key",
+          "message": "Incorrect API key provided.",
+          "type": "invalid_request_error"
+        }
+      },
       "retry": {
         "type": "never"
       },
-      "raw_data": {
-        "error": {
-          "message": "Incorrect API key provided.",
-          "type": "invalid_request_error",
-          "code": "invalid_api_key"
-        }
-      }
+      "status": 401
     }
   },
   {
@@ -29,18 +29,18 @@ expression: rendered
       "kind": "access_denied",
       "message": "provider openai Country, region, or territory not supported.",
       "provider": "openai",
-      "status": 403,
       "provider_code": "unsupported_country_region_territory",
+      "raw_data": {
+        "error": {
+          "code": "unsupported_country_region_territory",
+          "message": "Country, region, or territory not supported.",
+          "type": "request_forbidden"
+        }
+      },
       "retry": {
         "type": "never"
       },
-      "raw_data": {
-        "error": {
-          "message": "Country, region, or territory not supported.",
-          "type": "request_forbidden",
-          "code": "unsupported_country_region_territory"
-        }
-      }
+      "status": 403
     }
   },
   {
@@ -49,18 +49,18 @@ expression: rendered
       "kind": "not_found",
       "message": "provider openai The model `gpt-nonexistent` does not exist.",
       "provider": "openai",
-      "status": 404,
       "provider_code": "model_not_found",
+      "raw_data": {
+        "error": {
+          "code": "model_not_found",
+          "message": "The model `gpt-nonexistent` does not exist.",
+          "type": "invalid_request_error"
+        }
+      },
       "retry": {
         "type": "never"
       },
-      "raw_data": {
-        "error": {
-          "message": "The model `gpt-nonexistent` does not exist.",
-          "type": "invalid_request_error",
-          "code": "model_not_found"
-        }
-      }
+      "status": 404
     }
   },
   {
@@ -69,19 +69,19 @@ expression: rendered
       "kind": "rate_limit",
       "message": "provider openai Rate limit reached for requests.",
       "provider": "openai",
-      "status": 429,
       "provider_code": "rate_limit_exceeded",
-      "retry": {
-        "type": "after",
-        "after_millis": 30000
-      },
       "raw_data": {
         "error": {
+          "code": "rate_limit_exceeded",
           "message": "Rate limit reached for requests.",
-          "type": "requests",
-          "code": "rate_limit_exceeded"
+          "type": "requests"
         }
-      }
+      },
+      "retry": {
+        "after_millis": 30000,
+        "type": "after"
+      },
+      "status": 429
     }
   },
   {
@@ -90,18 +90,18 @@ expression: rendered
       "kind": "quota_exceeded",
       "message": "provider openai You exceeded your current quota, please check your plan.",
       "provider": "openai",
-      "status": 429,
       "provider_code": "insufficient_quota",
+      "raw_data": {
+        "error": {
+          "code": "insufficient_quota",
+          "message": "You exceeded your current quota, please check your plan.",
+          "type": "insufficient_quota"
+        }
+      },
       "retry": {
         "type": "never"
       },
-      "raw_data": {
-        "error": {
-          "message": "You exceeded your current quota, please check your plan.",
-          "type": "insufficient_quota",
-          "code": "insufficient_quota"
-        }
-      }
+      "status": 429
     }
   },
   {
@@ -110,18 +110,18 @@ expression: rendered
       "kind": "server",
       "message": "provider openai The server had an error processing your request.",
       "provider": "openai",
-      "status": 500,
       "provider_code": "server_error",
+      "raw_data": {
+        "error": {
+          "code": null,
+          "message": "The server had an error processing your request.",
+          "type": "server_error"
+        }
+      },
       "retry": {
         "type": "safe"
       },
-      "raw_data": {
-        "error": {
-          "message": "The server had an error processing your request.",
-          "type": "server_error",
-          "code": null
-        }
-      }
+      "status": 500
     }
   }
 ]

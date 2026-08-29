@@ -3,8 +3,73 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "What is the weather in Paris?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "encrypted_content": "opaque-payload",
+            "id": "rs_replay"
+          },
+          {
+            "id": "call_replay",
+            "input": {
+              "city": "Paris"
+            },
+            "name": "get_weather",
+            "type": "tool_use"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "content": "18C and clear",
+            "is_error": false,
+            "tool_use_id": "call_replay",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "tools": [
+      {
+        "cache_control": {
+          "type": "ephemeral"
+        },
+        "description": "Reads the current weather for a city",
+        "input_schema": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        },
+        "name": "get_weather"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -35,71 +100,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "What is the weather in Paris?",
-            "cache_control": {
-              "type": "ephemeral"
-            }
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "id": "rs_replay",
-            "encrypted_content": "opaque-payload"
-          },
-          {
-            "type": "tool_use",
-            "id": "call_replay",
-            "name": "get_weather",
-            "input": {
-              "city": "Paris"
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "tool_result",
-            "tool_use_id": "call_replay",
-            "content": "18C and clear",
-            "is_error": false
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "tools": [
-      {
-        "name": "get_weather",
-        "description": "Reads the current weather for a city",
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "city": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "city"
-          ]
-        },
-        "cache_control": {
-          "type": "ephemeral"
-        }
-      }
-    ],
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

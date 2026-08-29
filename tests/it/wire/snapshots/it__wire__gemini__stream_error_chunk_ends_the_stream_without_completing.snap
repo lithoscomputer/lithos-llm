@@ -4,38 +4,38 @@ expression: rendered
 ---
 [
   {
-    "type": "started",
-    "id": null
+    "id": null,
+    "type": "started"
   },
   {
-    "type": "content_block_start",
     "id": "text-0",
     "kind": {
       "type": "text"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "text_delta",
     "id": "text-0",
-    "text": "Partial"
+    "text": "Partial",
+    "type": "text_delta"
   },
   {
-    "type": "error",
     "error": {
       "kind": "rate_limit",
       "message": "provider gemini Resource has been exhausted (e.g. check quota).",
       "provider": "gemini",
       "provider_code": "RESOURCE_EXHAUSTED",
-      "retry": {
-        "type": "safe"
-      },
       "raw_data": {
         "error": {
           "code": 429,
           "message": "Resource has been exhausted (e.g. check quota).",
           "status": "RESOURCE_EXHAUSTED"
         }
+      },
+      "retry": {
+        "type": "safe"
       }
-    }
+    },
+    "type": "error"
   }
 ]

@@ -3,8 +3,67 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "What does the chart show?"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "parts": [
+          {
+            "functionCall": {
+              "args": {},
+              "id": "call_chart",
+              "name": "read_chart"
+            }
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "parts": [
+          {
+            "functionResponse": {
+              "id": "call_chart",
+              "name": "read_chart",
+              "response": {
+                "output": "Revenue by quarter."
+              }
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ],
+    "tools": [
+      {
+        "functionDeclarations": [
+          {
+            "description": "Reads a chart image",
+            "name": "read_chart",
+            "parametersJsonSchema": {
+              "properties": {},
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,65 +90,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "contents": [
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "What does the chart show?"
-          }
-        ]
-      },
-      {
-        "role": "model",
-        "parts": [
-          {
-            "functionCall": {
-              "id": "call_chart",
-              "name": "read_chart",
-              "args": {}
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "parts": [
-          {
-            "functionResponse": {
-              "id": "call_chart",
-              "name": "read_chart",
-              "response": {
-                "output": "Revenue by quarter."
-              }
-            }
-          }
-        ]
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128
-    },
-    "tools": [
-      {
-        "functionDeclarations": [
-          {
-            "name": "read_chart",
-            "description": "Reads a chart image",
-            "parametersJsonSchema": {
-              "type": "object",
-              "properties": {}
-            }
-          }
-        ]
-      }
-    ],
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent"
 }

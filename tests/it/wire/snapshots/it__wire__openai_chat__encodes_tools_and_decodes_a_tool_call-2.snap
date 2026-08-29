@@ -3,30 +3,23 @@ source: tests/it/wire/openai_chat.rs
 expression: rendered
 ---
 {
-  "id": "chatcmpl-wire",
-  "model": {
-    "provider": "compat",
-    "model": "compat-chat"
-  },
   "content": [
     {
-      "type": "tool_call",
-      "id": "call_paris",
-      "name": "get_weather",
       "arguments": {
         "city": "Paris"
       },
+      "id": "call_paris",
       "kind": "function",
-      "raw_arguments": "{\"city\": \"Paris\"}"
+      "name": "get_weather",
+      "raw_arguments": "{\"city\": \"Paris\"}",
+      "type": "tool_call"
     }
   ],
   "finish_reason": "tool_call",
-  "usage": {
-    "input": 42,
-    "output": 9,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "chatcmpl-wire",
+  "model": {
+    "model": "compat-chat",
+    "provider": "compat"
   },
   "raw": {
     "choices": [
@@ -58,5 +51,12 @@ expression: rendered
       "prompt_tokens": 42,
       "total_tokens": 51
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 42,
+    "output": 9,
+    "reasoning": 0
   }
 }

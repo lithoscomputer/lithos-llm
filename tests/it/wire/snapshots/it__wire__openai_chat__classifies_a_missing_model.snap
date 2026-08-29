@@ -6,16 +6,16 @@ expression: rendered
   "kind": "not_found",
   "message": "provider compat The model `vendor/compat-chat-v2` does not exist",
   "provider": "compat",
-  "status": 404,
   "provider_code": "model_not_found",
+  "raw_data": {
+    "error": {
+      "code": "model_not_found",
+      "message": "The model `vendor/compat-chat-v2` does not exist",
+      "type": "invalid_request_error"
+    }
+  },
   "retry": {
     "type": "never"
   },
-  "raw_data": {
-    "error": {
-      "message": "The model `vendor/compat-chat-v2` does not exist",
-      "type": "invalid_request_error",
-      "code": "model_not_found"
-    }
-  }
+  "status": 404
 }

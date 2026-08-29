@@ -4,59 +4,59 @@ expression: rendered
 ---
 [
   {
-    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "reasoning"
-    }
+    },
+    "type": "content_block_start"
   },
   {
-    "type": "reasoning_delta",
     "id": "block-0",
-    "text": "EroBCkYIBBgCKkDx"
+    "text": "EroBCkYIBBgCKkDx",
+    "type": "reasoning_delta"
   },
   {
-    "type": "content_block_end",
     "id": "block-0",
     "part": {
-      "type": "reasoning",
+      "redacted": true,
       "text": "EroBCkYIBBgCKkDx",
-      "redacted": true
-    }
+      "type": "reasoning"
+    },
+    "type": "content_block_end"
   },
   {
     "type": "usage",
     "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
       "input": 0,
       "output": 14,
-      "reasoning": 0,
-      "cache_read": 0,
-      "cache_write": 0
+      "reasoning": 0
     }
   },
   {
-    "type": "completed",
     "response": {
-      "id": null,
-      "model": {
-        "provider": "anthropic",
-        "model": "claude"
-      },
       "content": [
         {
-          "type": "reasoning",
+          "redacted": true,
           "text": "EroBCkYIBBgCKkDx",
-          "redacted": true
+          "type": "reasoning"
         }
       ],
       "finish_reason": "stop",
+      "id": null,
+      "model": {
+        "model": "claude",
+        "provider": "anthropic"
+      },
       "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
         "input": 0,
         "output": 14,
-        "reasoning": 0,
-        "cache_read": 0,
-        "cache_write": 0
+        "reasoning": 0
       }
-    }
+    },
+    "type": "completed"
   }
 ]

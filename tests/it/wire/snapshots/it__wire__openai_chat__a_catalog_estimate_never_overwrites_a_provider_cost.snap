@@ -3,45 +3,45 @@ source: tests/it/wire/openai_chat.rs
 expression: rendered
 ---
 {
-  "id": "chatcmpl-cost",
-  "model": {
-    "provider": "compat",
-    "model": "compat-chat"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "ok"
+      "text": "ok",
+      "type": "text"
     }
   ],
-  "finish_reason": "stop",
-  "usage": {
-    "input": 200,
-    "output": 10,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
-  },
   "cost": {
-    "usd_micros": 4200,
-    "source": "provider"
+    "source": "provider",
+    "usd_micros": 4200
+  },
+  "finish_reason": "stop",
+  "id": "chatcmpl-cost",
+  "model": {
+    "model": "compat-chat",
+    "provider": "compat"
   },
   "raw": {
-    "id": "chatcmpl-cost",
     "choices": [
       {
+        "finish_reason": "stop",
         "index": 0,
         "message": {
-          "role": "assistant",
-          "content": "ok"
-        },
-        "finish_reason": "stop"
+          "content": "ok",
+          "role": "assistant"
+        }
       }
     ],
+    "id": "chatcmpl-cost",
     "usage": {
-      "prompt_tokens": 200,
       "completion_tokens": 10,
-      "cost": 0.0042
+      "cost": 0.0042,
+      "prompt_tokens": 200
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 200,
+    "output": 10,
+    "reasoning": 0
   }
 }

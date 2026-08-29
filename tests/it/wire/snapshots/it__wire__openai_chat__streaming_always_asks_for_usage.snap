@@ -3,8 +3,20 @@ source: tests/it/wire/openai_chat.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/chat/completions",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": "Hello",
+        "role": "user"
+      }
+    ],
+    "model": "vendor/compat-chat-v2",
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    }
+  },
   "headers": [
     [
       "accept",
@@ -31,18 +43,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "model": "vendor/compat-chat-v2",
-    "messages": [
-      {
-        "role": "user",
-        "content": "Hello"
-      }
-    ],
-    "stream": true,
-    "stream_options": {
-      "include_usage": true
-    },
-    "max_tokens": 128
-  }
+  "method": "POST",
+  "path": "/v1/chat/completions"
 }

@@ -3,58 +3,58 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "id": "msg_01WireTool",
-  "model": {
-    "provider": "anthropic",
-    "model": "claude"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "Looking it up."
+      "text": "Looking it up.",
+      "type": "text"
     },
     {
-      "type": "tool_call",
-      "id": "toolu_01Weather",
-      "name": "get_weather",
       "arguments": {
         "city": "Paris"
       },
-      "kind": "function"
+      "id": "toolu_01Weather",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
     }
   ],
   "finish_reason": "tool_call",
-  "usage": {
-    "input": 96,
-    "output": 41,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "msg_01WireTool",
+  "model": {
+    "model": "claude",
+    "provider": "anthropic"
   },
   "raw": {
-    "id": "msg_01WireTool",
-    "type": "message",
-    "role": "assistant",
-    "model": "claude-sonnet-4-6",
     "content": [
       {
-        "type": "text",
-        "text": "Looking it up."
+        "text": "Looking it up.",
+        "type": "text"
       },
       {
-        "type": "tool_use",
         "id": "toolu_01Weather",
-        "name": "get_weather",
         "input": {
           "city": "Paris"
-        }
+        },
+        "name": "get_weather",
+        "type": "tool_use"
       }
     ],
+    "id": "msg_01WireTool",
+    "model": "claude-sonnet-4-6",
+    "role": "assistant",
     "stop_reason": "tool_use",
     "stop_sequence": null,
+    "type": "message",
     "usage": {
       "input_tokens": 96,
       "output_tokens": 41
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 96,
+    "output": 41,
+    "reasoning": 0
   }
 }

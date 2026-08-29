@@ -3,8 +3,106 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/model/anthropic.claude-sonnet-4-6/converse",
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris and Madrid?"
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Looking both up."
+          },
+          {
+            "toolUse": {
+              "input": {
+                "city": "Paris"
+              },
+              "name": "get_weather",
+              "toolUseId": "call_paris"
+            }
+          },
+          {
+            "toolUse": {
+              "input": {
+                "city": "Madrid"
+              },
+              "name": "get_weather",
+              "toolUseId": "call_madrid"
+            }
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "toolResult": {
+              "content": [
+                {
+                  "text": "18C and clear"
+                }
+              ],
+              "toolUseId": "call_paris"
+            }
+          },
+          {
+            "toolResult": {
+              "content": [
+                {
+                  "text": "the city is unknown"
+                }
+              ],
+              "status": "error",
+              "toolUseId": "call_madrid"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "toolConfig": {
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "type": "object"
+              }
+            },
+            "name": "get_weather"
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ]
+    }
+  },
   "headers": [
     [
       "accept",
@@ -31,104 +129,6 @@ expression: rendered
       "[user-agent]"
     ]
   ],
-  "body": {
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "text": "What is the weather in Paris and Madrid?"
-          },
-          {
-            "cachePoint": {
-              "type": "default"
-            }
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "text": "Looking both up."
-          },
-          {
-            "toolUse": {
-              "toolUseId": "call_paris",
-              "name": "get_weather",
-              "input": {
-                "city": "Paris"
-              }
-            }
-          },
-          {
-            "toolUse": {
-              "toolUseId": "call_madrid",
-              "name": "get_weather",
-              "input": {
-                "city": "Madrid"
-              }
-            }
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "toolResult": {
-              "toolUseId": "call_paris",
-              "content": [
-                {
-                  "text": "18C and clear"
-                }
-              ]
-            }
-          },
-          {
-            "toolResult": {
-              "toolUseId": "call_madrid",
-              "content": [
-                {
-                  "text": "the city is unknown"
-                }
-              ],
-              "status": "error"
-            }
-          }
-        ]
-      }
-    ],
-    "toolConfig": {
-      "tools": [
-        {
-          "toolSpec": {
-            "name": "get_weather",
-            "description": "Reads the current weather for a city",
-            "inputSchema": {
-              "json": {
-                "type": "object",
-                "properties": {
-                  "city": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "city"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "cachePoint": {
-            "type": "default"
-          }
-        }
-      ]
-    },
-    "inferenceConfig": {
-      "maxTokens": 128
-    }
-  }
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse"
 }

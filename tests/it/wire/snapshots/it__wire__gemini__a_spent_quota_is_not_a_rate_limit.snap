@@ -6,16 +6,16 @@ expression: rendered
   "kind": "quota_exceeded",
   "message": "provider gemini You exceeded your current quota. Please check your plan and billing details.",
   "provider": "gemini",
-  "status": 429,
   "provider_code": "RESOURCE_EXHAUSTED",
-  "retry": {
-    "type": "never"
-  },
   "raw_data": {
     "error": {
       "code": 429,
       "message": "You exceeded your current quota. Please check your plan and billing details.",
       "status": "RESOURCE_EXHAUSTED"
     }
-  }
+  },
+  "retry": {
+    "type": "never"
+  },
+  "status": 429
 }

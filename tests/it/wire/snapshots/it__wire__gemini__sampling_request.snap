@@ -3,8 +3,33 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Write one sentence."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128,
+      "stopSequences": [
+        "END",
+        "STOP"
+      ],
+      "temperature": 0.7,
+      "topP": 0.9
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,31 +56,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "contents": [
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "Write one sentence."
-          }
-        ]
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128,
-      "temperature": 0.7,
-      "topP": 0.9,
-      "stopSequences": [
-        "END",
-        "STOP"
-      ]
-    },
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent"
 }

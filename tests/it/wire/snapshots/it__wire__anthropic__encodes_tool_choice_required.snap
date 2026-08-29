@@ -3,8 +3,69 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "system": [
+      {
+        "cache_control": {
+          "type": "ephemeral"
+        },
+        "text": "Use the tools when they help.",
+        "type": "text"
+      }
+    ],
+    "tool_choice": {
+      "type": "any"
+    },
+    "tools": [
+      {
+        "description": "Reads the current weather for a city",
+        "input_schema": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        },
+        "name": "get_weather"
+      },
+      {
+        "cache_control": {
+          "type": "ephemeral"
+        },
+        "description": "Reads the current time in a time zone",
+        "input_schema": {
+          "properties": {
+            "zone": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "zone"
+          ],
+          "type": "object"
+        },
+        "name": "get_time"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -35,67 +96,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "system": [
-      {
-        "type": "text",
-        "text": "Use the tools when they help.",
-        "cache_control": {
-          "type": "ephemeral"
-        }
-      }
-    ],
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "What is the weather in Paris?"
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "tools": [
-      {
-        "name": "get_weather",
-        "description": "Reads the current weather for a city",
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "city": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "city"
-          ]
-        }
-      },
-      {
-        "name": "get_time",
-        "description": "Reads the current time in a time zone",
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "zone": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "zone"
-          ]
-        },
-        "cache_control": {
-          "type": "ephemeral"
-        }
-      }
-    ],
-    "tool_choice": {
-      "type": "any"
-    },
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

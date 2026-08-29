@@ -3,9 +3,9 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
+  "cache_read": 1024,
+  "cache_write": 512,
   "input": 30,
   "output": 628,
-  "reasoning": 0,
-  "cache_read": 1024,
-  "cache_write": 512
+  "reasoning": 0
 }

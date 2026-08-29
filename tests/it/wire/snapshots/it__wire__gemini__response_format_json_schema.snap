@@ -3,8 +3,44 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent",
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Give me the city and its population."
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128,
+      "responseJsonSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "population": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "city",
+          "population"
+        ],
+        "type": "object"
+      },
+      "responseMimeType": "application/json"
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ]
+  },
   "headers": [
     [
       "accept",
@@ -31,42 +67,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "contents": [
-      {
-        "role": "user",
-        "parts": [
-          {
-            "text": "Give me the city and its population."
-          }
-        ]
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128,
-      "responseMimeType": "application/json",
-      "responseJsonSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "city": {
-            "type": "string"
-          },
-          "population": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "city",
-          "population"
-        ]
-      }
-    },
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1beta/models/gemini-2.5-pro-002:generateContent"
 }

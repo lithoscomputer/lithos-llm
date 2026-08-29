@@ -3,35 +3,28 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
-  "id": null,
-  "model": {
-    "provider": "bedrock",
-    "model": "sonnet"
-  },
   "content": [
     {
-      "type": "reasoning",
-      "text": "97 has no divisor below 10.",
       "signature": "sig-def",
-      "signature_origin": "anthropic"
+      "signature_origin": "anthropic",
+      "text": "97 has no divisor below 10.",
+      "type": "reasoning"
     },
     {
-      "type": "reasoning",
+      "redacted": true,
       "text": "cmVkYWN0ZWQtcmVwbHk=",
-      "redacted": true
+      "type": "reasoning"
     },
     {
-      "type": "text",
-      "text": "Yes, 97 is prime."
+      "text": "Yes, 97 is prime.",
+      "type": "text"
     }
   ],
   "finish_reason": "stop",
-  "usage": {
-    "input": 12,
-    "output": 7,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": null,
+  "model": {
+    "model": "sonnet",
+    "provider": "bedrock"
   },
   "raw": {
     "output": {
@@ -63,5 +56,12 @@ expression: rendered
       "outputTokens": 7,
       "totalTokens": 19
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 12,
+    "output": 7,
+    "reasoning": 0
   }
 }

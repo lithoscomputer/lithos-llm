@@ -3,52 +3,52 @@ source: tests/it/wire/gemini.rs
 expression: rendered
 ---
 {
-  "id": "resp-gemini-1",
-  "model": {
-    "provider": "gemini",
-    "model": "gemini-2.5-pro"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "Hello there."
+      "text": "Hello there.",
+      "type": "text"
     }
   ],
   "finish_reason": "stop",
+  "id": "resp-gemini-1",
+  "model": {
+    "model": "gemini-2.5-pro",
+    "provider": "gemini"
+  },
+  "raw": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "Hello there."
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "modelVersion": "gemini-2.5-pro-002",
+    "responseId": "resp-gemini-1",
+    "usageMetadata": {
+      "candidatesTokenCount": 5,
+      "promptTokenCount": 11,
+      "totalTokenCount": 16
+    }
+  },
   "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
     "input": 11,
     "output": 5,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+    "reasoning": 0
   },
   "warnings": [
     {
       "code": "unsupported_control",
       "message": "this provider protocol does not support non-text tool result content"
     }
-  ],
-  "raw": {
-    "responseId": "resp-gemini-1",
-    "modelVersion": "gemini-2.5-pro-002",
-    "candidates": [
-      {
-        "index": 0,
-        "content": {
-          "role": "model",
-          "parts": [
-            {
-              "text": "Hello there."
-            }
-          ]
-        },
-        "finishReason": "STOP"
-      }
-    ],
-    "usageMetadata": {
-      "promptTokenCount": 11,
-      "candidatesTokenCount": 5,
-      "totalTokenCount": 16
-    }
-  }
+  ]
 }

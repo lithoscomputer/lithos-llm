@@ -3,52 +3,45 @@ source: tests/it/wire/bedrock.rs
 expression: rendered
 ---
 {
-  "id": null,
-  "model": {
-    "provider": "bedrock",
-    "model": "sonnet"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "Looking that up."
+      "text": "Looking that up.",
+      "type": "text"
     },
     {
-      "type": "tool_call",
-      "id": "tooluse_paris",
-      "name": "get_weather",
       "arguments": {
         "city": "Paris"
       },
-      "kind": "function"
+      "id": "tooluse_paris",
+      "kind": "function",
+      "name": "get_weather",
+      "type": "tool_call"
     }
   ],
   "finish_reason": "tool_call",
-  "usage": {
-    "input": 40,
-    "output": 22,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": null,
+  "model": {
+    "model": "sonnet",
+    "provider": "bedrock"
   },
   "raw": {
     "output": {
       "message": {
-        "role": "assistant",
         "content": [
           {
             "text": "Looking that up."
           },
           {
             "toolUse": {
-              "toolUseId": "tooluse_paris",
-              "name": "get_weather",
               "input": {
                 "city": "Paris"
-              }
+              },
+              "name": "get_weather",
+              "toolUseId": "tooluse_paris"
             }
           }
-        ]
+        ],
+        "role": "assistant"
       }
     },
     "stopReason": "tool_use",
@@ -57,5 +50,12 @@ expression: rendered
       "outputTokens": 22,
       "totalTokens": 62
     }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 40,
+    "output": 22,
+    "reasoning": 0
   }
 }

@@ -4,25 +4,25 @@ expression: rendered
 ---
 [
   {
-    "type": "tool_call",
-    "id": "search-0-resp-gemini-ids",
-    "name": "search",
     "arguments": {
       "query": "rust"
     },
-    "kind": "function"
-  },
-  {
-    "type": "text",
-    "text": "and then"
-  },
-  {
-    "type": "tool_call",
-    "id": "search-1-resp-gemini-ids",
+    "id": "search-0-resp-gemini-ids",
+    "kind": "function",
     "name": "search",
+    "type": "tool_call"
+  },
+  {
+    "text": "and then",
+    "type": "text"
+  },
+  {
     "arguments": {
       "query": "gemini"
     },
-    "kind": "function"
+    "id": "search-1-resp-gemini-ids",
+    "kind": "function",
+    "name": "search",
+    "type": "tool_call"
   }
 ]

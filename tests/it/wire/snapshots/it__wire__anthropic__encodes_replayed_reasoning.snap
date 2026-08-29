@@ -3,8 +3,52 @@ source: tests/it/wire/anthropic.rs
 expression: rendered
 ---
 {
-  "method": "POST",
-  "path": "/v1/messages",
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "Is 91 prime?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "signature": "sig-abc",
+            "thinking": "91 is 7 times 13.",
+            "type": "thinking"
+          },
+          {
+            "data": "cmVkYWN0ZWQtcGF5bG9hZA==",
+            "type": "redacted_thinking"
+          },
+          {
+            "text": "No, 91 is not prime.",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "What about 97?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false
+  },
   "headers": [
     [
       "accept",
@@ -35,50 +79,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "model": "claude-sonnet-4-6",
-    "messages": [
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "Is 91 prime?",
-            "cache_control": {
-              "type": "ephemeral"
-            }
-          }
-        ]
-      },
-      {
-        "role": "assistant",
-        "content": [
-          {
-            "type": "thinking",
-            "thinking": "91 is 7 times 13.",
-            "signature": "sig-abc"
-          },
-          {
-            "type": "redacted_thinking",
-            "data": "cmVkYWN0ZWQtcGF5bG9hZA=="
-          },
-          {
-            "type": "text",
-            "text": "No, 91 is not prime."
-          }
-        ]
-      },
-      {
-        "role": "user",
-        "content": [
-          {
-            "type": "text",
-            "text": "What about 97?"
-          }
-        ]
-      }
-    ],
-    "max_tokens": 128,
-    "stream": false
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }

@@ -3,69 +3,69 @@ source: tests/it/wire/openai_responses.rs
 expression: rendered
 ---
 {
-  "id": "resp_internal",
-  "model": {
-    "provider": "openai",
-    "model": "gpt-5.6-luna"
-  },
   "content": [
     {
-      "type": "text",
-      "text": "All done."
+      "text": "All done.",
+      "type": "text"
     },
     {
-      "type": "opaque",
-      "kind": "openai.message",
       "data": {
-        "type": "message",
-        "id": "msg_internal",
-        "status": "completed",
-        "role": "assistant",
         "content": [
           {
-            "type": "output_text",
+            "annotations": [],
             "text": "All done.",
-            "annotations": []
+            "type": "output_text"
           }
-        ]
-      }
+        ],
+        "id": "msg_internal",
+        "role": "assistant",
+        "status": "completed",
+        "type": "message"
+      },
+      "kind": "openai.message",
+      "type": "opaque"
     }
   ],
   "finish_reason": "stop",
-  "usage": {
-    "input": 0,
-    "output": 0,
-    "reasoning": 0,
-    "cache_read": 0,
-    "cache_write": 0
+  "id": "resp_internal",
+  "model": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai"
   },
   "raw": {
     "id": "resp_internal",
-    "object": "response",
-    "status": "completed",
     "model": "gpt-5.6-luna-2026-04-01",
+    "object": "response",
     "output": [
       {
-        "type": "function_call",
-        "id": "fc_internal",
-        "call_id": "call_internal",
-        "name": "",
         "arguments": "{}",
-        "status": "completed"
+        "call_id": "call_internal",
+        "id": "fc_internal",
+        "name": "",
+        "status": "completed",
+        "type": "function_call"
       },
       {
-        "type": "message",
-        "id": "msg_internal",
-        "status": "completed",
-        "role": "assistant",
         "content": [
           {
-            "type": "output_text",
+            "annotations": [],
             "text": "All done.",
-            "annotations": []
+            "type": "output_text"
           }
-        ]
+        ],
+        "id": "msg_internal",
+        "role": "assistant",
+        "status": "completed",
+        "type": "message"
       }
-    ]
+    ],
+    "status": "completed"
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 0,
+    "output": 0,
+    "reasoning": 0
   }
 }
