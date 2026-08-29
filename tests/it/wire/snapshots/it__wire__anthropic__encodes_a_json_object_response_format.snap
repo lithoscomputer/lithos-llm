@@ -1,5 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
+assertion_line: 684
 expression: rendered
 ---
 {
@@ -17,17 +18,16 @@ expression: rendered
       }
     ],
     "model": "claude-sonnet-4-6",
-    "output_config": {
-      "format": {
-        "schema": {
-          "additionalProperties": false,
-          "properties": {},
-          "type": "object"
+    "stream": false,
+    "system": [
+      {
+        "cache_control": {
+          "type": "ephemeral"
         },
-        "type": "json_schema"
+        "text": "You must respond with valid JSON only, no other text.",
+        "type": "text"
       }
-    },
-    "stream": false
+    ]
   },
   "headers": [
     [
@@ -59,29 +59,6 @@ expression: rendered
       "[redacted]"
     ]
   ],
-  "body": {
-    "max_tokens": 128,
-    "messages": [
-      {
-        "content": [
-          {
-            "text": "Give me the city and its population.",
-            "type": "text"
-          }
-        ],
-        "role": "user"
-      }
-    ],
-    "model": "claude-sonnet-4-6",
-    "stream": false,
-    "system": [
-      {
-        "cache_control": {
-          "type": "ephemeral"
-        },
-        "text": "You must respond with valid JSON only, no other text.",
-        "type": "text"
-      }
-    ]
-  }
+  "method": "POST",
+  "path": "/v1/messages"
 }
