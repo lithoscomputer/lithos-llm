@@ -237,6 +237,11 @@ impl Client {
 }
 
 fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
+    // A passthrough model's capabilities are unknown, not absent: the catalog
+    // never described it. Only the provider can judge such a request.
+    if route.model().is_passthrough() {
+        return Ok(());
+    }
     let capabilities = route.model().capabilities();
     if !request.tools().is_empty() && !capabilities.tools {
         return Err(unsupported_capability(route, "tools"));
@@ -669,6 +674,7 @@ mod tests {
 
     use async_trait::async_trait;
     use futures_util::stream::empty;
+    use serde_json::json;
 
     use super::{Client, ClientBuildError, ProviderBuildCause};
     use crate::adapter::{
@@ -676,7 +682,7 @@ mod tests {
     };
     use crate::catalog::{AdapterId, Catalog, CatalogProvider, ProviderId};
     use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
-    use crate::types::{ContentPart, Error, Request, Response, ResponseStream};
+    use crate::types::{ContentPart, Error, Request, Response, ResponseStream, ToolDefinition};
 
     const TEST_CATALOG: &str = r#"
         schema_version = 1
@@ -1006,6 +1012,49 @@ mod tests {
         let request = Request::builder().model("a/uno").user("hi").build()?;
         let route = build.client.resolve_route(&request)?;
         assert_eq!(route.handle().to_string(), "gamma/three");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_passthrough_route_skips_capability_validation() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .build()?;
+        let client = build.client;
+
+        // The catalog cannot describe a passthrough model, so a request using
+        // tools and sampling must reach the provider instead of failing here.
+        let request = Request::builder()
+            .model("alpha/not-in-catalog")
+            .user("hi")
+            .tool(ToolDefinition::function(
+                "patch",
+                "apply a patch",
+                json!({}),
+            ))
+            .temperature(0.7)
+            .build()?;
+        let response = client.complete(request).await?;
+        assert_eq!(response.content, vec![ContentPart::Text {
+            text: "not-in-catalog".to_owned(),
+        }]);
+
+        // A cataloged model keeps its declared capability limits.
+        let request = Request::builder()
+            .model("alpha/one")
+            .user("hi")
+            .tool(ToolDefinition::function(
+                "patch",
+                "apply a patch",
+                json!({}),
+            ))
+            .build()?;
+        let error = client
+            .complete(request)
+            .await
+            .expect_err("a cataloged model without tools must reject them");
+        assert!(error.to_string().contains("does not support tools"));
         Ok(())
     }
 

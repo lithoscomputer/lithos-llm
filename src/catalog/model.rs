@@ -177,6 +177,8 @@ pub struct CatalogModel {
     provider:     ProviderId,
     #[serde(skip)]
     id:           ModelId,
+    #[serde(skip)]
+    passthrough:  bool,
     display_name: String,
     #[serde(default)]
     aliases:      Vec<String>,
@@ -228,6 +230,15 @@ impl CatalogModel {
         &self.metadata
     }
 
+    /// Whether this model was synthesized for a passthrough route.
+    ///
+    /// A passthrough model is not described by the catalog, so its
+    /// capabilities are unknown rather than absent. Request validation trusts
+    /// the caller and lets the provider reject what the model cannot do.
+    pub fn is_passthrough(&self) -> bool {
+        self.passthrough
+    }
+
     pub(crate) fn set_identity(&mut self, provider: ProviderId, id: ModelId) {
         self.provider = provider;
         self.id = id;
@@ -236,11 +247,15 @@ impl CatalogModel {
     pub(crate) fn passthrough(provider: ProviderId, model: ModelId) -> Self {
         Self {
             provider,
+            passthrough: true,
             display_name: model.to_string(),
             api_model: model.to_string(),
             id: model,
             aliases: Vec::new(),
             limits: None,
+            // Conservative flags: codecs that gate wire behavior on a
+            // capability (cache points, effort levels) stay on their safe
+            // path. Validation is skipped instead via `is_passthrough`.
             capabilities: ModelCapabilities {
                 text: true,
                 ..ModelCapabilities::default()
