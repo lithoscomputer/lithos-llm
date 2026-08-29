@@ -136,9 +136,21 @@ impl Codec for OpenAiResponsesCodec {
         }
 
         // Codex hoists system messages into `instructions`, which is a string,
-        // so anything else in one is dropped. Standard mode keeps them as
-        // input items and loses nothing, so this is Codex-only.
+        // so anything but text in one is dropped. Standard mode keeps them as
+        // input items, but a system or developer item takes `input_text` and
+        // nothing else, so media in one is dropped there too. Either way the
+        // text still reaches the model: a warning, not a refusal.
         if self.codex && flattens_system_content(request) {
+            encoded = encoded.unsupported_control("non-text system content");
+        }
+        if !self.codex
+            && request
+                .messages()
+                .iter()
+                .filter(|message| matches!(message.role(), Role::System | Role::Developer))
+                .flat_map(Message::content)
+                .any(|part| matches!(part, ContentPart::Image(_) | ContentPart::Document(_)))
+        {
             encoded = encoded.unsupported_control("non-text system content");
         }
 
@@ -570,12 +582,17 @@ fn message_content(message: &Message, skip_text: bool) -> Vec<Value> {
         Role::Assistant => "output_text",
         Role::System | Role::Developer | Role::User | Role::Tool => "input_text",
     };
+    let system = matches!(message.role(), Role::System | Role::Developer);
 
     message
         .content()
         .iter()
         .filter_map(|part| match part {
             ContentPart::Text { .. } if skip_text => None,
+            // A system or developer item takes `input_text` and nothing else;
+            // media inside one draws a provider 400. Only the text travels,
+            // and `encode` reports the drop.
+            ContentPart::Image(_) | ContentPart::Document(_) if system => None,
             ContentPart::Text { text } => Some(json!({ "type": text_type, "text": text })),
             ContentPart::Json { value } => Some(json!({
                 "type": text_type,
@@ -1442,9 +1459,9 @@ mod tests {
     use crate::codecs::test_support::{resolved, resolved_in};
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentBlockId, ContentPart, ErrorKind, FinishReason, Message, ReasoningContent, Request,
-        Response, RetryClassification, Role, StreamEvent, ToolCall, ToolCallKind, ToolDefinition,
-        ToolResult,
+        ContentBlockId, ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
+        ReasoningContent, Request, Response, RetryClassification, Role, StreamEvent, ToolCall,
+        ToolCallKind, ToolDefinition, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -2897,6 +2914,42 @@ mod tests {
             encoded.body.to_string().matches("Checking now.").count(),
             1,
             "the preserved item already carries the assistant text",
+        );
+        Ok(())
+    }
+
+    /// Media in a system message never reaches the wire: the Responses API
+    /// accepts only `input_text` inside a system item and 400s on anything
+    /// else, where the reference client silently dropped it. The text
+    /// travels, the drop is reported.
+    #[test]
+    fn media_in_a_system_message_is_dropped_and_warned() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder()
+            .model(MODEL)
+            .message(Message::new(Role::System, [
+                ContentPart::Text {
+                    text: "Use the style guide.".to_owned(),
+                },
+                ContentPart::Image(ImageContent::new(MediaSource::url(
+                    "https://example.com/guide.png",
+                ))),
+            ]))
+            .user("Hello")
+            .build()?;
+
+        let encoded = codec().encode(&call(request)?, false)?;
+
+        let system_content = &encoded.body["input"][0]["content"];
+        assert_eq!(
+            system_content,
+            &json!([{ "type": "input_text", "text": "Use the style guide." }]),
+            "only the text may travel inside a system item"
+        );
+        assert_eq!(
+            encoded.warnings.len(),
+            1,
+            "the dropped image must be reported: {:?}",
+            encoded.warnings
         );
         Ok(())
     }
