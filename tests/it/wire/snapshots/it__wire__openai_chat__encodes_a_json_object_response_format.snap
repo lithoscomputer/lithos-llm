@@ -32,17 +32,17 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
-        "content": "Give me the city and its population.",
-        "role": "user"
+        "role": "user",
+        "content": "Give me the city and its population."
       }
     ],
-    "model": "vendor/compat-chat-v2",
+    "stream": false,
+    "max_tokens": 128,
     "response_format": {
       "type": "json_object"
-    },
-    "stream": false
+    }
   }
 }

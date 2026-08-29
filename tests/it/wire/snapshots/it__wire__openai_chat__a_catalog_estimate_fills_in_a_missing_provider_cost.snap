@@ -27,20 +27,20 @@ expression: rendered
     "source": "catalog"
   },
   "raw": {
+    "id": "chatcmpl-cost",
     "choices": [
       {
-        "finish_reason": "stop",
         "index": 0,
         "message": {
-          "content": "ok",
-          "role": "assistant"
-        }
+          "role": "assistant",
+          "content": "ok"
+        },
+        "finish_reason": "stop"
       }
     ],
-    "id": "chatcmpl-cost",
     "usage": {
-      "completion_tokens": 10,
-      "prompt_tokens": 200
+      "prompt_tokens": 200,
+      "completion_tokens": 10
     }
   }
 }

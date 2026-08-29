@@ -1,0 +1,47 @@
+---
+source: tests/it/wire/openai_chat.rs
+assertion_line: 295
+expression: rendered
+---
+{
+  "id": "chatcmpl-wire",
+  "model": {
+    "provider": "compat",
+    "model": "compat-chat"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello."
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 11,
+    "output": 5,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "id": "chatcmpl-wire",
+    "object": "chat.completion",
+    "created": 1700000000,
+    "model": "vendor/compat-chat-v2",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Hello."
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 11,
+      "completion_tokens": 5,
+      "total_tokens": 16
+    }
+  }
+}

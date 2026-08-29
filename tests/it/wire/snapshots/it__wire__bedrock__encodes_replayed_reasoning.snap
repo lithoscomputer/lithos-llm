@@ -32,11 +32,9 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "Is 91 prime?"
@@ -46,16 +44,16 @@ expression: rendered
               "type": "default"
             }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": [
           {
             "reasoningContent": {
               "reasoningText": {
-                "signature": "sig-abc",
-                "text": "91 is 7 times 13."
+                "text": "91 is 7 times 13.",
+                "signature": "sig-abc"
               }
             }
           },
@@ -67,17 +65,19 @@ expression: rendered
           {
             "text": "No, 91 is not prime."
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
+        "role": "user",
         "content": [
           {
             "text": "What about 97?"
           }
-        ],
-        "role": "user"
+        ]
       }
-    ]
+    ],
+    "inferenceConfig": {
+      "maxTokens": 128
+    }
   }
 }

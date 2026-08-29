@@ -32,20 +32,20 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
-    "max_output_tokens": 256,
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "max_output_tokens": 256,
     "service_tier": "flex"
   }
 }

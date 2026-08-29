@@ -36,21 +36,21 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_output_tokens": 256,
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Hello",
-            "type": "text"
+            "type": "text",
+            "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
-    "service_tier": "flex",
-    "stream": false
+    "max_tokens": 128,
+    "stream": false,
+    "max_output_tokens": 256,
+    "service_tier": "flex"
   }
 }

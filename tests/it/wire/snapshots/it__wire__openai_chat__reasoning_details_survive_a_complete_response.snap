@@ -14,15 +14,15 @@ expression: rendered
       "kind": "openai_compatible.reasoning_details",
       "data": [
         {
-          "data": "AQ==",
+          "type": "reasoning.encrypted",
           "id": "rs-1",
-          "index": 0,
-          "type": "reasoning.encrypted"
+          "data": "AQ==",
+          "index": 0
         },
         {
-          "index": 1,
+          "type": "reasoning.text",
           "text": "Two cities to look up.",
-          "type": "reasoning.text"
+          "index": 1
         }
       ]
     },
@@ -40,33 +40,33 @@ expression: rendered
     "cache_write": 0
   },
   "raw": {
+    "id": "chatcmpl-details",
     "choices": [
       {
-        "finish_reason": "stop",
         "index": 0,
         "message": {
+          "role": "assistant",
           "content": "Hello.",
           "reasoning_details": [
             {
-              "data": "AQ==",
+              "type": "reasoning.encrypted",
               "id": "rs-1",
-              "index": 0,
-              "type": "reasoning.encrypted"
+              "data": "AQ==",
+              "index": 0
             },
             {
-              "index": 1,
+              "type": "reasoning.text",
               "text": "Two cities to look up.",
-              "type": "reasoning.text"
+              "index": 1
             }
-          ],
-          "role": "assistant"
-        }
+          ]
+        },
+        "finish_reason": "stop"
       }
     ],
-    "id": "chatcmpl-details",
     "usage": {
-      "completion_tokens": 5,
-      "prompt_tokens": 11
+      "prompt_tokens": 11,
+      "completion_tokens": 5
     }
   }
 }

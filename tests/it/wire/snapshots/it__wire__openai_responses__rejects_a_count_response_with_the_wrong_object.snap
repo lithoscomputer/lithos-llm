@@ -10,7 +10,7 @@ expression: rendered
     "type": "safe"
   },
   "raw_data": {
-    "input_tokens": 42,
-    "object": "response"
+    "object": "response",
+    "input_tokens": 42
   }
 }

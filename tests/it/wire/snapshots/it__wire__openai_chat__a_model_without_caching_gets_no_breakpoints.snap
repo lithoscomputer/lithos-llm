@@ -32,26 +32,26 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
-        "content": "Keep it short.",
-        "role": "system"
+        "role": "system",
+        "content": "Keep it short."
       },
       {
-        "content": "What is the capital of France?",
-        "role": "user"
+        "role": "user",
+        "content": "What is the capital of France?"
       },
       {
-        "content": "Paris.",
-        "role": "assistant"
+        "role": "assistant",
+        "content": "Paris."
       },
       {
-        "content": "And of Spain?",
-        "role": "user"
+        "role": "user",
+        "content": "And of Spain?"
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "stream": false
+    "stream": false,
+    "max_tokens": 128
   }
 }

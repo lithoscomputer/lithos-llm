@@ -32,44 +32,44 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "What is the weather in Paris?"
+          }
+        ]
+      },
+      {
+        "type": "function_call",
+        "call_id": "call_weather",
+        "name": "get_weather",
+        "arguments": "{\"city\":\"Paris\"}"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_weather",
+        "output": "{\"temperature_c\":18,\"sky\":\"clear\"}"
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "What is the weather in Paris?",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "arguments": "{\"city\":\"Paris\"}",
-        "call_id": "call_weather",
-        "name": "get_weather",
-        "type": "function_call"
-      },
-      {
-        "call_id": "call_weather",
-        "output": "{\"sky\":\"clear\",\"temperature_c\":18}",
-        "type": "function_call_output"
-      }
-    ],
     "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false,
     "tools": [
       {
-        "description": "Looks up the weather",
+        "type": "function",
         "name": "get_weather",
+        "description": "Looks up the weather",
         "parameters": {
-          "properties": {},
-          "type": "object"
-        },
-        "type": "function"
+          "type": "object",
+          "properties": {}
+        }
       }
     ]
   }

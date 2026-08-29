@@ -34,6 +34,7 @@ expression: rendered
   "body": {
     "contents": [
       {
+        "role": "user",
         "parts": [
           {
             "text": "Describe both attachments."
@@ -48,8 +49,7 @@ expression: rendered
               "fileUri": "https://example.com/report.pdf"
             }
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "generationConfig": {

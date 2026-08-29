@@ -17,17 +17,17 @@ expression: rendered
       "type": "opaque",
       "kind": "openai.message",
       "data": {
+        "type": "message",
+        "id": "msg_internal",
+        "status": "completed",
+        "role": "assistant",
         "content": [
           {
-            "annotations": [],
+            "type": "output_text",
             "text": "All done.",
-            "type": "output_text"
+            "annotations": []
           }
-        ],
-        "id": "msg_internal",
-        "role": "assistant",
-        "status": "completed",
-        "type": "message"
+        ]
       }
     }
   ],
@@ -41,31 +41,31 @@ expression: rendered
   },
   "raw": {
     "id": "resp_internal",
-    "model": "gpt-5.6-luna-2026-04-01",
     "object": "response",
+    "status": "completed",
+    "model": "gpt-5.6-luna-2026-04-01",
     "output": [
       {
-        "arguments": "{}",
-        "call_id": "call_internal",
+        "type": "function_call",
         "id": "fc_internal",
+        "call_id": "call_internal",
         "name": "",
-        "status": "completed",
-        "type": "function_call"
+        "arguments": "{}",
+        "status": "completed"
       },
       {
+        "type": "message",
+        "id": "msg_internal",
+        "status": "completed",
+        "role": "assistant",
         "content": [
           {
-            "annotations": [],
+            "type": "output_text",
             "text": "All done.",
-            "type": "output_text"
+            "annotations": []
           }
-        ],
-        "id": "msg_internal",
-        "role": "assistant",
-        "status": "completed",
-        "type": "message"
+        ]
       }
-    ],
-    "status": "completed"
+    ]
   }
 }

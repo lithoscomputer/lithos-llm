@@ -32,39 +32,40 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "system",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Use the tools when they help."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "What is the weather in Paris?"
+          }
+        ]
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "Use the tools when they help.",
-            "type": "input_text"
-          }
-        ],
-        "role": "system"
-      },
-      {
-        "content": [
-          {
-            "text": "What is the weather in Paris?",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      }
-    ],
     "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false,
-    "tool_choice": "required",
     "tools": [
       {
-        "description": "Reads the current weather for a city",
+        "type": "function",
         "name": "get_weather",
+        "description": "Reads the current weather for a city",
         "parameters": {
+          "type": "object",
           "properties": {
             "city": {
               "type": "string"
@@ -72,15 +73,15 @@ expression: rendered
           },
           "required": [
             "city"
-          ],
-          "type": "object"
-        },
-        "type": "function"
+          ]
+        }
       },
       {
-        "description": "Reads the current time in a time zone",
+        "type": "function",
         "name": "get_time",
+        "description": "Reads the current time in a time zone",
         "parameters": {
+          "type": "object",
           "properties": {
             "zone": {
               "type": "string"
@@ -88,11 +89,10 @@ expression: rendered
           },
           "required": [
             "zone"
-          ],
-          "type": "object"
-        },
-        "type": "function"
+          ]
+        }
       }
-    ]
+    ],
+    "tool_choice": "required"
   }
 }

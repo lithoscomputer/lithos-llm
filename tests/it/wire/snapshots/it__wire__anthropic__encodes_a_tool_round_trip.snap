@@ -36,72 +36,70 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
+            "type": "text",
+            "text": "What is the weather in Paris and Madrid?",
             "cache_control": {
               "type": "ephemeral"
-            },
-            "text": "What is the weather in Paris and Madrid?",
-            "type": "text"
+            }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": [
           {
-            "text": "Looking both up.",
-            "type": "text"
+            "type": "text",
+            "text": "Looking both up."
           },
           {
+            "type": "tool_use",
             "id": "call_paris",
+            "name": "get_weather",
             "input": {
               "city": "Paris"
-            },
-            "name": "get_weather",
-            "type": "tool_use"
+            }
           },
           {
+            "type": "tool_use",
             "id": "call_madrid",
+            "name": "get_weather",
             "input": {
               "city": "Madrid"
-            },
-            "name": "get_weather",
-            "type": "tool_use"
+            }
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
+        "role": "user",
         "content": [
           {
-            "content": "18C and clear",
-            "is_error": false,
+            "type": "tool_result",
             "tool_use_id": "call_paris",
-            "type": "tool_result"
+            "content": "18C and clear",
+            "is_error": false
           },
           {
-            "content": "the city is unknown",
-            "is_error": true,
+            "type": "tool_result",
             "tool_use_id": "call_madrid",
-            "type": "tool_result"
+            "content": "the city is unknown",
+            "is_error": true
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
-    "stream": false,
+    "max_tokens": 128,
     "tools": [
       {
-        "cache_control": {
-          "type": "ephemeral"
-        },
+        "name": "get_weather",
         "description": "Reads the current weather for a city",
         "input_schema": {
+          "type": "object",
           "properties": {
             "city": {
               "type": "string"
@@ -109,11 +107,13 @@ expression: rendered
           },
           "required": [
             "city"
-          ],
-          "type": "object"
+          ]
         },
-        "name": "get_weather"
+        "cache_control": {
+          "type": "ephemeral"
+        }
       }
-    ]
+    ],
+    "stream": false
   }
 }

@@ -1,0 +1,142 @@
+---
+source: tests/it/wire/bedrock.rs
+assertion_line: 946
+expression: rendered
+---
+[
+  {
+    "type": "started",
+    "id": null
+  },
+  {
+    "type": "content_block_start",
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    }
+  },
+  {
+    "type": "text_delta",
+    "id": "block-0",
+    "text": "Checking"
+  },
+  {
+    "type": "content_block_start",
+    "id": "block-2",
+    "kind": {
+      "type": "tool_call",
+      "id": "tooluse_paris",
+      "name": "get_weather",
+      "kind": "function"
+    }
+  },
+  {
+    "type": "text_delta",
+    "id": "block-0",
+    "text": " Paris."
+  },
+  {
+    "type": "tool_call_delta",
+    "id": "block-2",
+    "arguments": "{\"city\":"
+  },
+  {
+    "type": "content_block_start",
+    "id": "block-1",
+    "kind": {
+      "type": "reasoning"
+    }
+  },
+  {
+    "type": "reasoning_delta",
+    "id": "block-1",
+    "text": "Paris is in France."
+  },
+  {
+    "type": "tool_call_delta",
+    "id": "block-2",
+    "arguments": " \"Paris\"}"
+  },
+  {
+    "type": "content_block_end",
+    "id": "block-0",
+    "part": {
+      "type": "text",
+      "text": "Checking Paris."
+    }
+  },
+  {
+    "type": "content_block_end",
+    "id": "block-1",
+    "part": {
+      "type": "reasoning",
+      "text": "Paris is in France.",
+      "signature": "sig-stream",
+      "signature_origin": "anthropic"
+    }
+  },
+  {
+    "type": "content_block_end",
+    "id": "block-2",
+    "part": {
+      "type": "tool_call",
+      "id": "tooluse_paris",
+      "name": "get_weather",
+      "arguments": {
+        "city": "Paris"
+      },
+      "kind": "function",
+      "raw_arguments": "{\"city\": \"Paris\"}"
+    }
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "input": 30,
+      "output": 628,
+      "reasoning": 0,
+      "cache_read": 1024,
+      "cache_write": 512
+    }
+  },
+  {
+    "type": "completed",
+    "response": {
+      "id": null,
+      "model": {
+        "provider": "bedrock",
+        "model": "sonnet"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Checking Paris."
+        },
+        {
+          "type": "reasoning",
+          "text": "Paris is in France.",
+          "signature": "sig-stream",
+          "signature_origin": "anthropic"
+        },
+        {
+          "type": "tool_call",
+          "id": "tooluse_paris",
+          "name": "get_weather",
+          "arguments": {
+            "city": "Paris"
+          },
+          "kind": "function",
+          "raw_arguments": "{\"city\": \"Paris\"}"
+        }
+      ],
+      "finish_reason": "tool_call",
+      "usage": {
+        "input": 30,
+        "output": 628,
+        "reasoning": 0,
+        "cache_read": 1024,
+        "cache_write": 512
+      }
+    }
+  }
+]

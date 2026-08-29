@@ -32,28 +32,30 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Give me the city and its population."
+          }
+        ]
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "Give me the city and its population.",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      }
-    ],
     "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false,
     "text": {
       "format": {
+        "type": "json_schema",
         "name": "city_report",
         "schema": {
+          "type": "object",
           "additionalProperties": false,
           "properties": {
             "city": {
@@ -66,11 +68,9 @@ expression: rendered
           "required": [
             "city",
             "population"
-          ],
-          "type": "object"
+          ]
         },
-        "strict": true,
-        "type": "json_schema"
+        "strict": true
       }
     }
   }

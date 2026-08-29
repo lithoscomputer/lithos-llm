@@ -4,13 +4,16 @@ expression: rendered
 ---
 [
   {
+    "tool_choice": "unset",
     "toolConfig": {
       "tools": [
         {
           "toolSpec": {
+            "name": "get_weather",
             "description": "Reads the current weather for a city",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "city": {
                     "type": "string"
@@ -18,18 +21,18 @@ expression: rendered
                 },
                 "required": [
                   "city"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_weather"
+            }
           }
         },
         {
           "toolSpec": {
+            "name": "get_time",
             "description": "Reads the current time in a time zone",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "zone": {
                     "type": "string"
@@ -37,11 +40,9 @@ expression: rendered
                 },
                 "required": [
                   "zone"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_time"
+            }
           }
         },
         {
@@ -50,17 +51,19 @@ expression: rendered
           }
         }
       ]
-    },
-    "tool_choice": "unset"
+    }
   },
   {
+    "tool_choice": "auto",
     "toolConfig": {
       "tools": [
         {
           "toolSpec": {
+            "name": "get_weather",
             "description": "Reads the current weather for a city",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "city": {
                     "type": "string"
@@ -68,18 +71,18 @@ expression: rendered
                 },
                 "required": [
                   "city"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_weather"
+            }
           }
         },
         {
           "toolSpec": {
+            "name": "get_time",
             "description": "Reads the current time in a time zone",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "zone": {
                     "type": "string"
@@ -87,11 +90,9 @@ expression: rendered
                 },
                 "required": [
                   "zone"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_time"
+            }
           }
         },
         {
@@ -100,24 +101,76 @@ expression: rendered
           }
         }
       ]
-    },
-    "tool_choice": "auto"
+    }
   },
   {
-    "toolConfig": null,
-    "tool_choice": "none"
+    "tool_choice": "none",
+    "toolConfig": null
   },
   {
+    "tool_choice": "required",
     "toolConfig": {
+      "tools": [
+        {
+          "toolSpec": {
+            "name": "get_weather",
+            "description": "Reads the current weather for a city",
+            "inputSchema": {
+              "json": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "toolSpec": {
+            "name": "get_time",
+            "description": "Reads the current time in a time zone",
+            "inputSchema": {
+              "json": {
+                "type": "object",
+                "properties": {
+                  "zone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "zone"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ],
       "toolChoice": {
         "any": {}
-      },
+      }
+    }
+  },
+  {
+    "tool_choice": "tool",
+    "toolConfig": {
       "tools": [
         {
           "toolSpec": {
+            "name": "get_weather",
             "description": "Reads the current weather for a city",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "city": {
                     "type": "string"
@@ -125,18 +178,18 @@ expression: rendered
                 },
                 "required": [
                   "city"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_weather"
+            }
           }
         },
         {
           "toolSpec": {
+            "name": "get_time",
             "description": "Reads the current time in a time zone",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "zone": {
                     "type": "string"
@@ -144,11 +197,9 @@ expression: rendered
                 },
                 "required": [
                   "zone"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_time"
+            }
           }
         },
         {
@@ -156,63 +207,12 @@ expression: rendered
             "type": "default"
           }
         }
-      ]
-    },
-    "tool_choice": "required"
-  },
-  {
-    "toolConfig": {
+      ],
       "toolChoice": {
         "tool": {
           "name": "get_weather"
         }
-      },
-      "tools": [
-        {
-          "toolSpec": {
-            "description": "Reads the current weather for a city",
-            "inputSchema": {
-              "json": {
-                "properties": {
-                  "city": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "city"
-                ],
-                "type": "object"
-              }
-            },
-            "name": "get_weather"
-          }
-        },
-        {
-          "toolSpec": {
-            "description": "Reads the current time in a time zone",
-            "inputSchema": {
-              "json": {
-                "properties": {
-                  "zone": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "zone"
-                ],
-                "type": "object"
-              }
-            },
-            "name": "get_time"
-          }
-        },
-        {
-          "cachePoint": {
-            "type": "default"
-          }
-        }
-      ]
-    },
-    "tool_choice": "tool"
+      }
+    }
   }
 ]

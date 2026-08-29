@@ -4,110 +4,110 @@ expression: rendered
 ---
 [
   {
-    "id": "resp_keepalive",
-    "type": "started"
+    "type": "started",
+    "id": "resp_keepalive"
   },
   {
+    "type": "content_block_start",
     "id": "msg_keepalive",
     "kind": {
       "type": "text"
-    },
-    "type": "content_block_start"
+    }
   },
   {
+    "type": "text_delta",
     "id": "msg_keepalive",
-    "text": "Still here.",
-    "type": "text_delta"
+    "text": "Still here."
   },
   {
+    "type": "content_block_end",
     "id": "msg_keepalive",
     "part": {
-      "text": "Still here.",
-      "type": "text"
-    },
-    "type": "content_block_end"
+      "type": "text",
+      "text": "Still here."
+    }
   },
   {
+    "type": "content_block_start",
     "id": "msg_keepalive-item",
     "kind": {
+      "type": "opaque",
+      "kind": "openai.message"
+    }
+  },
+  {
+    "type": "content_block_end",
+    "id": "msg_keepalive-item",
+    "part": {
+      "type": "opaque",
       "kind": "openai.message",
-      "type": "opaque"
-    },
-    "type": "content_block_start"
-  },
-  {
-    "id": "msg_keepalive-item",
-    "part": {
       "data": {
+        "type": "message",
+        "id": "msg_keepalive",
+        "status": "completed",
+        "role": "assistant",
         "content": [
           {
-            "text": "Still here.",
-            "type": "output_text"
+            "type": "output_text",
+            "text": "Still here."
           }
-        ],
-        "id": "msg_keepalive",
-        "role": "assistant",
-        "status": "completed",
-        "type": "message"
-      },
-      "kind": "openai.message",
-      "type": "opaque"
-    },
-    "type": "content_block_end"
+        ]
+      }
+    }
   },
   {
     "type": "usage",
     "usage": {
-      "cache_read": 0,
-      "cache_write": 0,
       "input": 0,
       "output": 0,
-      "reasoning": 0
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
     }
   },
   {
+    "type": "completed",
     "response": {
+      "id": "resp_keepalive",
+      "model": {
+        "provider": "openai",
+        "model": "gpt-5.6-luna"
+      },
       "content": [
         {
-          "text": "Still here.",
-          "type": "text"
+          "type": "text",
+          "text": "Still here."
         },
         {
+          "type": "opaque",
+          "kind": "openai.message",
           "data": {
+            "type": "message",
+            "id": "msg_keepalive",
+            "status": "completed",
+            "role": "assistant",
             "content": [
               {
-                "text": "Still here.",
-                "type": "output_text"
+                "type": "output_text",
+                "text": "Still here."
               }
-            ],
-            "id": "msg_keepalive",
-            "role": "assistant",
-            "status": "completed",
-            "type": "message"
-          },
-          "kind": "openai.message",
-          "type": "opaque"
+            ]
+          }
         }
       ],
       "finish_reason": "stop",
-      "id": "resp_keepalive",
-      "model": {
-        "model": "gpt-5.6-luna",
-        "provider": "openai"
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "cache_read": 0,
+        "cache_write": 0
       },
       "raw": {
         "id": "resp_keepalive",
-        "output": [],
-        "status": "completed"
-      },
-      "usage": {
-        "cache_read": 0,
-        "cache_write": 0,
-        "input": 0,
-        "output": 0,
-        "reasoning": 0
+        "status": "completed",
+        "output": []
       }
-    },
-    "type": "completed"
+    }
   }
 ]

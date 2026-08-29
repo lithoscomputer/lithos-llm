@@ -1,6 +1,6 @@
 ---
 source: tests/it/wire/anthropic.rs
-assertion_line: 383
+assertion_line: 329
 expression: rendered
 ---
 {

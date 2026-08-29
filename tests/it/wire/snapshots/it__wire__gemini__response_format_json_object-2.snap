@@ -23,25 +23,25 @@ expression: rendered
     "cache_write": 0
   },
   "raw": {
+    "responseId": "resp-gemini-3",
+    "modelVersion": "gemini-2.5-pro-002",
     "candidates": [
       {
+        "index": 0,
         "content": {
+          "role": "model",
           "parts": [
             {
               "text": "{\"city\":\"Paris\",\"population\":2102650}"
             }
-          ],
-          "role": "model"
+          ]
         },
-        "finishReason": "STOP",
-        "index": 0
+        "finishReason": "STOP"
       }
     ],
-    "modelVersion": "gemini-2.5-pro-002",
-    "responseId": "resp-gemini-3",
     "usageMetadata": {
-      "candidatesTokenCount": 14,
-      "promptTokenCount": 9
+      "promptTokenCount": 9,
+      "candidatesTokenCount": 14
     }
   }
 }

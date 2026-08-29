@@ -32,55 +32,55 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "What is the weather in Paris?"
+          }
+        ]
+      },
+      {
+        "type": "reasoning",
+        "id": "rs_first",
+        "summary": [],
+        "encrypted_content": "gAAAAAfirst-reasoning-state"
+      },
+      {
+        "type": "message",
+        "id": "msg_interleaved",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "Checking now.",
+            "annotations": []
+          }
+        ]
+      },
+      {
+        "type": "reasoning",
+        "id": "rs_second",
+        "summary": [],
+        "encrypted_content": "gAAAAAsecond-reasoning-state"
+      },
+      {
+        "type": "function_call",
+        "call_id": "call_weather",
+        "name": "get_weather",
+        "arguments": "{\"city\":\"Paris\"}",
+        "id": "fc_interleaved"
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "What is the weather in Paris?",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "encrypted_content": "gAAAAAfirst-reasoning-state",
-        "id": "rs_first",
-        "summary": [],
-        "type": "reasoning"
-      },
-      {
-        "content": [
-          {
-            "annotations": [],
-            "text": "Checking now.",
-            "type": "output_text"
-          }
-        ],
-        "id": "msg_interleaved",
-        "role": "assistant",
-        "status": "completed",
-        "type": "message"
-      },
-      {
-        "encrypted_content": "gAAAAAsecond-reasoning-state",
-        "id": "rs_second",
-        "summary": [],
-        "type": "reasoning"
-      },
-      {
-        "arguments": "{\"city\":\"Paris\"}",
-        "call_id": "call_weather",
-        "id": "fc_interleaved",
-        "name": "get_weather",
-        "type": "function_call"
-      }
-    ],
-    "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false
+    "max_output_tokens": 128
   }
 }

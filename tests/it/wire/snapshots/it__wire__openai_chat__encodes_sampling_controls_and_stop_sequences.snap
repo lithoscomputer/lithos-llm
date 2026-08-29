@@ -32,20 +32,20 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
-        "content": "Write one sentence.",
-        "role": "user"
+        "role": "user",
+        "content": "Write one sentence."
       }
     ],
-    "model": "vendor/compat-chat-v2",
+    "stream": false,
+    "max_tokens": 128,
+    "temperature": 0.7,
+    "top_p": 0.9,
     "stop": [
       "END",
       "STOP"
-    ],
-    "stream": false,
-    "temperature": 0.7,
-    "top_p": 0.9
+    ]
   }
 }

@@ -36,58 +36,56 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
+            "type": "text",
+            "text": "What is the weather in Paris?",
             "cache_control": {
               "type": "ephemeral"
-            },
-            "text": "What is the weather in Paris?",
-            "type": "text"
+            }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": [
           {
-            "encrypted_content": "opaque-payload",
-            "id": "rs_replay"
+            "id": "rs_replay",
+            "encrypted_content": "opaque-payload"
           },
           {
+            "type": "tool_use",
             "id": "call_replay",
+            "name": "get_weather",
             "input": {
               "city": "Paris"
-            },
-            "name": "get_weather",
-            "type": "tool_use"
+            }
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
+        "role": "user",
         "content": [
           {
-            "content": "18C and clear",
-            "is_error": false,
+            "type": "tool_result",
             "tool_use_id": "call_replay",
-            "type": "tool_result"
+            "content": "18C and clear",
+            "is_error": false
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
-    "stream": false,
+    "max_tokens": 128,
     "tools": [
       {
-        "cache_control": {
-          "type": "ephemeral"
-        },
+        "name": "get_weather",
         "description": "Reads the current weather for a city",
         "input_schema": {
+          "type": "object",
           "properties": {
             "city": {
               "type": "string"
@@ -95,11 +93,13 @@ expression: rendered
           },
           "required": [
             "city"
-          ],
-          "type": "object"
+          ]
         },
-        "name": "get_weather"
+        "cache_control": {
+          "type": "ephemeral"
+        }
       }
-    ]
+    ],
+    "stream": false
   }
 }

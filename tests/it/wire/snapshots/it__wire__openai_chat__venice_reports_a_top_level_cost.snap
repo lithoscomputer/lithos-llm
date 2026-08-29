@@ -27,24 +27,24 @@ expression: rendered
     "source": "provider"
   },
   "raw": {
+    "id": "chatcmpl-cost",
     "choices": [
       {
-        "finish_reason": "stop",
         "index": 0,
         "message": {
-          "content": "ok",
-          "role": "assistant"
-        }
+          "role": "assistant",
+          "content": "ok"
+        },
+        "finish_reason": "stop"
       }
     ],
-    "cost": {
-      "diem": 9.5,
-      "usd": 0.25
-    },
-    "id": "chatcmpl-cost",
     "usage": {
-      "completion_tokens": 2,
-      "prompt_tokens": 4
+      "prompt_tokens": 4,
+      "completion_tokens": 2
+    },
+    "cost": {
+      "usd": 0.25,
+      "diem": 9.5
     }
   }
 }

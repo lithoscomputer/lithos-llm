@@ -9,10 +9,10 @@ expression: rendered
       "kind": "response_decode",
       "message": "Anthropic returned a response without the id field",
       "provider": "anthropic",
-      "raw_data": {},
       "retry": {
         "type": "safe"
-      }
+      },
+      "raw_data": {}
     }
   },
   {
@@ -21,6 +21,9 @@ expression: rendered
       "kind": "response_decode",
       "message": "Anthropic returned a response without the content field",
       "provider": "anthropic",
+      "retry": {
+        "type": "safe"
+      },
       "raw_data": {
         "id": "msg_01WireBare",
         "model": "claude-sonnet-4-6",
@@ -28,9 +31,6 @@ expression: rendered
           "input_tokens": 4,
           "output_tokens": 0
         }
-      },
-      "retry": {
-        "type": "safe"
       }
     }
   },
@@ -40,18 +40,18 @@ expression: rendered
       "kind": "response_decode",
       "message": "Anthropic returned a response without the usage field",
       "provider": "anthropic",
-      "raw_data": {
-        "content": [
-          {
-            "text": "Hello back.",
-            "type": "text"
-          }
-        ],
-        "id": "msg_01WireBare",
-        "model": "claude-sonnet-4-6"
-      },
       "retry": {
         "type": "safe"
+      },
+      "raw_data": {
+        "id": "msg_01WireBare",
+        "model": "claude-sonnet-4-6",
+        "content": [
+          {
+            "type": "text",
+            "text": "Hello back."
+          }
+        ]
       }
     }
   },
@@ -61,12 +61,12 @@ expression: rendered
       "kind": "response_decode",
       "message": "Anthropic returned a response without the id field",
       "provider": "anthropic",
+      "retry": {
+        "type": "safe"
+      },
       "raw_data": {
         "status": "ok",
         "upstream": "anthropic"
-      },
-      "retry": {
-        "type": "safe"
       }
     }
   }

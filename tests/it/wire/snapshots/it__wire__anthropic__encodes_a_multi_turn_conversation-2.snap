@@ -23,18 +23,18 @@ expression: rendered
     "cache_write": 0
   },
   "raw": {
+    "id": "msg_01WireText",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-sonnet-4-6",
     "content": [
       {
-        "text": "Hello back.",
-        "type": "text"
+        "type": "text",
+        "text": "Hello back."
       }
     ],
-    "id": "msg_01WireText",
-    "model": "claude-sonnet-4-6",
-    "role": "assistant",
     "stop_reason": "end_turn",
     "stop_sequence": null,
-    "type": "message",
     "usage": {
       "input_tokens": 11,
       "output_tokens": 5

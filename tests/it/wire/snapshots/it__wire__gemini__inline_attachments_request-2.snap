@@ -23,25 +23,25 @@ expression: rendered
     "cache_write": 0
   },
   "raw": {
+    "responseId": "resp-gemini-1",
+    "modelVersion": "gemini-2.5-pro-002",
     "candidates": [
       {
+        "index": 0,
         "content": {
+          "role": "model",
           "parts": [
             {
               "text": "Hello there."
             }
-          ],
-          "role": "model"
+          ]
         },
-        "finishReason": "STOP",
-        "index": 0
+        "finishReason": "STOP"
       }
     ],
-    "modelVersion": "gemini-2.5-pro-002",
-    "responseId": "resp-gemini-1",
     "usageMetadata": {
-      "candidatesTokenCount": 5,
       "promptTokenCount": 11,
+      "candidatesTokenCount": 5,
       "totalTokenCount": 16
     }
   }

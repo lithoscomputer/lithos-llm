@@ -1,0 +1,130 @@
+---
+source: tests/it/wire/openai_responses.rs
+assertion_line: 749
+expression: rendered
+---
+{
+  "id": "resp_interleaved",
+  "model": {
+    "provider": "openai",
+    "model": "gpt-5.6-luna"
+  },
+  "content": [
+    {
+      "type": "opaque",
+      "kind": "openai.reasoning",
+      "data": {
+        "type": "reasoning",
+        "id": "rs_first",
+        "summary": [],
+        "encrypted_content": "gAAAAAfirst-reasoning-state"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Checking now."
+    },
+    {
+      "type": "opaque",
+      "kind": "openai.message",
+      "data": {
+        "type": "message",
+        "id": "msg_interleaved",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "Checking now.",
+            "annotations": []
+          }
+        ]
+      }
+    },
+    {
+      "type": "opaque",
+      "kind": "openai.reasoning",
+      "data": {
+        "type": "reasoning",
+        "id": "rs_second",
+        "summary": [],
+        "encrypted_content": "gAAAAAsecond-reasoning-state"
+      }
+    },
+    {
+      "type": "tool_call",
+      "id": "call_weather",
+      "name": "get_weather",
+      "arguments": {
+        "city": "Paris"
+      },
+      "kind": "function",
+      "raw_arguments": "{\"city\":\"Paris\"}",
+      "provider_metadata": {
+        "openai": {
+          "item_id": "fc_interleaved"
+        }
+      }
+    }
+  ],
+  "finish_reason": "tool_call",
+  "usage": {
+    "input": 20,
+    "output": 5,
+    "reasoning": 4,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "id": "resp_interleaved",
+    "object": "response",
+    "status": "completed",
+    "model": "gpt-5.6-luna-2026-04-01",
+    "output": [
+      {
+        "type": "reasoning",
+        "id": "rs_first",
+        "summary": [],
+        "encrypted_content": "gAAAAAfirst-reasoning-state"
+      },
+      {
+        "type": "message",
+        "id": "msg_interleaved",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "Checking now.",
+            "annotations": []
+          }
+        ]
+      },
+      {
+        "type": "reasoning",
+        "id": "rs_second",
+        "summary": [],
+        "encrypted_content": "gAAAAAsecond-reasoning-state"
+      },
+      {
+        "type": "function_call",
+        "id": "fc_interleaved",
+        "call_id": "call_weather",
+        "name": "get_weather",
+        "arguments": "{\"city\":\"Paris\"}",
+        "status": "completed"
+      }
+    ],
+    "usage": {
+      "input_tokens": 20,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      },
+      "output_tokens": 9,
+      "output_tokens_details": {
+        "reasoning_tokens": 4
+      },
+      "total_tokens": 29
+    }
+  }
+}

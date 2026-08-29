@@ -32,45 +32,47 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "What is the weather in Paris?"
+          }
+        ]
+      },
+      {
+        "id": "rs_replay",
+        "encrypted_content": "opaque-payload"
+      },
+      {
+        "type": "function_call",
+        "call_id": "call_replay",
+        "name": "get_weather",
+        "arguments": "{\"city\": \"Paris\"}",
+        "id": "item_replay"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_replay",
+        "output": "18C and clear"
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "What is the weather in Paris?",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "encrypted_content": "opaque-payload",
-        "id": "rs_replay"
-      },
-      {
-        "arguments": "{\"city\": \"Paris\"}",
-        "call_id": "call_replay",
-        "id": "item_replay",
-        "name": "get_weather",
-        "type": "function_call"
-      },
-      {
-        "call_id": "call_replay",
-        "output": "18C and clear",
-        "type": "function_call_output"
-      }
-    ],
     "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false,
     "tools": [
       {
-        "description": "Reads the current weather for a city",
+        "type": "function",
         "name": "get_weather",
+        "description": "Reads the current weather for a city",
         "parameters": {
+          "type": "object",
           "properties": {
             "city": {
               "type": "string"
@@ -78,10 +80,8 @@ expression: rendered
           },
           "required": [
             "city"
-          ],
-          "type": "object"
-        },
-        "type": "function"
+          ]
+        }
       }
     ]
   }

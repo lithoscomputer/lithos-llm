@@ -36,61 +36,61 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "What is the weather in Paris?",
-            "type": "text"
+            "type": "text",
+            "text": "What is the weather in Paris?"
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": [
           {
+            "type": "tool_use",
             "id": "call_weather",
+            "name": "get_weather",
             "input": {
               "city": "Paris"
-            },
-            "name": "get_weather",
-            "type": "tool_use"
+            }
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
+        "role": "user",
         "content": [
           {
+            "type": "tool_result",
+            "tool_use_id": "call_weather",
             "content": [
               {
-                "text": "{\"city\":\"Paris\",\"high_c\":21}",
-                "type": "text"
+                "type": "text",
+                "text": "{\"city\":\"Paris\",\"high_c\":21}"
               },
               {
-                "text": "Fetched at 09:00.",
-                "type": "text"
+                "type": "text",
+                "text": "Fetched at 09:00."
               }
             ],
-            "is_error": false,
-            "tool_use_id": "call_weather",
-            "type": "tool_result"
+            "is_error": false
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
-    "stream": false,
+    "max_tokens": 128,
     "tools": [
       {
+        "name": "get_weather",
         "description": "Reads the current weather for a city",
         "input_schema": {
           "type": "object"
-        },
-        "name": "get_weather"
+        }
       }
-    ]
+    ],
+    "stream": false
   }
 }

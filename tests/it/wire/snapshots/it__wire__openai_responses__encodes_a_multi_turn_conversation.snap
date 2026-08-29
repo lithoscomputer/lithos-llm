@@ -32,50 +32,50 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "system",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Keep it short."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "What is the capital of France?"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "Paris."
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "And of Spain?"
+          }
+        ]
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "Keep it short.",
-            "type": "input_text"
-          }
-        ],
-        "role": "system"
-      },
-      {
-        "content": [
-          {
-            "text": "What is the capital of France?",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "content": [
-          {
-            "text": "Paris.",
-            "type": "output_text"
-          }
-        ],
-        "role": "assistant"
-      },
-      {
-        "content": [
-          {
-            "text": "And of Spain?",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      }
-    ],
-    "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false
+    "max_output_tokens": 128
   }
 }

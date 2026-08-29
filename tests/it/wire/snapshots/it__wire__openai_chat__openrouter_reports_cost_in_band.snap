@@ -27,22 +27,22 @@ expression: rendered
     "source": "provider"
   },
   "raw": {
-    "choices": [
-      {
-        "finish_reason": "stop",
-        "index": 0,
-        "message": {
-          "content": "ok",
-          "role": "assistant"
-        }
-      }
-    ],
     "id": "chatcmpl-cost",
     "provider": "Fireworks",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "ok"
+        },
+        "finish_reason": "stop"
+      }
+    ],
     "usage": {
+      "prompt_tokens": 200,
       "completion_tokens": 10,
-      "cost": 0.0042,
-      "prompt_tokens": 200
+      "cost": 0.0042
     }
   }
 }

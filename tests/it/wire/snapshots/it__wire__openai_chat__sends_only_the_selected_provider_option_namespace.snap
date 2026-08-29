@@ -32,16 +32,16 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_output_tokens": 256,
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
-        "content": "Hello",
-        "role": "user"
+        "role": "user",
+        "content": "Hello"
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "service_tier": "flex",
-    "stream": false
+    "stream": false,
+    "max_tokens": 128,
+    "max_output_tokens": 256,
+    "service_tier": "flex"
   }
 }

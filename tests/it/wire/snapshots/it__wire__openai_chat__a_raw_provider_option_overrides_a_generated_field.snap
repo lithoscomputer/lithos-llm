@@ -32,15 +32,15 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 512,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
-        "content": "Hello",
-        "role": "user"
+        "role": "user",
+        "content": "Hello"
       }
     ],
-    "model": "vendor/compat-chat-v2",
     "stream": false,
-    "temperature": 0.9
+    "temperature": 0.9,
+    "max_tokens": 512
   }
 }

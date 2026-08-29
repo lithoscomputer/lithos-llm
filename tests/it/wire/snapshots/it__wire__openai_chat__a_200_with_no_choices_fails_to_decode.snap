@@ -6,12 +6,12 @@ expression: rendered
   "kind": "response_decode",
   "message": "provider compat returned no choices in the response",
   "provider": "compat",
-  "raw_data": {
-    "choices": [],
-    "id": "chatcmpl-empty",
-    "object": "chat.completion"
-  },
   "retry": {
     "type": "safe"
+  },
+  "raw_data": {
+    "id": "chatcmpl-empty",
+    "object": "chat.completion",
+    "choices": []
   }
 }

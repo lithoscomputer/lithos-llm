@@ -23,28 +23,28 @@ expression: rendered
     "cache_write": 100
   },
   "raw": {
+    "id": "chatcmpl-usage",
     "choices": [
       {
-        "finish_reason": "stop",
         "index": 0,
         "message": {
-          "content": "ok",
-          "role": "assistant"
-        }
+          "role": "assistant",
+          "content": "ok"
+        },
+        "finish_reason": "stop"
       }
     ],
-    "id": "chatcmpl-usage",
     "usage": {
+      "prompt_tokens": 200,
       "completion_tokens": 10,
+      "total_tokens": 210,
+      "prompt_tokens_details": {
+        "cached_tokens": 50,
+        "cache_write_tokens": 100
+      },
       "completion_tokens_details": {
         "reasoning_tokens": 4
-      },
-      "prompt_tokens": 200,
-      "prompt_tokens_details": {
-        "cache_write_tokens": 100,
-        "cached_tokens": 50
-      },
-      "total_tokens": 210
+      }
     }
   }
 }

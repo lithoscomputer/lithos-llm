@@ -32,25 +32,6 @@ expression: rendered
     ]
   ],
   "body": {
-    "contents": [
-      {
-        "parts": [
-          {
-            "text": "What is the weather in Paris?"
-          }
-        ],
-        "role": "user"
-      }
-    ],
-    "generationConfig": {
-      "maxOutputTokens": 128
-    },
-    "safetySettings": [
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_ONLY_HIGH"
-      }
-    ],
     "systemInstruction": {
       "parts": [
         {
@@ -58,21 +39,27 @@ expression: rendered
         }
       ]
     },
-    "toolConfig": {
-      "functionCallingConfig": {
-        "allowedFunctionNames": [
-          "get_weather"
-        ],
-        "mode": "ANY"
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What is the weather in Paris?"
+          }
+        ]
       }
+    ],
+    "generationConfig": {
+      "maxOutputTokens": 128
     },
     "tools": [
       {
         "functionDeclarations": [
           {
-            "description": "Reads the current weather for a city",
             "name": "get_weather",
+            "description": "Reads the current weather for a city",
             "parametersJsonSchema": {
+              "type": "object",
               "properties": {
                 "city": {
                   "type": "string"
@@ -80,14 +67,14 @@ expression: rendered
               },
               "required": [
                 "city"
-              ],
-              "type": "object"
+              ]
             }
           },
           {
-            "description": "Reads the current time in a time zone",
             "name": "get_time",
+            "description": "Reads the current time in a time zone",
             "parametersJsonSchema": {
+              "type": "object",
               "properties": {
                 "zone": {
                   "type": "string"
@@ -95,11 +82,24 @@ expression: rendered
               },
               "required": [
                 "zone"
-              ],
-              "type": "object"
+              ]
             }
           }
         ]
+      }
+    ],
+    "toolConfig": {
+      "functionCallingConfig": {
+        "mode": "ANY",
+        "allowedFunctionNames": [
+          "get_weather"
+        ]
+      }
+    },
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
       }
     ]
   }

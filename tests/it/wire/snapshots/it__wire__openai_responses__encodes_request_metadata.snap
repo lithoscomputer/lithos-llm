@@ -32,26 +32,26 @@ expression: rendered
     ]
   ],
   "body": {
-    "include": [
-      "reasoning.encrypted_content"
-    ],
+    "model": "gpt-5.6-luna-2026-04-01",
     "input": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Hello",
-            "type": "input_text"
+            "type": "input_text",
+            "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
+    ],
+    "stream": false,
+    "store": false,
+    "include": [
+      "reasoning.encrypted_content"
     ],
     "max_output_tokens": 128,
     "metadata": {
       "tenant": "acme"
-    },
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false
+    }
   }
 }

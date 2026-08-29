@@ -4,97 +4,97 @@ expression: rendered
 ---
 [
   {
-    "id": "chatcmpl-stream",
-    "type": "started"
+    "type": "started",
+    "id": "chatcmpl-stream"
   },
   {
+    "type": "content_block_start",
     "id": "reasoning-details-0",
     "kind": {
-      "kind": "openai_compatible.reasoning_details",
-      "type": "opaque"
-    },
-    "type": "content_block_start"
+      "type": "opaque",
+      "kind": "openai_compatible.reasoning_details"
+    }
   },
   {
+    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    },
-    "type": "content_block_start"
+    }
   },
   {
+    "type": "text_delta",
     "id": "block-0",
-    "text": "Hello.",
-    "type": "text_delta"
+    "text": "Hello."
   },
   {
+    "type": "content_block_end",
     "id": "reasoning-details-0",
     "part": {
+      "type": "opaque",
+      "kind": "openai_compatible.reasoning_details",
       "data": [
         {
+          "type": "reasoning.text",
           "index": 0,
-          "text": "Two cities to look up.",
-          "type": "reasoning.text"
+          "text": "Two cities to look up."
         },
         {
+          "type": "reasoning.text",
           "index": 1,
-          "signature": "sig-1",
           "text": "and one time zone.",
-          "type": "reasoning.text"
+          "signature": "sig-1"
         }
-      ],
-      "kind": "openai_compatible.reasoning_details",
-      "type": "opaque"
-    },
-    "type": "content_block_end"
+      ]
+    }
   },
   {
+    "type": "content_block_end",
     "id": "block-0",
     "part": {
-      "text": "Hello.",
-      "type": "text"
-    },
-    "type": "content_block_end"
+      "type": "text",
+      "text": "Hello."
+    }
   },
   {
+    "type": "completed",
     "response": {
+      "id": "chatcmpl-stream",
+      "model": {
+        "provider": "compat",
+        "model": "compat-chat"
+      },
       "content": [
         {
+          "type": "opaque",
+          "kind": "openai_compatible.reasoning_details",
           "data": [
             {
+              "type": "reasoning.text",
               "index": 0,
-              "text": "Two cities to look up.",
-              "type": "reasoning.text"
+              "text": "Two cities to look up."
             },
             {
+              "type": "reasoning.text",
               "index": 1,
-              "signature": "sig-1",
               "text": "and one time zone.",
-              "type": "reasoning.text"
+              "signature": "sig-1"
             }
-          ],
-          "kind": "openai_compatible.reasoning_details",
-          "type": "opaque"
+          ]
         },
         {
-          "text": "Hello.",
-          "type": "text"
+          "type": "text",
+          "text": "Hello."
         }
       ],
       "finish_reason": "stop",
-      "id": "chatcmpl-stream",
-      "model": {
-        "model": "compat-chat",
-        "provider": "compat"
-      },
       "usage": {
-        "cache_read": 0,
-        "cache_write": 0,
         "input": 0,
         "output": 0,
-        "reasoning": 0
+        "reasoning": 0,
+        "cache_read": 0,
+        "cache_write": 0
       }
-    },
-    "type": "completed"
+    }
   }
 ]

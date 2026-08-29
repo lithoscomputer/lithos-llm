@@ -23,25 +23,25 @@ expression: rendered
     "cache_write": 0
   },
   "raw": {
+    "id": "chatcmpl-raw",
+    "provider": "Fireworks",
     "choices": [
       {
-        "finish_reason": "stop",
         "index": 0,
         "message": {
-          "content": "ok",
-          "role": "assistant"
+          "role": "assistant",
+          "content": "ok"
         },
+        "finish_reason": "stop",
         "native_finish_reason": "eos"
       }
     ],
-    "id": "chatcmpl-raw",
-    "provider": "Fireworks",
     "usage": {
+      "prompt_tokens": 4,
       "completion_tokens": 2,
       "cost_details": {
         "upstream_inference_cost": 0.5
       },
-      "prompt_tokens": 4,
       "prompt_tokens_details": {
         "audio_tokens": 3
       }

@@ -32,32 +32,32 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Describe both images.",
-            "type": "text"
+            "type": "text",
+            "text": "Describe both images."
           },
           {
+            "type": "image_url",
             "image_url": {
-              "detail": "high",
-              "url": "https://example.com/cat.png"
-            },
-            "type": "image_url"
+              "url": "https://example.com/cat.png",
+              "detail": "high"
+            }
           },
           {
+            "type": "image_url",
             "image_url": {
               "url": "data:image/png;base64,aW1hZ2UtYnl0ZXM="
-            },
-            "type": "image_url"
+            }
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "stream": false
+    "stream": false,
+    "max_tokens": 128
   }
 }

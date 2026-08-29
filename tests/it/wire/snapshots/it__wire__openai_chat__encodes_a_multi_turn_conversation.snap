@@ -32,42 +32,42 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
+        "role": "system",
         "content": [
           {
-            "cache_control": {
-              "type": "ephemeral"
-            },
+            "type": "text",
             "text": "Keep it short.",
-            "type": "text"
-          }
-        ],
-        "role": "system"
-      },
-      {
-        "content": [
-          {
             "cache_control": {
               "type": "ephemeral"
-            },
-            "text": "What is the capital of France?",
-            "type": "text"
+            }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
-        "content": "Paris.",
-        "role": "assistant"
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "What is the capital of France?",
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        ]
       },
       {
-        "content": "And of Spain?",
-        "role": "user"
+        "role": "assistant",
+        "content": "Paris."
+      },
+      {
+        "role": "user",
+        "content": "And of Spain?"
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "stream": false
+    "stream": false,
+    "max_tokens": 128
   }
 }

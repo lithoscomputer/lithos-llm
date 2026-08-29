@@ -32,34 +32,35 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
+        "role": "system",
         "content": [
           {
+            "type": "text",
+            "text": "Use the tools when they help.",
             "cache_control": {
               "type": "ephemeral"
-            },
-            "text": "Use the tools when they help.",
-            "type": "text"
+            }
           }
-        ],
-        "role": "system"
+        ]
       },
       {
-        "content": "What is the weather in Paris?",
-        "role": "user"
+        "role": "user",
+        "content": "What is the weather in Paris?"
       }
     ],
-    "model": "vendor/compat-chat-v2",
     "stream": false,
-    "tool_choice": "none",
+    "max_tokens": 128,
     "tools": [
       {
+        "type": "function",
         "function": {
-          "description": "Reads the current weather for a city",
           "name": "get_weather",
+          "description": "Reads the current weather for a city",
           "parameters": {
+            "type": "object",
             "properties": {
               "city": {
                 "type": "string"
@@ -67,17 +68,17 @@ expression: rendered
             },
             "required": [
               "city"
-            ],
-            "type": "object"
+            ]
           }
-        },
-        "type": "function"
+        }
       },
       {
+        "type": "function",
         "function": {
-          "description": "Reads the current time in a time zone",
           "name": "get_time",
+          "description": "Reads the current time in a time zone",
           "parameters": {
+            "type": "object",
             "properties": {
               "zone": {
                 "type": "string"
@@ -85,12 +86,11 @@ expression: rendered
             },
             "required": [
               "zone"
-            ],
-            "type": "object"
+            ]
           }
-        },
-        "type": "function"
+        }
       }
-    ]
+    ],
+    "tool_choice": "none"
   }
 }

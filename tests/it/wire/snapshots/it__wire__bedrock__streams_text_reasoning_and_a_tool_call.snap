@@ -32,18 +32,18 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
-    ]
+    ],
+    "inferenceConfig": {
+      "maxTokens": 128
+    }
   }
 }

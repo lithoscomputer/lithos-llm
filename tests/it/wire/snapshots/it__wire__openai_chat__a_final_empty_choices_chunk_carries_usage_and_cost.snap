@@ -4,70 +4,70 @@ expression: rendered
 ---
 [
   {
-    "id": "chatcmpl-stream",
-    "type": "started"
+    "type": "started",
+    "id": "chatcmpl-stream"
   },
   {
+    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    },
-    "type": "content_block_start"
+    }
   },
   {
+    "type": "text_delta",
     "id": "block-0",
-    "text": "Hel",
-    "type": "text_delta"
+    "text": "Hel"
   },
   {
+    "type": "text_delta",
     "id": "block-0",
-    "text": "lo",
-    "type": "text_delta"
+    "text": "lo"
   },
   {
     "type": "usage",
     "usage": {
-      "cache_read": 3,
-      "cache_write": 0,
       "input": 8,
       "output": 5,
-      "reasoning": 0
+      "reasoning": 0,
+      "cache_read": 3,
+      "cache_write": 0
     }
   },
   {
+    "type": "content_block_end",
     "id": "block-0",
     "part": {
-      "text": "Hello",
-      "type": "text"
-    },
-    "type": "content_block_end"
+      "type": "text",
+      "text": "Hello"
+    }
   },
   {
+    "type": "completed",
     "response": {
-      "content": [
-        {
-          "text": "Hello",
-          "type": "text"
-        }
-      ],
-      "cost": {
-        "source": "provider",
-        "usd_micros": 100
-      },
-      "finish_reason": "stop",
       "id": "chatcmpl-stream",
       "model": {
-        "model": "compat-chat",
-        "provider": "compat"
+        "provider": "compat",
+        "model": "compat-chat"
       },
+      "content": [
+        {
+          "type": "text",
+          "text": "Hello"
+        }
+      ],
+      "finish_reason": "stop",
       "usage": {
-        "cache_read": 3,
-        "cache_write": 0,
         "input": 8,
         "output": 5,
-        "reasoning": 0
+        "reasoning": 0,
+        "cache_read": 3,
+        "cache_write": 0
+      },
+      "cost": {
+        "usd_micros": 100,
+        "source": "provider"
       }
-    },
-    "type": "completed"
+    }
   }
 ]

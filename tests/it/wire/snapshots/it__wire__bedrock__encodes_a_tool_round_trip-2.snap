@@ -25,12 +25,12 @@ expression: rendered
   "raw": {
     "output": {
       "message": {
+        "role": "assistant",
         "content": [
           {
             "text": "Hello."
           }
-        ],
-        "role": "assistant"
+        ]
       }
     },
     "stopReason": "end_turn",

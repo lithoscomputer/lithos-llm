@@ -32,45 +32,45 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Apply the patch."
+          }
+        ]
+      },
+      {
+        "type": "custom_tool_call",
+        "call_id": "call_patch",
+        "name": "apply_patch",
+        "input": "*** Begin Patch\n*** End Patch"
+      },
+      {
+        "type": "custom_tool_call_output",
+        "call_id": "call_patch",
+        "output": "applied"
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "Apply the patch.",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "call_id": "call_patch",
-        "input": "*** Begin Patch\n*** End Patch",
-        "name": "apply_patch",
-        "type": "custom_tool_call"
-      },
-      {
-        "call_id": "call_patch",
-        "output": "applied",
-        "type": "custom_tool_call_output"
-      }
-    ],
     "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false,
     "tools": [
       {
+        "type": "custom",
+        "name": "apply_patch",
         "description": "Applies a unified patch to the working tree",
         "format": {
-          "definition": "start: TEXT",
+          "type": "grammar",
           "syntax": "lark",
-          "type": "grammar"
-        },
-        "name": "apply_patch",
-        "type": "custom"
+          "definition": "start: TEXT"
+        }
       }
     ]
   }

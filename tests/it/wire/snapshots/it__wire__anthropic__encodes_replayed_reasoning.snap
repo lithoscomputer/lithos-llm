@@ -36,49 +36,49 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
+            "type": "text",
+            "text": "Is 91 prime?",
             "cache_control": {
               "type": "ephemeral"
-            },
-            "text": "Is 91 prime?",
-            "type": "text"
+            }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": [
           {
-            "signature": "sig-abc",
+            "type": "thinking",
             "thinking": "91 is 7 times 13.",
-            "type": "thinking"
+            "signature": "sig-abc"
           },
           {
-            "data": "cmVkYWN0ZWQtcGF5bG9hZA==",
-            "type": "redacted_thinking"
+            "type": "redacted_thinking",
+            "data": "cmVkYWN0ZWQtcGF5bG9hZA=="
           },
           {
-            "text": "No, 91 is not prime.",
-            "type": "text"
+            "type": "text",
+            "text": "No, 91 is not prime."
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
+        "role": "user",
         "content": [
           {
-            "text": "What about 97?",
-            "type": "text"
+            "type": "text",
+            "text": "What about 97?"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
+    "max_tokens": 128,
     "stream": false
   }
 }

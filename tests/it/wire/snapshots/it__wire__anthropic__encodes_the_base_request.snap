@@ -36,19 +36,19 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Hello",
-            "type": "text"
+            "type": "text",
+            "text": "Hello"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
+    "max_tokens": 128,
     "stream": false
   }
 }

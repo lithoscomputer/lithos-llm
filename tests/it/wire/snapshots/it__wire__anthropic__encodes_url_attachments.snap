@@ -36,34 +36,34 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Describe both attachments.",
-            "type": "text"
+            "type": "text",
+            "text": "Describe both attachments."
           },
           {
+            "type": "image",
             "source": {
               "type": "url",
               "url": "https://example.com/cat.png"
-            },
-            "type": "image"
+            }
           },
           {
+            "type": "document",
             "source": {
               "type": "url",
               "url": "https://example.com/report.pdf"
             },
-            "title": "report.pdf",
-            "type": "document"
+            "title": "report.pdf"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
+    "max_tokens": 128,
     "stream": false
   }
 }

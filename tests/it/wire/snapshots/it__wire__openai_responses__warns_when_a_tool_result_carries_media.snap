@@ -32,44 +32,44 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Screenshot the page."
+          }
+        ]
+      },
+      {
+        "type": "function_call",
+        "call_id": "call_shot",
+        "name": "screenshot",
+        "arguments": "{}"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_shot",
+        "output": "captured"
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "Screenshot the page.",
-            "type": "input_text"
-          }
-        ],
-        "role": "user"
-      },
-      {
-        "arguments": "{}",
-        "call_id": "call_shot",
-        "name": "screenshot",
-        "type": "function_call"
-      },
-      {
-        "call_id": "call_shot",
-        "output": "captured",
-        "type": "function_call_output"
-      }
-    ],
     "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false,
     "tools": [
       {
-        "description": "Captures the current page",
+        "type": "function",
         "name": "screenshot",
+        "description": "Captures the current page",
         "parameters": {
-          "properties": {},
-          "type": "object"
-        },
-        "type": "function"
+          "type": "object",
+          "properties": {}
+        }
       }
     ]
   }

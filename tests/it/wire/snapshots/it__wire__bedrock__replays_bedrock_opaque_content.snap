@@ -32,11 +32,9 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "What is the weather in Paris?"
@@ -46,50 +44,51 @@ expression: rendered
               "type": "default"
             }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": [
           {
-            "encrypted_content": "opaque-payload",
-            "id": "rs_replay"
+            "id": "rs_replay",
+            "encrypted_content": "opaque-payload"
           },
           {
             "toolUse": {
+              "toolUseId": "call_replay",
+              "name": "get_weather",
               "input": {
                 "city": "Paris"
-              },
-              "name": "get_weather",
-              "toolUseId": "call_replay"
+              }
             }
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
+        "role": "user",
         "content": [
           {
             "toolResult": {
+              "toolUseId": "call_replay",
               "content": [
                 {
                   "text": "18C and clear"
                 }
-              ],
-              "toolUseId": "call_replay"
+              ]
             }
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
     "toolConfig": {
       "tools": [
         {
           "toolSpec": {
+            "name": "get_weather",
             "description": "Reads the current weather for a city",
             "inputSchema": {
               "json": {
+                "type": "object",
                 "properties": {
                   "city": {
                     "type": "string"
@@ -97,11 +96,9 @@ expression: rendered
                 },
                 "required": [
                   "city"
-                ],
-                "type": "object"
+                ]
               }
-            },
-            "name": "get_weather"
+            }
           }
         },
         {
@@ -110,6 +107,9 @@ expression: rendered
           }
         }
       ]
+    },
+    "inferenceConfig": {
+      "maxTokens": 128
     }
   }
 }

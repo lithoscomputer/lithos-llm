@@ -32,32 +32,32 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
+    "input": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Describe both attachments."
+          },
+          {
+            "type": "input_image",
+            "image_url": "data:image/png;base64,aW1hZ2UtYnl0ZXM="
+          },
+          {
+            "type": "input_file",
+            "file_data": "data:application/pdf;base64,cGRmLWJ5dGVz",
+            "filename": "report.pdf"
+          }
+        ]
+      }
+    ],
+    "stream": false,
+    "store": false,
     "include": [
       "reasoning.encrypted_content"
     ],
-    "input": [
-      {
-        "content": [
-          {
-            "text": "Describe both attachments.",
-            "type": "input_text"
-          },
-          {
-            "image_url": "data:image/png;base64,aW1hZ2UtYnl0ZXM=",
-            "type": "input_image"
-          },
-          {
-            "file_data": "data:application/pdf;base64,cGRmLWJ5dGVz",
-            "filename": "report.pdf",
-            "type": "input_file"
-          }
-        ],
-        "role": "user"
-      }
-    ],
-    "max_output_tokens": 128,
-    "model": "gpt-5.6-luna-2026-04-01",
-    "store": false,
-    "stream": false
+    "max_output_tokens": 128
   }
 }

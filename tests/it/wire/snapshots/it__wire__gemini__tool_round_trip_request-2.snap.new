@@ -1,0 +1,49 @@
+---
+source: tests/it/wire/gemini.rs
+assertion_line: 338
+expression: rendered
+---
+{
+  "id": "resp-gemini-1",
+  "model": {
+    "provider": "gemini",
+    "model": "gemini-2.5-pro"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello there."
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 11,
+    "output": 5,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  },
+  "raw": {
+    "responseId": "resp-gemini-1",
+    "modelVersion": "gemini-2.5-pro-002",
+    "candidates": [
+      {
+        "index": 0,
+        "content": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Hello there."
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 11,
+      "candidatesTokenCount": 5,
+      "totalTokenCount": 16
+    }
+  }
+}

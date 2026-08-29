@@ -34,12 +34,14 @@ expression: rendered
   "body": {
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "Chart the quarters."
           },
           {
             "toolResult": {
+              "toolUseId": "call_chart",
               "content": [
                 {
                   "json": {
@@ -49,12 +51,10 @@ expression: rendered
                     ]
                   }
                 }
-              ],
-              "toolUseId": "call_chart"
+              ]
             }
           }
-        ],
-        "role": "user"
+        ]
       }
     ]
   }

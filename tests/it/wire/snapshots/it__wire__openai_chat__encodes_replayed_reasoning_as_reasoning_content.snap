@@ -32,31 +32,31 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
+            "type": "text",
+            "text": "Is 91 prime?",
             "cache_control": {
               "type": "ephemeral"
-            },
-            "text": "Is 91 prime?",
-            "type": "text"
+            }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": "No, 91 is not prime.",
-        "reasoning_content": "91 is 7 times 13.",
-        "role": "assistant"
+        "reasoning_content": "91 is 7 times 13."
       },
       {
-        "content": "What about 97?",
-        "role": "user"
+        "role": "user",
+        "content": "What about 97?"
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "stream": false
+    "stream": false,
+    "max_tokens": 128
   }
 }

@@ -36,36 +36,36 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "claude-sonnet-4-6",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Describe both attachments.",
-            "type": "text"
+            "type": "text",
+            "text": "Describe both attachments."
           },
           {
+            "type": "image",
             "source": {
-              "data": "aW1hZ2UtYnl0ZXM=",
+              "type": "base64",
               "media_type": "image/png",
-              "type": "base64"
-            },
-            "type": "image"
+              "data": "aW1hZ2UtYnl0ZXM="
+            }
           },
           {
+            "type": "document",
             "source": {
-              "data": "cGRmLWJ5dGVz",
+              "type": "base64",
               "media_type": "application/pdf",
-              "type": "base64"
+              "data": "cGRmLWJ5dGVz"
             },
-            "title": "report.pdf",
-            "type": "document"
+            "title": "report.pdf"
           }
-        ],
-        "role": "user"
+        ]
       }
     ],
-    "model": "claude-sonnet-4-6",
+    "max_tokens": 128,
     "stream": false
   }
 }

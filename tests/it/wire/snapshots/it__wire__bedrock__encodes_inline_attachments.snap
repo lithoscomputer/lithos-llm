@@ -32,11 +32,9 @@ expression: rendered
     ]
   ],
   "body": {
-    "inferenceConfig": {
-      "maxTokens": 128
-    },
     "messages": [
       {
+        "role": "user",
         "content": [
           {
             "text": "Describe both attachments."
@@ -58,9 +56,11 @@ expression: rendered
               }
             }
           }
-        ],
-        "role": "user"
+        ]
       }
-    ]
+    ],
+    "inferenceConfig": {
+      "maxTokens": 128
+    }
   }
 }

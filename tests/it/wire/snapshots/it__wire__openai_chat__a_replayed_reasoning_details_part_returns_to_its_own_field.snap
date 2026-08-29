@@ -32,37 +32,37 @@ expression: rendered
     ]
   ],
   "body": {
-    "max_tokens": 128,
+    "model": "vendor/compat-chat-v2",
     "messages": [
       {
+        "role": "user",
         "content": [
           {
+            "type": "text",
+            "text": "What is the weather in Paris?",
             "cache_control": {
               "type": "ephemeral"
-            },
-            "text": "What is the weather in Paris?",
-            "type": "text"
+            }
           }
-        ],
-        "role": "user"
+        ]
       },
       {
+        "role": "assistant",
         "content": "Looking it up.",
         "reasoning_details": [
           {
-            "data": "AQ==",
+            "type": "reasoning.encrypted",
             "id": "rs-1",
-            "type": "reasoning.encrypted"
+            "data": "AQ=="
           }
-        ],
-        "role": "assistant"
+        ]
       },
       {
-        "content": "Thanks.",
-        "role": "user"
+        "role": "user",
+        "content": "Thanks."
       }
     ],
-    "model": "vendor/compat-chat-v2",
-    "stream": false
+    "stream": false,
+    "max_tokens": 128
   }
 }

@@ -4,51 +4,51 @@ expression: rendered
 ---
 [
   {
-    "id": "chatcmpl-stream",
-    "type": "started"
+    "type": "started",
+    "id": "chatcmpl-stream"
   },
   {
+    "type": "content_block_start",
     "id": "block-0",
     "kind": {
       "type": "text"
-    },
-    "type": "content_block_start"
+    }
   },
   {
+    "type": "text_delta",
     "id": "block-0",
-    "text": "Hello.",
-    "type": "text_delta"
+    "text": "Hello."
   },
   {
+    "type": "content_block_end",
     "id": "block-0",
     "part": {
-      "text": "Hello.",
-      "type": "text"
-    },
-    "type": "content_block_end"
+      "type": "text",
+      "text": "Hello."
+    }
   },
   {
+    "type": "completed",
     "response": {
+      "id": "chatcmpl-stream",
+      "model": {
+        "provider": "compat",
+        "model": "compat-chat"
+      },
       "content": [
         {
-          "text": "Hello.",
-          "type": "text"
+          "type": "text",
+          "text": "Hello."
         }
       ],
       "finish_reason": "stop",
-      "id": "chatcmpl-stream",
-      "model": {
-        "model": "compat-chat",
-        "provider": "compat"
-      },
       "usage": {
-        "cache_read": 0,
-        "cache_write": 0,
         "input": 0,
         "output": 0,
-        "reasoning": 0
+        "reasoning": 0,
+        "cache_read": 0,
+        "cache_write": 0
       }
-    },
-    "type": "completed"
+    }
   }
 ]

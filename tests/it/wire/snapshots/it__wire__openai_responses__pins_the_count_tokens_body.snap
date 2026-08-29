@@ -32,17 +32,17 @@ expression: rendered
     ]
   ],
   "body": {
+    "model": "gpt-5.6-luna-2026-04-01",
     "input": [
       {
+        "role": "user",
         "content": [
           {
-            "text": "Write one sentence.",
-            "type": "input_text"
+            "type": "input_text",
+            "text": "Write one sentence."
           }
-        ],
-        "role": "user"
+        ]
       }
-    ],
-    "model": "gpt-5.6-luna-2026-04-01"
+    ]
   }
 }
