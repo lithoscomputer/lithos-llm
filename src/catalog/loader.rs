@@ -51,13 +51,14 @@ api_model = "claude-sonnet-4-6"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
 
-# Cache writes bill at 1.25x input. The fast speed tier doubles every rate.
+# Cache writes bill at 1.25x input. No fast-tier rates: the reference catalog
+# priced a fast tier only for Opus models, so inventing one here would report
+# a confident number for a tier this model does not have.
 [providers.anthropic.models."claude-sonnet-4-6".pricing]
 input_usd_micros_per_million = 3000000
 output_usd_micros_per_million = 15000000
 cached_input_usd_micros_per_million = 300000
 cache_write_usd_micros_per_million = 3750000
-speed = { fast = { input_usd_micros_per_million = 6000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 600000, cache_write_usd_micros_per_million = 7500000 } }
 
 [providers.gemini]
 display_name = "Google Gemini"
@@ -546,14 +547,13 @@ mod tests {
         let pricing = sonnet
             .pricing()
             .ok_or("claude-sonnet-4-6 should be priced")?;
-        // Anthropic bills a cache write at 1.25x input, and the fast tier
-        // doubles every rate.
+        // Anthropic bills a cache write at 1.25x input. The entry carries no
+        // fast-tier rates, so a fast request keeps the base rates rather than
+        // reporting an invented premium.
         assert_eq!(pricing.cache_write_usd_micros_per_million, Some(3_750_000));
         let fast = pricing.for_speed(Some(Speed::Fast));
-        assert_eq!(fast.input_usd_micros_per_million, Some(6_000_000));
-        assert_eq!(fast.output_usd_micros_per_million, Some(30_000_000));
-        assert_eq!(fast.cached_input_usd_micros_per_million, Some(600_000));
-        assert_eq!(fast.cache_write_usd_micros_per_million, Some(7_500_000));
+        assert_eq!(fast.input_usd_micros_per_million, Some(3_000_000));
+        assert_eq!(fast.output_usd_micros_per_million, Some(15_000_000));
         assert!(sonnet.capabilities().reasoning_effort_levels);
 
         // Bedrock on-demand access needs the `us.` inference profile, and the

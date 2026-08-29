@@ -351,19 +351,26 @@ async fn finish(
 ///
 /// A body that does not parse is classified [`RetryClassification::Safe`]: the
 /// common cause is a proxy that truncated an otherwise good response, and the
-/// same request sent again normally succeeds.
+/// same request sent again normally succeeds. A request timeout that expires
+/// mid-body is the exception — the provider already executed the call, so it
+/// keeps the complete path's never-retry rule.
 async fn json_response(
     response: HttpResponse,
     provider: &CatalogProvider,
 ) -> Result<JsonResponse, Error> {
     let rate_limits = rate_limits(response.headers());
     let body = response.json().await.map_err(|source| {
+        let (kind, retry) = if source.is_timeout() {
+            (ErrorKind::Timeout, RetryClassification::Never)
+        } else {
+            (ErrorKind::ResponseDecode, RetryClassification::Safe)
+        };
         Error::new(
-            ErrorKind::ResponseDecode,
+            kind,
             format!("provider {} returned invalid JSON", provider.id()),
         )
         .with_provider(provider.id().clone())
-        .with_retry(RetryClassification::Safe)
+        .with_retry(retry)
         .with_source(source)
     })?;
     Ok(JsonResponse { body, rate_limits })
