@@ -118,7 +118,7 @@ impl Codec for BedrockConverseCodec {
         // JSON, images, and documents all reach the model as themselves. Only
         // a part with no member of that union — reasoning, most of all — is
         // dropped, and only that is worth reporting.
-        if flattens_tool_result_content(request, carries_in_tool_result) {
+        if flattens_tool_result_content(request, |parts| parts.iter().all(carries_in_tool_result)) {
             encoded =
                 encoded.unsupported_control("tool result content outside text, JSON, and media");
         }

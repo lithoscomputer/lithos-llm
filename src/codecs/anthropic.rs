@@ -110,11 +110,13 @@ impl Codec for AnthropicMessagesCodec {
         if flattens_system_content(request) {
             encoded = encoded.unsupported_control("non-text system content");
         }
-        if flattens_tool_result_content(request, |part| {
-            matches!(
-                part,
-                ContentPart::Text { .. } | ContentPart::Json { .. } | ContentPart::Image(_)
-            )
+        if flattens_tool_result_content(request, |parts| {
+            parts.iter().all(|part| {
+                matches!(
+                    part,
+                    ContentPart::Text { .. } | ContentPart::Json { .. } | ContentPart::Image(_)
+                )
+            })
         }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }

@@ -105,7 +105,16 @@ impl Codec for OpenAiResponsesCodec {
             encoded = encoded.unsupported_control("replaying reasoning text");
         }
 
-        if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
+        // An all-JSON result travels as the bare value, so only a mix that
+        // must flatten is reported.
+        if flattens_tool_result_content(request, |parts| {
+            parts
+                .iter()
+                .all(|part| matches!(part, ContentPart::Text { .. }))
+                || parts
+                    .iter()
+                    .all(|part| matches!(part, ContentPart::Json { .. }))
+        }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
 

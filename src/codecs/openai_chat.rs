@@ -161,7 +161,16 @@ impl Codec for OpenAiChatCodec {
         {
             encoded = encoded.unsupported_control("the tool result error flag");
         }
-        if flattens_tool_result_content(request, |part| matches!(part, ContentPart::Text { .. })) {
+        // An all-JSON result travels as the bare value, so only a mix that
+        // must flatten is reported.
+        if flattens_tool_result_content(request, |parts| {
+            parts
+                .iter()
+                .all(|part| matches!(part, ContentPart::Text { .. }))
+                || parts
+                    .iter()
+                    .all(|part| matches!(part, ContentPart::Json { .. }))
+        }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)
@@ -333,8 +342,8 @@ impl StreamDecoder for ChatStreamDecoder {
             self.assembler
                 .set_finish_reason(finish_reason(Some(reason)));
         }
-        // Cost folds first-wins; usage arrives in a final chunk whose `choices`
-        // array is empty.
+        // A later chunk's cost replaces an earlier one; usage arrives in a
+        // final chunk whose `choices` array is empty.
         if let Some(cost) = provider_cost(&chunk) {
             self.assembler.set_cost(cost);
         }

@@ -55,8 +55,10 @@ impl Codec for GeminiGenerateCodec {
         if flattens_system_content(call.request()) {
             encoded = encoded.unsupported_control("non-text system content");
         }
-        if flattens_tool_result_content(call.request(), |part| {
-            matches!(part, ContentPart::Text { .. })
+        if flattens_tool_result_content(call.request(), |parts| {
+            parts
+                .iter()
+                .all(|part| matches!(part, ContentPart::Text { .. }))
         }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }

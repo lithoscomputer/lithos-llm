@@ -195,14 +195,15 @@ pub(crate) fn reject_unencodable(
 /// refusal — unlike message content, where the caller's own attachment would
 /// vanish entirely.
 ///
-/// `carries` names the parts this codec keeps. Anthropic takes an array of
-/// blocks here and encodes images, so it carries more than text; the protocols
-/// that accept only a string carry text alone. A codec that falls back to
-/// serializing the whole content when there is no text still hands the model a
-/// shape it did not ask for, so reporting that is not a false positive.
+/// `carries` names the result contents this codec keeps whole. It judges each
+/// result's parts together because carriage can depend on the mix: the OpenAI
+/// protocols send an all-JSON result as the bare value but flatten JSON that
+/// shares a result with other parts. A codec that falls back to serializing
+/// the whole content still hands the model a shape it did not ask for, so
+/// reporting that is not a false positive.
 pub(crate) fn flattens_tool_result_content(
     request: &Request,
-    carries: fn(&ContentPart) -> bool,
+    carries: fn(&[ContentPart]) -> bool,
 ) -> bool {
     request
         .messages()
@@ -212,8 +213,7 @@ pub(crate) fn flattens_tool_result_content(
             ContentPart::ToolResult(result) => Some(result),
             _ => None,
         })
-        .flat_map(|result| result.content.iter())
-        .any(|part| !carries(part))
+        .any(|result| !carries(&result.content))
 }
 
 /// Encodes a sampling parameter without its binary32 rounding error.
