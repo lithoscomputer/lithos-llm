@@ -156,7 +156,8 @@ pub(super) mod http {
         Ok(Arc::new(HttpProviderAdapter {
             id: provider.adapter().clone(),
             codec: Arc::new(codec),
-            transport: HttpTransport::new(context.http().clone()),
+            transport: HttpTransport::new(context.http().clone())
+                .with_stream_idle_timeout(context.stream_idle_timeout()),
             credentials: context.credentials().clone(),
             options,
         }))

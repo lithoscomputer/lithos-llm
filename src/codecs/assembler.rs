@@ -34,6 +34,37 @@ struct Block {
     provider_metadata: BTreeMap<String, Value>,
 }
 
+/// The kind of content a delta carries.
+///
+/// A delta only appends to a block that holds this kind of content, which
+/// keeps one provider's contradictory event from writing into another block's
+/// buffer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BlockShape {
+    Text,
+    Reasoning,
+    ToolCall,
+}
+
+impl BlockShape {
+    fn matches(self, kind: &ContentBlockKind) -> bool {
+        matches!(
+            (self, kind),
+            (Self::Text, ContentBlockKind::Text)
+                | (Self::Reasoning, ContentBlockKind::Reasoning)
+                | (Self::ToolCall, ContentBlockKind::ToolCall { .. })
+        )
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Reasoning => "reasoning",
+            Self::ToolCall => "tool_call",
+        }
+    }
+}
+
 impl Block {
     fn new(id: ContentBlockId, kind: ContentBlockKind) -> Self {
         Self {
@@ -161,9 +192,11 @@ impl StreamAssembler {
     ///
     /// Opens a [`ContentBlockKind::Text`] block first when the id is not open,
     /// in which case the start event precedes the delta in the returned vector.
+    ///
+    /// A block already open with another kind of content ignores the delta.
     pub(crate) fn text(&mut self, id: &ContentBlockId, text: &str) -> Vec<StreamEvent> {
         let mut events = self.latch(id, ContentBlockKind::Text);
-        let Some(block) = self.open_block(id) else {
+        let Some(block) = self.open_block_of(id, BlockShape::Text) else {
             return events;
         };
 
@@ -179,9 +212,11 @@ impl StreamAssembler {
     ///
     /// Opens a [`ContentBlockKind::Reasoning`] block first when the id is not
     /// open.
+    ///
+    /// A block already open with another kind of content ignores the delta.
     pub(crate) fn reasoning(&mut self, id: &ContentBlockId, text: &str) -> Vec<StreamEvent> {
         let mut events = self.latch(id, ContentBlockKind::Reasoning);
-        let Some(block) = self.open_block(id) else {
+        let Some(block) = self.open_block_of(id, BlockShape::Reasoning) else {
             return events;
         };
 
@@ -208,7 +243,7 @@ impl StreamAssembler {
             kind: ToolCallKind::Function,
         };
         let mut events = self.latch(id, fallback);
-        let Some(block) = self.open_block(id) else {
+        let Some(block) = self.open_block_of(id, BlockShape::ToolCall) else {
             return events;
         };
 
@@ -360,11 +395,13 @@ impl StreamAssembler {
         self.raw = Some(raw);
     }
 
-    /// Records a provider-reported cost, keeping the first one seen.
+    /// Records a provider-reported cost, keeping the last one seen.
     ///
-    /// A protocol that repeats its cost on every chunk can call this each time.
+    /// A protocol that repeats its cost on every chunk can call this each
+    /// time: the cost grows with the response, so the latest report is the
+    /// accurate one.
     pub(crate) fn set_cost(&mut self, cost: Cost) {
-        self.cost.get_or_insert(cost);
+        self.cost = Some(cost);
     }
 
     /// Closes every still-open block, then emits the single `Completed` event.
@@ -428,6 +465,25 @@ impl StreamAssembler {
             .find(|block| &block.id == id && block.open)
     }
 
+    /// The open block for an id, when it also holds the expected kind of
+    /// content.
+    ///
+    /// A provider that sends, say, a text delta against an open tool-call
+    /// block is contradicting itself. Appending the text would corrupt the
+    /// tool arguments, so the delta is dropped instead.
+    fn open_block_of(&mut self, id: &ContentBlockId, shape: BlockShape) -> Option<&mut Block> {
+        let block = self.open_block(id)?;
+        if shape.matches(&block.kind) {
+            return Some(block);
+        }
+        tracing::debug!(
+            block_id = id.as_str(),
+            expected = shape.name(),
+            "dropped a stream delta addressed to a block of another kind"
+        );
+        None
+    }
+
     /// Opens a block lazily for a codec that latches on its first delta.
     fn latch(&mut self, id: &ContentBlockId, kind: ContentBlockKind) -> Vec<StreamEvent> {
         if self.find(id).is_some() {
@@ -446,8 +502,8 @@ mod tests {
     use super::StreamAssembler;
     use crate::codecs::test_support;
     use crate::types::{
-        ContentBlockId, ContentBlockKind, ContentPart, FinishReason, StreamEvent, TokenCounts,
-        ToolCallKind,
+        ContentBlockId, ContentBlockKind, ContentPart, Cost, CostSource, FinishReason, StreamEvent,
+        TokenCounts, ToolCallKind,
     };
 
     fn assembler() -> Result<StreamAssembler, Box<dyn StdError>> {
@@ -851,6 +907,55 @@ mod tests {
         assert_eq!(response.content, ended_parts(&events));
         assert!(matches!(response.content[0], ContentPart::Text { .. }));
         assert!(matches!(response.content[1], ContentPart::Reasoning(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn a_delta_of_another_kind_leaves_the_open_block_alone() -> Result<(), Box<dyn StdError>> {
+        let mut assembler = assembler()?;
+        let tool = ContentBlockId::new("tool-0");
+
+        let mut events = assembler.start(tool.clone(), tool_kind("call_a", "lookup"));
+        events.extend(assembler.arguments(&tool, r#"{"city":"#));
+        let ignored = assembler.text(&tool, "sorry, I cannot");
+        events.extend(assembler.arguments(&tool, r#""Oslo"}"#));
+        events.extend(assembler.complete());
+
+        assert!(ignored.is_empty(), "a mismatched delta emits no event");
+        let Some(StreamEvent::Completed { response }) = events.last() else {
+            return Err("expected a completed event".into());
+        };
+        let ContentPart::ToolCall(call) = &response.content[0] else {
+            return Err("expected the block to assemble as a tool call".into());
+        };
+        assert_eq!(call.arguments, json!({ "city": "Oslo" }));
+        Ok(())
+    }
+
+    #[test]
+    fn a_later_cost_replaces_an_earlier_one() -> Result<(), Box<dyn StdError>> {
+        let mut assembler = assembler()?;
+
+        assembler.set_cost(Cost {
+            usd_micros: 10,
+            source:     CostSource::Provider,
+        });
+        assembler.set_cost(Cost {
+            usd_micros: 42,
+            source:     CostSource::Provider,
+        });
+        let events = assembler.complete();
+
+        let Some(StreamEvent::Completed { response }) = events.last() else {
+            return Err("expected a completed event".into());
+        };
+        assert_eq!(
+            response.cost,
+            Some(Cost {
+                usd_micros: 42,
+                source:     CostSource::Provider,
+            })
+        );
         Ok(())
     }
 }

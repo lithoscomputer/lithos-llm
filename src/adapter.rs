@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use thiserror::Error;
@@ -11,6 +12,12 @@ use crate::credentials::CredentialProvider;
 use crate::middleware::CallContext;
 use crate::resolver::ResolvedRoute;
 use crate::types::{Error, Request, Response, ResponseStream};
+
+/// How long a response stream may stall between two chunks by default.
+///
+/// A provider that stops sending bytes mid-generation would otherwise hold a
+/// call open forever, because nothing in the HTTP layer bounds a read.
+pub(crate) const DEFAULT_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// A request with a fixed provider and model route.
 #[derive(Clone, Debug)]
@@ -100,13 +107,29 @@ pub trait ProviderAdapter: Send + Sync {
 /// Dependencies available when a catalog provider creates an adapter.
 #[derive(Clone)]
 pub struct AdapterContext {
-    http:        reqwest::Client,
-    credentials: Arc<dyn CredentialProvider>,
+    http:                reqwest::Client,
+    credentials:         Arc<dyn CredentialProvider>,
+    stream_idle_timeout: Option<Duration>,
 }
 
 impl AdapterContext {
+    /// Builds a context with the default stream-idle timeout.
     pub fn new(http: reqwest::Client, credentials: Arc<dyn CredentialProvider>) -> Self {
-        Self { http, credentials }
+        Self {
+            http,
+            credentials,
+            stream_idle_timeout: Some(DEFAULT_STREAM_IDLE_TIMEOUT),
+        }
+    }
+
+    /// Replaces the longest a stream may stall between two chunks.
+    ///
+    /// `None` waits forever, which only an application that bounds the call
+    /// some other way should choose.
+    #[must_use]
+    pub fn with_stream_idle_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.stream_idle_timeout = timeout;
+        self
     }
 
     pub fn http(&self) -> &reqwest::Client {
@@ -115,6 +138,11 @@ impl AdapterContext {
 
     pub fn credentials(&self) -> &Arc<dyn CredentialProvider> {
         &self.credentials
+    }
+
+    /// The longest a stream may stall between two chunks.
+    pub fn stream_idle_timeout(&self) -> Option<Duration> {
+        self.stream_idle_timeout
     }
 }
 

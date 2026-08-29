@@ -5,7 +5,22 @@ pub(crate) mod classify;
 pub(crate) mod event_stream;
 
 use std::collections::BTreeMap;
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible"
+))]
+use std::collections::VecDeque;
+#[cfg(feature = "bedrock")]
 use std::future::ready;
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible"
+))]
+use std::mem::take;
 use std::pin::Pin;
 #[cfg(any(
     feature = "openai",
@@ -18,11 +33,15 @@ use std::time::Duration;
 
 use futures_core::Stream;
 use futures_util::StreamExt as _;
+#[cfg(feature = "bedrock")]
 use futures_util::stream::iter;
+use futures_util::stream::unfold;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method, RequestBuilder, Response as HttpResponse};
 use serde_json::Value;
+use tokio::time::timeout;
 
+use crate::adapter::DEFAULT_STREAM_IDLE_TIMEOUT;
 use crate::catalog::{AuthScheme, CatalogProvider, ProviderId};
 use crate::credentials::{CredentialHeader, Credentials, HttpAuthentication, SecretValue};
 use crate::types::{Error, ErrorKind, RateLimits, RetryClassification, Warning};
@@ -104,11 +123,14 @@ pub(crate) struct SseEvent {
 
 #[derive(Clone)]
 pub(crate) struct HttpTransport {
-    client: Client,
+    client:              Client,
+    /// The maximum wait between two stream chunks, or `None` to wait forever.
+    stream_idle_timeout: Option<Duration>,
 }
 
 type EventStream = Pin<Box<dyn Stream<Item = Result<SseEvent, Error>> + Send>>;
 
+#[derive(Debug)]
 pub(crate) struct JsonResponse {
     pub body:        Value,
     pub rate_limits: Option<RateLimits>,
@@ -120,8 +142,22 @@ pub(crate) struct EventResponse {
 }
 
 impl HttpTransport {
+    /// Creates a transport with the default stream-idle timeout.
     pub(crate) fn new(client: Client) -> Self {
-        Self { client }
+        Self {
+            client,
+            stream_idle_timeout: Some(DEFAULT_STREAM_IDLE_TIMEOUT),
+        }
+    }
+
+    /// Replaces the maximum wait between two stream chunks.
+    ///
+    /// `None` waits forever, which only an application that bounds the call
+    /// some other way should choose.
+    #[must_use]
+    pub(crate) fn with_stream_idle_timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.stream_idle_timeout = timeout;
+        self
     }
 
     pub(crate) async fn execute_json(
@@ -130,7 +166,9 @@ impl HttpTransport {
         provider: &CatalogProvider,
         credentials: Credentials,
     ) -> Result<JsonResponse, Error> {
-        let response = self.send(request, provider, credentials).await?;
+        let response = self
+            .send(request, provider, credentials, TimeoutRetry::Never)
+            .await?;
         json_response(response, provider).await
     }
 
@@ -141,7 +179,9 @@ impl HttpTransport {
         request: PreparedRequest,
         provider: &CatalogProvider,
     ) -> Result<JsonResponse, Error> {
-        let response = self.send_prepared(request, provider).await?;
+        let response = self
+            .send_prepared(request, provider, TimeoutRetry::Never)
+            .await?;
         json_response(response, provider).await
     }
 
@@ -157,34 +197,24 @@ impl HttpTransport {
         provider: &CatalogProvider,
         credentials: Credentials,
     ) -> Result<EventResponse, Error> {
-        let response = self.send(request, provider, credentials).await?;
+        let response = self
+            .send(request, provider, credentials, TimeoutRetry::Safe)
+            .await?;
         let rate_limits = rate_limits(response.headers());
         let provider_id = provider.id().clone();
+        let read_provider = provider_id.clone();
         let chunks = response.bytes_stream().map(move |result| {
             result.map_err(|source| {
-                Error::new(
-                    ErrorKind::Network,
+                chunk_error(
+                    &read_provider,
                     "reading the provider response stream failed",
+                    source,
                 )
-                .with_provider(provider_id.clone())
-                .with_retry(RetryClassification::Safe)
-                .with_source(source)
             })
         });
-        let frames = chunks
-            .scan(Vec::new(), |buffer, chunk| {
-                let parsed = match chunk {
-                    Ok(chunk) => {
-                        buffer.extend_from_slice(&chunk);
-                        extract_frames(buffer)
-                    }
-                    Err(error) => vec![Err(error)],
-                };
-                ready(Some(parsed))
-            })
-            .flat_map(iter);
+        let chunks = with_idle_timeout(chunks, self.stream_idle_timeout, provider_id);
         Ok(EventResponse {
-            events: Box::pin(frames),
+            events: Box::pin(sse_frames(chunks)),
             rate_limits,
         })
     }
@@ -196,8 +226,14 @@ impl HttpTransport {
         provider: &CatalogProvider,
         credentials: Credentials,
     ) -> Result<EventResponse, Error> {
-        let response = self.send(request, provider, credentials).await?;
-        Ok(event_stream_response(response, provider))
+        let response = self
+            .send(request, provider, credentials, TimeoutRetry::Safe)
+            .await?;
+        Ok(event_stream_response(
+            response,
+            provider,
+            self.stream_idle_timeout,
+        ))
     }
 
     /// Opens an already-signed AWS event stream.
@@ -207,8 +243,14 @@ impl HttpTransport {
         request: PreparedRequest,
         provider: &CatalogProvider,
     ) -> Result<EventResponse, Error> {
-        let response = self.send_prepared(request, provider).await?;
-        Ok(event_stream_response(response, provider))
+        let response = self
+            .send_prepared(request, provider, TimeoutRetry::Safe)
+            .await?;
+        Ok(event_stream_response(
+            response,
+            provider,
+            self.stream_idle_timeout,
+        ))
     }
 
     /// Sends a request whose headers and bytes are already final.
@@ -217,6 +259,7 @@ impl HttpTransport {
         &self,
         request: PreparedRequest,
         provider: &CatalogProvider,
+        on_timeout: TimeoutRetry,
     ) -> Result<HttpResponse, Error> {
         let mut builder = self
             .client
@@ -226,7 +269,7 @@ impl HttpTransport {
         if let Some(timeout) = request.timeout {
             builder = builder.timeout(timeout);
         }
-        finish(builder, provider).await
+        finish(builder, provider, on_timeout).await
     }
 
     async fn send(
@@ -234,6 +277,7 @@ impl HttpTransport {
         request: EncodedRequest,
         provider: &CatalogProvider,
         credentials: Credentials,
+        on_timeout: TimeoutRetry,
     ) -> Result<HttpResponse, Error> {
         let headers = merge_headers(
             provider.id(),
@@ -250,27 +294,51 @@ impl HttpTransport {
         if let Some(timeout) = request.timeout {
             builder = builder.timeout(timeout);
         }
-        finish(builder, provider).await
+        finish(builder, provider, on_timeout).await
     }
+}
+
+/// Whether a request timeout on this path may be repeated.
+///
+/// This is one half of the crate's timeout rule; the other half lives on
+/// [`TimeoutMiddleware`](crate::middleware::TimeoutMiddleware). A timeout that
+/// expires while the provider may already be executing the call is never
+/// retried, because a repeat duplicates the work and the billing. A timeout
+/// that expires before any output exists — opening a stream, or failing to
+/// connect at all — is safe to repeat.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TimeoutRetry {
+    /// A complete-path request timeout: never retried.
+    Never,
+    /// A stream-establishment timeout: safe to repeat.
+    Safe,
 }
 
 /// Sends one built request and turns a non-success status into an error.
 async fn finish(
     builder: RequestBuilder,
     provider: &CatalogProvider,
+    on_timeout: TimeoutRetry,
 ) -> Result<HttpResponse, Error> {
     let response = builder.send().await.map_err(|source| {
-        let kind = if source.is_timeout() {
-            ErrorKind::Timeout
+        // A connect timeout is a network failure, not a spent time budget:
+        // the request never reached the provider, so repeating it is safe on
+        // either path.
+        let (kind, retry) = if source.is_timeout() && !source.is_connect() {
+            let retry = match on_timeout {
+                TimeoutRetry::Never => RetryClassification::Never,
+                TimeoutRetry::Safe => RetryClassification::Safe,
+            };
+            (ErrorKind::Timeout, retry)
         } else {
-            ErrorKind::Network
+            (ErrorKind::Network, RetryClassification::Safe)
         };
         Error::new(
             kind,
             format!("request to provider {} failed", provider.id()),
         )
         .with_provider(provider.id().clone())
-        .with_retry(RetryClassification::Safe)
+        .with_retry(retry)
         .with_source(source)
     })?;
     if response.status().is_success() {
@@ -280,6 +348,10 @@ async fn finish(
 }
 
 /// Reads rate limits and decodes a JSON success body.
+///
+/// A body that does not parse is classified [`RetryClassification::Safe`]: the
+/// common cause is a proxy that truncated an otherwise good response, and the
+/// same request sent again normally succeeds.
 async fn json_response(
     response: HttpResponse,
     provider: &CatalogProvider,
@@ -291,6 +363,7 @@ async fn json_response(
             format!("provider {} returned invalid JSON", provider.id()),
         )
         .with_provider(provider.id().clone())
+        .with_retry(RetryClassification::Safe)
         .with_source(source)
     })?;
     Ok(JsonResponse { body, rate_limits })
@@ -298,21 +371,24 @@ async fn json_response(
 
 /// Reads rate limits and decodes AWS event-stream frames.
 #[cfg(feature = "bedrock")]
-fn event_stream_response(response: HttpResponse, provider: &CatalogProvider) -> EventResponse {
+fn event_stream_response(
+    response: HttpResponse,
+    provider: &CatalogProvider,
+    idle_timeout: Option<Duration>,
+) -> EventResponse {
     let rate_limits = rate_limits(response.headers());
     let provider_id = provider.id().clone();
     let read_provider = provider_id.clone();
     let chunks = response.bytes_stream().map(move |result| {
         result.map_err(|source| {
-            Error::new(
-                ErrorKind::Network,
+            chunk_error(
+                &read_provider,
                 "reading the Bedrock response stream failed",
+                source,
             )
-            .with_provider(read_provider.clone())
-            .with_retry(RetryClassification::Safe)
-            .with_source(source)
         })
     });
+    let chunks = with_idle_timeout(chunks, idle_timeout, provider_id.clone());
     let frames = chunks
         .scan(Vec::new(), move |buffer, chunk| {
             let parsed = match chunk {
@@ -329,6 +405,127 @@ fn event_stream_response(response: HttpResponse, provider: &CatalogProvider) -> 
         events: Box::pin(frames),
         rate_limits,
     }
+}
+
+/// Builds the error for a failed response-body read.
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible",
+    feature = "bedrock"
+))]
+fn chunk_error(provider: &ProviderId, message: &'static str, source: reqwest::Error) -> Error {
+    Error::new(ErrorKind::Network, message)
+        .with_provider(provider.clone())
+        .with_retry(RetryClassification::Safe)
+        .with_source(source)
+}
+
+/// Fails a stream that waits longer than `timeout` for its next item.
+///
+/// A provider that stops sending bytes mid-generation would otherwise stall
+/// the caller forever, because nothing below this layer bounds a read. The
+/// expiry is retryable, matching a dropped connection: from outside, nothing
+/// separates a stalled provider from a lost one. The stream ends after the
+/// expiry, so one stall produces one error rather than one per idle period.
+///
+/// A `timeout` of `None` waits forever.
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible",
+    feature = "bedrock"
+))]
+fn with_idle_timeout<T, S>(
+    stream: S,
+    idle: Option<Duration>,
+    provider: ProviderId,
+) -> impl Stream<Item = Result<T, Error>> + Send + 'static
+where
+    S: Stream<Item = Result<T, Error>> + Send + 'static,
+    T: Send + 'static,
+{
+    unfold((Box::pin(stream), false), move |(mut stream, finished)| {
+        let provider = provider.clone();
+        async move {
+            if finished {
+                return None;
+            }
+            let Some(idle) = idle else {
+                return stream.next().await.map(|item| (item, (stream, false)));
+            };
+            match timeout(idle, stream.next()).await {
+                Ok(Some(item)) => Some((item, (stream, false))),
+                Ok(None) => None,
+                Err(source) => {
+                    let error = Error::new(
+                        ErrorKind::Timeout,
+                        format!("provider {provider} stopped sending stream data"),
+                    )
+                    .with_provider(provider)
+                    .with_retry(RetryClassification::Safe)
+                    .with_source(source);
+                    Some((Err(error), (stream, true)))
+                }
+            }
+        }
+    })
+}
+
+/// Turns response chunks into SSE frames.
+///
+/// A stream that ends without the trailing blank line still delivers its last
+/// frame: the leftover buffer is flushed at end of stream rather than dropped.
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible"
+))]
+fn sse_frames<C, S>(chunks: S) -> impl Stream<Item = Result<SseEvent, Error>> + Send + 'static
+where
+    S: Stream<Item = Result<C, Error>> + Send + 'static,
+    C: AsRef<[u8]> + Send + 'static,
+{
+    struct FrameState<S> {
+        chunks: Pin<Box<S>>,
+        buffer: Vec<u8>,
+        ready:  VecDeque<Result<SseEvent, Error>>,
+        ended:  bool,
+    }
+
+    let state = FrameState {
+        chunks: Box::pin(chunks),
+        buffer: Vec::new(),
+        ready:  VecDeque::new(),
+        ended:  false,
+    };
+    unfold(state, |mut state| async move {
+        loop {
+            if let Some(frame) = state.ready.pop_front() {
+                return Some((frame, state));
+            }
+            if state.ended {
+                return None;
+            }
+            match state.chunks.next().await {
+                Some(Ok(chunk)) => {
+                    state.buffer.extend_from_slice(chunk.as_ref());
+                    state.ready.extend(extract_frames(&mut state.buffer));
+                }
+                Some(Err(error)) => {
+                    state.ready.push_back(Err(error));
+                    state.ended = true;
+                }
+                None => {
+                    state.ready.extend(flush_frame(&mut state.buffer));
+                    state.ended = true;
+                }
+            }
+        }
+    })
 }
 
 /// Normalizes the OpenAI and Anthropic rate-limit header families.
@@ -553,6 +750,10 @@ fn scheme_mismatch(provider: &ProviderId) -> Error {
 /// Message and code extraction and category classification are shared with the
 /// mid-stream error path so the two forms of the same provider failure classify
 /// identically.
+/// A body that is not JSON is kept as text rather than discarded: an HTML 503
+/// from a proxy or a plain-text "model does not exist" 400 carries the only
+/// diagnosis there is, and message-based classification needs it. Long bodies
+/// are truncated, because an error message is not a place for a whole page.
 async fn http_error(response: HttpResponse, provider: &CatalogProvider) -> Error {
     let status = response.status();
     let retry_after = response
@@ -560,13 +761,39 @@ async fn http_error(response: HttpResponse, provider: &CatalogProvider) -> Error
         .get("retry-after")
         .and_then(|value| value.to_str().ok())
         .map(ToOwned::to_owned);
-    let data = response.json::<Value>().await.ok();
+    let data = response
+        .text()
+        .await
+        .ok()
+        .and_then(|body| error_body(&body));
     provider_error(
         provider,
         Some(status.as_u16()),
         data,
         retry_after.as_deref(),
     )
+}
+
+/// The most characters of a non-JSON error body an error message keeps.
+const ERROR_BODY_LIMIT: usize = 2_000;
+
+/// Turns an error response body into the value the classifier reads.
+///
+/// JSON parses to itself. Any other non-empty text becomes a JSON string,
+/// which [`classify::extract`] reads as the provider's message.
+fn error_body(body: &str) -> Option<Value> {
+    if let Ok(value) = serde_json::from_str::<Value>(body) {
+        return Some(value);
+    }
+    let body = body.trim();
+    if body.is_empty() {
+        return None;
+    }
+    let truncated = match body.char_indices().nth(ERROR_BODY_LIMIT) {
+        Some((end, _)) => format!("{}…", &body[..end]),
+        None => body.to_owned(),
+    };
+    Some(Value::String(truncated))
 }
 
 /// Builds a classified provider error from an error body.
@@ -618,6 +845,29 @@ fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<SseEvent, Error>> {
         }
     }
     events
+}
+
+/// Parses whatever is left in the buffer at end of stream.
+///
+/// A provider that closes the connection right after its last `data:` line,
+/// without the trailing blank line, still delivers that frame. Trailing
+/// whitespace alone is not a frame.
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible"
+))]
+fn flush_frame(buffer: &mut Vec<u8>) -> Vec<Result<SseEvent, Error>> {
+    let frame = take(buffer);
+    if frame.iter().all(u8::is_ascii_whitespace) {
+        return Vec::new();
+    }
+    match parse_frame(&frame) {
+        Ok(Some(event)) => vec![Ok(event)],
+        Ok(None) => Vec::new(),
+        Err(error) => vec![Err(error)],
+    }
 }
 
 #[cfg(any(
@@ -730,6 +980,13 @@ fn event_stream_events_from(
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use std::error::Error as StdError;
+    use std::time::Duration;
+
+    use futures_util::StreamExt as _;
+    use futures_util::stream::{iter, pending};
+    use httpmock::{Method as MockMethod, MockServer};
+    use serde_json::{Value, json};
 
     #[cfg(any(
         feature = "openai",
@@ -739,10 +996,13 @@ mod tests {
     ))]
     use super::extract_frames;
     use super::{
-        AuthScheme, CredentialHeader, Credentials, ErrorKind, HeaderMap, HeaderValue,
-        HttpAuthentication, ProviderId, SecretValue, merge_headers, rate_limits,
+        AuthScheme, Client, CredentialHeader, Credentials, EncodedRequest, ErrorKind, HeaderMap,
+        HeaderValue, HttpAuthentication, HttpTransport, Method, ProviderId, RetryClassification,
+        SecretValue, merge_headers, rate_limits, with_idle_timeout,
     };
+    use crate::codecs::test_support;
     use crate::credentials::HttpCredentials;
+    use crate::resolver::ResolvedRoute;
     use crate::types::Error;
 
     fn headers_for(
@@ -893,6 +1153,216 @@ mod tests {
         assert_eq!(limits.request_limit, Some(100));
         assert_eq!(limits.token_remaining, Some(9000));
         assert_eq!(limits.request_remaining, None);
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[test]
+    fn flushes_a_last_frame_that_has_no_trailing_blank_line() {
+        let mut buffer = b"data: {\"text\":\"bye\"}".to_vec();
+
+        assert!(extract_frames(&mut buffer).is_empty());
+        let events = super::flush_frame(&mut buffer);
+
+        assert_eq!(events.len(), 1);
+        let event = events[0].as_ref().expect("the tail should parse");
+        assert_eq!(event.data, r#"{"text":"bye"}"#);
+        assert!(buffer.is_empty());
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[test]
+    fn a_trailing_newline_is_not_a_frame() {
+        let mut buffer = b"\n".to_vec();
+
+        assert!(super::flush_frame(&mut buffer).is_empty());
+    }
+
+    /// A route from the one-provider test catalog, whose scheme is `none`.
+    fn route() -> Result<ResolvedRoute, Box<dyn StdError>> {
+        test_support::test_route()
+    }
+
+    fn post(url: String) -> EncodedRequest {
+        EncodedRequest::new(Method::POST, url, json!({}))
+    }
+
+    #[tokio::test]
+    async fn a_malformed_success_body_is_retryable() -> Result<(), Box<dyn StdError>> {
+        let server = MockServer::start_async().await;
+        server
+            .mock_async(|when, then| {
+                when.method(MockMethod::POST).path("/chat");
+                then.status(200)
+                    .header("content-type", "application/json")
+                    .body("{\"id\":\"resp_1\", trunc");
+            })
+            .await;
+        let route = route()?;
+        let transport = HttpTransport::new(Client::new());
+
+        let error = transport
+            .execute_json(
+                post(server.url("/chat")),
+                route.provider(),
+                Credentials::none(),
+            )
+            .await
+            .expect_err("a truncated body should fail");
+
+        assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_non_json_error_body_still_classifies() -> Result<(), Box<dyn StdError>> {
+        let server = MockServer::start_async().await;
+        server
+            .mock_async(|when, then| {
+                when.method(MockMethod::POST).path("/chat");
+                then.status(400)
+                    .header("content-type", "text/plain")
+                    .body("The model gpt-9 does not exist");
+            })
+            .await;
+        let route = route()?;
+        let transport = HttpTransport::new(Client::new());
+
+        let error = transport
+            .execute_json(
+                post(server.url("/chat")),
+                route.provider(),
+                Credentials::none(),
+            )
+            .await
+            .expect_err("a 400 should fail");
+
+        assert_eq!(error.kind(), ErrorKind::NotFound);
+        assert!(
+            error.message().contains("The model gpt-9 does not exist"),
+            "the body text should survive: {}",
+            error.message()
+        );
+        assert_eq!(
+            error.raw_data(),
+            Some(&Value::String("The model gpt-9 does not exist".into()))
+        );
+        Ok(())
+    }
+
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
+    #[tokio::test]
+    async fn a_stream_delivers_a_frame_without_its_trailing_blank_line()
+    -> Result<(), Box<dyn StdError>> {
+        let server = MockServer::start_async().await;
+        server
+            .mock_async(|when, then| {
+                when.method(MockMethod::POST).path("/stream");
+                then.status(200)
+                    .header("content-type", "text/event-stream")
+                    .body("data: {\"n\":1}\n\ndata: {\"n\":2}");
+            })
+            .await;
+        let route = route()?;
+        let transport = HttpTransport::new(Client::new());
+
+        let response = transport
+            .sse_events(
+                post(server.url("/stream")),
+                route.provider(),
+                Credentials::none(),
+            )
+            .await?;
+        let events: Vec<_> = response.events.collect().await;
+
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            events[1].as_ref().expect("the tail should parse").data,
+            r#"{"n":2}"#
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_stalled_stream_fails_with_a_retryable_timeout() {
+        let stalled = pending::<Result<Vec<u8>, Error>>();
+
+        let mut stream = Box::pin(with_idle_timeout(
+            stalled,
+            Some(Duration::from_millis(10)),
+            ProviderId::new("alpha"),
+        ));
+        let error = stream
+            .next()
+            .await
+            .expect("the stall should produce one event")
+            .expect_err("the event should be an error");
+
+        assert_eq!(error.kind(), ErrorKind::Timeout);
+        assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        assert!(stream.next().await.is_none(), "one stall, one error");
+    }
+
+    #[tokio::test]
+    async fn an_idle_timeout_leaves_a_flowing_stream_alone() {
+        let chunks = iter(vec![Ok::<_, Error>(vec![b'a']), Ok(vec![b'b'])]);
+
+        let items: Vec<_> = with_idle_timeout(
+            chunks,
+            Some(Duration::from_secs(30)),
+            ProviderId::new("alpha"),
+        )
+        .collect()
+        .await;
+
+        assert_eq!(items.len(), 2);
+        assert!(items.iter().all(Result::is_ok));
+    }
+
+    #[test]
+    fn keeps_a_non_json_error_body_as_its_message() {
+        let body = super::error_body("The model gpt-9 does not exist")
+            .expect("a non-empty body should be kept");
+
+        assert_eq!(body, Value::String("The model gpt-9 does not exist".into()));
+    }
+
+    #[test]
+    fn truncates_a_very_large_error_body() {
+        let body =
+            super::error_body(&"<html>".repeat(1_000)).expect("a non-empty body should be kept");
+
+        let text = body.as_str().expect("the body should be kept as text");
+        assert_eq!(text.chars().count(), super::ERROR_BODY_LIMIT + 1);
+        assert!(text.ends_with('…'));
+    }
+
+    #[test]
+    fn an_empty_error_body_stays_empty() {
+        assert_eq!(super::error_body("   "), None);
+    }
+
+    #[test]
+    fn keeps_a_json_error_body_as_json() {
+        let body =
+            super::error_body(r#"{"error":{"message":"nope"}}"#).expect("JSON should be kept");
+
+        assert_eq!(body, json!({ "error": { "message": "nope" } }));
     }
 
     #[test]

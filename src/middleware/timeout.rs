@@ -6,9 +6,21 @@ use futures_util::stream::unfold;
 use tokio::time::{Instant as TokioInstant, timeout_at};
 
 use super::{Call, Middleware, Next, Output};
-use crate::types::{Error, ErrorKind, ResponseStream};
+use crate::types::{Error, ErrorKind, ResponseStream, RetryClassification};
 
 /// Applies a call deadline and a maximum wait between stream events.
+///
+/// # Retrying a timeout
+///
+/// An expired call deadline is never retried. The provider may already be
+/// executing the call, so repeating it duplicates the work and the billing,
+/// and a retry policy would spend every attempt on the same expired budget.
+/// The transport applies the same rule to a request timeout on the complete
+/// path.
+///
+/// A stream that stalls between events is different: it is the same condition
+/// as a dropped connection, so that failure is retryable, and the retry
+/// middleware restarts a stream that stalled before any visible output.
 #[derive(Clone, Copy, Debug)]
 pub struct TimeoutMiddleware {
     timeout: Duration,
@@ -44,9 +56,9 @@ impl Middleware for TimeoutMiddleware {
                 deadline,
             ))),
             Ok(result) => result,
-            Err(source) => {
-                Err(Error::new(ErrorKind::Timeout, "the LLM call timed out").with_source(source))
-            }
+            Err(source) => Err(Error::new(ErrorKind::Timeout, "the LLM call timed out")
+                .with_retry(RetryClassification::Never)
+                .with_source(source)),
         }
     }
 }
@@ -64,18 +76,23 @@ fn timeout_stream(stream: ResponseStream, max_wait: Duration, deadline: Instant)
             match timeout_at(TokioInstant::from_std(read_deadline), stream.next()).await {
                 Ok(Some(item)) => Some((item, (stream, false))),
                 Ok(None) => None,
-                Err(source) => Some((
-                    Err(Error::new(
-                        ErrorKind::Timeout,
-                        if read_deadline == deadline {
-                            "the LLM call deadline expired"
-                        } else {
-                            "the LLM stream read timed out"
-                        },
-                    )
-                    .with_source(source)),
-                    (stream, true),
-                )),
+                Err(source) => {
+                    // The whole-call deadline is spent, so nothing can be
+                    // repeated. A stalled read only means this stream stopped
+                    // producing, which another attempt can fix.
+                    let expired_deadline = read_deadline == deadline;
+                    let (message, retry) = if expired_deadline {
+                        ("the LLM call deadline expired", RetryClassification::Never)
+                    } else {
+                        ("the LLM stream read timed out", RetryClassification::Safe)
+                    };
+                    Some((
+                        Err(Error::new(ErrorKind::Timeout, message)
+                            .with_retry(retry)
+                            .with_source(source)),
+                        (stream, true),
+                    ))
+                }
             }
         },
     ))
