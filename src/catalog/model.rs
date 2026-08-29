@@ -136,8 +136,8 @@ pub struct SpeedRates {
 impl Pricing {
     /// Selects the rates that apply to a request with `input_tokens` of input.
     ///
-    /// Long-context rates replace every base rate, including the cache-write
-    /// rate, so a long-context block that omits one rate reports no rate.
+    /// Each rate is optional, so a long-context block that changes only some
+    /// rates states only those and the rest stay at their base value.
     #[must_use]
     pub fn for_input_tokens(self, input_tokens: u64) -> Self {
         let Some(long_context) = self
@@ -147,10 +147,18 @@ impl Pricing {
             return self;
         };
         Self {
-            input_usd_micros_per_million: long_context.input_usd_micros_per_million,
-            output_usd_micros_per_million: long_context.output_usd_micros_per_million,
-            cached_input_usd_micros_per_million: long_context.cached_input_usd_micros_per_million,
-            cache_write_usd_micros_per_million: long_context.cache_write_usd_micros_per_million,
+            input_usd_micros_per_million: long_context
+                .input_usd_micros_per_million
+                .or(self.input_usd_micros_per_million),
+            output_usd_micros_per_million: long_context
+                .output_usd_micros_per_million
+                .or(self.output_usd_micros_per_million),
+            cached_input_usd_micros_per_million: long_context
+                .cached_input_usd_micros_per_million
+                .or(self.cached_input_usd_micros_per_million),
+            cache_write_usd_micros_per_million: long_context
+                .cache_write_usd_micros_per_million
+                .or(self.cache_write_usd_micros_per_million),
             long_context: self.long_context,
             speed: self.speed,
         }
@@ -344,6 +352,28 @@ mod tests {
                 .cache_write_usd_micros_per_million,
             Some(8)
         );
+    }
+
+    #[test]
+    fn long_context_rates_inherit_missing_rates_from_the_base() {
+        let pricing = Pricing {
+            long_context: Some(LongContextPricing {
+                above_input_tokens:                  200_000,
+                input_usd_micros_per_million:        Some(4),
+                output_usd_micros_per_million:       None,
+                cached_input_usd_micros_per_million: None,
+                cache_write_usd_micros_per_million:  None,
+            }),
+            ..sample_pricing()
+        };
+
+        let tiered = pricing.for_input_tokens(200_001);
+
+        assert_eq!(tiered.input_usd_micros_per_million, Some(4));
+        // Rates the tier leaves out keep their base value.
+        assert_eq!(tiered.output_usd_micros_per_million, Some(2));
+        assert_eq!(tiered.cached_input_usd_micros_per_million, Some(3));
+        assert_eq!(tiered.cache_write_usd_micros_per_million, Some(7));
     }
 
     #[test]

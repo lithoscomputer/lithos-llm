@@ -26,10 +26,10 @@ pub(crate) fn estimate_catalog_cost(
 /// The five [`TokenCounts`] buckets are disjoint, so each is priced once.
 /// Reasoning tokens bill at the output rate. Cache reads bill at the
 /// cached-input rate and cache writes at the cache-write rate. A non-empty
-/// cache bucket the catalog does not price yields no estimate at all: billing
-/// those tokens at zero (or guessing the input rate) would stamp a
-/// confidently wrong figure on every cached call, and no cost is more honest
-/// than a wrong one. One exception: `anthropic_rates` derives a missing
+/// bucket the catalog does not price — base input and output included —
+/// yields no estimate at all: billing those tokens at zero (or guessing
+/// another rate) would stamp a confidently wrong figure, and no cost is more
+/// honest than a wrong one. One exception: `anthropic_rates` derives a missing
 /// cache-write rate as 1.25x input, Anthropic's published premium for the
 /// default five-minute cache, so a migrated Anthropic or Bedrock entry
 /// without the explicit field keeps estimating what the provider charges.
@@ -48,9 +48,7 @@ fn catalog_cost(
         .saturating_add(usage.cache_read)
         .saturating_add(usage.cache_write);
     let pricing = pricing?.for_input_tokens(prompt).for_speed(speed);
-    if pricing.input_usd_micros_per_million.is_none()
-        && pricing.output_usd_micros_per_million.is_none()
-    {
+    if usage.input > 0 && pricing.input_usd_micros_per_million.is_none() {
         return None;
     }
     let input = token_cost(usage.input, pricing.input_usd_micros_per_million);
@@ -72,6 +70,9 @@ fn catalog_cost(
         return None;
     }
     let cache_write = token_cost(usage.cache_write, cache_write_rate);
+    if usage.billable_output() > 0 && pricing.output_usd_micros_per_million.is_none() {
+        return None;
+    }
     let output = token_cost(
         usage.billable_output(),
         pricing.output_usd_micros_per_million,
@@ -153,6 +154,43 @@ mod tests {
         assert_eq!(
             catalog_cost(uncached, Some(&pricing), None, false).map(|cost| cost.usd_micros),
             Some(5_000)
+        );
+    }
+
+    #[test]
+    fn one_sided_base_rates_refuse_an_estimate() {
+        // A missing base rate with tokens in that bucket must not price the
+        // bucket at zero.
+        let no_output_rate = Pricing {
+            output_usd_micros_per_million: None,
+            ..pricing()
+        };
+        assert_eq!(
+            catalog_cost(usage(), Some(&no_output_rate), None, false),
+            None
+        );
+
+        let no_input_rate = Pricing {
+            input_usd_micros_per_million: None,
+            ..pricing()
+        };
+        assert_eq!(
+            catalog_cost(usage(), Some(&no_input_rate), None, false),
+            None
+        );
+
+        // An empty bucket needs no rate, so the present rates still price
+        // the rest of the call.
+        let output_only = TokenCounts {
+            input: 0,
+            cache_read: 0,
+            cache_write: 0,
+            ..usage()
+        };
+        assert_eq!(
+            catalog_cost(output_only, Some(&no_input_rate), None, false)
+                .map(|cost| cost.usd_micros),
+            Some(4_000)
         );
     }
 
