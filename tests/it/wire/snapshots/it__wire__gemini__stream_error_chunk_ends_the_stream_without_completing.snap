@@ -4,6 +4,10 @@ expression: rendered
 ---
 [
   {
+    "id": null,
+    "type": "started"
+  },
+  {
     "id": "text-0",
     "kind": {
       "type": "text"

@@ -15,7 +15,7 @@ expression: rendered
     },
     {
       "type": "tool_call",
-      "id": "get_weather-0",
+      "id": "get_weather-0-resp-gemini-2",
       "name": "get_weather",
       "arguments": {
         "city": "Paris"
@@ -28,7 +28,7 @@ expression: rendered
       }
     }
   ],
-  "finish_reason": "stop",
+  "finish_reason": "tool_call",
   "usage": {
     "input": 42,
     "output": 12,

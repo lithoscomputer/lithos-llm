@@ -12,7 +12,7 @@ expression: rendered
     ],
     [
       "content-length",
-      "146"
+      "242"
     ],
     [
       "content-type",
@@ -46,6 +46,12 @@ expression: rendered
       "maxOutputTokens": 128
     },
     "max_output_tokens": 256,
+    "safetySettings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_ONLY_HIGH"
+      }
+    ],
     "service_tier": "flex"
   }
 }

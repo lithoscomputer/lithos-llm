@@ -15,9 +15,14 @@
 //!
 //! # Intentional differences from the reference implementation
 //!
-//! - Synthesized tool-call ids are **deterministic** (`{name}-{ordinal}`). The
-//!   reference minted a `Uuid::new_v4()` per call, which is why its snapshots
-//!   needed a UUID scrubber and ours do not.
+//! - Synthesized tool-call ids are **deterministic**
+//!   (`{name}-{ordinal}-{responseId}`, or `{name}-{ordinal}` when the payload
+//!   carries no response id). The reference minted a `Uuid::new_v4()` per call,
+//!   which is why its snapshots needed a UUID scrubber and ours do not.
+//! - The default `safetySettings` entry is spelled in camelCase. The reference
+//!   sent the same value under `safety_settings`; proto-JSON reads both
+//!   spellings as one field, and camelCase matches every other key this encoder
+//!   writes.
 //! - Stream content-block ids are stable per run (`text-0`, `reasoning-0`,
 //!   `tool-0`). The reference reused one UUID for all text in a stream.
 //! - Thought signatures are carried onto reasoning parts as
@@ -30,8 +35,9 @@
 
 use httpmock::{Method, MockServer};
 use lithos_llm::types::{
-    ContentPart, Error, ErrorKind, ImageContent, MediaSource, Message, Response, ResponseFormat,
-    RetryClassification, Role, ToolCall, ToolChoice, ToolDefinition, ToolResult,
+    ContentPart, Error, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
+    ReasoningEffort, Response, ResponseFormat, RetryClassification, Role, Speed, ToolCall,
+    ToolChoice, ToolDefinition, ToolResult,
 };
 use lithos_llm::{Client, Request};
 use serde_json::{Value, json};
@@ -494,6 +500,27 @@ async fn response_format_json_schema() {
 }
 
 #[tokio::test]
+async fn response_format_text_leaves_the_output_mode_alone() {
+    let (request, _) = complete(
+        support::response_format_request(&selector(), ResponseFormat::Text),
+        &text_response(),
+    )
+    .await;
+
+    // `Text` is this protocol's own default, so it sets nothing. Declaring
+    // `application/json` for it — which this codec used to do for every format
+    // variant — makes the model answer in JSON to a caller who asked for prose.
+    assert_eq!(
+        request.body["generationConfig"].get("responseMimeType"),
+        None
+    );
+    assert!(
+        !request.body.to_string().contains("application/json"),
+        "a text request must not name a JSON output mode anywhere"
+    );
+}
+
+#[tokio::test]
 async fn sampling_request() {
     let (request, response) =
         complete(support::sampling_request(&selector()), &text_response()).await;
@@ -542,6 +569,129 @@ async fn metadata_request_warns_and_sends_nothing() {
 
     crate::json_snapshot!(request);
     crate::json_snapshot!(response);
+}
+
+#[tokio::test]
+async fn speed_and_reasoning_effort_are_reported_not_sent() {
+    // Neither control has a field in this protocol. Gemini does have a thinking
+    // budget, but it takes a token count, and turning an effort level into a
+    // defensible one needs per-model reasoning limits the catalog does not
+    // carry. Warning is what the crate does with a control it cannot express;
+    // guessing a budget would change how much the caller is billed.
+    let request = Request::builder()
+        .model(selector())
+        .user("Hello")
+        .speed(Speed::Fast)
+        .reasoning_effort(ReasoningEffort::High)
+        .max_output_tokens(128)
+        .build()
+        .expect("the dropped controls request should build");
+
+    let (request, response) = complete(request, &text_response()).await;
+
+    let body = request.body.to_string();
+    assert!(!body.contains("thinkingConfig"), "{body}");
+    assert!(!body.contains("speed"), "{body}");
+
+    let warnings: Vec<(&str, &str)> = response
+        .warnings
+        .iter()
+        .map(|warning| (warning.code.as_str(), warning.message.as_str()))
+        .collect();
+    assert_eq!(warnings, [
+        (
+            "unsupported_control",
+            "this provider protocol does not support the speed control",
+        ),
+        (
+            "unsupported_control",
+            "this provider protocol does not support the reasoning effort control",
+        ),
+    ]);
+}
+
+#[tokio::test]
+async fn default_safety_settings_are_injected() {
+    let (request, _) = complete(support::base_request(&selector()), &text_response()).await;
+
+    // Google's own defaults block a good deal of ordinary text. The reference
+    // implementation relaxed the dangerous-content filter for a caller who
+    // asked for nothing, and this keeps that behavior, so a prompt that worked
+    // before the migration still works after it.
+    //
+    // One deliberate change of spelling: the reference sent `safety_settings`.
+    // Proto-JSON accepts both spellings for the same field, and every other key
+    // this encoder writes is camelCase, so the default is `safetySettings`.
+    assert_eq!(
+        request.body["safetySettings"],
+        json!([{
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_ONLY_HIGH",
+        }])
+    );
+}
+
+#[tokio::test]
+async fn caller_safety_settings_replace_the_default() {
+    let request = Request::builder()
+        .model(selector())
+        .user("Hello")
+        .provider_option(
+            PROVIDER,
+            "safetySettings",
+            json!([{ "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }]),
+        )
+        .max_output_tokens(128)
+        .build()
+        .expect("the safety settings request should build");
+
+    let (request, _) = complete(request, &text_response()).await;
+
+    // The default is a fallback, not a floor: what the caller wrote is what is
+    // sent, and the dangerous-content entry is not added beside it.
+    assert_eq!(
+        request.body["safetySettings"],
+        json!([{ "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }])
+    );
+}
+
+#[tokio::test]
+async fn a_tool_result_recovers_its_function_name_from_the_call() {
+    // `functionResponse` names the function, not the call. A canonical
+    // `ToolResult` carries the name only when the application kept it, so the
+    // encoder recovers it from the assistant turn that made the call. Without
+    // that, this request would name the function `call_paris`, which matches no
+    // declared function.
+    let request = Request::builder()
+        .model(selector())
+        .user("What is the weather in Paris?")
+        .tool(ToolDefinition::function(
+            "get_weather",
+            "Reads the current weather for a city",
+            json!({ "type": "object", "properties": { "city": { "type": "string" } } }),
+        ))
+        .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+            ToolCall::function("call_paris", "get_weather", json!({ "city": "Paris" })),
+        )]))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: "call_paris".to_owned(),
+                name:         None,
+                content:      vec![ContentPart::Text {
+                    text: "18C and clear".to_owned(),
+                }],
+                is_error:     false,
+            },
+        )]))
+        .max_output_tokens(128)
+        .build()
+        .expect("the nameless tool result request should build");
+
+    let (request, _) = complete(request, &text_response()).await;
+
+    let result = &request.body["contents"][2]["parts"][0]["functionResponse"];
+    assert_eq!(result["name"], json!("get_weather"));
+    assert_eq!(result["id"], json!("call_paris"));
 }
 
 #[tokio::test]
@@ -761,13 +911,23 @@ async fn usage_buckets_are_disjoint() {
 // Decoding details
 // ===========================================================================
 
-#[tokio::test]
-async fn synthesized_tool_call_ids_are_deterministic() {
-    // Gemini sends no call ids. This codec synthesizes `{name}-{ordinal}`
-    // rather than minting a UUID, so decoding one payload twice gives one
-    // answer and a snapshot needs no id scrubbing.
-    let body = json!({
-        "responseId": "resp-gemini-ids",
+/// The ids of every tool call in a response, in order.
+fn call_ids(response: &Response) -> Vec<&str> {
+    response
+        .content
+        .iter()
+        .filter_map(|part| match part {
+            ContentPart::ToolCall(call) => Some(call.id.as_str()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Two calls to the same tool, with the response id the payload should scope
+/// its synthesized call ids by.
+fn two_call_response(response_id: &str) -> Value {
+    json!({
+        "responseId": response_id,
         "candidates": [{
             "content": { "role": "model", "parts": [
                 { "functionCall": { "name": "search", "args": { "query": "rust" } } },
@@ -776,26 +936,135 @@ async fn synthesized_tool_call_ids_are_deterministic() {
             ] },
             "finishReason": "STOP",
         }],
-    });
+    })
+}
+
+#[tokio::test]
+async fn synthesized_tool_call_ids_are_deterministic() {
+    // Gemini sends no call ids. This codec synthesizes them rather than minting
+    // a UUID, so decoding one payload twice gives one answer and a snapshot
+    // needs no id scrubbing.
+    let body = two_call_response("resp-gemini-ids");
 
     let (_, first) = complete(support::base_request(&selector()), &body).await;
     let (_, second) = complete(support::base_request(&selector()), &body).await;
 
-    let ids: Vec<&str> = first
-        .content
-        .iter()
-        .filter_map(|part| match part {
-            ContentPart::ToolCall(call) => Some(call.id.as_str()),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(ids, ["search-0", "search-1"]);
+    // The name and the ordinal say which call this is; the response id says
+    // which response it came from.
+    assert_eq!(call_ids(&first), [
+        "search-0-resp-gemini-ids",
+        "search-1-resp-gemini-ids"
+    ]);
     assert_eq!(
         first.content, second.content,
         "decoding one payload twice must produce identical ids"
     );
 
     crate::json_snapshot!(first.content);
+}
+
+#[tokio::test]
+async fn synthesized_tool_call_ids_do_not_collide_across_turns() {
+    // The plain `{name}-{ordinal}` form repeats: a conversation that calls
+    // `search` on two turns carries `search-0` twice, so an application keyed
+    // by call id collides and the replayed history sends duplicate ids on the
+    // wire. The response id separates the turns.
+    let (_, first) = complete(
+        support::base_request(&selector()),
+        &two_call_response("resp-turn-1"),
+    )
+    .await;
+    let (_, second) = complete(
+        support::base_request(&selector()),
+        &two_call_response("resp-turn-2"),
+    )
+    .await;
+
+    assert_eq!(call_ids(&first), [
+        "search-0-resp-turn-1",
+        "search-1-resp-turn-1"
+    ]);
+    assert_eq!(call_ids(&second), [
+        "search-0-resp-turn-2",
+        "search-1-resp-turn-2"
+    ]);
+}
+
+#[tokio::test]
+async fn a_payload_without_a_response_id_keeps_the_bare_synthesized_ids() {
+    // Not every route sends `responseId`. The fallback is the id these calls
+    // have always had, so nothing is worse for its absence.
+    let mut body = two_call_response("unused");
+    body.as_object_mut()
+        .expect("the body should be an object")
+        .remove("responseId");
+
+    let (_, response) = complete(support::base_request(&selector()), &body).await;
+
+    assert_eq!(call_ids(&response), ["search-0", "search-1"]);
+}
+
+#[tokio::test]
+async fn a_blocked_prompt_is_an_error_not_an_empty_answer() {
+    // Gemini refuses a prompt with HTTP 200 and a body that has no candidates
+    // at all, only `promptFeedback`. Decoding that as a successful empty
+    // response makes a blocked prompt indistinguishable from a model that had
+    // nothing to say, so it fails instead.
+    let error = failure(
+        200,
+        &json!({ "promptFeedback": { "blockReason": "SAFETY" } }),
+    )
+    .await;
+
+    assert_eq!(error.kind(), ErrorKind::ContentFilter);
+    assert_eq!(error.provider_code(), Some("SAFETY"));
+    // A blocked prompt is blocked every time; resending it is pointless.
+    assert_eq!(error.retry_classification(), RetryClassification::Never);
+
+    crate::json_snapshot!(error.data());
+}
+
+#[tokio::test]
+async fn a_body_with_no_candidates_fails_to_decode() {
+    // Without a block reason there is nothing to classify: a 200 with no
+    // candidates is a malformed document, not a refusal.
+    let error = failure(200, &json!({ "responseId": "resp-gemini-empty" })).await;
+
+    assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+    assert_eq!(error.provider_code(), None);
+}
+
+#[tokio::test]
+async fn a_function_call_turn_finishes_as_a_tool_call() {
+    // Gemini reports `STOP` even when the whole turn is a function call, so an
+    // agent loop that dispatches tools on `ToolCall` would never run them.
+    let (_, response) = complete(
+        support::tools_request(&selector(), None),
+        &function_call_response(),
+    )
+    .await;
+
+    assert_eq!(response.finish_reason, FinishReason::ToolCall);
+    assert_eq!(
+        response.raw.as_ref().and_then(|raw| raw
+            .pointer("/candidates/0/finishReason")
+            .and_then(Value::as_str)),
+        Some("STOP"),
+        "the provider's own word is kept in `raw`; only the canonical reason is corrected"
+    );
+}
+
+#[tokio::test]
+async fn a_truncated_function_call_keeps_the_provider_reason() {
+    // Only `STOP` is corrected. `MAX_TOKENS` is the more specific fact: the
+    // call was cut off, and reporting it as a complete tool call would send a
+    // half-written call back to the model.
+    let mut body = function_call_response();
+    body["candidates"][0]["finishReason"] = json!("MAX_TOKENS");
+
+    let (_, response) = complete(support::tools_request(&selector(), None), &body).await;
+
+    assert_eq!(response.finish_reason, FinishReason::Length);
 }
 
 #[tokio::test]
@@ -851,15 +1120,16 @@ async fn raw_options_merge_into_the_generation_config() {
 
 /// A realistic `streamGenerateContent` transcript.
 ///
-/// It carries a thought run, a text run, and one complete function call, and it
-/// repeats the running usage totals the way Gemini does.
+/// It carries a thought run, a text run, and one complete function call, it
+/// repeats the running usage totals the way Gemini does, and every chunk
+/// repeats the response id the way Gemini does.
 fn stream_transcript() -> String {
     sse_data_transcript(&[
-        r#"{"candidates":[{"content":{"role":"model","parts":[{"text":"Let me check","thought":true}]}}],"usageMetadata":{"promptTokenCount":18,"cachedContentTokenCount":6,"candidatesTokenCount":5}}"#,
-        r#"{"candidates":[{"content":{"role":"model","parts":[{"text":" the forecast.","thought":true,"thoughtSignature":"sig-stream-think"}]}}]}"#,
-        r#"{"candidates":[{"content":{"role":"model","parts":[{"text":"Checking"}]}}]}"#,
-        r#"{"candidates":[{"content":{"role":"model","parts":[{"text":" now."}]}}]}"#,
-        r#"{"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"get_weather","args":{"city":"Paris"}},"thoughtSignature":"sig-stream-call"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":18,"cachedContentTokenCount":6,"candidatesTokenCount":14,"thoughtsTokenCount":9}}"#,
+        r#"{"responseId":"resp-gemini-stream","candidates":[{"content":{"role":"model","parts":[{"text":"Let me check","thought":true}]}}],"usageMetadata":{"promptTokenCount":18,"cachedContentTokenCount":6,"candidatesTokenCount":5}}"#,
+        r#"{"responseId":"resp-gemini-stream","candidates":[{"content":{"role":"model","parts":[{"text":" the forecast.","thought":true,"thoughtSignature":"sig-stream-think"}]}}]}"#,
+        r#"{"responseId":"resp-gemini-stream","candidates":[{"content":{"role":"model","parts":[{"text":"Checking"}]}}]}"#,
+        r#"{"responseId":"resp-gemini-stream","candidates":[{"content":{"role":"model","parts":[{"text":" now."}]}}]}"#,
+        r#"{"responseId":"resp-gemini-stream","candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"get_weather","args":{"city":"Paris"}},"thoughtSignature":"sig-stream-call"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":18,"cachedContentTokenCount":6,"candidatesTokenCount":14,"thoughtsTokenCount":9}}"#,
     ])
 }
 
@@ -908,6 +1178,13 @@ async fn stream_transcript_assigns_one_block_per_run() {
     );
 
     assert_stream_contract(&events);
+
+    // The protocol has no opening event, so the first chunk is what starts the
+    // stream. `Started` still leads, carrying the response id that chunk named,
+    // which is what every other codec does.
+    let first = events.first().expect("the stream should produce events");
+    assert_eq!(first["type"], json!("started"));
+    assert_eq!(first["id"], json!("resp-gemini-stream"));
 
     // A run ends when the part kind changes; that is the only end signal the
     // protocol gives. Ids are stable per run rather than one UUID for the
@@ -964,11 +1241,18 @@ async fn stream_usage_is_last_wins_and_the_completed_response_carries_no_raw() {
     // `raw` is skipped when it is `None`, so its absence is the assertion.
     assert_eq!(response.get("raw"), None);
 
-    // The tool call keeps the deterministic synthesized id and the thought
+    // The stream carried a response id, so the completed response keeps it.
+    assert_eq!(response["id"], json!("resp-gemini-stream"));
+    // Gemini said `STOP` on a turn that called a tool, and the stream corrects
+    // that the same way the blocking path does.
+    assert_eq!(response["finish_reason"], json!("tool_call"));
+
+    // The tool call keeps the deterministic synthesized id — scoped by the
+    // response id, exactly as the blocking path scopes it — and the thought
     // signature that Gemini 3 needs back on the next turn.
     let call = &response["content"][2];
     assert_eq!(call["type"], json!("tool_call"));
-    assert_eq!(call["id"], json!("get_weather-0"));
+    assert_eq!(call["id"], json!("get_weather-0-resp-gemini-stream"));
     assert_eq!(
         call["provider_metadata"]["gemini"]["thoughtSignature"],
         json!("sig-stream-call")

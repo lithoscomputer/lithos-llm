@@ -1,5 +1,7 @@
 //! The Gemini `generateContent` wire protocol.
 
+use std::collections::HashMap;
+
 use reqwest::Method;
 use serde_json::{Map, Value, json};
 
@@ -13,9 +15,9 @@ use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
-    ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, MediaSource, ReasoningContent,
-    Response, ResponseFormat, Role, StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice,
-    ToolDefinitionKind, ToolResult,
+    ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, MediaSource,
+    Message, ReasoningContent, Request, Response, ResponseFormat, Role, StreamEvent, TokenCounts,
+    ToolCall, ToolCallKind, ToolChoice, ToolDefinitionKind, ToolResult,
 };
 
 /// The replay namespace this codec claims.
@@ -58,32 +60,37 @@ impl Codec for GeminiGenerateCodec {
         }) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
+        // This protocol has no latency tier, so the control is reported rather
+        // than guessed at.
+        if call.request().speed().is_some() {
+            encoded = encoded.unsupported_control("the speed control");
+        }
+        // `generationConfig.thinkingConfig.thinkingBudget` is the natural
+        // target, but it takes a token count, and turning an effort level into
+        // a defensible budget needs per-model reasoning limits the catalog does
+        // not carry. The control is reported until it does; a mapping can
+        // replace this warning later.
+        if call.request().reasoning_effort().is_some() {
+            encoded = encoded.unsupported_control("the reasoning effort control");
+        }
         Ok(encoded)
     }
 
     fn decode_response(&self, route: &ResolvedRoute, value: Value) -> Result<Response, Error> {
-        let candidate = value.pointer("/candidates/0").unwrap_or(&Value::Null);
-        let mut content = Vec::new();
-        let mut calls = 0;
-        for part in candidate
-            .pointer("/content/parts")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
-            if let Some(function_call) = part.get("functionCall") {
-                content.push(decode_tool_call(part, function_call, calls));
-                calls += 1;
-            } else if let Some(text) = part.get("text").and_then(Value::as_str) {
-                content.push(decode_text(part, text));
-            }
-        }
-
         let id = value
             .get("responseId")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned);
-        let finished = finish_reason(candidate.get("finishReason").and_then(Value::as_str));
+
+        // The candidate is decoded through a closure so that the borrow of
+        // `value` ends here: the no-candidates path below takes the whole
+        // document as the error's raw data.
+        let decoded = value
+            .pointer("/candidates/0")
+            .map(|candidate| decode_candidate(candidate, id.as_deref()));
+        let Some((content, finished)) = decoded else {
+            return Err(no_candidates(route, value));
+        };
         let usage = decode_usage(value.get("usageMetadata").unwrap_or(&Value::Null));
 
         let mut response = Response::new(
@@ -149,7 +156,9 @@ fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
 /// Builds the `generateContent` request body.
 ///
 /// Typed request fields are encoded first and the raw provider options are
-/// merged last, so an application can override anything encoded here.
+/// merged last, so an application can override anything encoded here. The
+/// default safety settings are applied after that merge, and only when the
+/// caller supplied none; see [`apply_default_safety_settings`].
 ///
 /// # Errors
 ///
@@ -183,12 +192,17 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
         );
     }
 
+    let names = tool_call_names(request);
     let mut contents: Vec<Value> = Vec::new();
     for message in request.messages() {
         if matches!(message.role(), Role::System | Role::Developer) {
             continue;
         }
-        let parts: Vec<Value> = message.content().iter().filter_map(encode_part).collect();
+        let parts: Vec<Value> = message
+            .content()
+            .iter()
+            .filter_map(|part| encode_part(part, &names))
+            .collect();
         if parts.is_empty() {
             continue;
         }
@@ -234,11 +248,18 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
             ),
         );
     }
-    if let Some(format) = request.response_format() {
-        generation.insert("responseMimeType".to_owned(), "application/json".into());
-        if let ResponseFormat::JsonSchema { schema, .. } = format {
+    // `Text` is the protocol's own default, so it sets nothing: declaring
+    // `application/json` for it would force JSON output for a caller who asked
+    // for prose. Only the two JSON formats set the MIME type.
+    match request.response_format() {
+        Some(ResponseFormat::JsonObject) => {
+            generation.insert("responseMimeType".to_owned(), "application/json".into());
+        }
+        Some(ResponseFormat::JsonSchema { schema, .. }) => {
+            generation.insert("responseMimeType".to_owned(), "application/json".into());
             generation.insert("responseJsonSchema".to_owned(), schema.clone());
         }
+        Some(ResponseFormat::Text) | None => {}
     }
     if !generation.is_empty() {
         body.insert("generationConfig".to_owned(), Value::Object(generation));
@@ -257,7 +278,53 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
     // Request metadata has no field in this protocol, so it is never sent.
     // `encode` records an `unsupported_control` warning in its place.
     merge_options(&mut body, options);
+    apply_default_safety_settings(&mut body);
     Ok(body)
+}
+
+/// Relaxes the dangerous-content filter unless the caller set its own settings.
+///
+/// Google's own defaults block a good deal of ordinary text, so a caller who
+/// asks for nothing gets `BLOCK_ONLY_HIGH` for dangerous content, which is what
+/// the reference implementation sent. This runs after the provider options are
+/// merged, so a caller who supplies `safetySettings` keeps exactly what they
+/// wrote, for every category.
+///
+/// Both spellings of the field are treated as caller-supplied. Proto-JSON
+/// accepts `safety_settings` and `safetySettings` as the same field, so
+/// inserting the camelCase default beside a caller's snake_case list would send
+/// the field twice.
+fn apply_default_safety_settings(body: &mut Map<String, Value>) {
+    if body.contains_key("safetySettings") || body.contains_key("safety_settings") {
+        return;
+    }
+    body.insert(
+        "safetySettings".to_owned(),
+        json!([{
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_ONLY_HIGH",
+        }]),
+    );
+}
+
+/// Maps every tool-call id in the history to the function it called.
+///
+/// `functionResponse` identifies the call it answers by function name, and a
+/// canonical [`ToolResult`] carries the name only when the application kept it.
+/// The assistant turn that made the call always carries it, so the history is
+/// the reliable source. Without this, a result whose name is missing sends the
+/// call id as the function name, which matches no declared function.
+fn tool_call_names(request: &Request) -> HashMap<&str, &str> {
+    request
+        .messages()
+        .iter()
+        .filter(|message| message.role() == Role::Assistant)
+        .flat_map(Message::content)
+        .filter_map(|part| match part {
+            ContentPart::ToolCall(call) => Some((call.id.as_str(), call.name.as_str())),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Encodes the permitted tool-selection behavior.
@@ -273,7 +340,10 @@ fn encode_tool_choice(choice: &ToolChoice) -> Value {
 }
 
 /// Encodes one content part, or `None` when this protocol cannot carry it.
-fn encode_part(part: &ContentPart) -> Option<Value> {
+///
+/// `names` maps a tool-call id to the function it called; see
+/// [`tool_call_names`].
+fn encode_part(part: &ContentPart, names: &HashMap<&str, &str>) -> Option<Value> {
     match part {
         ContentPart::Text { text } => Some(json!({ "text": text })),
         ContentPart::Image(image) => Some(encode_media(&image.source)),
@@ -281,7 +351,7 @@ fn encode_part(part: &ContentPart) -> Option<Value> {
         ContentPart::Document(document) => Some(encode_media(&document.source)),
         ContentPart::Reasoning(reasoning) => Some(encode_reasoning(reasoning)),
         ContentPart::ToolCall(call) => Some(encode_tool_call(call)),
-        ContentPart::ToolResult(result) => Some(encode_tool_result(result)),
+        ContentPart::ToolResult(result) => Some(encode_tool_result(result, names)),
         // Gemini parts carry text, not structured JSON, so a JSON part is
         // replayed as the text the model originally produced.
         ContentPart::Json { value } => Some(json!({ "text": value.to_string() })),
@@ -355,20 +425,116 @@ fn encode_tool_call(call: &ToolCall) -> Value {
 /// convention matters because the model reads this payload: a key it
 /// recognizes as an error reads as one, where a boolean flag beside an
 /// `output` value reads as ordinary output.
-fn encode_tool_result(result: &ToolResult) -> Value {
+///
+/// `name` must be the function that was called. It is taken from the result
+/// itself, then from the assistant turn that made the call, and only then from
+/// the call id, which is a last resort that names no declared function.
+fn encode_tool_result(result: &ToolResult, names: &HashMap<&str, &str>) -> Value {
     let text = plain_text(&result.content);
     let response = if result.is_error {
         json!({ "error": text })
     } else {
         json!({ "output": text })
     };
+    let name = result
+        .name
+        .as_deref()
+        .or_else(|| names.get(result.tool_call_id.as_str()).copied())
+        .unwrap_or(&result.tool_call_id);
     json!({
         "functionResponse": {
             "id": result.tool_call_id,
-            "name": result.name.as_deref().unwrap_or(&result.tool_call_id),
+            "name": name,
             "response": response,
         }
     })
+}
+
+/// Decodes one candidate into its content and its finish reason.
+///
+/// `response_id` scopes the ids synthesized for the function calls; see
+/// [`tool_call_id`].
+fn decode_candidate(
+    candidate: &Value,
+    response_id: Option<&str>,
+) -> (Vec<ContentPart>, FinishReason) {
+    let mut content = Vec::new();
+    let mut calls = 0;
+    for part in candidate
+        .pointer("/content/parts")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        if let Some(function_call) = part.get("functionCall") {
+            content.push(decode_tool_call(part, function_call, response_id, calls));
+            calls += 1;
+        } else if let Some(text) = part.get("text").and_then(Value::as_str) {
+            content.push(decode_text(part, text));
+        }
+    }
+
+    let finished = tool_call_finish(
+        finish_reason(candidate.get("finishReason").and_then(Value::as_str)),
+        calls > 0,
+    );
+    (content, finished)
+}
+
+/// Corrects a finish reason for a turn that called tools.
+///
+/// Gemini reports `STOP` even when the candidate is nothing but function
+/// calls, so a consumer that dispatches tools on [`FinishReason::ToolCall`]
+/// would never run them. Only `Stop` is corrected: a call cut off by
+/// `MAX_TOKENS`, or a candidate blocked mid-turn, keeps the reason the provider
+/// gave, which is the more specific fact. The OpenAI Responses codec infers the
+/// same way for the same reason.
+fn tool_call_finish(reason: FinishReason, has_calls: bool) -> FinishReason {
+    match reason {
+        FinishReason::Stop if has_calls => FinishReason::ToolCall,
+        other => other,
+    }
+}
+
+/// The error for a 200 response that carried no candidates.
+///
+/// Gemini reports a prompt it refused to answer as `promptFeedback.blockReason`
+/// on an otherwise successful body. Decoding that as an empty `Stop` response
+/// makes a blocked prompt indistinguishable from a model that had nothing to
+/// say, so it becomes a failure instead.
+///
+/// A block reason is restated in the `error` shape the shared classifier reads,
+/// so that classifier — not this codec — decides the kind and the retry
+/// classification. The block reason becomes the provider code, and the message
+/// names the content policy, so the reasons beyond `SAFETY` — `BLOCKLIST`,
+/// `PROHIBITED_CONTENT`, and any Google adds — all classify as
+/// [`ErrorKind::ContentFilter`] rather than only the one spelling the
+/// classifier happens to recognize. That restated payload is thrown away
+/// afterward: the raw data is the provider's own document.
+///
+/// A body with neither candidates nor a block reason is malformed rather than
+/// blocked, so it decodes into [`ErrorKind::ResponseDecode`].
+fn no_candidates(route: &ResolvedRoute, value: Value) -> Error {
+    let Some(reason) = value
+        .pointer("/promptFeedback/blockReason")
+        .and_then(Value::as_str)
+    else {
+        return Error::new(
+            ErrorKind::ResponseDecode,
+            "Gemini returned no candidates in the response",
+        )
+        .with_provider(route.provider().id().clone())
+        .with_raw_data(value);
+    };
+
+    let classified = json!({
+        "error": {
+            "status": reason,
+            "message":
+                format!("blocked the prompt under its content policy (block reason {reason})"),
+        }
+    });
+    provider_error(route.provider(), None, Some(classified), None).with_raw_data(value)
 }
 
 /// Decodes a text part into visible text or reasoning.
@@ -390,13 +556,18 @@ fn decode_text(part: &Value, text: &str) -> ContentPart {
 ///
 /// `ordinal` counts the function calls already decoded from this response, so
 /// the synthesized id is stable across repeated decodes of the same payload.
-fn decode_tool_call(part: &Value, function_call: &Value, ordinal: usize) -> ContentPart {
+fn decode_tool_call(
+    part: &Value,
+    function_call: &Value,
+    response_id: Option<&str>,
+    ordinal: usize,
+) -> ContentPart {
     let name = function_call
         .get("name")
         .and_then(Value::as_str)
         .unwrap_or_default();
     let mut call = ToolCall::function(
-        tool_call_id(function_call, name, ordinal),
+        tool_call_id(function_call, name, response_id, ordinal),
         name,
         function_call
             .get("args")
@@ -414,15 +585,40 @@ fn decode_tool_call(part: &Value, function_call: &Value, ordinal: usize) -> Cont
 
 /// The identity of one function call.
 ///
-/// Gemini normally supplies no call id, so one is synthesized from the tool
-/// name and the call's position in the response. That is deterministic, which a
-/// minted UUID is not: decoding the same payload twice yields the same id.
-fn tool_call_id(function_call: &Value, name: &str, ordinal: usize) -> String {
-    function_call
+/// A call Gemini gave an id keeps it. Gemini normally supplies none, so one is
+/// synthesized as `{name}-{ordinal}-{response_id}`:
+///
+/// - `{name}-{ordinal}` alone is deterministic, which a minted UUID is not —
+///   decoding one payload twice yields one id — but it repeats across turns, so
+///   a conversation with two `search` calls carries `search-0` twice. An
+///   application keyed by call id then collides, and the replayed history sends
+///   duplicate ids on the wire.
+/// - `responseId` is the provider's own name for one response, so appending it
+///   makes the id unique per response while staying a pure function of the
+///   payload. It is the fallback that is dropped, not the ordinal: the id stays
+///   readable, and the plain `{name}-{ordinal}` form remains its prefix.
+///
+/// A payload that carries no `responseId` — Gemini omits it on some routes —
+/// keeps the bare `{name}-{ordinal}` form. That is the same identity the ids
+/// had before, so nothing is worse for it.
+fn tool_call_id(
+    function_call: &Value,
+    name: &str,
+    response_id: Option<&str>,
+    ordinal: usize,
+) -> String {
+    if let Some(id) = function_call
         .get("id")
         .and_then(Value::as_str)
         .filter(|id| !id.is_empty())
-        .map_or_else(|| format!("{name}-{ordinal}"), ToOwned::to_owned)
+    {
+        return id.to_owned();
+    }
+
+    match response_id {
+        Some(response) => format!("{name}-{ordinal}-{response}"),
+        None => format!("{name}-{ordinal}"),
+    }
 }
 
 /// The thought signature carried alongside a part, when it has one.
@@ -488,27 +684,36 @@ impl Run {
 /// and a run of text or reasoning parts is closed as soon as the part kind
 /// changes, which is the only signal the protocol gives that a block ended.
 struct GeminiStreamDecoder {
-    route:      ResolvedRoute,
-    assembler:  StreamAssembler,
+    route:       ResolvedRoute,
+    assembler:   StreamAssembler,
     /// The run currently accepting deltas, if any.
-    open:       Option<(ContentBlockId, Run)>,
-    texts:      usize,
-    reasonings: usize,
-    calls:      usize,
+    open:        Option<(ContentBlockId, Run)>,
+    texts:       usize,
+    reasonings:  usize,
+    calls:       usize,
+    /// Whether the stream's `Started` event has been emitted.
+    started:     bool,
+    /// The provider's response id, taken from the first chunk that carries one.
+    response_id: Option<String>,
+    /// The finish reason of the last chunk that reported one.
+    finished:    Option<FinishReason>,
     /// Whether a chunk already failed, which forbids a completed response.
-    failed:     bool,
+    failed:      bool,
 }
 
 impl GeminiStreamDecoder {
     fn new(route: &ResolvedRoute) -> Self {
         Self {
-            route:      route.clone(),
-            assembler:  StreamAssembler::new(route),
-            open:       None,
-            texts:      0,
-            reasonings: 0,
-            calls:      0,
-            failed:     false,
+            route:       route.clone(),
+            assembler:   StreamAssembler::new(route),
+            open:        None,
+            texts:       0,
+            reasonings:  0,
+            calls:       0,
+            started:     false,
+            response_id: None,
+            finished:    None,
+            failed:      false,
         }
     }
 
@@ -555,10 +760,11 @@ impl GeminiStreamDecoder {
             .get("name")
             .and_then(Value::as_str)
             .unwrap_or_default();
+        let call_id = tool_call_id(function_call, name, self.response_id.as_deref(), self.calls);
         events.extend(
             self.assembler
                 .start(id.clone(), ContentBlockKind::ToolCall {
-                    id:   tool_call_id(function_call, name, self.calls),
+                    id:   call_id,
                     name: Some(name.to_owned()),
                     kind: ToolCallKind::Function,
                 }),
@@ -624,6 +830,22 @@ impl GeminiStreamDecoder {
         }
 
         let mut events = Vec::new();
+        // Every chunk repeats the response id. The first one that carries it
+        // names the response for the rest of the stream, which is also what
+        // scopes the synthesized tool-call ids.
+        if self.response_id.is_none()
+            && let Some(id) = value.get("responseId").and_then(Value::as_str)
+        {
+            self.response_id = Some(id.to_owned());
+            if self.started {
+                self.assembler.set_id(id);
+            }
+        }
+        if !self.started {
+            self.started = true;
+            events.push(self.assembler.started(self.response_id.clone()));
+        }
+
         for part in value
             .pointer("/candidates/0/content/parts")
             .and_then(Value::as_array)
@@ -639,12 +861,14 @@ impl GeminiStreamDecoder {
         if let Some(metadata) = value.get("usageMetadata") {
             events.push(self.assembler.usage(decode_usage(metadata)));
         }
+        // The reason is held rather than recorded: whether it stays `Stop`
+        // depends on whether a function call arrives, which the rest of the
+        // stream decides. `finish` records the final answer.
         if let Some(reason) = value
             .pointer("/candidates/0/finishReason")
             .and_then(Value::as_str)
         {
-            self.assembler
-                .set_finish_reason(finish_reason(Some(reason)));
+            self.finished = Some(finish_reason(Some(reason)));
         }
         Ok(events)
     }
@@ -663,6 +887,14 @@ impl StreamDecoder for GeminiStreamDecoder {
         // A failed stream ends on its error and never completes.
         if self.failed {
             return Ok(Vec::new());
+        }
+
+        // A stream that reported no reason at all was cut short, and the
+        // assembler says so on its own. One that reported a reason gets the
+        // same tool-call correction the blocking path applies.
+        if let Some(reason) = self.finished.take() {
+            self.assembler
+                .set_finish_reason(tool_call_finish(reason, self.calls > 0));
         }
 
         // The protocol has no terminal event, so the byte-stream end is the
@@ -684,8 +916,9 @@ mod tests {
     use crate::codecs::test_support::resolved;
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentPart, ErrorKind, ImageContent, MediaSource, Message, Request, Response, Role,
-        StreamEvent, ToolDefinition, ToolResult,
+        ContentPart, Error, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
+        ReasoningEffort, Request, Response, ResponseFormat, RetryClassification, Role, Speed,
+        StreamEvent, ToolCall, ToolDefinition, ToolResult,
     };
 
     fn object(value: Value) -> Result<Map<String, Value>, Box<dyn StdError>> {
@@ -705,6 +938,21 @@ mod tests {
         )?;
 
         Ok(GeminiGenerateCodec.decode_response(call.route(), payload)?)
+    }
+
+    /// Decodes one payload that must fail, and returns the codec's own error.
+    fn decode_failure(payload: Value) -> Result<Error, Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .build()?,
+        )?;
+
+        GeminiGenerateCodec
+            .decode_response(call.route(), payload)
+            .err()
+            .ok_or_else(|| "the payload should not decode into a response".into())
     }
 
     /// Runs a whole stream and returns every event it produced.
@@ -782,6 +1030,7 @@ mod tests {
     #[test]
     fn usage_buckets_are_disjoint() -> Result<(), Box<dyn StdError>> {
         let response = decode(json!({
+            "candidates": [{ "content": { "parts": [{ "text": "Done." }] } }],
             "usageMetadata": {
                 "promptTokenCount": 200,
                 "cachedContentTokenCount": 180,
@@ -827,6 +1076,88 @@ mod tests {
             .collect();
         assert_eq!(ids, ["search-0", "search-1"]);
         assert_eq!(first.content, second.content);
+        Ok(())
+    }
+
+    #[test]
+    fn a_response_id_scopes_the_synthesized_ids() -> Result<(), Box<dyn StdError>> {
+        // The bare `{name}-{ordinal}` form repeats across turns, so the same
+        // conversation would carry `search-0` twice. The response id is the
+        // provider's own name for one response, so it separates them without
+        // costing determinism.
+        let response = decode(json!({
+            "responseId": "resp-1",
+            "candidates": [{ "content": { "parts": [
+                { "functionCall": { "name": "search", "args": {} } },
+            ] } }]
+        }))?;
+
+        let [ContentPart::ToolCall(call)] = response.content.as_slice() else {
+            return Err(format!("unexpected content {:?}", response.content).into());
+        };
+        assert_eq!(call.id, "search-0-resp-1");
+        Ok(())
+    }
+
+    #[test]
+    fn a_function_call_turn_finishes_as_a_tool_call() -> Result<(), Box<dyn StdError>> {
+        // Gemini says STOP even when the whole turn is a function call.
+        let response = decode(json!({
+            "candidates": [{
+                "content": { "parts": [{ "functionCall": { "name": "search", "args": {} } }] },
+                "finishReason": "STOP",
+            }]
+        }))?;
+
+        assert_eq!(response.finish_reason, FinishReason::ToolCall);
+        Ok(())
+    }
+
+    #[test]
+    fn a_truncated_function_call_keeps_the_provider_reason() -> Result<(), Box<dyn StdError>> {
+        // Only `STOP` is corrected. `MAX_TOKENS` is the more specific fact and
+        // survives, so a cut-off call is not reported as a complete one.
+        let response = decode(json!({
+            "candidates": [{
+                "content": { "parts": [{ "functionCall": { "name": "search", "args": {} } }] },
+                "finishReason": "MAX_TOKENS",
+            }]
+        }))?;
+
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        Ok(())
+    }
+
+    #[test]
+    fn a_blocked_prompt_is_a_content_filter_error() -> Result<(), Box<dyn StdError>> {
+        let error = decode_failure(json!({ "promptFeedback": { "blockReason": "SAFETY" } }))?;
+
+        assert_eq!(error.kind(), ErrorKind::ContentFilter);
+        assert_eq!(error.provider_code(), Some("SAFETY"));
+        assert_eq!(error.retry_classification(), RetryClassification::Never);
+        Ok(())
+    }
+
+    #[test]
+    fn every_block_reason_classifies_as_a_content_filter() -> Result<(), Box<dyn StdError>> {
+        // The classifier knows `SAFETY` by name; it does not know the rest. The
+        // message names the content policy so the whole family lands in one
+        // place, whatever Google spells the reason.
+        for reason in ["BLOCKLIST", "PROHIBITED_CONTENT", "IMAGE_SAFETY", "OTHER"] {
+            let error = decode_failure(json!({ "promptFeedback": { "blockReason": reason } }))?;
+
+            assert_eq!(error.kind(), ErrorKind::ContentFilter, "{reason}");
+            assert_eq!(error.provider_code(), Some(reason), "{reason}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn a_body_with_no_candidates_and_no_block_reason_fails_to_decode()
+    -> Result<(), Box<dyn StdError>> {
+        let error = decode_failure(json!({ "responseId": "resp-1" }))?;
+
+        assert_eq!(error.kind(), ErrorKind::ResponseDecode);
         Ok(())
     }
 
@@ -922,6 +1253,138 @@ mod tests {
     }
 
     #[test]
+    fn a_text_response_format_leaves_the_output_mode_alone() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .response_format(ResponseFormat::Text)
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+        // `Text` is the protocol's default. Declaring `application/json` for it
+        // would make the model answer in JSON to a caller who asked for prose.
+        assert_eq!(
+            encoded.body["generationConfig"].get("responseMimeType"),
+            None
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn controls_this_protocol_cannot_carry_are_reported() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .speed(Speed::Fast)
+                .reasoning_effort(ReasoningEffort::High)
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+        let messages: Vec<&str> = encoded
+            .warnings
+            .iter()
+            .map(|warning| warning.message.as_str())
+            .collect();
+        assert_eq!(messages, [
+            "this provider protocol does not support the speed control",
+            "this provider protocol does not support the reasoning effort control",
+        ]);
+        // Neither control may be guessed at on the wire.
+        let body = encoded.body.to_string();
+        assert!(!body.contains("thinkingConfig"), "{body}");
+        assert!(!body.contains("speed"), "{body}");
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_result_recovers_its_function_name_from_the_call() -> Result<(), Box<dyn StdError>> {
+        // A result that kept no name would otherwise send the call id as the
+        // function name, which matches no declared function.
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("What is the weather?")
+                .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+                    ToolCall::function("call-1", "get_weather", json!({ "city": "Paris" })),
+                )]))
+                .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+                    ToolResult {
+                        tool_call_id: "call-1".to_owned(),
+                        name:         None,
+                        content:      vec![ContentPart::Text {
+                            text: "18C".to_owned(),
+                        }],
+                        is_error:     false,
+                    },
+                )]))
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["contents"][2]["parts"][0]["functionResponse"]["name"],
+            "get_weather"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_caller_without_safety_settings_gets_the_default() -> Result<(), Box<dyn StdError>> {
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+        assert_eq!(
+            encoded.body["safetySettings"],
+            json!([{
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_ONLY_HIGH",
+            }])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_snake_case_safety_setting_is_not_duplicated() -> Result<(), Box<dyn StdError>> {
+        // Proto-JSON reads `safety_settings` and `safetySettings` as one field,
+        // so adding the default beside a caller's snake_case list would send
+        // the same field twice.
+        let call = resolved(
+            Request::builder()
+                .model("gemini/gemini-2.5-pro")
+                .user("Hello")
+                .provider_option(
+                    "gemini",
+                    "safety_settings",
+                    json!([{ "category": "HARM_CATEGORY_HARASSMENT" }]),
+                )
+                .build()?,
+        )?;
+
+        let encoded = GeminiGenerateCodec.encode(&call, false)?;
+
+        let body = object(encoded.body)?;
+        assert!(!body.contains_key("safetySettings"));
+        assert_eq!(
+            body["safety_settings"],
+            json!([{ "category": "HARM_CATEGORY_HARASSMENT" }])
+        );
+        Ok(())
+    }
+
+    #[test]
     fn custom_tools_are_rejected_before_dispatch() -> Result<(), Box<dyn StdError>> {
         let call = resolved(
             Request::builder()
@@ -986,7 +1449,8 @@ mod tests {
     fn stream_assigns_one_block_per_run_and_keeps_the_last_usage() -> Result<(), Box<dyn StdError>>
     {
         let events = stream(&[
-            json!({ "candidates": [{ "content": { "parts": [{ "text": "Hel" }] } }],
+            json!({ "responseId": "resp-stream-1",
+                    "candidates": [{ "content": { "parts": [{ "text": "Hel" }] } }],
                     "usageMetadata": { "promptTokenCount": 10, "candidatesTokenCount": 1 } }),
             json!({ "candidates": [{ "content": { "parts": [{ "text": "lo" }] } }] }),
             json!({ "candidates": [{ "content": { "parts": [
@@ -998,6 +1462,13 @@ mod tests {
                     "usageMetadata": { "promptTokenCount": 20, "candidatesTokenCount": 9,
                                        "thoughtsTokenCount": 3 } }),
         ])?;
+
+        // The stream opens with `Started`, carrying the response id the first
+        // chunk named.
+        let [StreamEvent::Started { id }, ..] = events.as_slice() else {
+            return Err(format!("unexpected first event {:?}", events.first()).into());
+        };
+        assert_eq!(id.as_deref(), Some("resp-stream-1"));
 
         let starts: Vec<&str> = events
             .iter()
@@ -1034,6 +1505,9 @@ mod tests {
             return Err(format!("expected one completed event, got {}", completed.len()).into());
         };
         assert_eq!(response.text(), "Hello");
+        assert_eq!(response.id.as_deref(), Some("resp-stream-1"));
+        // The last chunk said STOP, and the turn called a tool.
+        assert_eq!(response.finish_reason, FinishReason::ToolCall);
         assert_eq!(response.usage.input, 20);
         assert_eq!(response.usage.output, 9);
         assert_eq!(response.usage.reasoning, 3);
@@ -1047,7 +1521,9 @@ mod tests {
         else {
             return Err(format!("unexpected content {:?}", response.content).into());
         };
-        assert_eq!(call.id, "search-0");
+        // The response id from the first chunk scopes the synthesized call id
+        // for the whole stream.
+        assert_eq!(call.id, "search-0-resp-stream-1");
         assert_eq!(call.arguments, json!({ "query": "rust" }));
         assert_eq!(
             call.provider_metadata.get("gemini"),
