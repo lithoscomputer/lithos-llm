@@ -1048,7 +1048,7 @@ impl ResponsesStream {
                 Ok(self.arguments_delta(value))
             }
             "response.output_item.done" => Ok(self.end_item(&block_id(value), item(value))),
-            "response.completed" | "response.incomplete" => self.complete(value),
+            "response.completed" | "response.incomplete" => Ok(self.complete(value)),
             // `response.created` lands here: its id already rode the latched
             // `Started` event, so it contributes nothing of its own.
             _ => Ok(Vec::new()),
@@ -1263,10 +1263,10 @@ impl ResponsesStream {
     /// [`decode_document`] accepts, must not fail a stream whose answer was
     /// already delivered — the streamed blocks are the response, and whatever
     /// id, usage, and status the terminal event does carry is salvaged.
-    fn complete(&mut self, value: &Value) -> Result<Vec<StreamEvent>, Error> {
+    fn complete(&mut self, value: &Value) -> Vec<StreamEvent> {
         let document = value.get("response").unwrap_or(value);
         let Ok(response) = decode_document(&self.route, document.clone()) else {
-            return Ok(self.salvage(document));
+            return self.salvage(document);
         };
         if let Some(id) = response.id {
             self.assembler.set_id(id);
@@ -1285,7 +1285,7 @@ impl ResponsesStream {
 
         let mut events = vec![self.assembler.usage(response.usage)];
         events.extend(self.assembler.complete());
-        Ok(events)
+        events
     }
 
     /// Completes from the assembled blocks, keeping what a nonconforming

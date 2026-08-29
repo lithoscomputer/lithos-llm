@@ -13,7 +13,7 @@
 //! other protocol leaves [`Response::cost`] unset for the adapter to fill in
 //! from catalog pricing.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::slice::from_ref;
 
 use reqwest::Method;
