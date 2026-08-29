@@ -77,6 +77,29 @@ work:
   part-array form is reserved for messages carrying media, so strict
   text-only skins no longer receive a shape they reject.
 
+Round-3 migration notes (documented differences, no code change):
+
+- Anthropic requests no longer send the `prompt-caching-2024-07-31` beta
+  header alongside `cache_control` markers — prompt caching is GA on the
+  direct API. A gateway that still gates caching on that beta header would
+  silently stop caching; add it back per request via
+  `provider_options.anthropic.beta_headers` if one is in the path.
+- The Anthropic codec no longer carries the reference client's special
+  handling for non-Anthropic endpoints speaking the Anthropic protocol
+  (bearer auth, no version header, no count-tokens, forced streaming for
+  blocking calls). Skins of that shape route through the OpenAI-compatible
+  codec instead; a catalog pairing `codec = "anthropic-messages"` with such
+  an endpoint gets direct-API behavior.
+- Anthropic `count_input_tokens` excludes the native structured-output
+  configuration (`output_config`), which the count endpoint does not accept,
+  so counts for `ResponseFormat::JsonSchema` requests slightly undercount
+  the schema overhead. The reference client counted the schema because it
+  rode as a synthetic tool.
+- SSE framing is spec-strict: events are separated by blank lines, and
+  multiple `data:` lines within one event join with a newline. A
+  noncompliant skin that separates events with single newlines only — the
+  old per-line framing tolerated this — now fails to parse.
+
 ### Round-2 parity fixes
 
 A second differential review against the reference implementation

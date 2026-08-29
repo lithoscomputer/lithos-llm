@@ -1059,6 +1059,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sampling_controls_on_a_pinned_sampling_model_are_refused()
+    -> Result<(), Box<dyn StdError>> {
+        // The reference client silently stripped temperature and top_p when
+        // the catalog said the model pins its sampling; this crate refuses
+        // before dispatch instead. The cutover review names this the refusal
+        // most likely to fire on migrated traffic, so the gate is pinned.
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .build()?;
+
+        let request = Request::builder()
+            .model("alpha/one")
+            .user("hi")
+            .temperature(0.7)
+            .build()?;
+        let error = build
+            .client
+            .complete(request)
+            .await
+            .expect_err("a pinned-sampling model must refuse sampling controls");
+        assert!(error.to_string().contains("sampling"), "{error}");
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn resolve_route_agrees_with_complete_dispatch() -> Result<(), Box<dyn StdError>> {
         let factory = CountingFactory::default();
         let build = Client::builder()
