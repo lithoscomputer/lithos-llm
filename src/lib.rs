@@ -1,9 +1,11 @@
 //! Provider-neutral language model types, catalog data, and runtime client.
 //!
-//! The catalog stays synchronous. Enable `runtime` or a provider feature to use
-//! the async client. Applications own the Tokio runtime and tracing subscriber.
+//! The catalog and the local token estimator stay synchronous. Enable
+//! `runtime` or a provider feature to use the async client. Applications own
+//! the Tokio runtime and tracing subscriber.
 
 pub mod catalog;
+pub mod estimate;
 pub mod resolver;
 pub mod types;
 

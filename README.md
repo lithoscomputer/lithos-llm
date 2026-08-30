@@ -243,6 +243,36 @@ async fn describe_image(client: &Client) -> Result<String, Box<dyn Error>> {
 
 Use `MediaSource::base64(data, media_type)` for inline bytes. `AudioContent`
 and `DocumentContent` use the same source type. Provider URL rules differ.
+
+## Token estimation
+
+`lithos_llm::estimate` sizes a request locally, before any call is made:
+
+```rust
+use lithos_llm::Request;
+use lithos_llm::estimate::{EstimateWarning, message_tokens, request_tokens};
+
+fn budget(request: &Request) -> u64 {
+    let estimate = request_tokens(request);
+    if estimate.has_warning(EstimateWarning::Media) {
+        // Media is sized from bytes or given a floor; the total is rough.
+    }
+    let largest = request
+        .messages()
+        .iter()
+        .map(|message| message_tokens(message).tokens())
+        .max()
+        .unwrap_or(0);
+    estimate.tokens().max(largest)
+}
+```
+
+Estimates are deterministic heuristics with no provider call and no feature
+flag. Each `TokenEstimate` carries typed warnings for the inputs it could only
+approximate — media, opaque provider content, and provider options — and
+estimates add together. `Client::count_input_tokens` is the authoritative path
+where a provider offers a native count; the client never substitutes an
+estimate for it.
 Lithos rejects media that the selected model does not support before it sends
 the request.
 

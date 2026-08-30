@@ -8,6 +8,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- A local token estimator, `lithos_llm::estimate`, sizes text, messages,
+  content parts, tool definitions, request controls, and whole requests
+  synchronously and deterministically, with no provider call and no feature
+  flag. Each `TokenEstimate` carries typed `EstimateWarning`s — `Media`,
+  `OpaqueContent`, `ProviderOptions` — naming the inputs it could only
+  approximate, and estimates add together. The estimator is heuristic;
+  `Client::count_input_tokens` stays the authoritative path and never
+  substitutes an estimate.
+
 - Retries are observable. `Observer` gains a defaulted `on_retry` hook, and
   `RetryMiddleware::observer` (or `observer_arc`) reports every retried
   attempt through it: the failed attempt number, its error, and the wait
