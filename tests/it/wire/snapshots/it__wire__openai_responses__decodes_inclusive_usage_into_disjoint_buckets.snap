@@ -19,6 +19,7 @@ expression: rendered
     "usage": {
       "input_tokens": 100,
       "input_tokens_details": {
+        "cache_write_tokens": 15,
         "cached_tokens": 80
       },
       "output_tokens": 50,
@@ -30,8 +31,8 @@ expression: rendered
   },
   "usage": {
     "cache_read": 80,
-    "cache_write": 0,
-    "input": 20,
+    "cache_write": 15,
+    "input": 5,
     "output": 30,
     "reasoning": 20
   }

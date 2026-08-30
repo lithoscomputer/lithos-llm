@@ -922,10 +922,13 @@ async fn sends_a_json_tool_result_as_the_bare_value() {
 
 /// Inclusive provider counters become disjoint canonical buckets.
 ///
-/// `input_tokens` already includes `input_tokens_details.cached_tokens`, and
-/// `output_tokens` already includes `output_tokens_details.reasoning_tokens`.
-/// Adding the buckets a caller sees must therefore reproduce the provider's
-/// own total, never double-count. This protocol bills no separate cache write.
+/// `input_tokens` already includes `input_tokens_details.cached_tokens` and
+/// `input_tokens_details.cache_write_tokens`, and `output_tokens` already
+/// includes `output_tokens_details.reasoning_tokens`. Adding the buckets a
+/// caller sees must therefore reproduce the provider's own total, never
+/// double-count. The write counter is real billing data: the GPT-5.6 family
+/// prices cache writes at 1.25x input and reported them through
+/// `cache_write_tokens` in a live pair on 2026-08-30.
 #[tokio::test]
 async fn decodes_inclusive_usage_into_disjoint_buckets() {
     let (server, client) = wire().await;
@@ -937,7 +940,7 @@ async fn decodes_inclusive_usage_into_disjoint_buckets() {
         "output": [],
         "usage": {
             "input_tokens": 100,
-            "input_tokens_details": { "cached_tokens": 80 },
+            "input_tokens_details": { "cached_tokens": 80, "cache_write_tokens": 15 },
             "output_tokens": 50,
             "output_tokens_details": { "reasoning_tokens": 20 },
             "total_tokens": 150,
@@ -950,7 +953,10 @@ async fn decodes_inclusive_usage_into_disjoint_buckets() {
         .await
         .expect("the usage request should complete");
 
-    assert_eq!(response.usage.input, 20, "input must exclude cached tokens");
+    assert_eq!(
+        response.usage.input, 5,
+        "input must exclude cached and cache-written tokens"
+    );
     assert_eq!(
         response.usage.output, 30,
         "output must exclude reasoning tokens"
@@ -958,8 +964,8 @@ async fn decodes_inclusive_usage_into_disjoint_buckets() {
     assert_eq!(response.usage.reasoning, 20);
     assert_eq!(response.usage.cache_read, 80);
     assert_eq!(
-        response.usage.cache_write, 0,
-        "this protocol bills no cache write"
+        response.usage.cache_write, 15,
+        "the billed cache write must land in its own bucket"
     );
     assert_eq!(
         response.usage.total(),

@@ -1001,8 +1001,12 @@ fn decode_finish_reason(value: &Value, content: &[ContentPart]) -> FinishReason 
 
 /// Normalizes the inclusive usage counters into disjoint buckets.
 ///
-/// `input_tokens` includes the cached tokens and `output_tokens` includes the
-/// reasoning tokens. This protocol bills no separate cache write.
+/// `input_tokens` includes the cached and cache-written tokens and
+/// `output_tokens` includes the reasoning tokens. The GPT-5.6 family bills
+/// cache writes at a premium and reports them as
+/// `input_tokens_details.cache_write_tokens` (observed live on 2026-08-30);
+/// models that bill no write omit the counter or send zero, which decodes to
+/// an empty bucket either way.
 fn decode_usage(usage: Option<&Value>) -> TokenCounts {
     let Some(usage) = usage else {
         return TokenCounts::default();
@@ -1014,7 +1018,7 @@ fn decode_usage(usage: Option<&Value>) -> TokenCounts {
         count("/output_tokens"),
         count("/output_tokens_details/reasoning_tokens"),
         count("/input_tokens_details/cached_tokens"),
-        0,
+        count("/input_tokens_details/cache_write_tokens"),
     )
 }
 
@@ -1743,17 +1747,17 @@ mod tests {
                 "usage": {
                     "input_tokens": 100,
                     "output_tokens": 50,
-                    "input_tokens_details": { "cached_tokens": 80 },
+                    "input_tokens_details": { "cached_tokens": 80, "cache_write_tokens": 15 },
                     "output_tokens_details": { "reasoning_tokens": 20 },
                 },
             }),
         )?;
 
-        assert_eq!(response.usage.input, 20);
+        assert_eq!(response.usage.input, 5);
         assert_eq!(response.usage.output, 30);
         assert_eq!(response.usage.reasoning, 20);
         assert_eq!(response.usage.cache_read, 80);
-        assert_eq!(response.usage.cache_write, 0);
+        assert_eq!(response.usage.cache_write, 15);
         assert_eq!(response.usage.total(), 150);
         assert_eq!(response.cost, None);
         Ok(())
