@@ -20,6 +20,10 @@ use crate::{CliError, CliResult};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
+
+    /// Log library diagnostics to standard error. RUST_LOG overrides this.
+    #[arg(long, global = true)]
+    pub verbose: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -334,6 +338,25 @@ mod tests {
             parsed.attachments[1].media_type.as_deref(),
             Some("application/pdf")
         );
+    }
+
+    #[test]
+    fn verbose_parses_anywhere_as_a_global_flag() {
+        let parsed = parse_from(["lithos", "hello", "--verbose"]).expect("arguments should parse");
+        assert!(parsed.cli.verbose);
+
+        let parsed = parse_from(["lithos", "models", "--verbose"]).expect("arguments should parse");
+        assert!(parsed.cli.verbose);
+    }
+
+    #[test]
+    fn double_dash_keeps_verbose_as_prompt_text() {
+        let parsed = parse_from(["lithos", "--", "--verbose"]).expect("arguments should parse");
+        assert!(!parsed.cli.verbose);
+        let Command::Prompt(args) = parsed.cli.command else {
+            panic!("double dash should select prompt");
+        };
+        assert_eq!(args.prompt, ["--verbose"]);
     }
 
     #[test]

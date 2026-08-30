@@ -3,16 +3,23 @@ use std::future::Future;
 use std::io::{IsTerminal as _, Write as _, stderr, stdin, stdout};
 use std::process::ExitCode;
 
-use lithos_llm::Client;
-use lithos_llm::middleware::CancellationToken;
-use lithos_llm_cli::{ExitStatus, ProcessIo, TerminalState, format_error_chain};
+use lithos_llm::catalog::Catalog;
+use lithos_llm::client::ClientBuildError;
+use lithos_llm::credentials::EnvironmentCredentials;
+use lithos_llm::middleware::{CancellationToken, TracingMiddleware};
+use lithos_llm::{Client, ClientBuild};
+use lithos_llm_cli::{ExitStatus, ProcessIo, TerminalState, args, format_error_chain};
 use tokio::signal::ctrl_c;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    init_tracing();
-    let build = match Client::from_env() {
+    // The subscriber must exist before the client builds, but `run` owns
+    // argument parsing and clap error rendering. This early parse only reads
+    // the flag; a parse failure is reported by `run`.
+    let verbose = args::parse_from(env::args_os()).is_ok_and(|parsed| parsed.cli.verbose);
+    init_tracing(verbose);
+    let build = match build_client() {
         Ok(build) => build,
         Err(error) => {
             let diagnostic = format_error_chain(&error);
@@ -57,28 +64,49 @@ async fn main() -> ExitCode {
     ExitCode::from(status.code())
 }
 
-/// Installs a stderr tracing subscriber when `RUST_LOG` is set.
+/// Builds the environment-configured client with call tracing attached.
 ///
-/// Without `RUST_LOG` no subscriber is installed, so normal use prints no
-/// telemetry and stdout stays reserved for command output.
-fn init_tracing() {
-    if env::var_os("RUST_LOG").is_none() {
+/// This mirrors [`Client::from_env`] and adds [`TracingMiddleware`], so the
+/// library's call spans reach the subscriber [`init_tracing`] installs.
+fn build_client() -> Result<ClientBuild, ClientBuildError> {
+    let catalog = Catalog::builder()
+        .with_builtin()
+        .build()
+        .map_err(|source| ClientBuildError::BuiltInCatalog { source })?;
+    Client::builder()
+        .catalog(catalog)
+        .credentials(EnvironmentCredentials::conventional())
+        .middleware(TracingMiddleware)
+        .build()
+}
+
+/// Installs a stderr tracing subscriber when `RUST_LOG` or `--verbose` asks
+/// for one.
+///
+/// A set `RUST_LOG` wins over `--verbose`. Without either, no subscriber is
+/// installed, so normal use prints no telemetry and stdout stays reserved
+/// for command output.
+fn init_tracing(verbose: bool) {
+    let filter = if env::var_os("RUST_LOG").is_some() {
+        match EnvFilter::try_from_default_env() {
+            Ok(filter) => filter,
+            Err(error) => {
+                let _ignored = writeln!(
+                    stderr().lock(),
+                    "warning: RUST_LOG is not a valid filter: {error}"
+                );
+                return;
+            }
+        }
+    } else if verbose {
+        EnvFilter::new("lithos_llm=debug")
+    } else {
         return;
-    }
-    match EnvFilter::try_from_default_env() {
-        Ok(filter) => {
-            tracing_subscriber::fmt()
-                .with_env_filter(filter)
-                .with_writer(stderr)
-                .init();
-        }
-        Err(error) => {
-            let _ignored = writeln!(
-                stderr().lock(),
-                "warning: RUST_LOG is not a valid filter: {error}"
-            );
-        }
-    }
+    };
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(stderr)
+        .init();
 }
 
 async fn run_until_signal<R, S, E>(

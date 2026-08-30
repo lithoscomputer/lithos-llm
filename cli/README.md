@@ -56,9 +56,9 @@ to print a versioned envelope that contains the normalized request and
 response. Use `--extract` or `--extract-last` to print a complete Markdown code
 block from a buffered response.
 
-Set `RUST_LOG` to see the library's tracing diagnostics on standard error,
-for example `RUST_LOG=lithos_llm=debug`. Without `RUST_LOG` the CLI prints no
-telemetry.
+Pass `--verbose` to see the library's debug diagnostics on standard error.
+`RUST_LOG` selects a custom filter and overrides `--verbose`, for example
+`RUST_LOG=lithos_llm=trace`. Without either, the CLI prints no telemetry.
 
 Exit status `0` means success or a closed output pipe. Status `1` means a
 client, credential, provider, network, output, or decoding failure. Status `2`
