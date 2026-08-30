@@ -1,0 +1,14 @@
+---
+source: tests/it/wire/openai_responses.rs
+assertion_line: 562
+expression: rendered
+---
+{
+  "kind": "invalid_request",
+  "message": "provider openai does not support an inline document without a file name",
+  "provider": "openai",
+  "provider_code": "unsupported_capability",
+  "retry": {
+    "type": "never"
+  }
+}

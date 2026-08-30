@@ -13,8 +13,9 @@
 
 use httpmock::{Method, MockServer};
 use lithos_llm::types::{
-    ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ReasoningEffort,
-    ResponseFormat, RetryClassification, Role, ToolCall, ToolChoice, ToolDefinition, ToolResult,
+    ContentPart, DocumentContent, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
+    ReasoningEffort, ResponseFormat, RetryClassification, Role, ToolCall, ToolChoice,
+    ToolDefinition, ToolResult,
 };
 use lithos_llm::{Client, Request};
 use serde_json::{Value, json};
@@ -518,6 +519,42 @@ async fn rejects_audio_before_dispatch() {
         .complete(support::audio_request(&selector()))
         .await
         .expect_err("this protocol cannot carry audio");
+
+    mock.assert_calls_async(0).await;
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    crate::json_snapshot!(error.data());
+}
+
+/// An inline document without a file name is refused before dispatch.
+///
+/// The live API requires `filename` beside `file_data` — a request without it
+/// draws a 400 naming the missing parameter (verified 2026-08-30) — and the
+/// codec will not invent a name the caller never wrote. URL documents need no
+/// name: `file_url` stands alone, so the same document by URL still encodes.
+#[tokio::test]
+async fn rejects_an_unnamed_inline_document_before_dispatch() {
+    let (server, client) = wire().await;
+    let (mock, _slot) = support::mount_capture(&server, RESPONSES_PATH, &text_document());
+
+    let request = Request::builder()
+        .model(selector())
+        .message(Message::new(Role::User, [
+            ContentPart::Text {
+                text: "Summarize this document.".to_owned(),
+            },
+            ContentPart::Document(DocumentContent::new(MediaSource::base64(
+                "cGRmLWJ5dGVz",
+                "application/pdf",
+            ))),
+        ]))
+        .max_output_tokens(128)
+        .build()
+        .expect("the unnamed document request should build");
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("an inline document without a file name cannot encode");
 
     mock.assert_calls_async(0).await;
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);

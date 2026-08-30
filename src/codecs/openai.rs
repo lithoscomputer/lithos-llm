@@ -86,8 +86,21 @@ impl Codec for OpenAiResponsesCodec {
         // This protocol carries no audio input. Refusing here is deliberate:
         // substituting a text placeholder would put words the caller never
         // wrote into the prompt, which is worse than a clear failure.
-        reject_unencodable(call.route(), request, |part| {
-            matches!(part, ContentPart::Audio(_)).then_some("audio content")
+        //
+        // An inline document must carry a name: the live API requires
+        // `filename` beside `file_data` (verified 2026-08-30, a 400 names the
+        // missing parameter), and inventing one would put a name the caller
+        // never wrote in front of the model. URL documents need no name —
+        // `file_url` stands alone.
+        reject_unencodable(call.route(), request, |part| match part {
+            ContentPart::Audio(_) => Some("audio content"),
+            ContentPart::Document(document)
+                if document.name.is_none()
+                    && matches!(document.source, MediaSource::Base64 { .. }) =>
+            {
+                Some("an inline document without a file name")
+            }
+            _ => None,
         })?;
         let (options, controls) = wire_options(call);
         let mut body = self.generation_body(call, stream);

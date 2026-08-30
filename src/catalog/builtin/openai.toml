@@ -25,6 +25,12 @@
 #   and gpt-5.5 take none/low/medium/high/xhigh, and the pro rows take
 #   medium/high/xhigh only. No roster model accepts `minimal`.
 #
+# - Documents: every row reads an inline PDF through `input_file` with
+#   `file_data` + `filename`, and `file_url` fetches a remote PDF (both
+#   probed live per row on 2026-08-30). `filename` is required beside
+#   `file_data` — omitting it draws 400 "Missing required parameter" — so
+#   the codec refuses an unnamed inline document before dispatch.
+#
 # Speed tiers: `fast` maps to priority processing and `economical` to flex.
 # Flex is 0.5x standard on every row that has it. Priority is 2x standard
 # except gpt-5.5, which OpenAI prices at 2.5x. The speed rates below are
@@ -86,7 +92,7 @@ display_name = "GPT-5.6 Sol"
 aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
 api_model = "gpt-5.6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
 pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000 }, speed = { fast = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000 }, economical = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 } } }
 
 [providers.openai.models."gpt-5.6-sol".metadata.fabro]
@@ -100,7 +106,7 @@ display_name = "GPT-5.6 Terra"
 aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
 api_model = "gpt-5.6-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 24000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 } } }
 
 [providers.openai.models."gpt-5.6-terra".metadata.fabro]
@@ -116,7 +122,7 @@ api_model = "gpt-5.6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # Luna rejected `temperature` with a 400 on 2026-08-30, so the sampling
 # claim an earlier revision of this row carried is gone.
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
 pricing = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1800000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 }, speed = { fast = { input_usd_micros_per_million = 400000, output_usd_micros_per_million = 2400000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 }, economical = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 600000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000 } } }
 
 [providers.openai.models."gpt-5.6-luna".metadata.fabro]
@@ -130,7 +136,7 @@ display_name = "GPT-5.4"
 aliases = ["gpt54", "gpt-54", "gpt-5.2", "gpt5", "gpt-5.3-codex", "codex"]
 api_model = "gpt-5.4"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
 # The flex cached-input rate renders as $0.13 on the pricing page; flex is
 # exactly half of standard everywhere else on the page, so the rate below
 # is the unrounded 0.5 x $0.25.
@@ -149,7 +155,7 @@ display_name = "GPT-5.5"
 aliases = ["gpt55", "gpt-55"]
 api_model = "gpt-5.5"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true }
 # Priority on this row is 2.5x standard, not the 2x every other fast tier
 # uses — the pricing page lists $12.50/$75.00 against $5.00/$30.00.
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 45000000, cached_input_usd_micros_per_million = 1000000 }, speed = { fast = { input_usd_micros_per_million = 12500000, output_usd_micros_per_million = 75000000, cached_input_usd_micros_per_million = 1250000 }, economical = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000 } } }
@@ -169,7 +175,7 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # page says prompt caching is unsupported. No speed tiers: the pro rows
 # are absent from the priority and flex tables, and a priority request was
 # observed downgrading to `default` on 2026-08-30.
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000 } }
 
 [providers.openai.models."gpt-5.5-pro".metadata.fabro]
@@ -185,7 +191,7 @@ api_model = "gpt-5.4-pro"
 # fabro carried 1,047,576; the model page says 1,050,000 like the rest of
 # the family.
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000 } }
 
 [providers.openai.models."gpt-5.4-pro".metadata.fabro]
@@ -201,7 +207,7 @@ api_model = "gpt-5.4-mini"
 # Input is additionally capped at 272,000 tokens, which is also why this
 # row has no long-context rates: a request can never cross the threshold.
 limits = { context_tokens = 400000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
 pricing = { input_usd_micros_per_million = 750000, output_usd_micros_per_million = 4500000, cached_input_usd_micros_per_million = 75000, speed = { fast = { input_usd_micros_per_million = 1500000, output_usd_micros_per_million = 9000000, cached_input_usd_micros_per_million = 150000 }, economical = { input_usd_micros_per_million = 375000, output_usd_micros_per_million = 2250000, cached_input_usd_micros_per_million = 37500 } } }
 
 [providers.openai.models."gpt-5.4-mini".metadata.fabro]
