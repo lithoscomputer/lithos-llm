@@ -114,12 +114,14 @@ impl EncodedRequest {
 
     /// Records the speed the codec encoded into the request.
     #[must_use]
+    #[cfg(any(feature = "openai", feature = "anthropic", feature = "bedrock"))]
     pub(crate) fn with_applied_speed(mut self, speed: Option<Speed>) -> Self {
         self.applied_speed = speed;
         self
     }
 
     #[must_use]
+    #[cfg(any(feature = "anthropic", feature = "bedrock"))]
     pub(crate) fn with_headers(mut self, headers: Vec<(String, String)>) -> Self {
         self.headers = headers;
         self

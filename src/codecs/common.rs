@@ -12,11 +12,18 @@ use crate::resolver::ResolvedRoute;
     test
 ))]
 use crate::transport::classify;
+#[cfg(any(feature = "openai", feature = "openai-compatible"))]
+use crate::types::CacheHint;
+#[cfg(any(
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible",
+    feature = "bedrock"
+))]
+use crate::types::FinishReason;
 #[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
 use crate::types::ReasoningContent;
-use crate::types::{
-    CacheHint, ContentPart, Error, ErrorKind, FinishReason, Message, Request, Role,
-};
+use crate::types::{ContentPart, Error, ErrorKind, Message, Request, Role};
 
 /// Raw provider option keys a codec consumes as behavior controls.
 ///
@@ -190,6 +197,7 @@ fn split_controls(mut options: Map<String, Value>) -> (Map<String, Value>, Contr
 /// capability like every other automatic cache behavior. A raw
 /// `prompt_cache_key` in the provider options still wins, because codecs
 /// merge raw options over the encoded body.
+#[cfg(any(feature = "openai", feature = "openai-compatible"))]
 pub(crate) fn cache_routing_key(call: &ResolvedCall, controls: Controls) -> Option<String> {
     let capabilities = call.route().model().capabilities();
     if !capabilities.cache_routing {
@@ -210,6 +218,7 @@ pub(crate) fn cache_routing_key(call: &ResolvedCall, controls: Controls) -> Opti
 /// across the turns of an agent loop, so every turn of one conversation
 /// routes to the same replica. The hash is FNV-1a over the serialized
 /// prefix — a routing hint, not a security boundary.
+#[cfg(any(feature = "openai", feature = "openai-compatible"))]
 fn prefix_fingerprint(request: &Request) -> String {
     let system: Vec<Value> = request
         .messages()
@@ -271,6 +280,12 @@ pub(crate) fn merge_options(body: &mut Map<String, Value>, options: Map<String, 
 ///
 /// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
 /// naming the first unsupported capability found.
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "openai-compatible",
+    feature = "bedrock"
+))]
 pub(crate) fn reject_unencodable(
     route: &ResolvedRoute,
     request: &Request,
@@ -419,6 +434,12 @@ pub(crate) fn flattens_system_content(request: &Request) -> bool {
 /// asked it to stop at. Gemini's `RECITATION` is a content block, reported
 /// separately from `SAFETY` because the blocked material is quoted source
 /// rather than unsafe content.
+#[cfg(any(
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible",
+    feature = "bedrock"
+))]
 pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
     match value {
         None | Some("stop" | "end_turn" | "stop_sequence" | "STOP") => FinishReason::Stop,

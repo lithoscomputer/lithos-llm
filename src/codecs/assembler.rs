@@ -304,6 +304,7 @@ impl StreamAssembler {
     /// rather than a continuation — appending would corrupt the blob a
     /// provider verifies on replay. The returned vector is empty unless the
     /// block had to be opened first.
+    #[cfg(any(feature = "anthropic", feature = "gemini", feature = "bedrock"))]
     pub(crate) fn signature(&mut self, id: &ContentBlockId, signature: &str) -> Vec<StreamEvent> {
         let events = self.latch(id, ContentBlockKind::Reasoning);
         let Some(block) = self.open_block(id) else {
@@ -322,6 +323,7 @@ impl StreamAssembler {
     /// event carries it — repairs the block here so the assembled part does
     /// not misname the call. The buffered fragments are kept, and a block
     /// that is not an open tool call is left alone.
+    #[cfg(any(feature = "openai", feature = "openai-compatible"))]
     pub(crate) fn repair_tool_identity(&mut self, id: &ContentBlockId, identity: ContentBlockKind) {
         let Some(block) = self.open_block(id) else {
             return;
@@ -343,6 +345,7 @@ impl StreamAssembler {
     /// transit and is replaced outright, with no event, so the assembled
     /// part still matches what a blocking decode of the same document
     /// produces. An unknown, closed, or opaque block is ignored.
+    #[cfg(feature = "openai")]
     pub(crate) fn reconcile(
         &mut self,
         id: &ContentBlockId,
@@ -385,6 +388,7 @@ impl StreamAssembler {
     /// live `ReasoningDelta` events.
     ///
     /// The returned vector is empty unless the block had to be opened first.
+    #[cfg(any(feature = "anthropic", feature = "bedrock"))]
     pub(crate) fn set_redacted(&mut self, id: &ContentBlockId) -> Vec<StreamEvent> {
         let events = self.latch(id, ContentBlockKind::Reasoning);
         let Some(block) = self.open_block(id) else {
@@ -400,6 +404,11 @@ impl StreamAssembler {
     /// The returned vector is empty unless the block had to be opened first,
     /// which happens only when a codec forgot to name the opaque kind; the
     /// fallback kind is then the block id text.
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "openai-compatible"
+    ))]
     pub(crate) fn set_opaque_data(&mut self, id: &ContentBlockId, data: Value) -> Vec<StreamEvent> {
         let fallback = ContentBlockKind::Opaque {
             kind: id.as_str().to_owned(),
@@ -418,6 +427,7 @@ impl StreamAssembler {
     /// It lands in [`ToolCall::provider_metadata`] on the assembled part. Only
     /// the codec that owns `namespace` reads it back when the call is replayed.
     /// The returned vector is empty unless the block had to be opened first.
+    #[cfg(any(feature = "openai", feature = "gemini"))]
     pub(crate) fn provider_metadata(
         &mut self,
         id: &ContentBlockId,
@@ -470,6 +480,12 @@ impl StreamAssembler {
     /// Usage events are snapshots, not deltas, so this replaces whatever was
     /// recorded before. A protocol that reports incremental counters folds them
     /// with [`merge_usage`](Self::merge_usage) instead.
+    #[cfg(any(
+        feature = "openai",
+        feature = "gemini",
+        feature = "openai-compatible",
+        feature = "bedrock"
+    ))]
     pub(crate) fn usage(&mut self, usage: TokenCounts) -> StreamEvent {
         self.usage = usage;
         StreamEvent::Usage { usage }
@@ -482,6 +498,7 @@ impl StreamAssembler {
     /// sends the input, cache-read, and cache-write counts on `message_start`
     /// and the output count on `message_delta`; each event updates only the
     /// buckets it carries, and the emitted snapshot stays cumulative.
+    #[cfg(feature = "anthropic")]
     pub(crate) fn merge_usage(&mut self, update: impl FnOnce(&mut TokenCounts)) -> StreamEvent {
         update(&mut self.usage);
         StreamEvent::Usage { usage: self.usage }
@@ -493,11 +510,13 @@ impl StreamAssembler {
     }
 
     /// The recorded finish reason, when one arrived.
+    #[cfg(feature = "openai-compatible")]
     pub(crate) fn finish_reason(&self) -> Option<&FinishReason> {
         self.finish_reason.as_ref()
     }
 
     /// Records the provider's response id.
+    #[cfg(any(feature = "openai", feature = "gemini", feature = "openai-compatible"))]
     pub(crate) fn set_id(&mut self, id: impl Into<String>) {
         self.response_id = Some(id.into());
     }
@@ -506,6 +525,7 @@ impl StreamAssembler {
     ///
     /// Only a protocol whose stream terminates with a complete response object
     /// sets this. It never holds an accumulated log of stream events.
+    #[cfg(feature = "openai")]
     pub(crate) fn set_raw(&mut self, raw: Value) {
         self.raw = Some(raw);
     }
@@ -515,6 +535,7 @@ impl StreamAssembler {
     /// A protocol that repeats its cost on every chunk can call this each
     /// time: the cost grows with the response, so the latest report is the
     /// accurate one.
+    #[cfg(feature = "openai-compatible")]
     pub(crate) fn set_cost(&mut self, cost: Cost) {
         self.cost = Some(cost);
     }
@@ -575,6 +596,7 @@ impl StreamAssembler {
     /// must not carry. The end event keeps the start/end pairing for
     /// consumers that saw the block open, but the part joins neither the
     /// completed content nor the tool-call count.
+    #[cfg(feature = "openai")]
     pub(crate) fn discard(&mut self, id: &ContentBlockId) -> Vec<StreamEvent> {
         let Some(index) = self.find(id) else {
             return Vec::new();
@@ -591,6 +613,7 @@ impl StreamAssembler {
     }
 
     /// Whether any block of this stream, open or closed, is a tool call.
+    #[cfg(any(feature = "openai", feature = "openai-compatible"))]
     pub(crate) fn has_tool_call(&self) -> bool {
         self.blocks
             .iter()
