@@ -558,18 +558,20 @@ async fn encodes_a_json_schema_response_format() {
     crate::json_snapshot!(support::captured(&slot));
 }
 
-/// Sampling controls, stop sequences, and metadata all reach the wire.
+/// Sampling controls and metadata reach the wire; stop sequences do not.
 ///
-/// `stop` is the one worth stating out loud: this protocol accepts stop
-/// sequences and the reference implementation sends them, so a codec that
-/// dropped them here would silently change generation behavior. The response
-/// carries no warnings, because nothing was refused.
+/// `stop` is the one worth stating out loud: the reference implementation
+/// sends it, but the live `/v1/responses` endpoint answers a `stop` member
+/// with a 400 "Unknown parameter: 'stop'" on every model, reasoning or not
+/// (probed against gpt-5.6-luna, gpt-5.4, and gpt-4o on 2026-08-30). The
+/// codec drops the sequences and warns, so the one warning here is the
+/// pinned behavior, not an accident.
 ///
 /// The sampling values are pinned as the decimals the caller wrote. `Request`
 /// holds them as `f32`, and widening one to `f64` would put
 /// `0.699999988079071` on the wire for a caller's `0.7`.
 #[tokio::test]
-async fn encodes_sampling_controls_including_stop_sequences() {
+async fn encodes_sampling_controls_and_drops_stop_sequences() {
     let (server, client) = wire().await;
     let (_mock, slot) = support::mount_capture(&server, RESPONSES_PATH, &text_document());
 
@@ -581,8 +583,8 @@ async fn encodes_sampling_controls_including_stop_sequences() {
     let captured = support::captured(&slot);
     assert_eq!(
         captured.body.get("stop"),
-        Some(&json!(["END", "STOP"])),
-        "this protocol expresses stop sequences and must send them",
+        None,
+        "the live endpoint rejects a stop member, so none may be sent",
     );
     assert_eq!(
         captured.body.get("temperature").map(Value::to_string),
@@ -593,9 +595,10 @@ async fn encodes_sampling_controls_including_stop_sequences() {
         captured.body.get("top_p").map(Value::to_string),
         Some("0.9".to_owned()),
     );
-    assert!(
-        response.warnings.is_empty(),
-        "nothing in this request was refused: {:?}",
+    assert_eq!(
+        response.warnings.len(),
+        1,
+        "the dropped stop sequences must be the one warning: {:?}",
         response.warnings,
     );
     crate::json_snapshot!(captured);
@@ -1798,7 +1801,7 @@ async fn classifies_http_failures() {
 
 /// The count endpoint takes the generation body projected onto an allowlist.
 ///
-/// The corpus request carries `temperature`, `top_p`, `stop`, `metadata`, and
+/// The corpus request carries `temperature`, `top_p`, `metadata`, and
 /// `max_output_tokens`, and the generation body would also carry `stream`,
 /// `store`, and `include`. None of them are accepted by this endpoint, and the
 /// projection runs after raw provider options merge, so a stray merged key is

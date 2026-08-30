@@ -71,5 +71,11 @@ expression: rendered
     "input": 12,
     "output": 4,
     "reasoning": 0
-  }
+  },
+  "warnings": [
+    {
+      "code": "unsupported_control",
+      "message": "this provider protocol does not support stop sequences"
+    }
+  ]
 }

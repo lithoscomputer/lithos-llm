@@ -82,6 +82,10 @@ expression: rendered
     {
       "code": "unsupported_control",
       "message": "this provider protocol does not support max_output_tokens in Codex mode"
+    },
+    {
+      "code": "unsupported_control",
+      "message": "this provider protocol does not support stop sequences"
     }
   ]
 }

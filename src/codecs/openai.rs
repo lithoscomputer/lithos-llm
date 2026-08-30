@@ -169,6 +169,16 @@ impl Codec for OpenAiResponsesCodec {
             }
         }
 
+        // `/v1/responses` takes no stop parameter at all: the live API answers
+        // one with a 400 "Unknown parameter: 'stop'" on every model, reasoning
+        // or not (probed against gpt-5.6-luna, gpt-5.4, and gpt-4o on
+        // 2026-08-30). The sequences are dropped with a warning rather than
+        // sent or refused; a Responses-compatible skin that does take a stop
+        // member can still receive one through raw provider options.
+        if !request.stop_sequences().is_empty() {
+            encoded = encoded.unsupported_control("stop sequences");
+        }
+
         Ok(encoded)
     }
 
@@ -351,21 +361,6 @@ fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Response, Erro
 fn shared_body(request: &Request) -> Map<String, Value> {
     let mut body = Map::new();
 
-    // The order the request carries is the order the provider receives. The
-    // count endpoint strips this field again, which is why its allowlist has
-    // to name every generation field explicitly.
-    if !request.stop_sequences().is_empty() {
-        body.insert(
-            "stop".to_owned(),
-            Value::Array(
-                request
-                    .stop_sequences()
-                    .iter()
-                    .map(|sequence| Value::String(sequence.clone()))
-                    .collect(),
-            ),
-        );
-    }
     if let Some(effort) = request.reasoning_effort() {
         let effort = serde_json::to_value(effort).unwrap_or(Value::Null);
         body.insert("reasoning".to_owned(), json!({ "effort": effort }));
@@ -1662,7 +1657,7 @@ mod tests {
     }
 
     #[test]
-    fn stop_sequences_and_metadata_reach_the_wire() -> Result<(), Box<dyn StdError>> {
+    fn stop_sequences_are_dropped_with_a_warning() -> Result<(), Box<dyn StdError>> {
         let request = Request::builder()
             .model(MODEL)
             .user("Hello")
@@ -1672,11 +1667,16 @@ mod tests {
 
         let encoded = codec().encode(&call(request)?, false)?;
 
-        assert_eq!(encoded.body["stop"], json!(["END", "STOP"]));
+        // The live API rejects a `stop` member outright (2026-08-30), so the
+        // sequences never reach the wire and the caller is warned instead.
+        let body = encoded.body.as_object().ok_or("expected a JSON object")?;
+        assert!(!body.contains_key("stop"));
         assert_eq!(encoded.body["metadata"], json!({ "trace_id": "t789" }));
-        assert!(
-            encoded.warnings.is_empty(),
-            "this protocol expresses both controls",
+        assert_eq!(
+            encoded.warnings.len(),
+            1,
+            "dropping the stop sequences must warn: {:?}",
+            encoded.warnings,
         );
         Ok(())
     }
