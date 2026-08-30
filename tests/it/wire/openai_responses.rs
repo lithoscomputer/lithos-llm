@@ -693,7 +693,9 @@ async fn codex_mode_streams_a_complete_call_and_drops_sampling_controls() {
         ),
         ("response.completed", &completed),
     ]);
-    let (_mock, slot) = support::mount_capture_sse(&server, RESPONSES_PATH, &transcript);
+    // Codex mode posts to the unversioned `/responses` path — the live
+    // deployment's `/v1/responses` is an HTML 403 (2026-08-30).
+    let (_mock, slot) = support::mount_capture_sse(&server, "/responses", &transcript);
 
     let response = client
         .complete(support::sampling_request(&selector()))

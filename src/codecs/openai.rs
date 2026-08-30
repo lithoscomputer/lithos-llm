@@ -96,9 +96,18 @@ impl Codec for OpenAiResponsesCodec {
         }
         merge_options(&mut body, options);
 
+        // The Codex deployment hangs its Responses endpoint directly off the
+        // base path with no version segment: `<base>/responses` answers and
+        // `<base>/v1/responses` is an HTML 403 (probed against
+        // chatgpt.com/backend-api/codex on 2026-08-30).
+        let path = if self.codex {
+            "/responses"
+        } else {
+            "/v1/responses"
+        };
         let mut encoded = EncodedRequest::new(
             Method::POST,
-            endpoint(call.route().provider().base_url(), "/v1/responses"),
+            endpoint(call.route().provider().base_url(), path),
             Value::Object(body),
         )
         .with_timeout(request.timeout())
@@ -197,6 +206,13 @@ impl Codec for OpenAiResponsesCodec {
     }
 
     fn encode_count_tokens(&self, call: &ResolvedCall) -> Option<Result<EncodedRequest, Error>> {
+        // The Codex deployment serves no input-token count: its
+        // `/responses/input_tokens` path answers with an HTML 403 (probed
+        // 2026-08-30), so codex mode reports no native count instead of
+        // sending a request that cannot succeed.
+        if self.codex {
+            return None;
+        }
         Some(self.count_tokens_request(call))
     }
 
@@ -1729,6 +1745,27 @@ mod tests {
         assert!(!body.contains_key("top_p"));
         assert!(!body.contains_key("max_output_tokens"));
         assert_eq!(encoded.warnings.len(), 3);
+        // The deployment hangs its endpoint off the base path with no
+        // version segment; `/v1/responses` there is an HTML 403.
+        assert!(
+            encoded.url.ends_with("/responses") && !encoded.url.contains("/v1/"),
+            "codex mode must post to the unversioned path: {}",
+            encoded.url
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn codex_mode_reports_no_native_token_count() -> Result<(), Box<dyn StdError>> {
+        let request = Request::builder().model(MODEL).user("Hello").build()?;
+        // The Codex deployment serves no `/responses/input_tokens` (an HTML
+        // 403 on 2026-08-30), so codex mode must say "no native count"
+        // rather than build a request that cannot succeed.
+        assert!(
+            OpenAiResponsesCodec::new(true)
+                .encode_count_tokens(&call(request)?)
+                .is_none()
+        );
         Ok(())
     }
 

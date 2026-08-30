@@ -53,5 +53,5 @@ expression: rendered
     ]
   ],
   "method": "POST",
-  "path": "/v1/responses"
+  "path": "/responses"
 }
