@@ -47,12 +47,21 @@
 #   adapter_options = { mode = "codex" }
 #   default_headers = { "ChatGPT-Account-Id" = "<account id>", originator = "<app>" }
 #
-# Codex mode forces streaming, hoists system messages into `instructions`,
-# and drops `temperature`, `top_p`, and `max_output_tokens` with warnings.
-# The deployment serves a narrower roster than the platform API and its
-# error bodies spell detail as `detail` (handled in transport::classify).
-# The built-in catalog carries no codex entry because the OAuth token and
-# account id are application state, not environment convention.
+# Codex mode forces streaming, posts to the unversioned `<base>/responses`
+# path (the deployment's `/v1/responses` is an HTML 403), hoists system
+# messages into `instructions`, drops `temperature`, `top_p`, and
+# `max_output_tokens` with warnings, and reports no native token count
+# (the deployment serves no `/responses/input_tokens`). Verified against
+# the live deployment with a Codex CLI credential on 2026-08-30: the seat
+# serves this roster minus the pro rows (gpt-5.5-pro and gpt-5.4-pro
+# answer 400 "not supported when using Codex with a ChatGPT account"),
+# rejects `stop` like the platform API, spells error detail as `detail`
+# (handled in transport::classify), and sends a terminal
+# `response.completed` whose `output` array is empty — the streamed items
+# are the only content. The live cells are `tests/e2e/openai/codex.rs`,
+# gated on `OPENAI_CODEX_TOKEN` and `CHATGPT_ACCOUNT_ID`. The built-in
+# catalog carries no codex entry because the OAuth token and account id
+# are application state, not environment convention.
 
 schema_version = 1
 

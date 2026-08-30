@@ -1,0 +1,75 @@
+# The Codex E2E catalog: OpenAI's ChatGPT-subscription access path, verified
+# live against `chatgpt.com/backend-api/codex` with a Codex CLI credential on
+# 2026-08-30. This is the overlay shape the built-in `openai.toml` header
+# documents; it has no built-in entry because the OAuth token and account id
+# are application state, not environment convention.
+#
+# Differences from the platform catalog, all observed live:
+#
+# - The roster is the platform roster minus the pro rows: gpt-5.5-pro and
+#   gpt-5.4-pro answer 400 "not supported when using Codex with a ChatGPT
+#   account", as do older ids (gpt-5.2, gpt-4o, gpt-5.3-codex).
+# - `temperature`, `max_output_tokens`, and `stop` are rejected outright
+#   ("Unsupported parameter"), so no row claims sampling and the codec's
+#   codex mode drops the fields with warnings.
+# - Requests are seat-billed: there is no per-token price, so the rows carry
+#   no pricing and a response carries no cost estimate.
+# - No speed tiers: `service_tier` is accepted but silently ignored on a
+#   seat, so no row prices one and the local gate refuses fast/economical.
+# - Caching stays unclaimed: usage reports the same cache buckets as the
+#   platform (`cache_write_tokens` included), but `prompt_cache_key` routing
+#   is unprobed on this deployment.
+# - The `ChatGPT-Account-Id` and `originator` headers ride on
+#   `default_headers`; the account id is injected as a runtime overlay by
+#   the suite because it is per-user state.
+
+schema_version = 1
+
+[providers.openai-codex]
+display_name = "OpenAI Codex"
+adapter = "openai"
+codec = "openai-responses"
+base_url = "https://chatgpt.com/backend-api/codex"
+priority = 90
+allow_passthrough = true
+default_model = "gpt-5.6-sol"
+adapter_options = { mode = "codex" }
+
+[providers.openai-codex.auth]
+type = "bearer"
+
+[providers.openai-codex.models."gpt-5.6-sol"]
+display_name = "GPT-5.6 Sol"
+api_model = "gpt-5.6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+
+[providers.openai-codex.models."gpt-5.6-terra"]
+display_name = "GPT-5.6 Terra"
+api_model = "gpt-5.6-terra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+
+[providers.openai-codex.models."gpt-5.6-luna"]
+display_name = "GPT-5.6 Luna"
+api_model = "gpt-5.6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+
+[providers.openai-codex.models."gpt-5.4"]
+display_name = "GPT-5.4"
+api_model = "gpt-5.4"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+
+[providers.openai-codex.models."gpt-5.5"]
+display_name = "GPT-5.5"
+api_model = "gpt-5.5"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+
+[providers.openai-codex.models."gpt-5.4-mini"]
+display_name = "GPT-5.4 Mini"
+api_model = "gpt-5.4-mini"
+limits = { context_tokens = 400000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }

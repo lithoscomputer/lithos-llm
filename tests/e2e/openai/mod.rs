@@ -7,11 +7,11 @@
 //! `cache_write_tokens` usage counter the GPT-5.6 family bills. Cost is a
 //! catalog estimate (`CostSource::Catalog`); OpenAI reports no in-band cost.
 //!
-//! This suite covers the API-key platform path only. The ChatGPT-subscription
-//! path through the Codex deployment speaks the same protocol with a
-//! different envelope and roster (see the built-in catalog's notes); it
-//! needs an OAuth token and account id that no environment convention
-//! carries, so its behavior is pinned at the wire layer instead.
+//! The record/replay cells cover the API-key platform path. The
+//! ChatGPT-subscription path through the Codex deployment speaks the same
+//! protocol with a different envelope and roster (see the built-in
+//! catalog's notes); its live-only battery is the [`codex`] submodule,
+//! gated on `OPENAI_CODEX_TOKEN` and `CHATGPT_ACCOUNT_ID`.
 //!
 //! The roster lives in `openai_catalog.toml`; the suite iterates it through
 //! the [`model_tests`] and [`family_tests`] macros. Capability-gated runners
@@ -20,6 +20,7 @@
 //! cells exist.
 
 mod caching;
+mod codex;
 mod negative;
 mod preflight;
 mod reasoning;

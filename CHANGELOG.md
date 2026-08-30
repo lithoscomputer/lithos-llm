@@ -89,6 +89,13 @@ This project follows [Semantic Versioning](https://semver.org/).
   vocabulary), caching, vision, sampling, native token counting, and
   error classification across the eight-model roster, with a committed
   record/replay recording behind a fifth twin.
+- A live Codex battery (`tests/e2e/openai/codex.rs`, gated on
+  `OPENAI_CODEX_TOKEN` and `CHATGPT_ACCOUNT_ID`) drives the full client
+  through the ChatGPT-subscription deployment: the forced stream behind
+  a blocking call, hoisted instructions, the tool round trip with
+  encrypted-reasoning replay, the dropped output cap, the seat roster's
+  pro-row refusal, and the deployment's empty terminal `output` array,
+  which the stream assembler already treats as a trimmed document.
 
 ### Changed
 
@@ -120,6 +127,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   model, so any request carrying one failed outright. The sequences are
   dropped with an unsupported-control warning instead, and raw provider
   options remain the escape hatch for a compatible skin that takes one.
+- Codex mode posts to the unversioned `<base>/responses` path. The codec
+  appended `/v1/responses` there too, which the live Codex deployment
+  answers with an HTML 403, so the documented codex overlay could never
+  complete a request.
+- Codex mode reports no native token count instead of posting to a
+  `/responses/input_tokens` path the Codex deployment does not serve.
 
 ### Round-6 parity fixes
 
