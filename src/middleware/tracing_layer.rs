@@ -9,10 +9,11 @@ use tracing::field::Empty;
 
 use super::{Call, CancellationToken, Middleware, Mode, Next, Output};
 use crate::types::{
-    CostSource, Error, ErrorKind, Response, ResponseStream, StreamEvent, TokenCounts,
+    CostSource, Error, ErrorKind, FinishReason, Response, ResponseStream, StreamEvent, TokenCounts,
 };
 
 const OUTCOME_COMPLETED: &str = "completed";
+const OUTCOME_INCOMPLETE: &str = "incomplete";
 const OUTCOME_FAILED: &str = "failed";
 const OUTCOME_CANCELLED: &str = "cancelled";
 const OUTCOME_DROPPED: &str = "dropped";
@@ -21,9 +22,10 @@ const OUTCOME_DROPPED: &str = "dropped";
 ///
 /// Each `llm.call` span carries stable `call_id`, `attempt`, `provider`,
 /// `model`, and `mode` fields. Before the span closes, `outcome` is set to one
-/// of `completed`, `failed`, `cancelled`, or `dropped`. Successful calls also
-/// record token counts and cost when available. Failures record `error_kind`,
-/// HTTP `status`, and `provider_code` when available.
+/// of `completed`, `incomplete`, `failed`, `cancelled`, or `dropped`.
+/// Successful and incomplete calls also record token counts and cost when
+/// available. Failures record `error_kind`, HTTP `status`, and `provider_code`
+/// when available.
 ///
 /// A stream owns its span until it produces [`StreamEvent::Completed`],
 /// produces an error, ends without a terminal event, or is dropped. The span
@@ -111,12 +113,21 @@ impl CallTrace {
             self.span
                 .record("cost_source", cost_source_name(cost.source));
         }
-        self.record_terminal(OUTCOME_COMPLETED, None);
-        tracing::debug!(
-            parent: &self.span,
-            outcome = OUTCOME_COMPLETED,
-            "LLM call finished"
-        );
+        if response.finish_reason == FinishReason::Incomplete {
+            self.record_terminal(OUTCOME_INCOMPLETE, None);
+            tracing::warn!(
+                parent: &self.span,
+                outcome = OUTCOME_INCOMPLETE,
+                "LLM call finished without a provider finish reason"
+            );
+        } else {
+            self.record_terminal(OUTCOME_COMPLETED, None);
+            tracing::debug!(
+                parent: &self.span,
+                outcome = OUTCOME_COMPLETED,
+                "LLM call finished"
+            );
+        }
     }
 
     fn finish_error(&mut self, error: &Error) {
@@ -332,13 +343,14 @@ mod tests {
 
     use super::{
         CallTrace, OUTCOME_CANCELLED, OUTCOME_COMPLETED, OUTCOME_DROPPED, OUTCOME_FAILED,
-        trace_stream,
+        OUTCOME_INCOMPLETE, trace_stream,
     };
     use crate::catalog::{Catalog, ModelId, ProviderId};
     use crate::middleware::{Call, CallContext, Mode};
     use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
     use crate::types::{
-        Cost, CostSource, Error, ErrorKind, Request, Response, StreamEvent, TokenCounts,
+        Cost, CostSource, Error, ErrorKind, FinishReason, Request, Response, StreamEvent,
+        TokenCounts,
     };
 
     const TEST_CATALOG: &str = r#"
@@ -502,6 +514,26 @@ mod tests {
         assert_eq!(field(&closed[0], "cost_usd_micros"), Some("60"));
         assert_eq!(field(&closed[0], "cost_source"), Some("catalog"));
         assert!(emitted(&capture, OUTCOME_COMPLETED));
+        Ok(())
+    }
+
+    #[test]
+    fn an_incomplete_call_records_its_own_outcome() -> Result<(), Box<dyn StdError>> {
+        let capture = Capture::default();
+        let dispatch = Dispatch::new(registry().with(capture.clone()));
+        let _guard = set_default(&dispatch);
+        let mut trace = CallTrace::new(&call(Mode::Complete)?);
+        let mut response = response();
+        response.finish_reason = FinishReason::Incomplete;
+
+        trace.finish_completed(&response);
+        drop(trace);
+
+        let closed = capture.closed();
+        assert_eq!(closed.len(), 1);
+        assert_eq!(field(&closed[0], "outcome"), Some(OUTCOME_INCOMPLETE));
+        assert!(emitted(&capture, OUTCOME_INCOMPLETE));
+        assert!(!emitted(&capture, OUTCOME_COMPLETED));
         Ok(())
     }
 

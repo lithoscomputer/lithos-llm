@@ -579,7 +579,7 @@ impl StreamAssembler {
         response.finish_reason = self
             .finish_reason
             .clone()
-            .unwrap_or_else(|| FinishReason::Other("incomplete".to_owned()));
+            .unwrap_or(FinishReason::Incomplete);
         response.usage = self.usage;
         response.cost = self.cost;
         response.warnings.clone_from(&self.warnings);
@@ -750,10 +750,7 @@ mod tests {
         };
         // A truncated stream must stay distinguishable from a model that
         // finished its answer.
-        assert_eq!(
-            response.finish_reason,
-            FinishReason::Other("incomplete".to_owned())
-        );
+        assert_eq!(response.finish_reason, FinishReason::Incomplete);
         Ok(())
     }
 

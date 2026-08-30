@@ -22,6 +22,8 @@ pub enum FinishReason {
     ToolCall,
     ContentFilter,
     Error,
+    /// The stream ended without a provider terminal reason.
+    Incomplete,
     Other(String),
 }
 
@@ -34,6 +36,7 @@ impl FinishReason {
             Self::ToolCall => "tool_call",
             Self::ContentFilter => "content_filter",
             Self::Error => "error",
+            Self::Incomplete => "incomplete",
             Self::Other(reason) => reason,
         }
     }
@@ -52,6 +55,7 @@ impl From<&str> for FinishReason {
             "tool_call" | "tool_calls" => Self::ToolCall,
             "content_filter" => Self::ContentFilter,
             "error" => Self::Error,
+            "incomplete" => Self::Incomplete,
             other => Self::Other(other.to_owned()),
         }
     }
@@ -312,7 +316,7 @@ mod tests {
             (FinishReason::ToolCall, "tool_call"),
             (FinishReason::ContentFilter, "content_filter"),
             (FinishReason::Error, "error"),
-            (FinishReason::Other("incomplete".to_owned()), "incomplete"),
+            (FinishReason::Incomplete, "incomplete"),
         ];
 
         for (reason, wire) in reasons {
@@ -357,7 +361,7 @@ mod tests {
     fn the_earlier_other_object_still_deserializes() -> Result<(), Box<dyn StdError>> {
         let reason = serde_json::from_value::<FinishReason>(json!({ "other": "incomplete" }))?;
 
-        assert_eq!(reason, FinishReason::Other("incomplete".to_owned()));
+        assert_eq!(reason, FinishReason::Incomplete);
         Ok(())
     }
 
