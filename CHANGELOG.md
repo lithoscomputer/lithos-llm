@@ -86,8 +86,9 @@ This project follows [Semantic Versioning](https://semver.org/).
   the filename — omitting it draws 400 "Missing required parameter" — so
   the codec now refuses an inline document without a file name before
   dispatch instead of sending a request the provider rejects. The E2E
-  document cells run live-only until the twin accepts `input_file` parts
-  (lithoscomputer/twins#7).
+  document cells record and replay through the twin, whose pin moved to a
+  revision that accepts `input_file` parts (lithoscomputer/twins#7 carries
+  the same fix to main).
   The catalog header documents the second access path — the ChatGPT
   subscription's Codex deployment — and the overlay entry that selects
   it, since the two paths serve different rosters with different field

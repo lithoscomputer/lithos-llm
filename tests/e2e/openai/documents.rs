@@ -11,11 +11,6 @@
 //! with a one-page PDF generated for this suite, so the expected answer is
 //! unambiguous. The URL variant depends on an external host staying up, so it
 //! runs on two representatives only.
-//!
-//! Live-only for now: the pinned twin rejects `input_file` parts before
-//! scenario matching, so these cells can neither record nor replay. The fix
-//! is lithoscomputer/twins#7; when the pin moves past it, drop the
-//! `live_only` gates and record this module.
 
 use lithos_llm::types::{ContentPart, DocumentContent, MediaSource, Message, Role};
 
@@ -68,9 +63,6 @@ mod url {
 }
 
 async fn reads_an_inline_document(model: &str) -> TestResult {
-    if let Some(skip) = support::live_only("the pinned twin rejects input_file parts") {
-        return skip;
-    }
     if !openai::capabilities(model).documents {
         return support::skip("the catalog does not claim documents");
     }
@@ -99,9 +91,6 @@ async fn reads_an_inline_document(model: &str) -> TestResult {
 }
 
 async fn reads_a_url_document(model: &str) -> TestResult {
-    if let Some(skip) = support::live_only("the pinned twin rejects input_file parts") {
-        return skip;
-    }
     let Some(client) = openai::live_client() else {
         return support::skip("OPENAI_API_KEY is unset");
     };

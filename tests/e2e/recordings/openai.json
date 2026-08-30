@@ -15154,6 +15154,1100 @@
           }
         ]
       }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_4/0001",
+      "namespace": "openai::documents::inline::gpt_5_4",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "6be81d2fa7e82cd8"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_019dc6495f887e62016a9497f791e887d28220bc3ec76ea2f3",
+          "object": "response",
+          "created_at": 1788123127,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123128,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.4-2026-03-05",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_019dc6495f887e62016a9497f8723887d298228a8b4545bf07",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "current_turn",
+            "effort": "none",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 45,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 52
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_4_mini/0001",
+      "namespace": "openai::documents::inline::gpt_5_4_mini",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "b76ae171fd03c3a8"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_0d69165bd18cb053016a9497f7907487d2b621d3db1f1066f1",
+          "object": "response",
+          "created_at": 1788123127,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123128,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.4-mini-2026-03-17",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_0d69165bd18cb053016a9497f888b487d29102541792f08116",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "current_turn",
+            "effort": "none",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 45,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 52
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_6_terra/0001",
+      "namespace": "openai::documents::inline::gpt_5_6_terra",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "83130cb26a2d6d41"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_096fac642aa0539b016a9497f7a41c87d2b502c153ef6bb846",
+          "object": "response",
+          "created_at": 1788123127,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123128,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.6-terra",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_096fac642aa0539b016a9497f883fc87d2a6c2edc27a2096f5",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 50,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 57
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_5/0001",
+      "namespace": "openai::documents::inline::gpt_5_5",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "672504202752f8a7"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_02296d7d33d7d588016a9497f7909087d29cc060ab5f0abaa3",
+          "object": "response",
+          "created_at": 1788123127,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123128,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.5-2026-04-23",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_02296d7d33d7d588016a9497f888e487d288a7054bd160567d",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "current_turn",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 45,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 52
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::url::gpt_5_6_terra/0001",
+      "namespace": "openai::documents::url::gpt_5_6_terra",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "30ac8d5af6da9c61"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_0db93d755556a165016a9497f795ac87d2b2e5351108029dd9",
+          "object": "response",
+          "created_at": 1788123128,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123128,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.6-terra",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_0db93d755556a165016a9497f86da087d28fa14d1e6aeb0b33",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Dummy PDF file"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 42,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 49
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::url::gpt_5_4/0001",
+      "namespace": "openai::documents::url::gpt_5_4",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "a7fa27a902e26138"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_0d4ca1f34958c9ca016a9497f7933487d283ae4e986a79f6df",
+          "object": "response",
+          "created_at": 1788123128,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123128,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.4-2026-03-05",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_0d4ca1f34958c9ca016a9497f8999487d2a60b15f74ab40ce0",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Dummy PDF file"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "current_turn",
+            "effort": "none",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 37,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 44
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_6_luna/0001",
+      "namespace": "openai::documents::inline::gpt_5_6_luna",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "4ad70a3b7046e503"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_062e9cb81912c9a6016a9497f793dc87d2bd55fa824f480583",
+          "object": "response",
+          "created_at": 1788123127,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123128,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.6-luna",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_062e9cb81912c9a6016a9497f869c087d2a56e59b7f432a0c9",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 50,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 57
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_6_sol/0001",
+      "namespace": "openai::documents::inline::gpt_5_6_sol",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "d7a7851e59c04885"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_08953846c5a67d24016a9497f791d487d2be00bc054b2090a7",
+          "object": "response",
+          "created_at": 1788123127,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123129,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.6-sol",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_08953846c5a67d24016a9497f8655487d2bd8cb5dbea2a267f",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-54d8c2eed8d2344d",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 50,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 7,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 57
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_5_pro/0001",
+      "namespace": "openai::documents::inline::gpt_5_5_pro",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "4715543580881be7"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_02d2b102f5666ea4016a9497f7b6a487d2890a3e0a3edd73ab",
+          "object": "response",
+          "created_at": 1788123128,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123130,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.5-pro-2026-04-23",
+          "moderation": null,
+          "output": [
+            {
+              "id": "rs_02d2b102f5666ea4016a9497fa7c3087d2a1fc3726229a8ce3",
+              "type": "reasoning",
+              "content": [],
+              "encrypted_content": "gAAAAABqlJf6ckSTzSmfYZn6QlQogA4uB5no73G4kk5g2cNtMMTvydSktzy1EQEe6IOsyWAPpPztmSdeX31tAL4DsQDzAF1p2GaNbUfe0kBUhXWsw64DOY30ei_RSfx9NJ85VNMnto8CKiEzqDzy45Gy3y2KWw6GS1sIeJUs_3cCDfbMnqDg5Bd0bukilHgH9pj_JxkqbE8idNgnbObSVZLFFv7InQcttK-ljpmeOsbAlcC2SG2BH0Pfnem8eESPAD2g3f3m9SrEUwFSlUMcV2cB2YAnjSZDnaSY2ewUHGJirEl1gTh3DY7ft-IjVf8B0wIrJvsydnO3ncgXRzSwJlg_LdBQyIkSEbYT-XoO25ztspje9cHHxOE3rnsfLHMSamNIRhXe3ikUDEpQIayW70uJIgFuQWSnoFQGb_lrbHd9ga-f8__KgKltY6Dp7AuXE1ROP9wQshrl8hSjNJP5BWrTt6uDBGQV3sJuh5cG_cs7JFKasMJETtEecN64VanxRoCLihzH_DnvOR_cM7b4X-MrAY32m9RyA5FLYEMRG8mSG0TMEhTkf-GpXxupjIC_GnojqjGk_fhM-jiB5i9fwbS0p9vK-rFhfftYKQPZ6oEbuFhLrTxnpK2ratGnRK0F7GybBE0kx5ePLZwDPnvYYZv64iMZXEHXx60V1joiEqeZMNIgwmUbHs-36QR3INXRn1qCdhDLum4jcWKMU5o3gtd3OserBxzkqjNiF3DRsKmfGJnawqtgPSbmLQrBwZbwIkGIpW8xs_My3z1j_pGmljMW3skhFUsmyH4OVj-SafovQXubsxup3xDQXfYwv5LPrqf5UVLrltaxobxyyN6kwwbX8wqF2OGfZ1B750vzRTqvxsENxXN4KPewHi81iIfvOFnjDPevhWGqIZn_viPbKFe41BZ6Z3UMX0jYG1kkxeAIDelNe3Qmyv5x0EaGb3gd_5Ep0bWZYxal1j2-LkY3IPLoEgjIUsEMph1nv8FlIxOpWF59qm-P6zZ9NaZ347MWDsHBG0L_mSvwM5RkzapaVNzo-DfrmdW5jSYub6qgEjxdl4qZkLYgyLBdNJ4ln1OjwVtdecGt8DdWk1FjT5cc0LwrKyL-esO3wJNC4mVIGBZ1ivDLqXDARWbWnfgODCS54_0gF916MalfYdGotFZMBdKMvEH-oOPCSOqe0P8wBOvQdzFpuhSQX7LKOG4AFmVeSLUf8VcKAThlsjHSWrkTFjY17VtwJpShoE-5YOEXpjk087baase2LDSw27lrPWPN8AaWCePtbJFAVezjTPAjTvSrtrtCAU32kKH7R2yBbGXXXK-JM776HnIb2--WsGuQG7A8JakyKA5e",
+              "summary": []
+            },
+            {
+              "id": "msg_02d2b102f5666ea4016a9497fa7d2087d2ac1dbda0d08b7cf5",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "current_turn",
+            "effort": "high",
+            "mode": "pro",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 45,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 36,
+            "output_tokens_details": {
+              "reasoning_tokens": 27
+            },
+            "total_tokens": 81
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
+    },
+    {
+      "scenario_id": "openai::documents::inline::gpt_5_4_pro/0001",
+      "namespace": "openai::documents::inline::gpt_5_4_pro",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "1319bcc01b88b2e6"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_0c0ae5873946207d016a9497f7926487d29e9e3e02311340df",
+          "object": "response",
+          "created_at": 1788123127,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1788123130,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": 8192,
+          "max_tool_calls": null,
+          "model": "gpt-5.4-pro-2026-03-05",
+          "moderation": null,
+          "output": [
+            {
+              "id": "rs_0c0ae5873946207d016a9497faca5087d2800d642e4d21d268",
+              "type": "reasoning",
+              "content": [],
+              "encrypted_content": "gAAAAABqlJf6mV2sHD4lq3iUHXjAQFh-7iozvCLpuoloUM1uSszRRkQeuO3rkbyxXtXwBzhpnXzTieU3iqt09RidSZLInuvgrLuicLmoepqdmCBIEohTF_wP59G6XTlWacBh7057TqfMKSACGK88Std8LpOMeoRjZc-TPQ4betCoLRs_PFKsTI0F8gVJLLMg_Y5plqZdu18oKmmoZK7B0Uel5ag_rY_i7SJGHJNQrcTI_0hR1gAAzZGkHynTh4T1OW1EjgyMzYAdQwTLuGhY-4k4ykR56NtX8yuMk1w-DjkMZL1eE27MLA8DMApncKPQj6mC5pKc8I8oQ8kNb2NcowlwlCQXzgqUz5Ie8q7lLijUFbxdewapQJuLU3Xstd4_iTI0aiQ4QfvoVsIHKJwWEqXUtkmNuKOqtjgxZw74yux7Vcw-zXbQJhH5EN5Wie_DAL10tiqQfV1hdYuPv6JBpv4HWQu6ZKy1CkYBDQraZ8AP9e32YEzv5qvOfCF0eaSQprhGFwrJpGcw_y_DcyMM9mvCb9TajTizBXsLcbWcRBiSQa_-QS0w3dUrHk4MUw4384kNUBjcF2mUoedwlQkA-hasPC--wdUNPZs4PzqRx1bqZt_a5xp3DTfWqQy1qKlhUi2yqx4BBjyekPieeeRDaMPjY6oweFmtARutfEfgkp0sr2O8B4QWmRikhpv9KhtUnCWVEXW0hjNxru2ZiTncEcsz3_EsMLxTaiob_-5kc5h76l1qhz6JyS1Fw3XcCTmNGkOCigC-uwMV638U76jWUktMI9mKYAoEiRs7QTWDccF7l29lhcz1YEjF_l5aH4rvEsHcn296JCetrKdqwR1gSFX-OueazhEC-3Xd46RTisR6vsXsxshK4pZIUUvjPiCBhzsorPZJQMQCccB9ZjgLB6O_fIzBgXJwLiVNvMdW82d8ojaiSYGnD-DBwFQa-RH1W71dlC4N45MKkh0CjbIsCirpONHSY5zynL52YH_HugFBa-mmD6F7vhO8rv_zsMhcY1-PFhglmNhhMmhC3koFg0Nr3oYsrinYkZPBIkAc5w4jfSjcZz0uT6XXAAJt-cyoyyW6R98TpEx8CCTaCIhjX_1u_nH3gZHP_OUE6BC7OuRhmMH6m1NYm_ltB5mRZzr0gfRKqsuoZDWRgbLc1nEX8DNJfOujqzAr5MC6kcm3jThALHjM3SLRsIJ_TNwTWCAWherec-XKheYNeJPYjljA5eVq7TeXCPZaAl9JnIjw4oohUlxF5EIe2HvILbRxmn3Y5Rq6NDqCHo0yLl60J3NMP2bwpqXyfjVmGpHUDgRtE6piaXs3t1Tzz5saAJGeL_8b9_fFe0o-tFkquI6b60FsZKH47MiZLg-pIkXoH-rX0uL3Sd4L0CWRcwvEYsoePKWuBFrgiCVSCwxtP8GDnTorpSPKcC9wVzxg08Uzmd64_9wkJ2MSUt4VQKcgVZw4G7wXOukgxlhM3HjVljrH4hNJaCSoOZphSnRwXtCDj0GTFVbzW-HEOqDwJ2KxG5xchJhj0kxUkCUQmHIn",
+              "summary": []
+            },
+            {
+              "id": "msg_0c0ae5873946207d016a9497facb4c87d2a39bf00884c8794d",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "quartzite"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": null,
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "current_turn",
+            "effort": "medium",
+            "mode": "pro",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 45,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 68,
+            "output_tokens_details": {
+              "reasoning_tokens": 59
+            },
+            "total_tokens": 113
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
     }
   ]
 }

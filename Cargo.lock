@@ -2717,7 +2717,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 [[package]]
 name = "twin-openai"
 version = "0.1.5"
-source = "git+https://github.com/lithoscomputer/twins?rev=89dd9eae4e01fcdad126862e587275b4d3cc55d1#89dd9eae4e01fcdad126862e587275b4d3cc55d1"
+source = "git+https://github.com/lithoscomputer/twins?rev=9b8fa1b5bac6d8c7f23cfb93967fd5a628e77246#9b8fa1b5bac6d8c7f23cfb93967fd5a628e77246"
 dependencies = [
  "anyhow",
  "async-stream",
