@@ -154,7 +154,7 @@ impl CallTrace {
                 "LLM call finished"
             );
         } else {
-            tracing::warn!(
+            tracing::error!(
                 parent: &self.span,
                 outcome,
                 error_kind = kind,
@@ -168,7 +168,7 @@ impl CallTrace {
         if !self.record_terminal(OUTCOME_FAILED, Some(kind)) {
             return;
         }
-        tracing::warn!(
+        tracing::error!(
             parent: &self.span,
             outcome = OUTCOME_FAILED,
             error_kind = kind,
@@ -195,7 +195,7 @@ impl CallTrace {
         {
             let kind = error_kind_name(ErrorKind::Timeout);
             if self.record_terminal(OUTCOME_FAILED, Some(kind)) {
-                tracing::warn!(
+                tracing::error!(
                     parent: &self.span,
                     outcome = OUTCOME_FAILED,
                     error_kind = kind,
@@ -331,13 +331,14 @@ mod tests {
     use std::error::Error as StdError;
     use std::fmt;
     use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+    use std::time::Instant;
 
     use futures_util::StreamExt as _;
     use futures_util::stream::{iter, pending};
     use tracing::dispatcher::set_default;
     use tracing::field::{Field, Visit};
     use tracing::span::{Attributes, Id, Record};
-    use tracing::{Dispatch, Event, Subscriber};
+    use tracing::{Dispatch, Event, Level, Subscriber};
     use tracing_subscriber::layer::{Context, SubscriberExt as _};
     use tracing_subscriber::{Layer, registry};
 
@@ -412,6 +413,10 @@ mod tests {
 
         fn on_event(&self, event: &Event<'_>, _context: Context<'_, S>) {
             let mut fields = BTreeMap::new();
+            fields.insert(
+                "level".to_owned(),
+                event.metadata().level().as_str().to_owned(),
+            );
             event.record(&mut FieldVisitor(&mut fields));
             lock(&self.events).push(fields);
         }
@@ -485,6 +490,15 @@ mod tests {
             .events()
             .iter()
             .any(|fields| fields.get("outcome").is_some_and(|value| value == outcome))
+    }
+
+    fn emitted_at(capture: &Capture, outcome: &str, level: Level) -> bool {
+        capture.events().iter().any(|fields| {
+            fields.get("outcome").is_some_and(|value| value == outcome)
+                && fields
+                    .get("level")
+                    .is_some_and(|value| value == level.as_str())
+        })
     }
 
     #[test]
@@ -610,7 +624,7 @@ mod tests {
         assert_eq!(field(&closed[0], "error_kind"), Some("rate_limit"));
         assert_eq!(field(&closed[0], "status"), Some("429"));
         assert_eq!(field(&closed[0], "provider_code"), Some("rate_limited"));
-        assert!(emitted(&capture, OUTCOME_FAILED));
+        assert!(emitted_at(&capture, OUTCOME_FAILED, Level::ERROR));
         Ok(())
     }
 
@@ -629,7 +643,27 @@ mod tests {
         assert_eq!(closed.len(), 1);
         assert_eq!(field(&closed[0], "outcome"), Some(OUTCOME_FAILED));
         assert_eq!(field(&closed[0], "error_kind"), Some("stream_decode"));
-        assert!(emitted(&capture, OUTCOME_FAILED));
+        assert!(emitted_at(&capture, OUTCOME_FAILED, Level::ERROR));
+        Ok(())
+    }
+
+    #[test]
+    fn dropping_a_stream_past_its_deadline_records_an_error() -> Result<(), Box<dyn StdError>> {
+        let capture = Capture::default();
+        let dispatch = Dispatch::new(registry().with(capture.clone()));
+        let _guard = set_default(&dispatch);
+        let mut call = call(Mode::Stream)?;
+        call.context.set_deadline(Instant::now());
+        let trace = CallTrace::new(&call);
+        let stream = trace_stream(Box::pin(pending()), trace);
+
+        drop(stream);
+
+        let closed = capture.closed();
+        assert_eq!(closed.len(), 1);
+        assert_eq!(field(&closed[0], "outcome"), Some(OUTCOME_FAILED));
+        assert_eq!(field(&closed[0], "error_kind"), Some("timeout"));
+        assert!(emitted_at(&capture, OUTCOME_FAILED, Level::ERROR));
         Ok(())
     }
 
