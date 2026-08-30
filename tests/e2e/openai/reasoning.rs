@@ -170,6 +170,10 @@ async fn accepts_the_effort_level(model: &str, effort: ReasoningEffort) -> TestR
 #[tokio::test]
 #[ignore = "live OpenAI call; run with `mise run test:e2e`"]
 async fn minimal_effort_is_rejected_by_the_provider() -> TestResult {
+    // The twin records no error responses, so the 400 cannot replay.
+    if let Some(skip) = support::live_only("live error classification") {
+        return skip;
+    }
     let Some(client) = openai::live_client() else {
         return support::skip("OPENAI_API_KEY is unset");
     };
