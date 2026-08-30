@@ -159,11 +159,14 @@ async fn truncates_at_the_output_cap(model: &str) -> TestResult {
     let Some(client) = openai::live_client() else {
         return support::skip("OPENAI_API_KEY is unset");
     };
-    // Every roster model reasons by default and reasoning spends from the
-    // same allowance, so a 32-token cap truncates during or right after the
-    // reasoning phase either way.
+    // The other suites' "count upward and do not stop" prompt does not work
+    // here: gpt-5.4-mini answers a bare "1" and stops cleanly at five output
+    // tokens (reproduced twice on 2026-08-30). A bounded but long task
+    // truncates reliably on every roster model instead.
     let request = openai::request(model)
-        .user("Count upward from one, one number per line, and do not stop.")
+        .user(
+            "Write out the numbers from one to five hundred as English words, separated by commas.",
+        )
         .max_output_tokens(32)
         .build()?;
     let response = client.complete(request).await?;
