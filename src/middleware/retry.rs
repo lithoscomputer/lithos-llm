@@ -141,6 +141,9 @@ fn report_retry(
     tracing::warn!(
         attempt,
         delay_secs = delay.as_secs_f64(),
+        error_kind = ?error.kind(),
+        status = error.status(),
+        provider_code = error.provider_code(),
         error = ?error,
         "the provider call failed and will be retried"
     );

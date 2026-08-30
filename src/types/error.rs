@@ -96,6 +96,10 @@ impl RetryClassification {
 /// serializable. `ErrorData` carries the same structured facts, plus the
 /// immediate source rendered as text, so applications can persist or transport
 /// a failure without parsing display strings.
+///
+/// This projection is not redacted. Provider data and source messages can
+/// contain sensitive response content or URLs. Applications must apply their
+/// own storage and disclosure policy before they serialize or log it.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct ErrorData {
@@ -121,6 +125,9 @@ pub struct ErrorData {
     pub retry: RetryClassification,
 
     /// The parsed provider error body, when there was one.
+    ///
+    /// This value can contain sensitive provider response content. It is
+    /// preserved for explicit diagnostics and must not be logged by default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raw_data: Option<Value>,
 
@@ -134,7 +141,6 @@ pub struct ErrorData {
 }
 
 /// A provider-neutral runtime failure.
-#[derive(Debug)]
 #[must_use]
 pub struct Error {
     kind: ErrorKind,
@@ -152,6 +158,25 @@ pub struct Error {
     provider_retry_after_millis: Option<NonZeroU64>,
     raw_data: Option<Box<Value>>,
     source: Option<Box<dyn StdError + Send + Sync>>,
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Error")
+            .field("kind", &self.kind)
+            .field("provider", &self.provider)
+            .field("status", &self.status)
+            .field("provider_code", &self.provider_code)
+            .field("retry", &self.retry)
+            .field(
+                "provider_retry_after_millis",
+                &self.provider_retry_after_millis,
+            )
+            .field("has_raw_data", &self.raw_data.is_some())
+            .field("has_source", &self.source.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 impl Error {
@@ -360,6 +385,22 @@ mod tests {
         // The projection is serializable even though the error itself is not.
         let encoded = serde_json::to_string(&data).expect("serialize error data");
         assert!(encoded.contains("the socket closed"));
+    }
+
+    #[test]
+    fn debug_output_redacts_messages_raw_data_and_sources() {
+        let error = Error::new(ErrorKind::Network, "sensitive message")
+            .with_raw_data(json!({ "secret": "raw provider value" }))
+            .with_source(TestSource);
+
+        let debug = format!("{error:?}");
+
+        assert!(debug.contains("kind: Network"));
+        assert!(debug.contains("has_raw_data: true"));
+        assert!(debug.contains("has_source: true"));
+        assert!(!debug.contains("sensitive message"));
+        assert!(!debug.contains("raw provider value"));
+        assert!(!debug.contains("TestSource"));
     }
 
     #[test]
