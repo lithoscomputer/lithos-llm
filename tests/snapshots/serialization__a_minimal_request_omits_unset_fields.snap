@@ -1,0 +1,18 @@
+---
+source: tests/serialization.rs
+expression: render(&minimal_request()?)?
+---
+{
+  "model": "provider/model",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Hello"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+---
+source: tests/serialization.rs
+expression: "render(&[TokenCounts::from_inclusive(100, 60, 25, 30, 10),\nTokenCounts::default(),])?"
+---
+[
+  {
+    "input": 60,
+    "output": 35,
+    "reasoning": 25,
+    "cache_read": 30,
+    "cache_write": 10
+  },
+  {
+    "input": 0,
+    "output": 0,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  }
+]

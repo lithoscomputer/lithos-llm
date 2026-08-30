@@ -1,0 +1,11 @@
+---
+source: tests/serialization.rs
+expression: render(&minimal_error_data())?
+---
+{
+  "kind": "cancelled",
+  "message": "the call was cancelled",
+  "retry": {
+    "type": "never"
+  }
+}

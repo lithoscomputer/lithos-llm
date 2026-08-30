@@ -8,6 +8,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The serialized forms of `Request`, `Response`, every `StreamEvent`,
+  `ErrorData`, `TokenCounts`, and the `ErrorKind` and `RetryClassification`
+  vocabularies are pinned by snapshot tests in `tests/serialization.rs`.
+  Applications persist and stream these shapes, so a changed snapshot is a
+  compatibility break to review as one, not test noise to accept.
+
 - `Client::probe` (and `probe_with_context`) runs a cheap diagnostic against
   one model selector and returns a `ProbeReport` — the resolved route, the
   latency, the summed usage, and a `ProbeOutcome` — instead of an error.

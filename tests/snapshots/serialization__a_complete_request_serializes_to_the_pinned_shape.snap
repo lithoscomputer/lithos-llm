@@ -1,0 +1,197 @@
+---
+source: tests/serialization.rs
+expression: render(&complete_request()?)?
+---
+{
+  "model": "provider/model",
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "Keep it short."
+        }
+      ]
+    },
+    {
+      "role": "developer",
+      "content": [
+        {
+          "type": "text",
+          "text": "Prefer tables."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Describe these."
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "url",
+            "url": "https://example.com/cat.png",
+            "media_type": "image/png"
+          },
+          "detail": "high"
+        },
+        {
+          "type": "audio",
+          "source": {
+            "type": "base64",
+            "data": "QUJD",
+            "media_type": "audio/wav"
+          }
+        },
+        {
+          "type": "document",
+          "source": {
+            "type": "base64",
+            "data": "REVG",
+            "media_type": "application/pdf"
+          },
+          "name": "report.pdf"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "reasoning",
+          "text": "step one",
+          "signature": "sig",
+          "signature_origin": "anthropic"
+        },
+        {
+          "type": "tool_call",
+          "id": "call_1",
+          "name": "lookup",
+          "arguments": {
+            "query": "rust"
+          },
+          "kind": "function",
+          "raw_arguments": "{\"query\":\"rust\"}",
+          "provider_metadata": {
+            "openai": {
+              "id": "fc_1"
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "id": "call_2",
+          "name": "apply_patch",
+          "arguments": "*** Begin Patch",
+          "kind": "custom",
+          "raw_arguments": "*** Begin Patch"
+        },
+        {
+          "type": "text",
+          "text": "Looking that up."
+        }
+      ],
+      "name": "assistant-1"
+    },
+    {
+      "role": "tool",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_call_id": "call_1",
+          "name": "lookup",
+          "content": [
+            {
+              "type": "text",
+              "text": "found"
+            }
+          ],
+          "is_error": true
+        },
+        {
+          "type": "json",
+          "value": {
+            "score": 0.5
+          }
+        },
+        {
+          "type": "opaque",
+          "kind": "openai.reasoning",
+          "data": {
+            "id": "rs_1"
+          }
+        }
+      ],
+      "tool_call_id": "call_1"
+    }
+  ],
+  "tools": [
+    {
+      "name": "lookup",
+      "description": "Looks a term up",
+      "kind": {
+        "type": "function",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "apply_patch",
+      "description": "Edits files",
+      "kind": {
+        "type": "custom",
+        "format": {
+          "type": "grammar",
+          "syntax": "lark"
+        }
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "lookup"
+  },
+  "response_format": {
+    "type": "json_schema",
+    "name": "answer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "answer": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "max_output_tokens": 512,
+  "temperature": 0.2,
+  "top_p": 0.9,
+  "reasoning_effort": "high",
+  "cache_hint": {
+    "type": "key",
+    "key": "tenant-acme"
+  },
+  "speed": "fast",
+  "timeout": 1500,
+  "stop_sequences": [
+    "STOP"
+  ],
+  "metadata": {
+    "tenant": "acme"
+  },
+  "provider_options": {
+    "openai": {
+      "service_tier": "flex"
+    }
+  }
+}

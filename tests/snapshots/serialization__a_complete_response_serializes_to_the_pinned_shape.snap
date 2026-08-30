@@ -1,0 +1,56 @@
+---
+source: tests/serialization.rs
+expression: render(&complete_response())?
+---
+{
+  "id": "resp_1",
+  "model": {
+    "provider": "openai",
+    "model": "gpt-5"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "hello"
+    },
+    {
+      "type": "tool_call",
+      "id": "call_1",
+      "name": "lookup",
+      "arguments": {
+        "query": "rust"
+      },
+      "kind": "function"
+    }
+  ],
+  "finish_reason": "tool_call",
+  "usage": {
+    "input": 60,
+    "output": 35,
+    "reasoning": 25,
+    "cache_read": 30,
+    "cache_write": 10
+  },
+  "cost": {
+    "usd_micros": 1234,
+    "source": "provider"
+  },
+  "rate_limits": {
+    "request_limit": 1000,
+    "request_remaining": 999,
+    "request_reset": "1s",
+    "token_limit": 2000000,
+    "token_remaining": 1999000,
+    "token_reset": "6m0s"
+  },
+  "warnings": [
+    {
+      "code": "flattened_tool_result",
+      "message": "rich tool result content was flattened to text"
+    }
+  ],
+  "raw": {
+    "id": "resp_1",
+    "object": "response"
+  }
+}

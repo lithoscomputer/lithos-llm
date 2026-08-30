@@ -1,0 +1,22 @@
+---
+source: tests/serialization.rs
+expression: render(&complete_error_data())?
+---
+{
+  "kind": "rate_limit",
+  "message": "slow down",
+  "provider": "openai",
+  "status": 429,
+  "provider_code": "rate_limit_exceeded",
+  "retry": {
+    "type": "after",
+    "after_millis": 1500
+  },
+  "raw_data": {
+    "error": {
+      "type": "rate_limit_error"
+    }
+  },
+  "provider_retry_after_millis": 2000,
+  "source_message": "connection reset"
+}

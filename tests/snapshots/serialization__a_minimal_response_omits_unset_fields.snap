@@ -1,0 +1,25 @@
+---
+source: tests/serialization.rs
+expression: render(&minimal_response())?
+---
+{
+  "id": null,
+  "model": {
+    "provider": "openai",
+    "model": "gpt-5"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "hello"
+    }
+  ],
+  "finish_reason": "stop",
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  }
+}

@@ -1,0 +1,38 @@
+---
+source: tests/serialization.rs
+expression: render(&vocabulary)?
+---
+{
+  "error_kinds": [
+    "configuration",
+    "model_selection",
+    "authentication",
+    "access_denied",
+    "not_found",
+    "invalid_request",
+    "context_length",
+    "rate_limit",
+    "quota_exceeded",
+    "content_filter",
+    "server",
+    "provider",
+    "network",
+    "timeout",
+    "stream_decode",
+    "response_decode",
+    "middleware",
+    "cancelled"
+  ],
+  "retry_classifications": [
+    {
+      "type": "never"
+    },
+    {
+      "type": "safe"
+    },
+    {
+      "type": "after",
+      "after_millis": 1500
+    }
+  ]
+}

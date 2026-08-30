@@ -1,0 +1,153 @@
+---
+source: tests/serialization.rs
+expression: render(&every_stream_event())?
+---
+[
+  {
+    "type": "started",
+    "id": "resp_1"
+  },
+  {
+    "type": "started",
+    "id": null
+  },
+  {
+    "type": "content_block_start",
+    "id": "block-0",
+    "kind": {
+      "type": "text"
+    }
+  },
+  {
+    "type": "content_block_start",
+    "id": "block-2",
+    "kind": {
+      "type": "reasoning"
+    }
+  },
+  {
+    "type": "content_block_start",
+    "id": "block-1",
+    "kind": {
+      "type": "tool_call",
+      "id": "call_1",
+      "name": "lookup",
+      "kind": "function"
+    }
+  },
+  {
+    "type": "content_block_start",
+    "id": "block-3",
+    "kind": {
+      "type": "opaque",
+      "kind": "openai.reasoning"
+    }
+  },
+  {
+    "type": "text_delta",
+    "id": "block-0",
+    "text": "hel"
+  },
+  {
+    "type": "reasoning_delta",
+    "id": "block-2",
+    "text": "thinking"
+  },
+  {
+    "type": "tool_call_delta",
+    "id": "block-1",
+    "arguments": "{\"query\":"
+  },
+  {
+    "type": "content_block_end",
+    "id": "block-0",
+    "part": {
+      "type": "text",
+      "text": "hello"
+    }
+  },
+  {
+    "type": "content_block_end",
+    "id": "block-1",
+    "part": {
+      "type": "tool_call",
+      "id": "call_1",
+      "name": "lookup",
+      "arguments": {
+        "query": "rust"
+      },
+      "kind": "function"
+    }
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "input": 60,
+      "output": 35,
+      "reasoning": 25,
+      "cache_read": 30,
+      "cache_write": 10
+    }
+  },
+  {
+    "type": "rate_limits",
+    "rate_limits": {
+      "request_reset": "1s"
+    }
+  },
+  {
+    "type": "completed",
+    "response": {
+      "id": "resp_1",
+      "model": {
+        "provider": "openai",
+        "model": "gpt-5"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "hello"
+        },
+        {
+          "type": "tool_call",
+          "id": "call_1",
+          "name": "lookup",
+          "arguments": {
+            "query": "rust"
+          },
+          "kind": "function"
+        }
+      ],
+      "finish_reason": "tool_call",
+      "usage": {
+        "input": 60,
+        "output": 35,
+        "reasoning": 25,
+        "cache_read": 30,
+        "cache_write": 10
+      },
+      "cost": {
+        "usd_micros": 1234,
+        "source": "provider"
+      },
+      "rate_limits": {
+        "request_limit": 1000,
+        "request_remaining": 999,
+        "request_reset": "1s",
+        "token_limit": 2000000,
+        "token_remaining": 1999000,
+        "token_reset": "6m0s"
+      },
+      "warnings": [
+        {
+          "code": "flattened_tool_result",
+          "message": "rich tool result content was flattened to text"
+        }
+      ],
+      "raw": {
+        "id": "resp_1",
+        "object": "response"
+      }
+    }
+  }
+]
