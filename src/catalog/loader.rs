@@ -684,19 +684,85 @@ mod tests {
 
     #[cfg(feature = "builtin-catalog")]
     #[test]
+    fn the_builtin_openai_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let openai = catalog.provider("openai")?;
+        assert_eq!(openai.default_model(), Some("gpt-5.6-sol"));
+        assert!(openai.allows_passthrough());
+        assert_eq!(catalog.model("openai", "luna")?.api_model(), "gpt-5.6-luna");
+        // fabro routes its legacy short names at the current codex driver.
+        assert_eq!(catalog.model("openai", "codex")?.api_model(), "gpt-5.4");
+        assert_eq!(
+            catalog.model("openai", "gpt-5.6")?.api_model(),
+            "gpt-5.6-sol"
+        );
+
+        // Sampling controls are model-specific on the live API (2026-08-30):
+        // the 5.4 rows take temperature, the 5.5 and 5.6 rows reject it.
+        assert!(catalog.model("openai", "gpt-5.4")?.capabilities().sampling);
+        assert!(
+            catalog
+                .model("openai", "gpt-5.4-mini")?
+                .capabilities()
+                .sampling
+        );
+        assert!(!catalog.model("openai", "gpt-5.5")?.capabilities().sampling);
+        assert!(
+            !catalog
+                .model("openai", "gpt-5.6-sol")?
+                .capabilities()
+                .sampling
+        );
+
+        // The pro rows cache nothing and price no speed tier, so the local
+        // speed gate refuses fast and economical for them.
+        let pro = catalog.model("openai", "gpt-5.5-pro")?;
+        assert!(!pro.capabilities().caching);
+        let pricing = pro.pricing().ok_or("gpt-5.5-pro should be priced")?;
+        assert!(pricing.speed.is_none());
+
+        let mini = catalog.model("openai", "gpt-5.4-mini")?;
+        assert_eq!(
+            mini.limits()
+                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
+            Some((400_000, 128_000))
+        );
+        let fabro = mini
+            .metadata()
+            .get("fabro")
+            .ok_or("gpt-5.4-mini should preserve fabro metadata")?;
+        assert_eq!(fabro["probe"], true);
+        assert_eq!(fabro["small_default"], true);
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
     fn the_builtin_catalog_carries_the_published_rates_and_limits() -> Result<(), Box<dyn StdError>>
     {
         let catalog = Catalog::builder().with_builtin().build()?;
 
+        // OpenAI's published rates and limits, verified live on 2026-08-30.
+        // Luna's window is 1,050,000 tokens; 272,000 is the long-context
+        // billing threshold, and the 5.6 family bills cache writes at 1.25x.
         let luna = catalog.model("openai", "gpt-5.6-luna")?;
         let pricing = luna.pricing().ok_or("gpt-5.6-luna should be priced")?;
-        assert_eq!(pricing.input_usd_micros_per_million, Some(1_000_000));
-        assert_eq!(pricing.output_usd_micros_per_million, Some(6_000_000));
-        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(100_000));
+        assert_eq!(pricing.input_usd_micros_per_million, Some(200_000));
+        assert_eq!(pricing.output_usd_micros_per_million, Some(1_200_000));
+        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(20_000));
+        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(250_000));
         assert_eq!(
             luna.limits().map(|limits| limits.context_tokens),
-            Some(272_000)
+            Some(1_050_000)
         );
+        let long = pricing.for_input_tokens(300_000);
+        assert_eq!(long.input_usd_micros_per_million, Some(400_000));
+        assert_eq!(long.output_usd_micros_per_million, Some(1_800_000));
+        let fast = pricing.for_speed(Some(Speed::Fast));
+        assert_eq!(fast.input_usd_micros_per_million, Some(400_000));
+        let flex = pricing.for_speed(Some(Speed::Economical));
+        assert_eq!(flex.input_usd_micros_per_million, Some(100_000));
 
         let sonnet = catalog.model("anthropic", "claude-sonnet-4-6")?;
         assert_eq!(
