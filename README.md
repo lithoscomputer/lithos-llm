@@ -244,6 +244,35 @@ async fn describe_image(client: &Client) -> Result<String, Box<dyn Error>> {
 Use `MediaSource::base64(data, media_type)` for inline bytes. `AudioContent`
 and `DocumentContent` use the same source type. Provider URL rules differ.
 
+## Model probes
+
+`Client::probe` answers "can this client serve this model right now" with a
+report instead of an error:
+
+```rust
+use lithos_llm::Client;
+use lithos_llm::client::{ProbeOptions, ProbeOutcome};
+
+async fn check(client: &Client) {
+    let report = client
+        .probe("anthropic/claude-sonnet-5", ProbeOptions::new().tools(true))
+        .await;
+    match &report.outcome {
+        ProbeOutcome::Passed => println!("ok in {:?}", report.latency),
+        ProbeOutcome::Failed(data) => println!("{:?}: {}", data.kind, data.message),
+        ProbeOutcome::Incorrect { detail } => println!("answered, but {detail}"),
+    }
+}
+```
+
+The probe resolves the route, credentials, and middleware exactly as
+`complete` does. The default probe sends one short prompt; `tools(true)` runs
+an `add`-tool exchange and checks the model calls the tool and reaches the
+right total. A catalog rejection — a tool probe against a model that declares
+no tools — fails before any request is sent. `Failed` carries the classified
+`ErrorData`, so an unknown model, bad credentials, a missing model, and a
+timeout are told apart by its `kind`.
+
 ## Token estimation
 
 `lithos_llm::estimate` sizes a request locally, before any call is made:

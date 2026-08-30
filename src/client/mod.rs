@@ -1,5 +1,7 @@
 //! Client construction and inference behavior.
 
+mod probe;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
@@ -7,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use futures_util::StreamExt as _;
 use futures_util::stream::unfold;
+pub use probe::{ProbeOptions, ProbeOutcome, ProbeReport};
 use thiserror::Error;
 use tokio::time::{Instant as TokioInstant, sleep_until};
 

@@ -8,6 +8,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `Client::probe` (and `probe_with_context`) runs a cheap diagnostic against
+  one model selector and returns a `ProbeReport` — the resolved route, the
+  latency, the summed usage, and a `ProbeOutcome` — instead of an error.
+  The default probe sends one short prompt; `ProbeOptions::tools(true)` runs
+  an `add`-tool exchange and checks that the model calls the tool and reaches
+  the right total. `Failed` carries the classified `ErrorData`, so catalog
+  rejections, authentication failures, unknown models, and timeouts are told
+  apart by the existing `ErrorKind`; `Incorrect` marks a model that answered
+  but skipped the tool or got the total wrong. The probe honors an outer
+  cancellation or deadline through `CallContext`.
+
 - A local token estimator, `lithos_llm::estimate`, sizes text, messages,
   content parts, tool definitions, request controls, and whole requests
   synchronously and deterministically, with no provider call and no feature
