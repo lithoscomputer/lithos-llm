@@ -72,10 +72,23 @@ This project follows [Semantic Versioning](https://semver.org/).
   roster model answers `count_input_tokens`, which also confirms Gemini's
   `countTokens` body shape (the `model` field nested inside
   `generateContentRequest`) against the real API.
-- OpenAI's GPT-5.6 Luna declares `fast` (priority) and `economical` (flex)
-  speed pricing tiers at OpenAI's documented 2x and 0.5x service-tier
-  multipliers, so the client's speed gate admits those requests; the rates
-  await confirmation against a live account.
+- The built-in OpenAI provider now has a current, live-verified roster:
+  the three GPT-5.6 models, GPT-5.4, GPT-5.5, both Pro models, and
+  GPT-5.4 Mini, with pricing (long-context tiers above 272K input,
+  priority and flex speed tiers, and the 5.6 family's billed cache
+  writes), limits, per-model sampling and reasoning-effort claims, and
+  fabro metadata — every claim checked against the live listing, the
+  developer docs, and raw `/v1/responses` probes. The pro rows claim no
+  speed tier because OpenAI silently downgrades their priority requests.
+  The catalog header documents the second access path — the ChatGPT
+  subscription's Codex deployment — and the overlay entry that selects
+  it, since the two paths serve different rosters with different field
+  sets.
+- The OpenAI live E2E suite covers completion, streaming, tools,
+  structured output, reasoning (with each model's live effort
+  vocabulary), caching, vision, sampling, native token counting, and
+  error classification across the eight-model roster, with a committed
+  record/replay recording behind a fifth twin.
 
 ### Changed
 
@@ -97,6 +110,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Anthropic JSON-object responses ask for free-form JSON through a system-text
   instruction. The earlier closed object schema admitted only the empty
   object, so provider-enforced structured output discarded the answer.
+- The OpenAI Responses codec decodes
+  `usage.input_tokens_details.cache_write_tokens` into the cache-write
+  bucket. The GPT-5.6 family bills cache writes at 1.25x input; the
+  decoder's hardcoded zero silently priced those tokens at the plain
+  input rate.
+- The OpenAI Responses codec no longer sends stop sequences: the live
+  `/v1/responses` endpoint rejects a `stop` member with a 400 on every
+  model, so any request carrying one failed outright. The sequences are
+  dropped with an unsupported-control warning instead, and raw provider
+  options remain the escape hatch for a compatible skin that takes one.
 
 ### Round-6 parity fixes
 
