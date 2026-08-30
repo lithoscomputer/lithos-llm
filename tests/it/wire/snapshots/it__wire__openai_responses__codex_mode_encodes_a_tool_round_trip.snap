@@ -1,0 +1,104 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris and Madrid?",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Looking both up.",
+            "type": "output_text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "arguments": "{\"city\":\"Paris\"}",
+        "call_id": "call_paris",
+        "name": "get_weather",
+        "type": "function_call"
+      },
+      {
+        "arguments": "{\"city\":\"Madrid\"}",
+        "call_id": "call_madrid",
+        "name": "get_weather",
+        "type": "function_call"
+      },
+      {
+        "call_id": "call_paris",
+        "output": "18C and clear",
+        "type": "function_call_output"
+      },
+      {
+        "call_id": "call_madrid",
+        "output": "the city is unknown",
+        "status": "incomplete",
+        "type": "function_call_output"
+      }
+    ],
+    "instructions": "",
+    "model": "gpt-5.6-luna-2026-04-01",
+    "store": false,
+    "stream": true,
+    "tools": [
+      {
+        "description": "Reads the current weather for a city",
+        "name": "get_weather",
+        "parameters": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "909"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/responses"
+}

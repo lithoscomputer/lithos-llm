@@ -719,6 +719,130 @@ async fn codex_mode_streams_a_complete_call_and_drops_sampling_controls() {
     crate::json_snapshot!(response);
 }
 
+/// A codex-mode client for the dialect tests below.
+fn codex_client(server: &httpmock::MockServer) -> lithos_llm::Client {
+    let source = format!(
+        "{}\n[providers.\"{PROVIDER}\".adapter_options]\nmode = \"codex\"\n",
+        provider().toml(&server.base_url())
+    );
+    support::client_for(
+        support::catalog_from_toml("wire-codex", &source),
+        PROVIDER,
+        support::bearer_credentials(),
+    )
+}
+
+/// The Codex deployment's terminal document carries an empty `output` array
+/// — the streamed items are the only content (observed live 2026-08-30).
+///
+/// The assembled blocks must therefore be the response: the tool call from
+/// the item events, the finish reason corrected to `ToolCall` even though
+/// the empty document claims a bare "completed", and the usage read from
+/// the document, which does carry it.
+#[tokio::test]
+async fn codex_mode_assembles_a_tool_call_from_an_empty_terminal_document() {
+    let server = MockServer::start_async().await;
+    let client = codex_client(&server);
+    let completed = json!({
+        "type": "response.completed",
+        "response": {
+            "id": "resp_codex",
+            "status": "completed",
+            "output": [],
+            "usage": {
+                "input_tokens": 40,
+                "input_tokens_details": { "cached_tokens": 0, "cache_write_tokens": 0 },
+                "output_tokens": 12,
+                "output_tokens_details": { "reasoning_tokens": 4 },
+                "total_tokens": 52,
+            },
+        },
+    })
+    .to_string();
+    let transcript = support::sse_transcript(&[
+        (
+            "response.created",
+            r#"{"type":"response.created","response":{"id":"resp_codex","status":"in_progress"}}"#,
+        ),
+        (
+            "response.output_item.added",
+            r#"{"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"get_weather","arguments":""}}"#,
+        ),
+        (
+            "response.function_call_arguments.delta",
+            r#"{"type":"response.function_call_arguments.delta","item_id":"fc_1","delta":"{\"city\":\"Paris\"}"}"#,
+        ),
+        (
+            "response.output_item.done",
+            r#"{"type":"response.output_item.done","output_index":0,"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"get_weather","arguments":"{\"city\":\"Paris\"}"}}"#,
+        ),
+        ("response.completed", &completed),
+    ]);
+    let (_mock, slot) = support::mount_capture_sse(&server, "/responses", &transcript);
+
+    let response = client
+        .complete(support::tools_request(
+            &selector(),
+            Some(ToolChoice::Tool {
+                name: "get_weather".to_owned(),
+            }),
+        ))
+        .await
+        .expect("the codex tool call should assemble from the stream");
+
+    let calls: Vec<_> = response
+        .content
+        .iter()
+        .filter_map(|part| match part {
+            ContentPart::ToolCall(call) => Some(call),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(calls.len(), 1, "the streamed items carry the one call");
+    assert_eq!(calls[0].name, "get_weather");
+    assert_eq!(
+        response.finish_reason,
+        FinishReason::ToolCall,
+        "the empty terminal document must not overrule the assembled call",
+    );
+    assert_eq!(response.usage.output, 8);
+    assert_eq!(response.usage.reasoning, 4);
+    crate::json_snapshot!(support::captured(&slot));
+    crate::json_snapshot!(response);
+}
+
+/// The tool round trip in codex mode: hoisted instructions beside the
+/// `function_call` and `function_call_output` input items, served by a
+/// stream because the deployment takes nothing else.
+#[tokio::test]
+async fn codex_mode_encodes_a_tool_round_trip() {
+    let server = MockServer::start_async().await;
+    let client = codex_client(&server);
+    let completed =
+        json!({ "type": "response.completed", "response": text_document() }).to_string();
+    let transcript = support::sse_transcript(&[
+        (
+            "response.created",
+            r#"{"type":"response.created","response":{"id":"resp_text","status":"in_progress"}}"#,
+        ),
+        (
+            "response.output_item.done",
+            r#"{"type":"response.output_item.done","output_index":0,"item":{"type":"message","id":"msg_text","role":"assistant","content":[{"type":"output_text","text":"Hello there."}]}}"#,
+        ),
+        ("response.completed", &completed),
+    ]);
+    let (_mock, slot) = support::mount_capture_sse(&server, "/responses", &transcript);
+
+    let response = client
+        .complete(support::tool_round_trip_request(&selector()))
+        .await
+        .expect("the codex tool round trip should complete");
+
+    assert_eq!(response.text(), "Hello there.");
+    crate::json_snapshot!(support::captured(&slot));
+    crate::json_snapshot!(response);
+}
+
 #[tokio::test]
 async fn encodes_request_metadata() {
     let (server, client) = wire().await;
