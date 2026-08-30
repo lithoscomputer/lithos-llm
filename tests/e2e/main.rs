@@ -31,6 +31,7 @@
 #![cfg(any(
     feature = "anthropic",
     feature = "gemini",
+    feature = "openai",
     feature = "openai-compatible"
 ))]
 
@@ -44,6 +45,8 @@ mod gemini;
 mod modal;
 #[cfg(feature = "openai-compatible")]
 mod moonshot;
+#[cfg(feature = "openai")]
+mod openai;
 #[cfg(feature = "openai-compatible")]
 mod openrouter;
 mod support;
