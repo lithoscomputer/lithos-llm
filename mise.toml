@@ -1,5 +1,12 @@
 min_version = "2026.6.11"
 
+# Task output is consumed by agents and must stay quiet and plain while
+# passing. Cargo and Nextest emit OSC 9;4 terminal-progress escapes when
+# they detect a supporting terminal; terminals without that protocol
+# render them as literal escape sequences, so they are off for every task.
+[env]
+CARGO_TERM_PROGRESS_TERM_INTEGRATION = "false"
+
 [settings]
 lockfile = true
 lockfile_platforms = ["macos-arm64", "linux-x64", "linux-arm64"]
@@ -43,13 +50,13 @@ run = "cargo clippy -q --locked --workspace --all-targets --all-features -- -D w
 [tasks.test]
 quiet = true
 description = "Run all Rust tests with Nextest"
-run = "cargo nextest run --cargo-quiet --status-level fail --locked --workspace --all-targets --all-features --no-tests=pass"
+run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --workspace --all-targets --all-features --no-tests=pass"
 
 [tasks."test:default-features"]
 quiet = true
 description = "Run the tests with the default feature set"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
-run = "cargo nextest run --cargo-quiet --status-level fail --locked --workspace --all-targets --no-tests=pass"
+run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --workspace --all-targets --no-tests=pass"
 
 # The E2E suite runs against one of three backends. `test:e2e` (the
 # default) replays the committed recording offline through a twin-openai
@@ -106,7 +113,7 @@ for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3923/healthz >/dev/null 2>&1 
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3924/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3925/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
-LITHOS_E2E_BACKEND=replay cargo nextest run --cargo-quiet --status-level fail --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --no-tests=pass
+LITHOS_E2E_BACKEND=replay cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --no-tests=pass
 """
 
 [tasks."test:e2e:record"]
@@ -170,18 +177,18 @@ for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3925/healthz >/dev/null 2>&1 
 if [ -n "$CODEX_TWIN_PID" ]; then
   for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 fi
-LITHOS_E2E_BACKEND=record cargo nextest run --cargo-quiet --status-level fail --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
+LITHOS_E2E_BACKEND=record cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
 """
 
 [tasks."test:e2e:live"]
 quiet = true
 description = "Run the live provider E2E suite unproxied (spends provider credits)"
-run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; LITHOS_E2E_BACKEND=live cargo nextest run --cargo-quiet --status-level fail --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass'"
+run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; LITHOS_E2E_BACKEND=live cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass'"
 
 [tasks."test:release"]
 quiet = true
 description = "Run all Rust tests in release mode"
-run = "cargo nextest run --cargo-quiet --status-level fail --locked --release --workspace --all-targets --all-features --no-tests=pass"
+run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --release --workspace --all-targets --all-features --no-tests=pass"
 
 [tasks."check:msrv"]
 quiet = true
@@ -230,7 +237,7 @@ assert_no_aws_sdk "the bedrock feature" -p lithos-llm --no-default-features --fe
 [tasks."check:whitespace"]
 quiet = true
 description = "Check tracked and untracked patches for whitespace errors"
-run = ["git diff --check", "git diff --cached --check"]
+run = ["git --no-pager diff --check", "git --no-pager diff --cached --check"]
 
 [tasks.check]
 quiet = true
