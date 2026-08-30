@@ -14,8 +14,8 @@ use lithos_llm::adapter::{ProviderAdapter, ResolvedCall};
 use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId};
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
-    Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Output, RetryMiddleware,
-    RetryPolicy, TimeoutMiddleware,
+    Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Observer, Output,
+    RetryMiddleware, RetryPolicy, TimeoutMiddleware,
 };
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
@@ -492,6 +492,178 @@ async fn retry_stops_when_retry_after_exceeds_the_cap() -> Result<(), Box<dyn St
     assert_eq!(error.kind(), ErrorKind::RateLimit);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     Ok(())
+}
+
+/// Records every retry the retry middleware reports.
+#[derive(Default)]
+struct RetryRecorder {
+    retries: Mutex<Vec<RecordedRetry>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct RecordedRetry {
+    attempt:         u32,
+    context_attempt: u32,
+    delay:           Duration,
+    kind:            ErrorKind,
+}
+
+impl RetryRecorder {
+    fn retries(&self) -> Vec<RecordedRetry> {
+        self.retries
+            .lock()
+            .expect("recorder mutex should not be poisoned")
+            .clone()
+    }
+}
+
+impl Observer for RetryRecorder {
+    fn on_retry(&self, call: &Call, error: &Error, attempt: u32, delay: Duration) {
+        self.retries
+            .lock()
+            .expect("recorder mutex should not be poisoned")
+            .push(RecordedRetry {
+                attempt,
+                context_attempt: call.context.attempt(),
+                delay,
+                kind: error.kind(),
+            });
+    }
+}
+
+#[tokio::test]
+async fn retry_reports_each_retried_attempt_to_the_observer() -> Result<(), Box<dyn StdError>> {
+    let recorder = Arc::new(RetryRecorder::default());
+    let mut adapter = FakeAdapter::successful();
+    adapter.complete_failures = 2;
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", adapter)
+        .middleware(
+            RetryMiddleware::new(
+                RetryPolicy::exponential()
+                    .max_attempts(3)
+                    .initial_delay(Duration::from_millis(1)),
+            )
+            .observer_arc(recorder.clone()),
+        )
+        .build()?
+        .client;
+
+    let response = client.complete(request()?).await?;
+
+    assert_eq!(response.text(), "done");
+    assert_eq!(recorder.retries(), [
+        RecordedRetry {
+            attempt:         1,
+            context_attempt: 1,
+            delay:           Duration::from_millis(1),
+            kind:            ErrorKind::Network,
+        },
+        RecordedRetry {
+            attempt:         2,
+            context_attempt: 2,
+            delay:           Duration::from_millis(2),
+            kind:            ErrorKind::Network,
+        },
+    ]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_pre_visible_stream_retry_is_reported() -> Result<(), Box<dyn StdError>> {
+    let recorder = Arc::new(RetryRecorder::default());
+    let mut adapter = FakeAdapter::successful();
+    adapter.stream_fails_initial = true;
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", adapter)
+        .middleware(
+            RetryMiddleware::new(
+                RetryPolicy::exponential()
+                    .max_attempts(2)
+                    .initial_delay(Duration::ZERO),
+            )
+            .observer_arc(recorder.clone()),
+        )
+        .build()?
+        .client;
+
+    let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+
+    assert!(matches!(
+        events.as_slice(),
+        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+    ));
+    assert_eq!(recorder.retries(), [RecordedRetry {
+        attempt:         1,
+        context_attempt: 1,
+        delay:           Duration::ZERO,
+        kind:            ErrorKind::Network,
+    }]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_refused_retry_is_not_reported() -> Result<(), Box<dyn StdError>> {
+    let recorder = Arc::new(RetryRecorder::default());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", ThrottledAdapter {
+            id:       AdapterId::new("test-adapter"),
+            calls:    calls.clone(),
+            failures: 5,
+            error:    Arc::new(|| throttled_error(Duration::from_secs(120))),
+        })
+        .middleware(
+            RetryMiddleware::new(
+                RetryPolicy::exponential()
+                    .max_attempts(5)
+                    .initial_delay(Duration::ZERO)
+                    .retry_after_cap(Duration::from_secs(60)),
+            )
+            .observer_arc(recorder.clone()),
+        )
+        .build()?
+        .client;
+
+    let error = client
+        .complete(request()?)
+        .await
+        .expect_err("a long Retry-After should end the retries");
+
+    assert_eq!(error.kind(), ErrorKind::RateLimit);
+    assert!(
+        recorder.retries().is_empty(),
+        "a refused retry reaches the caller as an error, not the observer"
+    );
+    Ok(())
+}
+
+#[test]
+fn an_external_retry_driver_reads_the_policy_delay() {
+    let policy = RetryPolicy::exponential()
+        .initial_delay(Duration::from_millis(10))
+        .max_delay(Duration::from_millis(15));
+    let fatal =
+        Error::new(ErrorKind::Authentication, "bad key").with_retry(RetryClassification::Never);
+
+    assert_eq!(
+        policy.next_delay(1, &retryable_error()),
+        Some(Duration::from_millis(10))
+    );
+    assert_eq!(
+        policy.next_delay(2, &retryable_error()),
+        Some(Duration::from_millis(15)),
+        "the computed delay is capped"
+    );
+    assert_eq!(
+        policy.next_delay(3, &retryable_error()),
+        None,
+        "the default budget is three attempts"
+    );
+    assert_eq!(policy.next_delay(1, &fatal), None);
 }
 
 /// An adapter whose stream sends bookkeeping before it fails, then succeeds.

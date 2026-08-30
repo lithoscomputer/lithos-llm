@@ -8,6 +8,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Retries are observable. `Observer` gains a defaulted `on_retry` hook, and
+  `RetryMiddleware::observer` (or `observer_arc`) reports every retried
+  attempt through it: the failed attempt number, its error, and the wait
+  before the next attempt. Refused retries are not reported; their error
+  reaches the caller. The retry decision itself, `RetryPolicy::next_delay`,
+  is now public so an application-owned retry loop — such as replaying a
+  turn after a stream already delivered visible output — can share the
+  middleware's policy instead of reimplementing backoff.
+
 - The built-in catalog now includes Fireworks with live-verified model routes,
   pricing, capabilities, and conventional `FIREWORKS_API_KEY` credentials.
 - The built-in catalog now includes Modal as a portable passthrough provider.

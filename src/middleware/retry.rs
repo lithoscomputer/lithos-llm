@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use std::collections::hash_map::RandomState;
+use std::fmt;
 use std::hash::{BuildHasher as _, Hasher as _};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
@@ -8,7 +10,7 @@ use futures_util::StreamExt as _;
 use futures_util::stream::{empty, unfold};
 use tokio::time::sleep;
 
-use super::{Call, Middleware, Mode, Next, Output};
+use super::{Call, Middleware, Mode, Next, Observer, Output};
 use crate::types::{Error, ErrorKind, ResponseStream, RetryClassification, StreamEvent};
 
 /// The longest `Retry-After` this policy honors by default.
@@ -81,9 +83,15 @@ impl RetryPolicy {
     /// The wait before the next attempt, or `None` when this failure ends the
     /// retries.
     ///
-    /// `None` covers all three refusals: a spent attempt budget, an error
-    /// that repeating cannot fix, and a `Retry-After` longer than the cap.
-    fn next_delay(self, attempt: u32, error: &Error) -> Option<Duration> {
+    /// `attempt` is the attempt that just failed, counted from 1. `None`
+    /// covers all three refusals: a spent attempt budget, an error that
+    /// repeating cannot fix, and a `Retry-After` longer than the cap.
+    ///
+    /// This is the whole retry decision, so an application that must own its
+    /// own retry loop — for example to replay a turn after a stream already
+    /// delivered visible output, which no middleware can do — can drive that
+    /// loop with the same policy the [`RetryMiddleware`] uses.
+    pub fn next_delay(self, attempt: u32, error: &Error) -> Option<Duration> {
         if attempt >= self.max_attempts
             || matches!(error.retry_classification(), RetryClassification::Never)
         {
@@ -122,25 +130,63 @@ fn jittered(delay: Duration) -> Duration {
     Duration::from_nanos(floor + random % (span + 1))
 }
 
-/// Reports one retry, so a stalled call is visible in a trace.
-fn log_retry(attempt: u32, delay: Duration, error: &Error) {
+/// Reports one retry to the trace and to the observer, when one is set.
+fn report_retry(
+    observer: Option<&Arc<dyn Observer>>,
+    call: &Call,
+    attempt: u32,
+    delay: Duration,
+    error: &Error,
+) {
     tracing::warn!(
         attempt,
         delay_secs = delay.as_secs_f64(),
         error = ?error,
         "the provider call failed and will be retried"
     );
+    if let Some(observer) = observer {
+        observer.on_retry(call, error, attempt, delay);
+    }
 }
 
 /// Retries retryable failures on the same resolved route.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone)]
+#[must_use]
 pub struct RetryMiddleware {
-    policy: RetryPolicy,
+    policy:   RetryPolicy,
+    observer: Option<Arc<dyn Observer>>,
 }
 
 impl RetryMiddleware {
     pub fn new(policy: RetryPolicy) -> Self {
-        Self { policy }
+        Self {
+            policy,
+            observer: None,
+        }
+    }
+
+    /// Reports every retried attempt to `observer` through
+    /// [`Observer::on_retry`].
+    ///
+    /// The retry layer must hold the observer itself: an observer installed
+    /// as ordinary middleware sees one logical call, not its attempts.
+    pub fn observer(self, observer: impl Observer) -> Self {
+        self.observer_arc(Arc::new(observer))
+    }
+
+    pub fn observer_arc(mut self, observer: Arc<dyn Observer>) -> Self {
+        self.observer = Some(observer);
+        self
+    }
+}
+
+impl fmt::Debug for RetryMiddleware {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RetryMiddleware")
+            .field("policy", &self.policy)
+            .field("observer", &self.observer.is_some())
+            .finish()
     }
 }
 
@@ -158,6 +204,7 @@ impl Middleware for RetryMiddleware {
                         current,
                         next,
                         self.policy,
+                        self.observer.clone(),
                     )));
                 }
                 Ok(output) => return Ok(output),
@@ -168,7 +215,7 @@ impl Middleware for RetryMiddleware {
                     if deadline_prevents_retry(&current, delay) {
                         return Err(error);
                     }
-                    log_retry(attempt, delay, &error);
+                    report_retry(self.observer.as_ref(), &current, attempt, delay, &error);
                     sleep(delay).await;
                     attempt = attempt.saturating_add(1);
                 }
@@ -191,19 +238,21 @@ fn retry_stream(
     call: Call,
     next: Next,
     policy: RetryPolicy,
+    observer: Option<Arc<dyn Observer>>,
 ) -> ResponseStream {
     struct State {
-        stream:  ResponseStream,
-        call:    Call,
-        next:    Next,
-        policy:  RetryPolicy,
-        attempt: u32,
-        visible: bool,
+        stream:   ResponseStream,
+        call:     Call,
+        next:     Next,
+        policy:   RetryPolicy,
+        observer: Option<Arc<dyn Observer>>,
+        attempt:  u32,
+        visible:  bool,
         /// Bookkeeping from the current attempt, not yet delivered.
-        held:    Vec<StreamEvent>,
+        held:     Vec<StreamEvent>,
         /// Items already decided on, waiting for the consumer to poll.
-        ready:   VecDeque<Result<StreamEvent, Error>>,
-        ended:   bool,
+        ready:    VecDeque<Result<StreamEvent, Error>>,
+        ended:    bool,
     }
 
     impl State {
@@ -219,6 +268,7 @@ fn retry_stream(
         call,
         next,
         policy,
+        observer,
         visible: false,
         held: Vec::new(),
         ready: VecDeque::new(),
@@ -252,7 +302,13 @@ fn retry_stream(
                         if deadline_prevents_retry(&state.call, delay) {
                             break;
                         }
-                        log_retry(state.attempt, delay, &error);
+                        report_retry(
+                            state.observer.as_ref(),
+                            &state.call,
+                            state.attempt,
+                            delay,
+                            &error,
+                        );
                         sleep(delay).await;
                         state.attempt = state.attempt.saturating_add(1);
                         state.call.context.set_attempt(state.attempt);

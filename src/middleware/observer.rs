@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
@@ -7,12 +8,31 @@ use super::{Call, Middleware, Next, Output};
 use crate::types::{Error, Response, StreamEvent};
 
 /// Receives synchronous lifecycle observations without changing a call.
+///
+/// Every hook runs inline on the call path. An implementation must return
+/// quickly, must not block, and must not panic. Hand off slow work, such as
+/// persisting an event, to a channel or task the application owns.
 pub trait Observer: Send + Sync + 'static {
     fn on_start(&self, _call: &Call) {}
 
     fn on_complete(&self, _call: &Call, _result: Result<&Response, &Error>) {}
 
     fn on_stream_event(&self, _call: &Call, _event: Result<&StreamEvent, &Error>) {}
+
+    /// Observes one retry decided by
+    /// [`RetryMiddleware`](super::RetryMiddleware).
+    ///
+    /// `attempt` is the attempt that just failed with `error`, counted from 1
+    /// as [`CallContext::attempt`](super::CallContext::attempt) does. The
+    /// middleware waits `delay` and then runs attempt `attempt + 1`. Failures
+    /// the policy refuses to retry are not reported here; that error reaches
+    /// the caller instead.
+    ///
+    /// This hook fires only for observers given to the retry middleware
+    /// through [`RetryMiddleware::observer`](super::RetryMiddleware::observer).
+    /// [`ObserverMiddleware`] never calls it, because a middleware outside the
+    /// retry layer sees one logical call, not its attempts.
+    fn on_retry(&self, _call: &Call, _error: &Error, _attempt: u32, _delay: Duration) {}
 }
 
 /// Adapts an observer into middleware.
