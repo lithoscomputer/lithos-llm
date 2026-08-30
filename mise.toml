@@ -15,34 +15,41 @@ rust = [
 zizmor = "1.29.0"
 
 [tasks.setup]
+quiet = true
 description = "Prepare the pinned Rust style guide"
 run = "bin/style-guides prepare"
 
 [tasks.dev]
+quiet = true
 description = "Check all default-feature targets"
-run = "cargo check --locked --workspace --all-targets"
+run = "cargo check -q --locked --workspace --all-targets"
 
 [tasks.fmt]
+quiet = true
 description = "Format Rust with the pinned nightly formatter"
 run = "cargo +nightly-2026-04-14 fmt --all"
 
 [tasks."fmt:check"]
+quiet = true
 description = "Check Rust formatting without changing files"
 run = "cargo +nightly-2026-04-14 fmt --check --all"
 
 [tasks.lint]
+quiet = true
 description = "Lint all Rust targets with warnings denied"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/clippy" }
-run = "cargo clippy --locked --workspace --all-targets --all-features -- -D warnings"
+run = "cargo clippy -q --locked --workspace --all-targets --all-features -- -D warnings"
 
 [tasks.test]
+quiet = true
 description = "Run all Rust tests with Nextest"
-run = "cargo nextest run --locked --workspace --all-targets --all-features --no-tests=pass"
+run = "cargo nextest run --cargo-quiet --status-level fail --locked --workspace --all-targets --all-features --no-tests=pass"
 
 [tasks."test:default-features"]
+quiet = true
 description = "Run the tests with the default feature set"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
-run = "cargo nextest run --locked --workspace --all-targets --no-tests=pass"
+run = "cargo nextest run --cargo-quiet --status-level fail --locked --workspace --all-targets --no-tests=pass"
 
 # The E2E suite runs against one of three backends. `test:e2e` (the
 # default) replays the committed recording offline through a twin-openai
@@ -53,14 +60,18 @@ run = "cargo nextest run --locked --workspace --all-targets --no-tests=pass"
 # `mise run test:e2e:record`.
 #
 # Nextest gives every test its own process, so --test-threads caps
-# concurrent requests. --success-output final keeps passing tests' stderr
-# in the log: the effort, cache-bucket, and rate-limit probes report
-# through it.
+# concurrent requests. Task output stays quiet while passing (agents
+# consume it): cargo runs with -q, Nextest hides per-test PASS lines with
+# --status-level fail, and only the record and live tasks keep
+# --success-output final, because the effort, cache-bucket, and rate-limit
+# probes report fresh observations through passing tests' stderr there —
+# under replay the same output is just the recording played back.
 [tasks."test:e2e"]
+quiet = true
 description = "Replay the E2E suite offline against the committed recording"
 run = """
 set -e
-cargo build --locked --all-features --example e2e_twin
+cargo build -q --locked --all-features --example e2e_twin
 LITHOS_E2E_TWIN_MODE=replay ./target/debug/examples/e2e_twin &
 VENICE_TWIN_PID=$!
 LITHOS_E2E_TWIN_MODE=replay \
@@ -95,15 +106,16 @@ for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3923/healthz >/dev/null 2>&1 
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3924/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3925/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
-LITHOS_E2E_BACKEND=replay cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
+LITHOS_E2E_BACKEND=replay cargo nextest run --cargo-quiet --status-level fail --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --no-tests=pass
 """
 
 [tasks."test:e2e:record"]
+quiet = true
 description = "Re-record the E2E suite through the twin proxy (spends provider credits)"
 run = """
 set -e
 set -a; [ -f .env ] && . ./.env; set +a
-cargo build --locked --all-features --example e2e_twin
+cargo build -q --locked --all-features --example e2e_twin
 LITHOS_E2E_TWIN_MODE=record ./target/debug/examples/e2e_twin &
 VENICE_TWIN_PID=$!
 LITHOS_E2E_TWIN_MODE=record \
@@ -158,30 +170,35 @@ for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3925/healthz >/dev/null 2>&1 
 if [ -n "$CODEX_TWIN_PID" ]; then
   for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 fi
-LITHOS_E2E_BACKEND=record cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
+LITHOS_E2E_BACKEND=record cargo nextest run --cargo-quiet --status-level fail --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
 """
 
 [tasks."test:e2e:live"]
+quiet = true
 description = "Run the live provider E2E suite unproxied (spends provider credits)"
-run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; LITHOS_E2E_BACKEND=live cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass'"
+run = "sh -c 'set -a; [ -f .env ] && . ./.env; set +a; LITHOS_E2E_BACKEND=live cargo nextest run --cargo-quiet --status-level fail --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass'"
 
 [tasks."test:release"]
+quiet = true
 description = "Run all Rust tests in release mode"
-run = "cargo nextest run --locked --release --workspace --all-targets --all-features --no-tests=pass"
+run = "cargo nextest run --cargo-quiet --status-level fail --locked --release --workspace --all-targets --all-features --no-tests=pass"
 
 [tasks."check:msrv"]
+quiet = true
 description = "Check all targets with the declared minimum Rust version"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/msrv" }
-run = "cargo +1.88.0 check --locked --workspace --all-targets --all-features"
+run = "cargo +1.88.0 check -q --locked --workspace --all-targets --all-features"
 
 [tasks."check:actions"]
+quiet = true
 description = "Audit GitHub Actions workflows"
-run = "zizmor .github/workflows"
+run = "zizmor -qq .github/workflows"
 
 [tasks."check:catalog-only"]
+quiet = true
 description = "Verify that catalog-only builds exclude runtime dependencies"
 run = '''
-cargo check --locked -p lithos-llm --no-default-features --features builtin-catalog
+cargo check -q --locked -p lithos-llm --no-default-features --features builtin-catalog
 if cargo tree --locked -p lithos-llm -e normal --no-default-features --features builtin-catalog | grep -Eq '(^| )(tokio|reqwest|aws-[a-z0-9_-]+) v'; then
   echo "catalog-only feature unexpectedly includes a runtime dependency" >&2
   exit 1
@@ -189,10 +206,11 @@ fi
 '''
 
 [tasks."check:features"]
+quiet = true
 description = "Check each additive feature and the AWS SDK boundary"
 run = '''
 for feature in runtime openai anthropic gemini openai-compatible bedrock bedrock-aws; do
-  cargo check --locked -p lithos-llm --no-default-features --features "$feature"
+  cargo check -q --locked -p lithos-llm --no-default-features --features "$feature"
 done
 
 # `aws-lc-rs` and `aws-lc-sys` are the rustls TLS backend, not AWS SDK crates.
@@ -210,17 +228,21 @@ assert_no_aws_sdk "the bedrock feature" -p lithos-llm --no-default-features --fe
 '''
 
 [tasks."check:whitespace"]
+quiet = true
 description = "Check tracked and untracked patches for whitespace errors"
 run = ["git diff --check", "git diff --cached --check"]
 
 [tasks.check]
+quiet = true
 description = "Run the complete routine verification gate"
 depends = ["fmt:check", "lint", "test", "test:default-features", "test:e2e", "check:actions", "check:catalog-only", "check:features", "check:whitespace"]
 
 [tasks."check:nightly"]
+quiet = true
 description = "Run the extended nightly verification gate"
 depends = ["check", "check:msrv", "test:release"]
 
 [tasks.release]
+quiet = true
 description = "Build and checksum a crates.io source package"
 run = "bin/build-release"

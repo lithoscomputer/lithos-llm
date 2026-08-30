@@ -63,9 +63,19 @@ Each per-provider E2E catalog declares its models' capabilities. The tests
 treat those claims as assertions:
 a capability the catalog claims but the provider rejects is a failure, not
 a skip. Probe tests record live behavior nothing pins yet (effort levels,
-cache buckets, rate limits); their output stays in the run log through
-`--success-output final`. Tests that only make sense live — error
-classification, timing, the model listing — skip under record and replay.
+cache buckets, rate limits); the record and live tasks keep their output
+in the run log through `--success-output final`, while the replay task
+drops it — replayed probe output is just the recording played back. Tests
+that only make sense live — error classification, timing, the model
+listing — skip under record and replay.
+
+Task output stays quiet while everything passes, because agents consume
+it: cargo runs with `-q`, Nextest hides per-test `PASS` lines with
+`--status-level fail`, and every feature subset compiles warning-free —
+items that only some features use carry `cfg` gates, so a dead-code
+warning in any build is a real finding, never expected noise. A green
+`mise run check` prints little more than one summary line per suite;
+failures still print in full.
 
 The replay backend covers the OpenAI-compatible providers that the twin can
 proxy. Anthropic and Gemini use native protocols, and Modal needs two upstream
