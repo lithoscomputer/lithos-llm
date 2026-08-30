@@ -2416,7 +2416,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -2716,7 +2716,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 [[package]]
 name = "twin-openai"
 version = "0.1.5"
-source = "git+https://github.com/lithoscomputer/twins?rev=b0691fb2a70b57ae1a68b8ee093320b738696e9d#b0691fb2a70b57ae1a68b8ee093320b738696e9d"
+source = "git+https://github.com/lithoscomputer/twins?rev=89dd9eae4e01fcdad126862e587275b4d3cc55d1#89dd9eae4e01fcdad126862e587275b4d3cc55d1"
 dependencies = [
  "anyhow",
  "async-stream",

@@ -89,13 +89,25 @@ This project follows [Semantic Versioning](https://semver.org/).
   vocabulary), caching, vision, sampling, native token counting, and
   error classification across the eight-model roster, with a committed
   record/replay recording behind a fifth twin.
-- A live Codex battery (`tests/e2e/openai/codex.rs`, gated on
-  `OPENAI_CODEX_TOKEN` and `CHATGPT_ACCOUNT_ID`) drives the full client
-  through the ChatGPT-subscription deployment: the forced stream behind
-  a blocking call, hoisted instructions, the tool round trip with
-  encrypted-reasoning replay, the dropped output cap, the seat roster's
-  pro-row refusal, and the deployment's empty terminal `output` array,
-  which the stream assembler already treats as a trimmed document.
+- The Codex E2E suite (`tests/e2e/openai/codex.rs`) drives the full
+  client through the ChatGPT-subscription deployment across its
+  six-model roster — completion through the forced stream with hoisted
+  instructions, streaming, multi-turn history, forced tools surviving
+  the deployment's empty terminal `output` array, structured output,
+  vision, each model's effort vocabulary, and the encrypted-reasoning
+  tool round trip — plus the envelope cells: the dropped output cap's
+  warning, the local sampling refusal, the seat roster's pro-row
+  refusal, and the local no-native-count answer. The suite records and
+  replays behind a sixth twin (the twins `codex-passthrough` revision
+  rebases the upstream path, forwards the seat headers, and classifies
+  the deployment's header-less SSE responses by the request's stream
+  flag); replay runs offline in `mise run check` from the committed
+  recording, recording needs `OPENAI_CODEX_TOKEN` and
+  `CHATGPT_ACCOUNT_ID` exported, and live runs unproxied with the same
+  variables. The wire suite pins the codex dialect offline too: the
+  unversioned request path, the tool round trip with hoisted
+  instructions, and a tool call assembled from streamed items when the
+  terminal document's `output` is empty.
 
 ### Changed
 

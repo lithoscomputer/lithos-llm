@@ -83,12 +83,18 @@ LITHOS_E2E_TWIN_ADDR=127.0.0.1:3925 \
 LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/openai.json \
 ./target/debug/examples/e2e_twin &
 OPENAI_TWIN_PID=$!
-trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID 2>/dev/null || true' EXIT
+LITHOS_E2E_TWIN_MODE=replay \
+LITHOS_E2E_TWIN_ADDR=127.0.0.1:3926 \
+LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/openai_codex.json \
+./target/debug/examples/e2e_twin &
+CODEX_TWIN_PID=$!
+trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID $CODEX_TWIN_PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3922/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3923/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3924/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3925/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 LITHOS_E2E_BACKEND=replay cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
 """
 
@@ -128,12 +134,30 @@ LITHOS_E2E_UPSTREAM_URL=https://api.openai.com \
 LITHOS_E2E_API_KEY_VARIABLE=OPENAI_API_KEY \
 ./target/debug/examples/e2e_twin &
 OPENAI_TWIN_PID=$!
-trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID 2>/dev/null || true' EXIT
+# The Codex twin needs a ChatGPT OAuth token that no .env line carries
+# (export OPENAI_CODEX_TOKEN and CHATGPT_ACCOUNT_ID before recording, e.g.
+# from the Codex CLI's ~/.codex/auth.json). Without the token the twin is
+# not started and the codex cells skip on the missing CHATGPT_ACCOUNT_ID.
+CODEX_TWIN_PID=""
+if [ -n "$OPENAI_CODEX_TOKEN" ]; then
+  LITHOS_E2E_TWIN_MODE=record \
+  LITHOS_E2E_TWIN_ADDR=127.0.0.1:3926 \
+  LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/openai_codex.json \
+  LITHOS_E2E_UPSTREAM_URL=https://chatgpt.com/backend-api/codex \
+  LITHOS_E2E_UPSTREAM_RESPONSES_PATH=/responses \
+  LITHOS_E2E_API_KEY_VARIABLE=OPENAI_CODEX_TOKEN \
+  ./target/debug/examples/e2e_twin &
+  CODEX_TWIN_PID=$!
+fi
+trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID $CODEX_TWIN_PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3922/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3923/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3924/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3925/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+if [ -n "$CODEX_TWIN_PID" ]; then
+  for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+fi
 LITHOS_E2E_BACKEND=record cargo nextest run --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
 """
 

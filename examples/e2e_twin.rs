@@ -15,11 +15,12 @@
 //! `LITHOS_E2E_API_KEY_VARIABLE` override them when needed. Set
 //! `LITHOS_E2E_RECORDING_APPEND=1` to add focused reruns to a recording.
 
-use std::env;
 use std::error::Error as StdError;
 use std::net::SocketAddr;
+use std::{env, io};
 
 use tokio::net::TcpListener;
+use tracing_subscriber::EnvFilter;
 use twin_openai::config::{Config, Mode, RecordFormat};
 
 const DEFAULT_ADDR: &str = "127.0.0.1:3921";
@@ -29,6 +30,16 @@ const VENICE_KEY_VARIABLE: &str = "VENICE_API_KEY";
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn StdError>> {
+    // The twin warns when an exchange passes through unrecorded; without a
+    // subscriber those warnings vanish, and an empty recording is the first
+    // sign anything went wrong. Default to warnings-and-up on stderr.
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn")),
+        )
+        .with_writer(io::stderr)
+        .init();
+
     let addr: SocketAddr = env::var("LITHOS_E2E_TWIN_ADDR")
         .unwrap_or_else(|_| DEFAULT_ADDR.to_owned())
         .parse()?;
@@ -51,6 +62,10 @@ async fn main() -> Result<(), Box<dyn StdError>> {
             Config {
                 mode: Mode::ProxyRecord,
                 upstream_url: upstream,
+                // The Codex deployment hangs its Responses endpoint off an
+                // unversioned path; the twin rebases the upstream half of
+                // the exchange when this is set.
+                upstream_responses_path: env::var("LITHOS_E2E_UPSTREAM_RESPONSES_PATH").ok(),
                 upstream_api_key: Some(env::var(key_variable)?),
                 recording_path: Some(recording.into()),
                 record_format: RecordFormat::Transcript,
