@@ -4,7 +4,7 @@ use std::process::ExitCode;
 
 use lithos_llm::Client;
 use lithos_llm::middleware::CancellationToken;
-use lithos_llm_cli::{ExitStatus, ProcessIo, TerminalState};
+use lithos_llm_cli::{ExitStatus, ProcessIo, TerminalState, format_error_chain};
 use tokio::signal::ctrl_c;
 
 #[tokio::main]
@@ -12,7 +12,8 @@ async fn main() -> ExitCode {
     let build = match Client::from_env() {
         Ok(build) => build,
         Err(error) => {
-            let _ignored = writeln!(stderr().lock(), "error: configuration: {error}");
+            let diagnostic = format_error_chain(&error);
+            let _ignored = writeln!(stderr().lock(), "error: configuration: {diagnostic}");
             return ExitCode::from(ExitStatus::Failure.code());
         }
     };

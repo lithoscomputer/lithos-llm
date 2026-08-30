@@ -1,3 +1,5 @@
+use std::error::Error as StdError;
+use std::fmt;
 use std::io::{self, Cursor, Write};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -93,6 +95,17 @@ impl ProviderAdapter for RecordingAdapter {
 
 struct FailingAdapter;
 
+#[derive(Debug)]
+struct ProviderSource;
+
+impl fmt::Display for ProviderSource {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("the upstream connection closed")
+    }
+}
+
+impl StdError for ProviderSource {}
+
 #[async_trait]
 impl ProviderAdapter for FailingAdapter {
     fn id(&self) -> &AdapterId {
@@ -115,6 +128,7 @@ fn provider_error() -> Error {
         .with_status(429)
         .with_provider_code("rate_limit")
         .with_provider_retry_after(Duration::from_secs(2))
+        .with_source(ProviderSource)
 }
 
 fn response(text: &str) -> Response {
@@ -370,6 +384,27 @@ async fn reports_safe_provider_error_fields_on_standard_error() {
     assert!(diagnostic.contains("status=429"));
     assert!(diagnostic.contains("code=rate_limit"));
     assert!(diagnostic.contains("retry_after=2s"));
+    assert!(diagnostic.contains("caused by: the upstream connection closed"));
+}
+
+#[tokio::test]
+async fn reports_input_error_source_chains() {
+    let build = client(RecordingAdapter::default());
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lithos", "hello", "--schema", "{"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Usage);
+    assert!(stdout.is_empty());
+    let diagnostic = String::from_utf8(stderr).expect("diagnostic should be UTF-8");
+    assert!(diagnostic.contains("error: schema is not valid JSON"));
+    assert!(diagnostic.contains("caused by:"));
+    assert!(diagnostic.contains("line 1 column 1"), "{diagnostic}");
 }
 
 #[tokio::test]

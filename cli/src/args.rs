@@ -270,16 +270,14 @@ fn parse_duration(raw: &str) -> Result<Duration, String> {
 
 pub fn read_schema(raw: &str) -> CliResult<serde_json::Value> {
     let text = if let Some(path) = raw.strip_prefix('@') {
-        fs::read_to_string(PathBuf::from(path)).map_err(|source| CliError::Input {
-            message: format!("could not read schema file `{path}`: {source}"),
+        fs::read_to_string(PathBuf::from(path)).map_err(|source| {
+            CliError::input_source(format!("could not read schema file `{path}`"), source)
         })?
     } else {
         raw.to_owned()
     };
-    let schema: serde_json::Value =
-        serde_json::from_str(&text).map_err(|source| CliError::Input {
-            message: format!("schema is not valid JSON: {source}"),
-        })?;
+    let schema: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|source| CliError::input_source("schema is not valid JSON", source))?;
     if !schema.is_object() {
         return Err(CliError::Input {
             message: "schema must be a JSON object".to_owned(),

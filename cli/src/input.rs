@@ -30,9 +30,7 @@ pub(crate) fn prepare(
     if stdin_attachments == 1 || !stdin_is_terminal {
         stdin
             .read_to_end(&mut stdin_bytes)
-            .map_err(|source| CliError::Input {
-                message: format!("could not read standard input: {source}"),
-            })?;
+            .map_err(|source| CliError::input_source("could not read standard input", source))?;
     }
 
     let argument_text = prompt_arguments.join(" ");

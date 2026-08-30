@@ -88,9 +88,9 @@ fn build_request(
     }
     builder = builder.message(Message::new(Role::User, parts.iter().cloned()));
     builder = apply_controls(builder, args, format, option_provider);
-    builder.build().map_err(|source| CliError::Input {
-        message: source.to_string(),
-    })
+    builder
+        .build()
+        .map_err(|source| CliError::input_source("request is invalid", source))
 }
 
 fn apply_controls(

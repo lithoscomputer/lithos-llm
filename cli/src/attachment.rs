@@ -26,9 +26,8 @@ pub(crate) fn load(argument: &AttachmentArg, stdin: Option<&[u8]>) -> CliResult<
 }
 
 fn url_part(argument: &AttachmentArg) -> CliResult<ContentPart> {
-    let url = Url::parse(&argument.source).map_err(|source| CliError::Input {
-        message: format!("attachment URL `{}` is invalid: {source}", argument.source),
-    })?;
+    let url = Url::parse(&argument.source)
+        .map_err(|source| CliError::input_source("attachment URL is invalid", source))?;
     if !matches!(url.scheme(), "http" | "https") {
         return Err(CliError::Input {
             message: format!(
@@ -40,10 +39,8 @@ fn url_part(argument: &AttachmentArg) -> CliResult<ContentPart> {
     let media_type = match argument.media_type.as_deref() {
         Some(media_type) => parse_media_type(media_type)?,
         None => infer_from_path(Path::new(url.path())).ok_or_else(|| CliError::Input {
-            message: format!(
-                "could not infer the media type for URL `{}`; use --attachment-type",
-                argument.source
-            ),
+            message: "could not infer the remote attachment media type; use --attachment-type"
+                .to_owned(),
         })?,
     };
     let source = MediaSource::url_with_media_type(&argument.source, &media_type);
@@ -57,8 +54,11 @@ fn url_part(argument: &AttachmentArg) -> CliResult<ContentPart> {
 
 fn file_part(argument: &AttachmentArg) -> CliResult<ContentPart> {
     let path = PathBuf::from(&argument.source);
-    let bytes = fs::read(&path).map_err(|source| CliError::Input {
-        message: format!("could not read attachment `{}`: {source}", path.display()),
+    let bytes = fs::read(&path).map_err(|source| {
+        CliError::input_source(
+            format!("could not read attachment `{}`", path.display()),
+            source,
+        )
     })?;
     let media_type = match argument.media_type.as_deref() {
         Some(media_type) => parse_media_type(media_type)?,
@@ -88,11 +88,9 @@ fn classified_part(
     media_type: &str,
     name: Option<String>,
 ) -> CliResult<ContentPart> {
-    let parsed = media_type
-        .parse::<mime::Mime>()
-        .map_err(|source| CliError::Input {
-            message: format!("media type `{media_type}` is invalid: {source}"),
-        })?;
+    let parsed = media_type.parse::<mime::Mime>().map_err(|source| {
+        CliError::input_source(format!("media type `{media_type}` is invalid"), source)
+    })?;
     match parsed.type_().as_str() {
         "image" => Ok(ContentPart::Image(ImageContent::new(source))),
         "audio" => Ok(ContentPart::Audio(AudioContent::new(source))),
@@ -121,9 +119,7 @@ fn required_media_type(argument: &AttachmentArg) -> CliResult<String> {
 fn parse_media_type(raw: &str) -> CliResult<String> {
     raw.parse::<mime::Mime>()
         .map(|media_type| media_type.essence_str().to_owned())
-        .map_err(|source| CliError::Input {
-            message: format!("media type `{raw}` is invalid: {source}"),
-        })
+        .map_err(|source| CliError::input_source(format!("media type `{raw}` is invalid"), source))
 }
 
 fn infer_from_path(path: &Path) -> Option<String> {

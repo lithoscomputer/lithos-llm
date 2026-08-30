@@ -1,3 +1,4 @@
+use std::error::Error as StdError;
 use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::io::{Error as IoError, Read, Write};
@@ -23,6 +24,12 @@ pub type CliResult<T> = Result<T, CliError>;
 pub enum CliError {
     #[error("{message}")]
     Input { message: String },
+    #[error("{message}")]
+    InputSource {
+        message: String,
+        #[source]
+        source:  Box<dyn StdError + Send + Sync>,
+    },
     #[error("{0}")]
     Llm(#[source] LlmError),
     #[error("the operation was interrupted")]
@@ -31,6 +38,18 @@ pub enum CliError {
     Json(#[source] serde_json::Error),
     #[error("could not write output")]
     Output(#[source] IoError),
+}
+
+impl CliError {
+    pub(crate) fn input_source(
+        message: impl Into<String>,
+        source: impl StdError + Send + Sync + 'static,
+    ) -> Self {
+        Self::InputSource {
+            message: message.into(),
+            source:  Box::new(source),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -131,7 +150,7 @@ where
 
 fn status_for(error: &CliError) -> ExitStatus {
     match error {
-        CliError::Input { .. } => ExitStatus::Usage,
+        CliError::Input { .. } | CliError::InputSource { .. } => ExitStatus::Usage,
         CliError::Interrupted => ExitStatus::Interrupted,
         CliError::Llm(error) => match error.kind() {
             ErrorKind::ModelSelection | ErrorKind::InvalidRequest => ExitStatus::Usage,
@@ -144,7 +163,7 @@ fn status_for(error: &CliError) -> ExitStatus {
 
 fn render_error(error: &CliError) -> String {
     let CliError::Llm(error) = error else {
-        return format!("error: {error}");
+        return format!("error: {}", format_error_chain(error));
     };
     let mut rendered = format!("error: {}: {}", error_kind(error.kind()), error.message());
     if let Some(provider) = error.provider() {
@@ -159,7 +178,23 @@ fn render_error(error: &CliError) -> String {
     if let Some(delay) = error.provider_retry_after() {
         let _ignored = write!(rendered, " retry_after={}", duration_text(delay));
     }
+    append_sources(&mut rendered, error);
     rendered
+}
+
+/// Formats an error and each preserved source for command-line diagnostics.
+pub fn format_error_chain(error: &(dyn StdError + 'static)) -> String {
+    let mut rendered = error.to_string();
+    append_sources(&mut rendered, error);
+    rendered
+}
+
+fn append_sources(rendered: &mut String, error: &(dyn StdError + 'static)) {
+    let mut source = error.source();
+    while let Some(cause) = source {
+        let _ignored = write!(rendered, "\n  caused by: {cause}");
+        source = cause.source();
+    }
 }
 
 const fn error_kind(kind: ErrorKind) -> &'static str {
