@@ -7,9 +7,11 @@ use lithos_llm::Client;
 use lithos_llm::middleware::CancellationToken;
 use lithos_llm_cli::{ExitStatus, ProcessIo, TerminalState, format_error_chain};
 use tokio::signal::ctrl_c;
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    init_tracing();
     let build = match Client::from_env() {
         Ok(build) => build,
         Err(error) => {
@@ -53,6 +55,30 @@ async fn main() -> ExitCode {
         }
     };
     ExitCode::from(status.code())
+}
+
+/// Installs a stderr tracing subscriber when `RUST_LOG` is set.
+///
+/// Without `RUST_LOG` no subscriber is installed, so normal use prints no
+/// telemetry and stdout stays reserved for command output.
+fn init_tracing() {
+    if env::var_os("RUST_LOG").is_none() {
+        return;
+    }
+    match EnvFilter::try_from_default_env() {
+        Ok(filter) => {
+            tracing_subscriber::fmt()
+                .with_env_filter(filter)
+                .with_writer(stderr)
+                .init();
+        }
+        Err(error) => {
+            let _ignored = writeln!(
+                stderr().lock(),
+                "warning: RUST_LOG is not a valid filter: {error}"
+            );
+        }
+    }
 }
 
 async fn run_until_signal<R, S, E>(
