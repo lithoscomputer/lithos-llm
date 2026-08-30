@@ -1288,6 +1288,37 @@ async fn stream_usage_is_last_wins_and_the_completed_response_carries_no_raw() {
     );
 }
 
+/// A stream that ends without any `finishReason` completes once and says it
+/// is incomplete.
+///
+/// INTENTIONAL DIFFERENCE: the reference synthesized a `Stop` finish for this
+/// case, so a stream the transport cut short read as a finished answer. Every
+/// successful stream here ends with exactly one `completed`, and one the
+/// provider never finished says so.
+#[tokio::test]
+async fn a_stream_without_a_finish_reason_completes_as_incomplete() {
+    let transcript = sse_data_transcript(&[
+        r#"{"responseId":"resp-gemini-cut","candidates":[{"content":{"role":"model","parts":[{"text":"Half an"}]}}]}"#,
+        r#"{"responseId":"resp-gemini-cut","candidates":[{"content":{"role":"model","parts":[{"text":" answer"}]}}],"usageMetadata":{"promptTokenCount":8,"candidatesTokenCount":3}}"#,
+    ]);
+
+    let (_, events) = stream(support::base_request(&selector()), &transcript).await;
+
+    assert_stream_contract(&events);
+    let completed = events.last().expect("the stream should produce events");
+    assert_eq!(completed["type"], "completed");
+    assert_eq!(
+        completed["response"]["finish_reason"],
+        json!("incomplete"),
+        "the provider never said why it stopped"
+    );
+    assert_eq!(
+        completed["response"]["content"][0]["text"],
+        json!("Half an answer")
+    );
+    crate::json_snapshot!(events);
+}
+
 #[tokio::test]
 async fn stream_error_chunk_ends_the_stream_without_completing() {
     let transcript = sse_data_transcript(&[

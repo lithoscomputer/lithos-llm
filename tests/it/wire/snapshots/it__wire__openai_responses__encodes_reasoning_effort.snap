@@ -1,0 +1,56 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Think hard about this.",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-luna-2026-04-01",
+    "reasoning": {
+      "effort": "high"
+    },
+    "store": false,
+    "stream": false
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "228"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/v1/responses"
+}

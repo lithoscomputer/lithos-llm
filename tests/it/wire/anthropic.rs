@@ -19,8 +19,9 @@
 
 use httpmock::{Method, Mock, MockServer};
 use lithos_llm::types::{
-    ContentPart, ErrorKind, ImageContent, MediaSource, Message, ReasoningEffort, ResponseFormat,
-    RetryClassification, Role, Speed, ToolCall, ToolChoice, ToolDefinition, ToolResult,
+    ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ReasoningEffort,
+    ResponseFormat, RetryClassification, Role, Speed, ToolCall, ToolChoice, ToolDefinition,
+    ToolResult,
 };
 use lithos_llm::{Client, Request};
 use serde_json::{Value, json};
@@ -1390,6 +1391,29 @@ async fn decodes_disjoint_usage_without_subtraction() {
     assert_eq!(response.usage.total(), 11_250);
     assert_eq!(response.usage.billable_output(), 1200);
 
+    crate::json_snapshot!(response);
+}
+
+/// `stop_reason: max_tokens` on the blocking path decodes as `Length`.
+///
+/// A consumer's tool loop branches on the finish reason, so a turn the output
+/// limit cut short must never read as one the model finished on its own.
+#[tokio::test]
+async fn a_max_tokens_stop_decodes_as_length() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_for(&server);
+    let mut truncated = text_response();
+    truncated["stop_reason"] = json!("max_tokens");
+    truncated["content"] = json!([{ "type": "text", "text": "Hello ba" }]);
+    let (_mock, _slot) = support::mount_capture(&server, MESSAGES_PATH, &truncated);
+
+    let response = client
+        .complete(support::base_request(&model))
+        .await
+        .expect("a truncated answer still decodes");
+
+    assert_eq!(response.finish_reason, FinishReason::Length);
+    assert_eq!(response.text(), "Hello ba");
     crate::json_snapshot!(response);
 }
 

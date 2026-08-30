@@ -13,8 +13,8 @@
 
 use httpmock::{Method, MockServer};
 use lithos_llm::types::{
-    ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ResponseFormat,
-    RetryClassification, Role, ToolCall, ToolChoice, ToolDefinition, ToolResult,
+    ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ReasoningEffort,
+    ResponseFormat, RetryClassification, Role, ToolCall, ToolChoice, ToolDefinition, ToolResult,
 };
 use lithos_llm::{Client, Request};
 use serde_json::{Value, json};
@@ -505,6 +505,10 @@ async fn encodes_inline_attachments() {
 /// never wrote into their prompt and the model answers them. Failing early is
 /// the safer contract, and the test proves it is early: the mock must record
 /// zero calls, so nothing was sent and nothing was billed.
+/// INTENTIONAL DIFFERENCE: the reference sent audio to this endpoint as an
+/// `input_audio` part the Responses API does not define, and the provider
+/// answered a prompt the caller never wrote. Audio is refused before dispatch
+/// instead.
 #[tokio::test]
 async fn rejects_audio_before_dispatch() {
     let (server, client) = wire().await;
@@ -594,6 +598,118 @@ async fn encodes_sampling_controls_including_stop_sequences() {
         "nothing in this request was refused: {:?}",
         response.warnings,
     );
+    crate::json_snapshot!(captured);
+    crate::json_snapshot!(response);
+}
+
+/// A reasoning effort reaches the wire as `reasoning.effort`.
+#[tokio::test]
+async fn encodes_reasoning_effort() {
+    let (server, client) = wire().await;
+    let (_mock, slot) = support::mount_capture(&server, RESPONSES_PATH, &text_document());
+    let request = Request::builder()
+        .model(selector())
+        .user("Think hard about this.")
+        .reasoning_effort(ReasoningEffort::High)
+        .build()
+        .expect("the effort request should build");
+
+    let response = client
+        .complete(request)
+        .await
+        .expect("the effort request should complete");
+
+    let captured = support::captured(&slot);
+    assert_eq!(
+        captured.body.get("reasoning"),
+        Some(&json!({ "effort": "high" })),
+        "the normalized effort level is the provider's own spelling here",
+    );
+    crate::json_snapshot!(captured);
+    crate::json_snapshot!(response);
+}
+
+/// A `status: incomplete` document on the blocking path decodes as `Length`.
+///
+/// A consumer's tool loop branches on the finish reason, so a turn the output
+/// limit cut short must never read as one the model finished on its own.
+#[tokio::test]
+async fn an_incomplete_response_decodes_as_length() {
+    let (server, client) = wire().await;
+    let mut document = text_document();
+    document["status"] = json!("incomplete");
+    document["incomplete_details"] = json!({ "reason": "max_output_tokens" });
+    let (_mock, _slot) = support::mount_capture(&server, RESPONSES_PATH, &document);
+
+    let response = client
+        .complete(support::base_request(&selector()))
+        .await
+        .expect("an incomplete answer still decodes");
+
+    assert_eq!(response.finish_reason, FinishReason::Length);
+    assert_eq!(response.text(), "Hello there.");
+    crate::json_snapshot!(response);
+}
+
+/// The Codex deployment streams every call and takes no sampling controls.
+///
+/// A blocking `complete` against a Codex-mode provider is served by a
+/// streaming request whose events are assembled into one response, and the
+/// sampling fields the deployment rejects are left off the wire. This is
+/// adapter behavior layered over the codec, so only a wire test can pin it.
+#[tokio::test]
+async fn codex_mode_streams_a_complete_call_and_drops_sampling_controls() {
+    let server = MockServer::start_async().await;
+    let source = format!(
+        "{}\n[providers.\"{PROVIDER}\".adapter_options]\nmode = \"codex\"\n",
+        provider().toml(&server.base_url())
+    );
+    let client = support::client_for(
+        support::catalog_from_toml("wire-codex", &source),
+        PROVIDER,
+        support::bearer_credentials(),
+    );
+    let completed =
+        json!({ "type": "response.completed", "response": text_document() }).to_string();
+    let transcript = support::sse_transcript(&[
+        (
+            "response.created",
+            r#"{"type":"response.created","response":{"id":"resp_text","status":"in_progress"}}"#,
+        ),
+        (
+            "response.output_item.added",
+            r#"{"type":"response.output_item.added","output_index":0,"item":{"type":"message","id":"msg_text","role":"assistant","content":[]}}"#,
+        ),
+        (
+            "response.output_text.delta",
+            r#"{"type":"response.output_text.delta","item_id":"msg_text","delta":"Hello there."}"#,
+        ),
+        (
+            "response.output_item.done",
+            r#"{"type":"response.output_item.done","output_index":0,"item":{"type":"message","id":"msg_text","role":"assistant","content":[{"type":"output_text","text":"Hello there."}]}}"#,
+        ),
+        ("response.completed", &completed),
+    ]);
+    let (_mock, slot) = support::mount_capture_sse(&server, RESPONSES_PATH, &transcript);
+
+    let response = client
+        .complete(support::sampling_request(&selector()))
+        .await
+        .expect("a codex-mode complete call should be served by a stream");
+
+    let captured = support::captured(&slot);
+    assert_eq!(
+        captured.body.get("stream"),
+        Some(&json!(true)),
+        "codex mode streams a blocking call"
+    );
+    assert_eq!(
+        captured.body.get("temperature"),
+        None,
+        "the deployment rejects sampling controls"
+    );
+    assert_eq!(captured.body.get("top_p"), None);
+    assert_eq!(response.text(), "Hello there.");
     crate::json_snapshot!(captured);
     crate::json_snapshot!(response);
 }

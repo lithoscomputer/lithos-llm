@@ -8,6 +8,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The wire suites now cover the last of the reference implementation's
+  request corpus: Codex-mode streaming of a blocking call with sampling
+  controls dropped and a `reasoning.effort` field on OpenAI Responses, a
+  `status: incomplete` document and an Anthropic `max_tokens` stop decoding
+  as `Length`, a Venice top-level cost inside a stream, and streams that end
+  without `[DONE]` or a Gemini `finishReason` completing once as
+  `incomplete`. Every intentional departure from the reference is now
+  explained beside its fixture.
+
 - The serialized forms of `Request`, `Response`, every `StreamEvent`,
   `ErrorData`, `TokenCounts`, and the `ErrorKind` and `RetryClassification`
   vocabularies are pinned by snapshot tests in `tests/serialization.rs`.

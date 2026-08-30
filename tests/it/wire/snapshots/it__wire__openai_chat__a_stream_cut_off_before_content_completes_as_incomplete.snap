@@ -1,0 +1,29 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+[
+  {
+    "id": "chatcmpl-cut",
+    "type": "started"
+  },
+  {
+    "response": {
+      "content": [],
+      "finish_reason": "incomplete",
+      "id": "chatcmpl-cut",
+      "model": {
+        "model": "compat-chat",
+        "provider": "compat"
+      },
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 0,
+        "output": 0,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

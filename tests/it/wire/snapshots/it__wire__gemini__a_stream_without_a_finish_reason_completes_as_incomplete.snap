@@ -1,0 +1,69 @@
+---
+source: tests/it/wire/gemini.rs
+expression: rendered
+---
+[
+  {
+    "id": "resp-gemini-cut",
+    "type": "started"
+  },
+  {
+    "id": "text-0",
+    "kind": {
+      "type": "text"
+    },
+    "type": "content_block_start"
+  },
+  {
+    "id": "text-0",
+    "text": "Half an",
+    "type": "text_delta"
+  },
+  {
+    "id": "text-0",
+    "text": " answer",
+    "type": "text_delta"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 8,
+      "output": 3,
+      "reasoning": 0
+    }
+  },
+  {
+    "id": "text-0",
+    "part": {
+      "text": "Half an answer",
+      "type": "text"
+    },
+    "type": "content_block_end"
+  },
+  {
+    "response": {
+      "content": [
+        {
+          "text": "Half an answer",
+          "type": "text"
+        }
+      ],
+      "finish_reason": "incomplete",
+      "id": "resp-gemini-cut",
+      "model": {
+        "model": "gemini-3.1-pro",
+        "provider": "gemini"
+      },
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 8,
+        "output": 3,
+        "reasoning": 0
+      }
+    },
+    "type": "completed"
+  }
+]

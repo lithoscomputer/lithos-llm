@@ -1,0 +1,61 @@
+---
+source: tests/it/wire/openai_responses.rs
+expression: rendered
+---
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "Write one sentence.",
+            "type": "input_text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "instructions": "",
+    "metadata": {
+      "tenant": "acme"
+    },
+    "model": "gpt-5.6-luna-2026-04-01",
+    "stop": [
+      "END",
+      "STOP"
+    ],
+    "store": false,
+    "stream": true
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "263"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/v1/responses"
+}

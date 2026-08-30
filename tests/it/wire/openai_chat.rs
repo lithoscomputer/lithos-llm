@@ -483,6 +483,12 @@ async fn refuses_an_inline_document_before_dispatch() {
     crate::json_snapshot!(error_json(&error));
 }
 
+/// INTENTIONAL DIFFERENCE: the reference encoded audio for this dialect as an
+/// `input_audio` part whatever the skin behind it accepted, and a skin that
+/// did not silently dropped it or answered a placeholder. The protocol as the
+/// compatible skins implement it carries no audio, so the codec refuses the
+/// request instead. A catalog entry that claims `audio` can still let a
+/// specific skin take it.
 #[tokio::test]
 async fn refuses_audio_before_dispatch() {
     let error = refusal(support::audio_request(&selector())).await;
@@ -717,6 +723,12 @@ async fn a_model_without_caching_gets_no_breakpoints() {
     crate::json_snapshot!(wire);
 }
 
+/// INTENTIONAL DIFFERENCE: the reference keyed raw provider options by the
+/// adapter name, so every skin behind this dialect shared one
+/// `openai_compatible` namespace and an option meant for one gateway leaked to
+/// all of them. Options here are keyed by the catalog provider id, per the
+/// approved request-controls plan, so `compat` and a failover candidate each
+/// see only their own.
 #[tokio::test]
 async fn sends_only_the_selected_provider_option_namespace() {
     let (wire, response) = exchange(
@@ -1293,6 +1305,79 @@ async fn a_stream_error_chunk_ends_the_stream() {
             .any(|event| event.get("type").and_then(Value::as_str) == Some("completed")),
         "a failed stream must not complete"
     );
+    crate::json_snapshot!(events);
+}
+
+/// A stream the transport cuts off after content completes once, as
+/// incomplete.
+///
+/// INTENTIONAL DIFFERENCE: the reference synthesized a `Stop` finish when
+/// content had started and the stream ended without `[DONE]`, so a cut answer
+/// read as a whole one. The completed response says it is incomplete instead.
+#[tokio::test]
+async fn a_stream_cut_off_after_content_completes_as_incomplete() {
+    let (_, events) = stream(
+        support::base_request(&selector()),
+        &[
+            r#"{"id":"chatcmpl-cut","choices":[{"index":0,"delta":{"role":"assistant","content":"Half an"}}]}"#,
+            r#"{"id":"chatcmpl-cut","choices":[{"index":0,"delta":{"content":" answer"}}]}"#,
+        ],
+    )
+    .await;
+
+    support::assert_stream_contract(&events);
+    let response = completed(&events);
+    assert_eq!(
+        response["finish_reason"],
+        json!("incomplete"),
+        "the provider never said why it stopped"
+    );
+    assert_eq!(response["content"][0]["text"], json!("Half an answer"));
+    crate::json_snapshot!(events);
+}
+
+/// A stream the transport cuts off before any content still completes, as an
+/// incomplete response with nothing in it.
+///
+/// INTENTIONAL DIFFERENCE: the reference emitted no terminal event at all
+/// here, so a caller could not tell a cut stream from a consumer bug. Every
+/// successful stream ends with exactly one `completed`.
+#[tokio::test]
+async fn a_stream_cut_off_before_content_completes_as_incomplete() {
+    let (_, events) = stream(support::base_request(&selector()), &[
+        r#"{"id":"chatcmpl-cut","choices":[{"index":0,"delta":{"role":"assistant"}}]}"#,
+    ])
+    .await;
+
+    support::assert_stream_contract(&events);
+    let response = completed(&events);
+    assert_eq!(response["finish_reason"], json!("incomplete"));
+    assert_eq!(response["content"], json!([]));
+    crate::json_snapshot!(events);
+}
+
+#[tokio::test]
+async fn venice_reports_a_top_level_cost_in_a_stream() {
+    // Venice puts its cost beside `usage` in the trailing chunk, not inside
+    // it, and prices in both dollars and its own currency. Only the dollars
+    // are read, and they are provider-reported.
+    let (_, events) = stream(
+        support::base_request(&selector()),
+        &[
+            r#"{"id":"chatcmpl-cost","choices":[{"index":0,"delta":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}"#,
+            r#"{"id":"chatcmpl-cost","choices":[],"usage":{"prompt_tokens":4,"completion_tokens":2},"cost":{"usd":0.25,"diem":9.5}}"#,
+            "[DONE]",
+        ],
+    )
+    .await;
+
+    support::assert_stream_contract(&events);
+    let response = completed(&events);
+    assert_eq!(
+        response["cost"],
+        json!({ "usd_micros": 250_000, "source": "provider" })
+    );
+    assert_eq!(response["usage"]["input"], 4);
     crate::json_snapshot!(events);
 }
 
