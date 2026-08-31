@@ -193,9 +193,18 @@ mod tests {
 
     use super::{Catalog, CatalogError};
     #[cfg(feature = "builtin-catalog")]
-    use crate::catalog::AuthScheme;
+    use crate::catalog::{AuthScheme, Metadata};
     #[cfg(feature = "builtin-catalog")]
     use crate::types::Speed;
+
+    /// The agent profiles a catalog row may name.
+    ///
+    /// An agent runtime picks one prompting and tool convention per route from
+    /// this value, so an unknown string is a build failure there rather than a
+    /// fallback. The set matches fabro's `AgentProfileKind`.
+    #[cfg(feature = "builtin-catalog")]
+    const AGENT_PROFILES: [&str; 6] =
+        ["anthropic", "claude-5", "openai", "gemini", "kimi", "gpt56"];
 
     const BASE: &str = r#"
         schema_version = 1
@@ -222,6 +231,21 @@ mod tests {
     struct Nested {
         enabled: bool,
         count:   u64,
+    }
+
+    /// The `pebble` metadata namespace, read the way its application reads it.
+    #[cfg(feature = "builtin-catalog")]
+    #[derive(Debug, Deserialize)]
+    struct PebbleMetadata {
+        profile: Option<String>,
+    }
+
+    /// The agent profile a row names, if it names one.
+    #[cfg(feature = "builtin-catalog")]
+    fn agent_profile(metadata: &Metadata) -> Result<Option<String>, Box<dyn StdError>> {
+        Ok(metadata
+            .namespace::<PebbleMetadata>("pebble")?
+            .and_then(|pebble| pebble.profile))
     }
 
     #[test]
@@ -802,6 +826,61 @@ mod tests {
         assert_eq!(pricing.output_usd_micros_per_million, Some(15_000_000));
         assert_eq!(pricing.cached_input_usd_micros_per_million, Some(300_000));
         assert_eq!(pricing.cache_write_usd_micros_per_million, Some(3_750_000));
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn a_model_agent_profile_overrides_its_provider() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        // The Anthropic provider row carries the profile a passthrough model
+        // gets; every catalogued Claude row names the current one instead.
+        assert_eq!(
+            agent_profile(catalog.provider("anthropic")?.metadata())?.as_deref(),
+            Some("anthropic")
+        );
+        assert_eq!(
+            agent_profile(catalog.model("anthropic", "sonnet")?.metadata())?.as_deref(),
+            Some("claude-5")
+        );
+
+        // A model row that names no profile of its own leaves the provider's
+        // value in force.
+        assert_eq!(
+            agent_profile(catalog.model("openai", "gpt-5.4")?.metadata())?,
+            None
+        );
+        assert_eq!(
+            agent_profile(catalog.provider("openai")?.metadata())?.as_deref(),
+            Some("openai")
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn every_builtin_row_resolves_a_known_agent_profile() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        for provider in catalog.providers() {
+            let id = provider.id();
+            let default = agent_profile(provider.metadata())?
+                .ok_or_else(|| format!("provider `{id}` names no agent profile"))?;
+            assert!(
+                AGENT_PROFILES.contains(&default.as_str()),
+                "provider `{id}` names the unknown agent profile `{default}`"
+            );
+
+            for model in provider.models() {
+                let profile = agent_profile(model.metadata())?.unwrap_or_else(|| default.clone());
+                assert!(
+                    AGENT_PROFILES.contains(&profile.as_str()),
+                    "`{id}/{}` resolves the unknown agent profile `{profile}`",
+                    model.id()
+                );
+            }
+        }
         Ok(())
     }
 

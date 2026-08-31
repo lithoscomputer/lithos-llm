@@ -26,6 +26,10 @@ type = "bearer"
 [providers.fireworks.metadata.fabro]
 api_key_url = "https://app.fireworks.ai/settings/users/api-keys"
 
+# The agent profile for this provider's models; a model row overrides it.
+[providers.fireworks.metadata.pebble]
+profile = "openai"
+
 [providers.fireworks.models."kimi-k3"]
 display_name = "Kimi K3"
 api_model = "accounts/fireworks/models/kimi-k3"
@@ -36,6 +40,9 @@ pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_millio
 [providers.fireworks.models."kimi-k3".metadata.fabro]
 agent_profile = "kimi"
 family = "kimi-k3"
+
+[providers.fireworks.models."kimi-k3".metadata.pebble]
+profile = "kimi"
 
 [providers.fireworks.models."kimi-k3-fast"]
 display_name = "Kimi K3 Fast"
@@ -49,6 +56,9 @@ pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_millio
 agent_profile = "kimi"
 family = "kimi-k3"
 
+[providers.fireworks.models."kimi-k3-fast".metadata.pebble]
+profile = "kimi"
+
 [providers.fireworks.models."kimi-k2.7-code"]
 display_name = "Kimi K2.7 Code"
 api_model = "accounts/fireworks/models/kimi-k2p7-code"
@@ -58,6 +68,9 @@ pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million
 
 [providers.fireworks.models."kimi-k2.7-code".metadata.fabro]
 family = "kimi-k2"
+
+[providers.fireworks.models."kimi-k2.7-code".metadata.pebble]
+profile = "kimi"
 
 [providers.fireworks.models."kimi-k2.6"]
 display_name = "Kimi K2.6"
@@ -69,6 +82,9 @@ pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million
 
 [providers.fireworks.models."kimi-k2.6".metadata.fabro]
 family = "kimi-k2"
+
+[providers.fireworks.models."kimi-k2.6".metadata.pebble]
+profile = "kimi"
 
 [providers.fireworks.models."deepseek-v4-pro"]
 display_name = "DeepSeek V4 Pro"
@@ -82,6 +98,9 @@ pricing = { input_usd_micros_per_million = 1320000, output_usd_micros_per_millio
 agent_profile = "openai"
 family = "deepseek-v4"
 
+[providers.fireworks.models."deepseek-v4-pro".metadata.pebble]
+profile = "openai"
+
 [providers.fireworks.models."deepseek-v4-flash"]
 display_name = "DeepSeek V4 Flash"
 aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
@@ -94,6 +113,9 @@ pricing = { input_usd_micros_per_million = 220000, output_usd_micros_per_million
 [providers.fireworks.models."deepseek-v4-flash".metadata.fabro]
 agent_profile = "openai"
 family = "deepseek-v4"
+
+[providers.fireworks.models."deepseek-v4-flash".metadata.pebble]
+profile = "openai"
 
 [providers.fireworks.models."glm-5.2"]
 display_name = "GLM 5.2 (via Fireworks)"

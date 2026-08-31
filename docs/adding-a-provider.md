@@ -77,6 +77,19 @@ Fields lithos-llm has that fabro lacks: set `text = true` on every row;
 decide `structured_output`, `documents`, `audio`, and `cache_routing`
 from Phase 2 evidence, not from guesses.
 
+Agent profile: give the provider row a `metadata.pebble.profile`, and give
+a model row its own value whenever the model's family differs from the
+provider default. An agent runtime picks one prompting and tool convention
+per route from this value, and a route that resolves none is a build
+failure there, so a new provider without one breaks that application. The
+six values are `anthropic`, `claude-5`, `openai`, `gemini`, `kimi`, and
+`gpt56`; the profile follows the model, not the provider that serves it, so
+a Claude row on an OpenAI-compatible provider still says `claude-5`. Use
+the provider's own adapter family for the provider default: Anthropic and
+Bedrock `anthropic`, Gemini `gemini`, OpenAI and OpenAI-compatible
+`openai`. `every_builtin_row_resolves_a_known_agent_profile` in
+`src/catalog/loader.rs` enforces the coverage.
+
 Roster policy: include every fabro row, then add any model another
 provider's lithos-llm roster carries that this provider also serves. For
 example, Venice's Claude and GPT rows belong on OpenRouter too if

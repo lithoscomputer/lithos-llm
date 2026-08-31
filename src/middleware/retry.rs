@@ -10,7 +10,7 @@ use futures_util::StreamExt as _;
 use futures_util::stream::{empty, unfold};
 use tokio::time::sleep;
 
-use super::{Call, Middleware, Mode, Next, Observer, Output};
+use super::{Call, Middleware, Mode, Next, Observer, Output, RetryStage};
 use crate::types::{Error, ErrorKind, ResponseStream, RetryClassification, StreamEvent};
 
 /// The longest `Retry-After` this policy honors by default.
@@ -137,10 +137,12 @@ fn report_retry(
     attempt: u32,
     delay: Duration,
     error: &Error,
+    stage: RetryStage,
 ) {
     tracing::warn!(
         attempt,
         delay_secs = delay.as_secs_f64(),
+        stage = ?stage,
         error_kind = ?error.kind(),
         status = error.status(),
         provider_code = error.provider_code(),
@@ -148,7 +150,7 @@ fn report_retry(
         "the provider call failed and will be retried"
     );
     if let Some(observer) = observer {
-        observer.on_retry(call, error, attempt, delay);
+        observer.on_retry(call, error, attempt, delay, stage);
     }
 }
 
@@ -218,7 +220,14 @@ impl Middleware for RetryMiddleware {
                     if deadline_prevents_retry(&current, delay) {
                         return Err(error);
                     }
-                    report_retry(self.observer.as_ref(), &current, attempt, delay, &error);
+                    report_retry(
+                        self.observer.as_ref(),
+                        &current,
+                        attempt,
+                        delay,
+                        &error,
+                        RetryStage::Request,
+                    );
                     sleep(delay).await;
                     attempt = attempt.saturating_add(1);
                 }
@@ -311,6 +320,7 @@ fn retry_stream(
                             state.attempt,
                             delay,
                             &error,
+                            RetryStage::Stream,
                         );
                         sleep(delay).await;
                         state.attempt = state.attempt.saturating_add(1);

@@ -30,6 +30,10 @@ default_model = "claude-sonnet-5"
 type = "header"
 name = "x-api-key"
 
+# The agent profile for this provider's models; a model row overrides it.
+[providers.anthropic.metadata.pebble]
+profile = "anthropic"
+
 [providers.anthropic.models."claude-fable-5"]
 display_name = "Claude Fable 5"
 aliases = ["fable", "claude-fable"]
@@ -43,6 +47,9 @@ pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_milli
 agent_profile = "claude-5"
 family = "claude-5"
 api_key_url = "https://console.anthropic.com/settings/keys"
+
+[providers.anthropic.models."claude-fable-5".metadata.pebble]
+profile = "claude-5"
 
 [providers.anthropic.models."claude-opus-5"]
 display_name = "Claude Opus 5"
@@ -60,6 +67,9 @@ training = "2026-05-01"
 knowledge_cutoff = "May 2026"
 api_key_url = "https://console.anthropic.com/settings/keys"
 
+[providers.anthropic.models."claude-opus-5".metadata.pebble]
+profile = "claude-5"
+
 [providers.anthropic.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5"
 aliases = ["sonnet", "claude-sonnet"]
@@ -75,6 +85,9 @@ family = "claude-5"
 training = "2026-01-01"
 knowledge_cutoff = "Jan 2026"
 api_key_url = "https://console.anthropic.com/settings/keys"
+
+[providers.anthropic.models."claude-sonnet-5".metadata.pebble]
+profile = "claude-5"
 
 [providers.anthropic.models."claude-opus-4.8"]
 display_name = "Claude Opus 4.8"
@@ -92,6 +105,9 @@ knowledge_cutoff = "Jan 2026"
 estimated_output_tps = 25
 api_key_url = "https://console.anthropic.com/settings/keys"
 
+[providers.anthropic.models."claude-opus-4.8".metadata.pebble]
+profile = "claude-5"
+
 [providers.anthropic.models."claude-opus-4.7"]
 display_name = "Claude Opus 4.7"
 api_model = "claude-opus-4-7"
@@ -107,6 +123,9 @@ training = "2025-08-01"
 knowledge_cutoff = "May 2025"
 estimated_output_tps = 25
 api_key_url = "https://console.anthropic.com/settings/keys"
+
+[providers.anthropic.models."claude-opus-4.7".metadata.pebble]
+profile = "claude-5"
 
 [providers.anthropic.models."claude-opus-4.6"]
 display_name = "Claude Opus 4.6"
@@ -126,6 +145,9 @@ knowledge_cutoff = "May 2025"
 estimated_output_tps = 25
 api_key_url = "https://console.anthropic.com/settings/keys"
 
+[providers.anthropic.models."claude-opus-4.6".metadata.pebble]
+profile = "claude-5"
+
 [providers.anthropic.models."claude-sonnet-4.5"]
 display_name = "Claude Sonnet 4.5"
 api_model = "claude-sonnet-4-5-20250929"
@@ -141,6 +163,9 @@ training = "2025-08-01"
 knowledge_cutoff = "May 2025"
 estimated_output_tps = 50
 api_key_url = "https://console.anthropic.com/settings/keys"
+
+[providers.anthropic.models."claude-sonnet-4.5".metadata.pebble]
+profile = "claude-5"
 
 [providers.anthropic.models."claude-sonnet-4.6"]
 display_name = "Claude Sonnet 4.6"
@@ -159,6 +184,9 @@ training = "2025-08-01"
 knowledge_cutoff = "May 2025"
 estimated_output_tps = 50
 api_key_url = "https://console.anthropic.com/settings/keys"
+
+[providers.anthropic.models."claude-sonnet-4.6".metadata.pebble]
+profile = "claude-5"
 
 [providers.anthropic.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5"
@@ -180,3 +208,6 @@ estimated_output_tps = 100
 probe = true
 small_default = true
 api_key_url = "https://console.anthropic.com/settings/keys"
+
+[providers.anthropic.models."claude-haiku-4.5".metadata.pebble]
+profile = "claude-5"

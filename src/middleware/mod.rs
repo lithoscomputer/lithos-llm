@@ -18,7 +18,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 pub use concurrency::ConcurrencyLimitMiddleware;
 use futures_core::Stream;
-pub use observer::{Observer, ObserverMiddleware};
+pub use observer::{Observer, ObserverMiddleware, RetryStage};
 pub use retry::{RetryMiddleware, RetryPolicy};
 pub use timeout::TimeoutMiddleware;
 use tokio::sync::Notify;

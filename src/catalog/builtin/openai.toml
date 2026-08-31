@@ -90,6 +90,10 @@ type = "bearer"
 [providers.openai.metadata.fabro]
 api_key_url = "https://platform.openai.com/api-keys"
 
+# The agent profile for this provider's models; a model row overrides it.
+[providers.openai.metadata.pebble]
+profile = "openai"
+
 [providers.openai.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"
 aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
@@ -104,6 +108,9 @@ family = "gpt-5"
 training = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
 
+[providers.openai.models."gpt-5.6-sol".metadata.pebble]
+profile = "gpt56"
+
 [providers.openai.models."gpt-5.6-terra"]
 display_name = "GPT-5.6 Terra"
 aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
@@ -117,6 +124,9 @@ agent_profile = "gpt56"
 family = "gpt-5"
 training = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
+
+[providers.openai.models."gpt-5.6-terra".metadata.pebble]
+profile = "gpt56"
 
 [providers.openai.models."gpt-5.6-luna"]
 display_name = "GPT-5.6 Luna"
@@ -133,6 +143,9 @@ agent_profile = "gpt56"
 family = "gpt-5"
 training = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
+
+[providers.openai.models."gpt-5.6-luna".metadata.pebble]
+profile = "gpt56"
 
 [providers.openai.models."gpt-5.4"]
 display_name = "GPT-5.4"

@@ -22,6 +22,10 @@ default_model = "kimi-k3"
 [providers.moonshot.auth]
 type = "bearer"
 
+# The agent profile for this provider's models; a model row overrides it.
+[providers.moonshot.metadata.pebble]
+profile = "kimi"
+
 [providers.moonshot.models."kimi-k3"]
 display_name = "Kimi K3"
 aliases = ["kimi"]

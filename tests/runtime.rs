@@ -15,7 +15,7 @@ use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId}
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Observer, Output,
-    RetryMiddleware, RetryPolicy, TimeoutMiddleware,
+    RetryMiddleware, RetryPolicy, RetryStage, TimeoutMiddleware,
 };
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
@@ -51,6 +51,8 @@ struct FakeAdapter {
     complete_calls:       Arc<AtomicUsize>,
     complete_failures:    usize,
     stream_calls:         Arc<AtomicUsize>,
+    /// How many `stream` calls fail to open before one returns a stream.
+    stream_open_failures: usize,
     stream_fails_initial: bool,
     stream_fails_visible: bool,
 }
@@ -62,6 +64,7 @@ impl FakeAdapter {
             complete_calls:       Arc::new(AtomicUsize::new(0)),
             complete_failures:    0,
             stream_calls:         Arc::new(AtomicUsize::new(0)),
+            stream_open_failures: 0,
             stream_fails_initial: false,
             stream_fails_visible: false,
         }
@@ -84,7 +87,10 @@ impl ProviderAdapter for FakeAdapter {
 
     async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
         let call_index = self.stream_calls.fetch_add(1, Ordering::SeqCst);
-        let events = if self.stream_fails_initial && call_index == 0 {
+        if call_index < self.stream_open_failures {
+            return Err(retryable_error());
+        }
+        let events = if self.stream_fails_initial && call_index == self.stream_open_failures {
             vec![Err(retryable_error())]
         } else if self.stream_fails_visible {
             vec![
@@ -506,6 +512,7 @@ struct RecordedRetry {
     context_attempt: u32,
     delay:           Duration,
     kind:            ErrorKind,
+    stage:           RetryStage,
 }
 
 impl RetryRecorder {
@@ -518,7 +525,14 @@ impl RetryRecorder {
 }
 
 impl Observer for RetryRecorder {
-    fn on_retry(&self, call: &Call, error: &Error, attempt: u32, delay: Duration) {
+    fn on_retry(
+        &self,
+        call: &Call,
+        error: &Error,
+        attempt: u32,
+        delay: Duration,
+        stage: RetryStage,
+    ) {
         self.retries
             .lock()
             .expect("recorder mutex should not be poisoned")
@@ -527,6 +541,7 @@ impl Observer for RetryRecorder {
                 context_attempt: call.context.attempt(),
                 delay,
                 kind: error.kind(),
+                stage,
             });
     }
 }
@@ -559,12 +574,14 @@ async fn retry_reports_each_retried_attempt_to_the_observer() -> Result<(), Box<
             context_attempt: 1,
             delay:           Duration::from_millis(1),
             kind:            ErrorKind::Network,
+            stage:           RetryStage::Request,
         },
         RecordedRetry {
             attempt:         2,
             context_attempt: 2,
             delay:           Duration::from_millis(2),
             kind:            ErrorKind::Network,
+            stage:           RetryStage::Request,
         },
     ]);
     Ok(())
@@ -600,7 +617,55 @@ async fn a_pre_visible_stream_retry_is_reported() -> Result<(), Box<dyn StdError
         context_attempt: 1,
         delay:           Duration::ZERO,
         kind:            ErrorKind::Network,
+        stage:           RetryStage::Stream,
     }]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_retry_names_the_stage_that_failed() -> Result<(), Box<dyn StdError>> {
+    let recorder = Arc::new(RetryRecorder::default());
+    let mut adapter = FakeAdapter::successful();
+    // The first call never opens a stream, the second opens one that fails
+    // before any visible event, and the third streams the answer.
+    adapter.stream_open_failures = 1;
+    adapter.stream_fails_initial = true;
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", adapter)
+        .middleware(
+            RetryMiddleware::new(
+                RetryPolicy::exponential()
+                    .max_attempts(3)
+                    .initial_delay(Duration::ZERO),
+            )
+            .observer_arc(recorder.clone()),
+        )
+        .build()?
+        .client;
+
+    let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+
+    assert!(matches!(
+        events.as_slice(),
+        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+    ));
+    assert_eq!(recorder.retries(), [
+        RecordedRetry {
+            attempt:         1,
+            context_attempt: 1,
+            delay:           Duration::ZERO,
+            kind:            ErrorKind::Network,
+            stage:           RetryStage::Request,
+        },
+        RecordedRetry {
+            attempt:         2,
+            context_attempt: 2,
+            delay:           Duration::ZERO,
+            kind:            ErrorKind::Network,
+            stage:           RetryStage::Stream,
+        },
+    ]);
     Ok(())
 }
 

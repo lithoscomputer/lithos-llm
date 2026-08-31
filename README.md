@@ -54,10 +54,12 @@ runs for each provider attempt, so tokens can refresh without rebuilding the
 client. Retry and tracing middleware remain opt-in.
 
 `RetryMiddleware::observer` reports each retried attempt to an `Observer`
-through `on_retry`, with the failed attempt, its error, and the wait before the
-next one. The retry layer retries only until a stream delivers visible output;
-an application that must replay a turn after that point can drive its own loop
-with `RetryPolicy::next_delay`, the same decision the middleware uses.
+through `on_retry`, with the failed attempt, its error, the wait before the
+next one, and a `RetryStage` naming what failed: a request that never became a
+stream, or a stream that failed before it delivered visible output. The retry
+layer retries only until a stream delivers visible output; an application that
+must replay a turn after that point can drive its own loop with
+`RetryPolicy::next_delay`, the same decision the middleware uses.
 
 Use `ClientBuilder::http` to inject an application-configured
 `reqwest::Client`, and `ClientBuilder::enabled_providers` to build adapters for

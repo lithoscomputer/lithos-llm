@@ -45,12 +45,24 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Retries are observable. `Observer` gains a defaulted `on_retry` hook, and
   `RetryMiddleware::observer` (or `observer_arc`) reports every retried
-  attempt through it: the failed attempt number, its error, and the wait
-  before the next attempt. Refused retries are not reported; their error
-  reaches the caller. The retry decision itself, `RetryPolicy::next_delay`,
-  is now public so an application-owned retry loop — such as replaying a
-  turn after a stream already delivered visible output — can share the
-  middleware's policy instead of reimplementing backoff.
+  attempt through it: the failed attempt number, its error, the wait before
+  the next attempt, and a `RetryStage` — `Request` for a request that never
+  became a stream, `Stream` for a stream that failed before it delivered
+  visible output. An application that mirrors these retries onto its own
+  event stream can name the phase without inferring it. Refused retries are
+  not reported; their error reaches the caller. The retry decision itself,
+  `RetryPolicy::next_delay`, is now public so an application-owned retry
+  loop — such as replaying a turn after a stream already delivered visible
+  output — can share the middleware's policy instead of reimplementing
+  backoff.
+
+- Every built-in provider and every model whose family differs from its
+  provider now carries a `metadata.pebble.profile`: the agent profile an
+  agent runtime prompts and formats tools with. The values are `anthropic`,
+  `claude-5`, `openai`, `gemini`, `kimi`, and `gpt56`, mirroring fabro's
+  profiles; the profile follows the model, so a Claude row on an
+  OpenAI-compatible provider says `claude-5`. A model row overrides its
+  provider's value. The existing `fabro` metadata namespace is unchanged.
 
 - The built-in catalog now includes Fireworks with live-verified model routes,
   pricing, capabilities, and conventional `FIREWORKS_API_KEY` credentials.

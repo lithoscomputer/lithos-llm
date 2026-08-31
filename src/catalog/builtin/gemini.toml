@@ -40,6 +40,10 @@ default_model = "gemini-3.5-flash"
 type = "header"
 name = "x-goog-api-key"
 
+# The agent profile for this provider's models; a model row overrides it.
+[providers.gemini.metadata.pebble]
+profile = "gemini"
+
 [providers.gemini.models."gemini-3.1-pro-preview"]
 display_name = "Gemini 3.1 Pro Preview"
 aliases = ["gemini-pro"]
