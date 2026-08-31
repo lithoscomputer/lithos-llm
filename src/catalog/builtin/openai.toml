@@ -77,7 +77,10 @@ aliases = ["oa"]
 adapter = "openai"
 codec = "openai-responses"
 base_url = "https://api.openai.com"
-priority = 100
+# Fabro's source catalog orders anthropic (100) above openai (90); keeping
+# that gap makes the built-in `default` selector unambiguous rather than
+# resting on a priority tiebreak.
+priority = 90
 allow_passthrough = true
 default_model = "gpt-5.6-sol"
 
