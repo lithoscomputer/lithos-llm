@@ -23,6 +23,7 @@ adapter = "openai-compatible"
 codec = "openai-chat"
 base_url = "https://api.venice.ai/api/v1"
 priority = 35
+allow_passthrough = true
 default_model = "deepseek-v4-flash"
 
 [providers.venice.auth]
