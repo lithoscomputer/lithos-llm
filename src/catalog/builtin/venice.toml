@@ -78,6 +78,13 @@ limits = { context_tokens = 1000000, max_output_tokens = 131072 }
 capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true, sampling = true }
 pricing = { input_usd_micros_per_million = 1750000, output_usd_micros_per_million = 5500000, cached_input_usd_micros_per_million = 325000 }
 
+# GLM 5.3 reasons on every call rather than when a request asks it to, which
+# no capability records: it takes a thinking budget, not a named effort
+# level. Pebble reads this to size a summarization budget that has to cover
+# the thinking as well as the answer.
+[providers.venice.models."glm-5.3".metadata.pebble]
+reasoning_by_default = true
+
 [providers.venice.models."deepseek-v4-flash"]
 display_name = "DeepSeek V4 Flash"
 aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
@@ -97,8 +104,11 @@ limits = { context_tokens = 1000000, max_output_tokens = 32768 }
 capabilities = { text = true, tools = true, structured_output = true, reasoning = true, caching = true, cache_routing = true }
 pricing = { input_usd_micros_per_million = 1650000, output_usd_micros_per_million = 4950000, cached_input_usd_micros_per_million = 165000 }
 
+# DeepSeek V4 Pro reasons on every call; the flash row takes a named effort
+# level, this one only a thinking budget, so no capability records it.
 [providers.venice.models."deepseek-v4-pro".metadata.pebble]
 profile = "openai"
+reasoning_by_default = true
 
 [providers.venice.models."qwen3.8-max"]
 display_name = "Qwen 3.8 Max"
@@ -107,6 +117,11 @@ api_model = "qwen-3-8-max"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
 capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, cache_routing = true, sampling = true }
 pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 312500, cache_write_usd_micros_per_million = 3125000 }
+
+# Qwen 3.8 Max reasons on every call; it takes a thinking budget rather than
+# a named effort level, so no capability records it.
+[providers.venice.models."qwen3.8-max".metadata.pebble]
+reasoning_by_default = true
 
 [providers.venice.models."qwen3.8-27b"]
 display_name = "Qwen 3.8 27B"

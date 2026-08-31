@@ -159,6 +159,11 @@ limits = { context_tokens = 262144, max_output_tokens = 131072 }
 capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 250000 }
 
+# Qwen 3.8 Max reasons on every call whoever serves it; it takes a thinking
+# budget rather than a named effort level, so no capability records it.
+[providers.fireworks.models."qwen3.8-max".metadata.pebble]
+reasoning_by_default = true
+
 [providers.fireworks.models."gpt-oss-120b"]
 display_name = "GPT-OSS 120B"
 api_model = "accounts/fireworks/models/gpt-oss-120b"
