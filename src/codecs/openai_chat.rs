@@ -669,16 +669,22 @@ fn decode_failure(route: &ResolvedRoute, detail: &str, value: Value) -> Error {
 /// Marks the cacheable prefix of a conversation for an Anthropic upstream.
 ///
 /// Two breakpoints, the same pair the Anthropic codec places: the last system
-/// message, which the tools and instructions precede on the upstream wire, and
-/// the second-to-last user turn, so each iteration of an agent loop reads the
-/// prefix the previous one wrote. A tool result is its own message here and
-/// counts as a user turn, because it rides in a user message upstream.
+/// message of the leading run — the system prompt proper, which the tools and
+/// instructions precede on the upstream wire — and the second-to-last user
+/// turn, so each iteration of an agent loop reads the prefix the previous one
+/// wrote. A tool result is its own message here and counts as a user turn,
+/// because it rides in a user message upstream.
+///
+/// A system message appended later in the conversation is an instruction, not
+/// the prompt: marking it would move the system breakpoint every time an agent
+/// loop appends one, and the prefix written on the previous turn would never
+/// be read back.
 fn mark_cache_breakpoints(messages: &mut [Value]) {
-    if let Some(system) = messages
-        .iter_mut()
-        .rev()
-        .find(|message| role_of(message) == Some("system"))
-    {
+    let leading = messages
+        .iter()
+        .position(|message| role_of(message) != Some("system"))
+        .unwrap_or(messages.len());
+    if let Some(system) = messages[..leading].last_mut() {
         mark_cached(system);
     }
 

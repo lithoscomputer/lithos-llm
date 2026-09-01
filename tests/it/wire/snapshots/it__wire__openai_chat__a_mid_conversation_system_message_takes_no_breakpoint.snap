@@ -1,0 +1,76 @@
+---
+source: tests/it/wire/openai_chat.rs
+expression: rendered
+---
+{
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "Answer with just the city name.",
+            "type": "text"
+          }
+        ],
+        "role": "system"
+      },
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "What is the capital of France?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "Paris.",
+        "role": "assistant"
+      },
+      {
+        "content": "And of Spain?",
+        "role": "user"
+      },
+      {
+        "content": "From now on, write every answer in uppercase letters only.",
+        "role": "system"
+      }
+    ],
+    "model": "vendor/compat-chat-v2"
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "479"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/v1/chat/completions"
+}

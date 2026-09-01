@@ -742,6 +742,47 @@ async fn a_cacheable_model_gets_anthropic_style_breakpoints() {
 }
 
 #[tokio::test]
+async fn a_mid_conversation_system_message_takes_no_breakpoint() {
+    // An instruction appended after the conversation has started is not the
+    // system prompt. The system breakpoint stays on the leading run — the
+    // prompt an agent loop keeps stable — so appending a reminder each turn
+    // does not move the breakpoint and miss the prefix written a turn ago.
+    let request = Request::builder()
+        .model(selector())
+        .system("Answer with just the city name.")
+        .user("What is the capital of France?")
+        .message(Message::text(Role::Assistant, "Paris."))
+        .user("And of Spain?")
+        .message(Message::text(
+            Role::System,
+            "From now on, write every answer in uppercase letters only.",
+        ))
+        .max_output_tokens(128)
+        .build()
+        .expect("the mid-conversation system request should build");
+    let (wire, _) = exchange(request, &text_response()).await;
+
+    let messages = &wire.body["messages"];
+    assert_eq!(
+        messages[0]["content"][0]["cache_control"],
+        json!({ "type": "ephemeral" }),
+        "the leading system prompt keeps its breakpoint"
+    );
+    assert_eq!(messages[4]["role"], "system");
+    assert!(
+        messages[4]["content"].is_string(),
+        "the appended instruction carries no breakpoint: {}",
+        messages[4]
+    );
+    assert_eq!(
+        messages[1]["content"][0]["cache_control"],
+        json!({ "type": "ephemeral" }),
+        "the second-to-last user turn"
+    );
+    crate::json_snapshot!(wire);
+}
+
+#[tokio::test]
 async fn a_model_without_caching_gets_no_breakpoints() {
     // The catalog decides. A model that cannot cache would reject the
     // annotation, so the request keeps the plain-string content form every
