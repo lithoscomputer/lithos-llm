@@ -10,7 +10,7 @@
 use lithos_llm::types::{CostSource, FinishReason, Message, Role};
 
 use crate::support::{self, TestResult};
-use crate::venice::{self, model_tests};
+use crate::venice::{self, family_tests, model_tests};
 
 mod basic_completion {
     use super::*;
@@ -46,6 +46,59 @@ mod stop_sequence {
     use super::*;
 
     model_tests!(super::stops_at_the_stop_sequence);
+}
+
+mod mid_conversation_system {
+    use super::*;
+
+    family_tests!(super::honors_a_mid_conversation_system_message);
+}
+
+/// A system message appended after the conversation has started rides the
+/// Chat Completions protocol in place, and the gateway translates it for
+/// upstreams whose native protocol has no such turn. The instruction must
+/// win: an uppercase answer, where the conversation so far was lowercase
+/// prose. One representative per family, since honoring it is upstream
+/// behavior.
+async fn honors_a_mid_conversation_system_message(model: &str) -> TestResult {
+    // Venice rejects the request when a system message carries a cache
+    // breakpoint and a second system message follows it ("system: text
+    // content blocks must contain non-whitespace text", probed 2026-09-01):
+    // its translation emits an empty text block into the upstream system
+    // array. Every Claude row claims breakpoints, so they skip here; the
+    // negative suite pins the rejection and `.ai/repros/` holds the report.
+    if venice::capabilities(model).cache_breakpoints {
+        return support::skip(
+            "Venice rejects a cached system prefix beside a mid-conversation system message",
+        );
+    }
+    let Some(client) = venice::live_client() else {
+        return support::skip("VENICE_API_KEY is unset");
+    };
+    // Whether the model obeys the instruction is model behavior, so one miss
+    // gets one retry before it counts as a failure.
+    for attempt in 0..2 {
+        let request = venice::request(model)
+            .system("Answer with just the city name.")
+            .user("What is the capital of France?")
+            .message(Message::text(Role::Assistant, "Paris."))
+            .user("And of Spain?")
+            .message(Message::text(
+                Role::System,
+                "From now on, write every answer in uppercase letters only.",
+            ))
+            .build()?;
+        let response = client.complete(request).await?;
+        let text = response.text();
+        if text.contains("MADRID") {
+            return Ok(());
+        }
+        support::observe(&format!(
+            "{model} did not follow the mid-conversation system message (attempt {attempt}): \
+             {text:?}"
+        ));
+    }
+    Err(format!("{model} never followed the mid-conversation system message").into())
 }
 
 async fn completes_with_usage_and_provider_cost(model: &str) -> TestResult {

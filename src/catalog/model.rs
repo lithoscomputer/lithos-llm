@@ -66,6 +66,19 @@ pub struct ModelCapabilities {
     pub cache_routing:           bool,
     #[serde(default)]
     pub sampling:                bool,
+    /// The model's endpoint takes system-role turns inside the conversation.
+    ///
+    /// Only the Anthropic codec reads this. Its protocol has a top-level
+    /// system field, and the codec hoists system and developer messages into
+    /// it — which rewrites that field whenever an application appends a
+    /// system message mid-conversation, and on a model with preserved
+    /// thinking a rewritten prefix invalidates every earlier thinking block.
+    /// Where this is claimed, only the leading run of system messages is
+    /// hoisted and a later one is sent in place as a `system` turn, which the
+    /// Messages API accepts on Claude Opus 4.8 and the Claude 5 models.
+    /// Protocols that carry system turns natively ignore the flag.
+    #[serde(default)]
+    pub system_turns:            bool,
 }
 
 impl Default for ModelCapabilities {
@@ -85,6 +98,7 @@ impl Default for ModelCapabilities {
             cache_breakpoints:       false,
             cache_routing:           false,
             sampling:                false,
+            system_turns:            false,
         }
     }
 }

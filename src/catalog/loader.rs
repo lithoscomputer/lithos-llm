@@ -657,6 +657,35 @@ mod tests {
         assert!(fable_51.capabilities().reasoning_effort_levels);
         assert!(!fable_51.capabilities().sampling);
         assert!(!fable_51.capabilities().forced_tool_choice);
+
+        // System turns: the Claude 5 rows and Opus 4.8 take them, the older
+        // rows reject them, so the codec hoists there.
+        assert!(fable_51.capabilities().system_turns);
+        assert!(fable.capabilities().system_turns);
+        assert!(
+            catalog
+                .model("anthropic", "claude-sonnet-5")?
+                .capabilities()
+                .system_turns
+        );
+        assert!(
+            catalog
+                .model("anthropic", "claude-opus-4.8")?
+                .capabilities()
+                .system_turns
+        );
+        assert!(
+            !catalog
+                .model("anthropic", "claude-opus-4.7")?
+                .capabilities()
+                .system_turns
+        );
+        assert!(
+            !catalog
+                .model("anthropic", "claude-haiku-4.5")?
+                .capabilities()
+                .system_turns
+        );
         let fable_51_pricing = fable_51.pricing().ok_or("Fable 5.1 must be priced")?;
         assert_eq!(
             fable_51_pricing.cached_input_usd_micros_per_million,

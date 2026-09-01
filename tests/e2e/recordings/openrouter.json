@@ -67141,6 +67141,729 @@
           }
         }
       }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::devstral_2512/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::devstral_2512",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b1855e9093b29fe0"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295580-ZCn9mJNDy2HziykJnJWk",
+          "object": "chat.completion",
+          "created": 1788295580,
+          "model": "mistralai/devstral-2512",
+          "provider": "Mistral",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 5,
+            "total_tokens": 57,
+            "cost": 0.0000308,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0000308,
+              "upstream_inference_prompt_cost": 0.0000208,
+              "upstream_inference_completions_cost": 0.00001
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::deepseek_v4_flash/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::deepseek_v4_flash",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "52605d1c9fcddc1c"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295580-rbbHLrHC2IZuqT8bdQ0G",
+          "object": "chat.completion",
+          "created": 1788295580,
+          "model": "deepseek/deepseek-v4-flash-0731",
+          "provider": "Baidu",
+          "system_fingerprint": null,
+          "service_tier": null,
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID.",
+                "refusal": null,
+                "reasoning": "1.  The user asks \"And of Spain?\" which means \"What is the capital of Spain?\".\n2.  The user also instructs: \"From now on, write every answer in uppercase letters only.\"\n3.  The previous answer was \"Paris.\" in lowercase. Now, I must write the answer for Spain in uppercase.\n4.  Capital of Spain is Madrid.\n5.  So, the answer is \"MADRID.\" (with a period, uppercase).\n6.  Check instruction: \"write every answer in uppercase letters only.\" - Yes.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "1.  The user asks \"And of Spain?\" which means \"What is the capital of Spain?\".\n2.  The user also instructs: \"From now on, write every answer in uppercase letters only.\"\n3.  The previous answer was \"Paris.\" in lowercase. Now, I must write the answer for Spain in uppercase.\n4.  Capital of Spain is Madrid.\n5.  So, the answer is \"MADRID.\" (with a period, uppercase).\n6.  Check instruction: \"write every answer in uppercase letters only.\" - Yes.",
+                    "format": "unknown",
+                    "index": 0
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 121,
+            "completion_tokens": 122,
+            "total_tokens": 243,
+            "cost": 0.0000182427,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0000182427,
+              "upstream_inference_prompt_cost": 6.04758e-6,
+              "upstream_inference_completions_cost": 0.00001219512
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 116,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::claude_sonnet_5/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::claude_sonnet_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b1f7285447f90a36"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295580-0trLyWFUgDJ2O7xE0vkn",
+          "object": "chat.completion",
+          "created": 1788295580,
+          "model": "anthropic/claude-sonnet-5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID.",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 57,
+            "completion_tokens": 7,
+            "total_tokens": 64,
+            "cost": 0.000184,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000184,
+              "upstream_inference_prompt_cost": 0.000114,
+              "upstream_inference_completions_cost": 0.00007
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::gemini_3_5_flash/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::gemini_3_5_flash",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "c39cf66c3e893598"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295581-KXQNn1BhYThv8uum4mLT",
+          "object": "chat.completion",
+          "created": 1788295581,
+          "model": "google/gemini-3.5-flash",
+          "provider": "Google",
+          "system_fingerprint": null,
+          "service_tier": "provisioned",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "STOP",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": "**Identifying Spain's Capital**\n\nI'm focusing on identifying the core request: the capital of Spain. My current thought process is about extracting just the city's name and ensuring it's presented in uppercase as per the specified format.\n\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "**Identifying Spain's Capital**\n\nI'm focusing on identifying the core request: the capital of Spain. My current thought process is about extracting just the city's name and ensuring it's presented in uppercase as per the specified format.\n\n",
+                    "format": "google-gemini-v1",
+                    "index": 0
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 33,
+            "completion_tokens": 142,
+            "total_tokens": 175,
+            "cost": 0.0013275,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0013275,
+              "upstream_inference_prompt_cost": 0.0000495,
+              "upstream_inference_completions_cost": 0.001278
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 140,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::gpt_5_6_luna/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::gpt_5_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "45d4cec5caff8c1a"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295583-h64Pv4QnK9gEM3f8Dlda",
+          "object": "chat.completion",
+          "created": 1788295583,
+          "model": "openai/gpt-5.6-luna",
+          "provider": "OpenAI",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "completed",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 56,
+            "completion_tokens": 6,
+            "total_tokens": 62,
+            "cost": 0.0000184,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0000184,
+              "upstream_inference_prompt_cost": 0.0000112,
+              "upstream_inference_completions_cost": 7.2e-6
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::glm_4_6/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::glm_4_6",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "85cc831c49f48f08"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295582-QPm8Qf9iVFUNY0He0C5Z",
+          "object": "chat.completion",
+          "created": 1788295582,
+          "model": "z-ai/glm-4.6",
+          "provider": "Venice",
+          "system_fingerprint": null,
+          "service_tier": null,
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": "\nThe user is asking for the capital of Spain.\nThe user has two specific instructions:\n1.  \"Answer with just the city name.\"\n2.  \"From now on, write every answer in uppercase letters only.\"\n\nSo, I need to:\n1.  Identify the capital of Spain. The capital of Spain is Madrid.\n2.  Format the answer according to the instructions.\n3.  \"just the city name\" means no other words like \"The capital is...\" or any punctuation.\n4.  \"in uppercase letters only\" means I need to convert \"Madrid\" to \"MADRID\".\n\nTherefore, the final answer should be \"MADRID\".",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "\nThe user is asking for the capital of Spain.\nThe user has two specific instructions:\n1.  \"Answer with just the city name.\"\n2.  \"From now on, write every answer in uppercase letters only.\"\n\nSo, I need to:\n1.  Identify the capital of Spain. The capital of Spain is Madrid.\n2.  Format the answer according to the instructions.\n3.  \"just the city name\" means no other words like \"The capital is...\" or any punctuation.\n4.  \"in uppercase letters only\" means I need to convert \"Madrid\" to \"MADRID\".\n\nTherefore, the final answer should be \"MADRID\".",
+                    "format": "unknown",
+                    "index": 0
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 46,
+            "completion_tokens": 143,
+            "total_tokens": 189,
+            "cost": 0.00027003,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00027003,
+              "upstream_inference_prompt_cost": 0.00001978,
+              "upstream_inference_completions_cost": 0.00025025
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 139,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::kimi_k3/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::kimi_k3",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "d45e5922bdeef498"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295584-A7PIOKPSwVhP0yVEwXZe",
+          "object": "chat.completion",
+          "created": 1788295584,
+          "model": "moonshotai/kimi-k3",
+          "provider": "DigitalOcean",
+          "system_fingerprint": null,
+          "service_tier": null,
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": "The user asks \"And of Spain?\" referring to the capital of Spain. Madrid. New instruction: all uppercase letters only. Also previous instruction: answer with just the city name. So answer \"MADRID\". Ensure no punctuation? Punctuation isn't letters but keep just city name. \"MADRID\".",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "The user asks \"And of Spain?\" referring to the capital of Spain. Madrid. New instruction: all uppercase letters only. Also previous instruction: answer with just the city name. So answer \"MADRID\". Ensure no punctuation? Punctuation isn't letters but keep just city name. \"MADRID\".",
+                    "format": "unknown",
+                    "index": 0
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 176,
+            "completion_tokens": 78,
+            "total_tokens": 254,
+            "cost": 0.0016131,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0016131,
+              "upstream_inference_prompt_cost": 0.0005016,
+              "upstream_inference_completions_cost": 0.0011115
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 63,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::laguna_xs_2_1/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::laguna_xs_2_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "aeef514de9aa47f5"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295587-AiFqKxbFULwyudb7NpCU",
+          "object": "chat.completion",
+          "created": 1788295587,
+          "model": "poolside/laguna-xs-2.1",
+          "provider": "Poolside",
+          "system_fingerprint": null,
+          "service_tier": null,
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": "Okay, the user asked for the capital of Spain. I need to respond in uppercase as per the previous instruction. Let me confirm the capital first. Madrid is the capital of Spain. So the answer should be \"MADRID.\" I should make sure there's no typo and that it's in all caps.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "Okay, the user asked for the capital of Spain. I need to respond in uppercase as per the previous instruction. Let me confirm the capital first. Madrid is the capital of Spain. So the answer should be \"MADRID.\" I should make sure there's no typo and that it's in all caps.",
+                    "format": "unknown",
+                    "index": 0
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 64,
+            "completion_tokens": 67,
+            "total_tokens": 131,
+            "cost": 0.00001044,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 48,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00001044,
+              "upstream_inference_prompt_cost": 2.4e-6,
+              "upstream_inference_completions_cost": 8.04e-6
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 63,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::qwen3_coder/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::qwen3_coder",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b37ffc7a5bba46c9"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295588-TDKFEL0mLMwheaf8clF8",
+          "object": "chat.completion",
+          "created": 1788295588,
+          "model": "qwen/qwen3-coder",
+          "provider": "Venice",
+          "system_fingerprint": null,
+          "service_tier": null,
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 55,
+            "completion_tokens": 4,
+            "total_tokens": 59,
+            "cost": 0.00002525,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00002525,
+              "upstream_inference_prompt_cost": 0.00001925,
+              "upstream_inference_completions_cost": 6e-6
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::mimo_v2_5_pro/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::mimo_v2_5_pro",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "da9bb351cae4875d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295588-mCaNJytf9RRZkRRmAAIq",
+          "object": "chat.completion",
+          "created": 1788295588,
+          "model": "xiaomi/mimo-v2.5-pro",
+          "provider": "Xiaomi",
+          "system_fingerprint": null,
+          "service_tier": null,
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": "The user is asking for the capital of Spain. The capital of Spain is Madrid.\n\nThe system prompt says to write every answer in uppercase letters only.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "The user is asking for the capital of Spain. The capital of Spain is Madrid.\n\nThe system prompt says to write every answer in uppercase letters only.",
+                    "format": "unknown",
+                    "index": 0
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 57,
+            "completion_tokens": 36,
+            "total_tokens": 93,
+            "cost": 0.000056115,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000056115,
+              "upstream_inference_prompt_cost": 0.000024795,
+              "upstream_inference_completions_cost": 0.00003132
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::mid_conversation_system::grok_4_6/0001",
+      "namespace": "openrouter::smoke::mid_conversation_system::grok_4_6",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b777471aab0ff4df"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788295583-pfDoQGJXnsrY05vKKjrP",
+          "object": "chat.completion",
+          "created": 1788295583,
+          "model": "x-ai/grok-4.6",
+          "provider": "xAI",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "completed",
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning": "The user's message is: \"And of Spain?\"\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.summary",
+                    "summary": "The user's message is: \"And of Spain?\"\n",
+                    "format": "xai-responses-v1",
+                    "index": 0
+                  },
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "k+31IR2Jqh0OHWd5UvCZhm74+vFANnoTjCIwbcEyKmjkmGDp/534hOoaSem4q1m2P4s9G7HIGmfHTeBL1l7wVj99bvc/WDtelLbVSRraaTEz2Hp1CTSM/m6NJMxdqaPrXPpQVmAMv0DWrjXfxCyMNZVYQf3FLbI+PN1ZhStdRJMv8QXGwgIaxlOOUG/pMVGl+BDtutAi2dM+nkDSGpiQPpWpIn48QsL6zIXn5KstWESgWI2ZHL0KhpvJZGvpe2aBgx5rQ+SrIrSuFxiIaFUXbIN2shL3Zs9m4Sr0vSSNLi2YahHGZ8TM5XTOs+adGFSegIoroDDpbaMZm2x8SrfexwM+ow8MWCTzDgn+9EbTCsZ+xllBkhBeeR3V0qt3SgIwCmKCncCPEvUXd8tG6wLSEc8GbWsezzK79d6dRO0QUOHrCXRbc/GEyVKIWH8fcUoT6lXrM6j9S8dchxYbITCs6rac56KJ5lrdxg7HDATNSzvIVBOHMivRhTVHK4R/FKB2oWF65S2w/0pYf44qlMOaJdh77M4Sx/RbOpc+oTJjvQUdsooAJBbfakNMNeH+ocNUNNT8godVuHyhHoaXd5fCskb97ywYYmgiCBw5i5MWEfcb9g5bmd7vlayJuW2L7xyQThArftZ1/j2yyRExyY3iEFyZnkNGzVtQoVaaOt0Yc0IErictYQXAyQEzvHKoBYLBvlbvi2J+8W+zXlqWtgZQkl72qIXRsqDDfiw4LDKhJ9v987w8L3+EPvO773Lq9tlg46/j5TjroxKiCi+BGCzxE2zcTRd8mGeD6c5N6NcZS1zvGL943+xW/BgO23OHEeF/UR4D1YR8/5l9JSnDlIHzbck2ERFa1+ueXZvIaIF/06PLdKf4D2OoYq8YriJyD2du8dIik16DChZCbCiJCTraHgMl2HWZO5AwxZlEn3ogTkLSEi0PjoIkXx3IfFZwMQh/xHIISHi/RWG4UDLvOzTTyo4lnTB9Mq69udf1OMJcWEJGfOSPq33ckfqF2M44h4GGgpFrae9PoraCGKjSVIdsqmXfTb8MdgwDY3Ydh8HG+ySu8yoOfTG/TBV10VMykN7Zxd6urS/r/7Q7Kjbl3vokawYzYpTN/aV0b1CIWG0EEEwoP5TioZeaL3WTB2FcedGzxjGhhOCU3z+w+n3+HTN+ny55A9lAKTy8kacdjhWEpAB+wZKGdtPC5qSEgOtgY7t9FJG+7BFQ+R8eI9YMrmBkFmkI5sx61dtUB6ogFUELO/mUwxg+uQh6zQORcUPQjsTfAN5AACKvHuSZRbco2Q3ORSrzgZI5CkDZ/RVbI2/yd2Gb25TY2s3JZ9rQVF16uXVJCJKCMdpD2ikt1kfvNUC0qY9i11kGW0HpRH0szze2O5aAZMXitKCfd2yQ1l3FSdbhh1l6MPB1cFJG1xLSkBAEEODUP4trmnJQuBc15Cdj1/yCL/D5yll4oEnxq+6Y4OGtmhLMbmSm/4M8WyUgW5BgqazeywcECTCVcLxIfx8+/FkjjLu6P/frs2xLvbPKMq9TqEC2F7LtaXOszSBfZsavDV+d8jcgXMmEIx2ke0z1aJblbEAOSpr0Z8JIztchiQtRtf5wqbWHLCPeswdNojsL1UIqrWkIxam1cpOO2zIWWxD4NEazlF65lmFeckWRIySAFFltk8QH/+NepYrnXDMjEDDtOcC4fKkxbZmLiX5MhoOX5nIHjJhRS1IV7YsUUrNn+RR/14l1MwMXmSKgfxlJ7BfzAmzqAM7DdR+HXPMEgHgipip1l2MolX5WZED876OLL82rXXXwMxBHvEJ+9CI8uQMFaERi+ElzRKY7O9nYjlVBUXxrGERCx4JeG6UmvT7IlpGcgFl2X/FqxUuPrYVUW43izqCYzV0V0kAjs+qZxRp0lt9ACuX6cfowqfO/j9l9aC9u4kcmWGlKUbqgEtW+dkstmQ+NExYCXco5883gkepFfkbdJl2C7ZMuDgNjceZl4zn1o2wrWHC5Izw3c0hykVReMhCWrjVtVHJpzRwUHeNT9YyfYYGdY3gFm7W28IyvhjPKtJawqQzmcPPCaCf4A0VQE0oehR7tHhblJxtcGNZhvKul6gaEAtY2uH6iqx5qSwmaqGcJpx+Gx5sGy7Dpwy3LiI5pClFBbYZ/r/3TLfFDAKR7HTVFL/YR/OvXt1zAI54ZNboaDlwweKu/yllWlrOO8EY6CMAIRv9b23bHWyMkZEdQ3cwXdUw+KAZcQmq4yRKBRNhHUzX/stzmoEK8Mo+GYlCsbGiwJFJEfoqLoCrclb45ZYbij2znxWt12GLtBbOu7ZVXxgzCk5+qikjRMtNJn73+ECSWP+DDnYd7dBL0u3H61TiCQXkRnLqFglgbDAvUGkaxXRTAwa8nU/gubsno0p9DhBYqgytDpMnmFEc6t5VeebLtPjpr0qFShc67f2aXQkPOrn5h6jLnqwYcWiPfk0hzlXdeJx23CzGxxCmqCPyCc78sKhgVIEYl/vsGDWRYn3oMZVR5VbT0LQCWoKw0+NZze9a1YzOB+baKE0sr+fWNSeTtYJzbiyQpf7mYQSxrg5idQvrPiOsXXvmbJoXnzt2NOeZquXmJTKHpLzjg2G5PO31aFAqFlh+3Wk2FH0zy1nTJq6g+lAv7IOBV0XtmKvZ0wLMAgEDaiYtUuvGKKzPVa9paeX4TEi/wlQOXufNc33uT8tRhFRrn2KOGpeiVKPRK2PDutKy31TF1gM7dZojW1irwfP1e5m84D0fYV4HhjNF+JQ8nZ1x5gQxXpUqulmOUF+Qp4mKwyWUUIkL1BSMePnPgo5tP5ZeRkM4Xw85mUl5YHbf6XMnFR3enL8mR5uNgtlIG6WRy2Q2cy3Yt7p5i0Dj7T+Idvs2tCL1nSad8A4Bl6pS32jkX/16JlLdfb7turf+6uX7z0CiPaqTY+RifXFkPASSFw1IXSRB85yTWXuwg5wLcSQ+GRzBrTID1b8CWnKkPvrLWbpZx4eCREtW0MCciAd0+CcKQhxSSI3NPzsZsJgWORKA+o8MPbbeAyGM8JxOn5L00u4eFMmu/ywuMwOYEGqeWpjsMwVkjM82F9wQSnwapAS0/JFFUNuDNmL1AVBZOzgq67g0qhFMgAWcYtld9t80opUHQdT3J9J+eWANAEX1MHMPno6tpqCT1yOr7qtB12VXlGT01u5AYncPq5bgxXxllquzFhBtJNe/pS1pdT+EC4qJnlwZo07ZxduCfPHy+im3SJaV9p+8j0mTO23rTmVABZeyBMdSxe3QrFcXP3mfq6mSsPwGOqGJeVWfubIWjdZESxRPNx4PJ9qCdjUithf7eYGmkTELanRpKtD4J9pWmAPb2lf2vY5NhNiVQREyNIwkwE1RdM7/PMc33Htk6HybdNvYf3xuLqL/m6L4Sf9nP5N3UlRVMWoBwQIc61GC1fahLwS0ZTBlIGuUew2zrXkzXdEUTyoyorCS2WvTBANnNITyeQYOfIbkBB/SKapfFjnZdl+u1LDwOrwwH5UAWxjCk.eyJlbmRwb2ludF9zbHVnIjoieC1haS9ncm9rLTQuNi0yMDI2MDgxMHx4YWkifQ",
+                    "format": "xai-responses-v1",
+                    "id": "rs_975d522d-1657-96d8-994e-7d36fd6551c5",
+                    "index": 1
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 252,
+            "completion_tokens": 595,
+            "total_tokens": 847,
+            "cost": 0.003882,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 128,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.003882,
+              "upstream_inference_prompt_cost": 0.000312,
+              "upstream_inference_completions_cost": 0.00357
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 592,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
     }
   ]
 }

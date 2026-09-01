@@ -30251,6 +30251,391 @@
           }
         }
       }
+    },
+    {
+      "scenario_id": "venice::smoke::mid_conversation_system::deepseek_v4_flash/0001",
+      "namespace": "venice::smoke::mid_conversation_system::deepseek_v4_flash",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "5cdf7f83aa3daba7"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "chatcmpl-688f76ba7b6943cfb02a4ff71b34e1be",
+          "object": "chat.completion",
+          "created": 1788295590,
+          "model": "deepseek-v4-flash-0731",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "MADRID.",
+                "reasoning_content": "1.  The user asked \"What is the capital of France?\" and I answered \"Paris.\" (in uppercase? Wait, the instruction said \"From now on, write every answer in uppercase letters only.\" but my first answer was \"Paris.\" which is not uppercase. I need to correct that or just follow for the next answer. Actually, I violated the instruction in the first response. I should apologize or just ensure the next is uppercase. The user then asked \"And of Spain?\". I need to answer the capital of Spain in uppercase letters only. The capital of Spain is Madrid. So answer: MADRID.",
+                "tools": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 119,
+            "completion_tokens": 132,
+            "total_tokens": 251,
+            "prompt_tokens_details": {
+              "cached_tokens": 118
+            },
+            "cache_read_input_tokens": 118,
+            "completion_tokens_details": {
+              "reasoning_tokens": 126
+            }
+          },
+          "cost": {
+            "usd": 0.000050505,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::mid_conversation_system::gpt_5_6_terra/0001",
+      "namespace": "venice::smoke::mid_conversation_system::gpt_5_6_terra",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "684a405b23c06880"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "chatcmpl-EJPfFQh7btFoVxSOWt7IK4yC7MIfi",
+          "object": "chat.completion",
+          "created": 1788295593,
+          "model": "openai-gpt-56-terra",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "annotations": []
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 22,
+            "total_tokens": 74,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 11,
+              "audio_tokens": 0,
+              "accepted_prediction_tokens": 0,
+              "rejected_prediction_tokens": 0
+            }
+          },
+          "service_tier": "default",
+          "cost": {
+            "usd": 0.000575,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::mid_conversation_system::kimi_k3/0001",
+      "namespace": "venice::smoke::mid_conversation_system::kimi_k3",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "03049e580d03bdea"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "chatcmpl-f278c3228ed7425482a54ab000f8908c",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "content": "MADRID",
+                "role": "assistant",
+                "reasoning_content": "The user asked for the capital of Spain, following up on the capital of France. The system prompt says to answer with just the city name, and to write every answer in uppercase letters only.\n\nSo the answer should be \"MADRID\"."
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "created": 1788295597,
+          "model": "kimi-k3",
+          "object": "chat.completion",
+          "usage": {
+            "prompt_tokens": 162,
+            "completion_tokens": 64,
+            "total_tokens": 226,
+            "prompt_tokens_details": {
+              "cached_tokens": 60
+            },
+            "cache_read_input_tokens": 60,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 42,
+              "audio_tokens": 0,
+              "reasoning_tokens": 49,
+              "rejected_prediction_tokens": 46
+            }
+          },
+          "cost": {
+            "usd": 0.001605,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::mid_conversation_system::qwen_3_8_max/0001",
+      "namespace": "venice::smoke::mid_conversation_system::qwen_3_8_max",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "472c4c0aaecfa212"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "content": "MADRID",
+                "reasoning_content": "We need answer user's \"And of Spain?\" with just city name, uppercase only. Need final: MADRID. Ensure uppercase.",
+                "role": "assistant"
+              }
+            }
+          ],
+          "created": 1788295597,
+          "id": "chatcmpl-5b025c9f-edda-463d-b2d2-f6f4a6428921",
+          "model": "qwen-3-8-max",
+          "object": "chat.completion",
+          "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 33,
+            "total_tokens": 133,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 27,
+              "text_tokens": 33
+            }
+          },
+          "cost": {
+            "usd": 0.0004975,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::mid_conversation_system::grok_4_6/0001",
+      "namespace": "venice::smoke::mid_conversation_system::grok_4_6",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6e0445cfb59470c6"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "10518355-2013-9d7f-80fb-c754084d0d1d",
+          "object": "chat.completion",
+          "created": 1788295594,
+          "model": "grok-4-6",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "MADRID",
+                "refusal": null,
+                "reasoning_content": "The user's message is: \"And of Spain?\"\n\n\n__ENCRYPTED_REASONING__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",
+                "reasoning_encrypted": true
+              },
+              "finish_reason": "stop",
+              "logprobs": null
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 249,
+            "completion_tokens": 345,
+            "total_tokens": 594,
+            "prompt_tokens_details": {
+              "cached_tokens": 128
+            },
+            "cache_read_input_tokens": 128,
+            "completion_tokens_details": {
+              "reasoning_tokens": 342
+            }
+          },
+          "cost": {
+            "usd": 0.00269363,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::mid_conversation_system::glm_5_3/0001",
+      "namespace": "venice::smoke::mid_conversation_system::glm_5_3",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "7d9e14ae6774ac97"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "chatcmpl-69ab48f0922a50b4c1f0fbe8835242af",
+          "object": "chat.completion",
+          "created": 1788295592,
+          "model": "z-ai-glm-5-3",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "MADRID.",
+                "refusal": null,
+                "annotations": null,
+                "audio": null,
+                "function_call": null,
+                "reasoning_content": "The user asked about the capital of Spain, which is Madrid. The system prompt says \"From now on, write every answer in uppercase letters only.\" So I should answer in uppercase. Also the first instruction says \"Answer with just the city name\" — that applied to the previous question about France, but the instruction \"From now on\" for uppercase applies to every answer going forward. The \"just the city name\" instruction seems to be about the format. I'll answer \"MADRID.\" in uppercase."
+              },
+              "logprobs": null,
+              "finish_reason": "stop",
+              "stop_reason": 154827,
+              "token_ids": null,
+              "routed_experts": null
+            }
+          ],
+          "service_tier": null,
+          "usage": {
+            "prompt_tokens": 49,
+            "completion_tokens": 109,
+            "total_tokens": 158,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 103
+            }
+          },
+          "prompt_logprobs": null,
+          "prompt_token_ids": null,
+          "prompt_text": null,
+          "kv_transfer_params": null,
+          "ec_transfer_params": null,
+          "metrics": null,
+          "cost": {
+            "usd": 0.00068525,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
     }
   ]
 }

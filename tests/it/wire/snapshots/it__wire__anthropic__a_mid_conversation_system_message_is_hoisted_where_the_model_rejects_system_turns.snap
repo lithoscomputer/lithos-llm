@@ -1,0 +1,76 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "body": {
+    "max_tokens": 128,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the capital of France?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "text": "Paris.",
+            "type": "text"
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "text": "And of Spain?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "stream": false,
+    "system": "Answer with just the city name.\n\nFrom now on, write every answer in uppercase letters only.",
+    "thinking": {
+      "type": "adaptive"
+    }
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "anthropic-version",
+      "2023-06-01"
+    ],
+    [
+      "content-length",
+      "426"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-api-key",
+      "[redacted]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/v1/messages"
+}

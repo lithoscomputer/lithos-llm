@@ -54,6 +54,44 @@ mod token_count {
     model_tests!(super::counts_input_tokens_natively);
 }
 
+mod mid_conversation_system {
+    use super::*;
+
+    model_tests!(super::honors_a_mid_conversation_system_message);
+}
+
+/// A system message appended after the conversation has started must reach
+/// the model with system authority on every roster row. Rows that claim
+/// `system_turns` send it in place as a `system` turn, which leaves the
+/// top-level system field — the prefix preserved thinking is bound to —
+/// untouched; the older rows reject that turn, so theirs is hoisted into the
+/// field. Either way the instruction must win: an uppercase answer, where the
+/// conversation so far was lowercase prose.
+async fn honors_a_mid_conversation_system_message(model: &str) -> TestResult {
+    let Some(client) = anthropic::live_client() else {
+        return support::skip("ANTHROPIC_API_KEY is unset");
+    };
+    let request = anthropic::request(model)
+        .system("Answer with just the city name.")
+        .user("What is the capital of France?")
+        .message(Message::text(Role::Assistant, "Paris."))
+        .user("And of Spain?")
+        .message(Message::text(
+            Role::System,
+            "From now on, write every answer in uppercase letters only.",
+        ))
+        .build()?;
+    let response = client.complete(request).await?;
+    let text = response.text();
+    assert!(
+        text.contains("MADRID"),
+        "{model} did not follow the mid-conversation system message (system turns claimed: {}): \
+         {text:?}",
+        anthropic::capabilities(model).system_turns
+    );
+    Ok(())
+}
+
 async fn counts_input_tokens_natively(model: &str) -> TestResult {
     let Some(client) = anthropic::live_client() else {
         return support::skip("ANTHROPIC_API_KEY is unset");

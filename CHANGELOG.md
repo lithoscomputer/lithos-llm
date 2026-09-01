@@ -27,6 +27,32 @@ This project follows [Semantic Versioning](https://semver.org/).
   results and moved cache markers pass the model's preserved-thinking
   prefix check.
 
+- `ModelCapabilities::system_turns` records that a model's endpoint takes
+  `role: "system"` messages inside the conversation. The Anthropic codec used
+  to hoist every system and developer message into the top-level `system`
+  field, so an instruction an agent loop appended mid-conversation rewrote
+  that field between requests — and on Claude Fable 5.1, whose thinking
+  blocks are bound to that prefix, invalidated every earlier thinking block
+  (a 400 for accounts created on or after 2026-08-31). Where the row claims
+  the capability, only the leading run of system messages is hoisted and a
+  later one is sent in place as a `system` turn; everywhere else hoisting is
+  unchanged. Live probes on 2026-09-01 settled the rows: Claude Fable 5.1,
+  Fable 5, Opus 5, Sonnet 5, and Opus 4.8 take the turn (Sonnet 5 contrary
+  to its launch notes), and Opus 4.7 and every older row reject it. The
+  Anthropic live suite exercises a mid-conversation system message on every
+  roster row, pins the rejection on Haiku, and the Fable 5.1 enforcement
+  round trip now appends one after the tool result, so the prefix check has
+  to pass with a system turn present. The OpenAI-compatible codec already
+  carried system messages in place, but its Anthropic-style system cache
+  breakpoint landed on the *last* system message, so an appended
+  instruction moved the breakpoint every turn and the prefix written a turn
+  earlier was never read back; the breakpoint now stays on the leading run.
+  The OpenRouter and Venice suites gain a recorded family cell for the
+  shape. Venice's Claude rows skip it: Venice's translation rejects a cached
+  system prompt followed by a second system message (`system: text content
+  blocks must contain non-whitespace text`, probed 2026-09-01), which a
+  negative cell pins until Venice fixes it.
+
 - `ModelCapabilities::forced_tool_choice` records whether a model takes a
   forced tool choice (`required`, or one named tool). It defaults to true,
   so every existing row and every application-supplied catalog keeps its

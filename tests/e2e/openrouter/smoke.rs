@@ -9,7 +9,7 @@
 
 use lithos_llm::types::{CostSource, FinishReason, Message, Role};
 
-use crate::openrouter::{self, model_tests};
+use crate::openrouter::{self, family_tests, model_tests};
 use crate::support::{self, TestResult};
 
 mod basic_completion {
@@ -46,6 +46,55 @@ mod stop_sequence {
     use super::*;
 
     model_tests!(super::stops_at_the_stop_sequence);
+}
+
+mod mid_conversation_system {
+    use super::*;
+
+    family_tests!(super::honors_a_mid_conversation_system_message);
+}
+
+/// A system message appended after the conversation has started rides the
+/// Chat Completions protocol in place, and the gateway translates it for
+/// upstreams whose native protocol has no such turn. The instruction must
+/// win: an uppercase answer, where the conversation so far was lowercase
+/// prose. One representative per family, since honoring it is upstream
+/// behavior.
+async fn honors_a_mid_conversation_system_message(model: &str) -> TestResult {
+    // MiniMax M2.7 answered in lowercase on every attempt through OpenRouter on
+    // 2026-09-01: the message is accepted but not obeyed.
+    if model == "minimax-m2.7" {
+        return support::skip(
+            "the OpenRouter route does not obey a mid-conversation system message",
+        );
+    }
+    let Some(client) = openrouter::live_client() else {
+        return support::skip("OPENROUTER_API_KEY is unset");
+    };
+    // Whether the model obeys the instruction is model behavior, so one miss
+    // gets one retry before it counts as a failure.
+    for attempt in 0..2 {
+        let request = openrouter::request(model)
+            .system("Answer with just the city name.")
+            .user("What is the capital of France?")
+            .message(Message::text(Role::Assistant, "Paris."))
+            .user("And of Spain?")
+            .message(Message::text(
+                Role::System,
+                "From now on, write every answer in uppercase letters only.",
+            ))
+            .build()?;
+        let response = client.complete(request).await?;
+        let text = response.text();
+        if text.contains("MADRID") {
+            return Ok(());
+        }
+        support::observe(&format!(
+            "{model} did not follow the mid-conversation system message (attempt {attempt}): \
+             {text:?}"
+        ));
+    }
+    Err(format!("{model} never followed the mid-conversation system message").into())
 }
 
 async fn completes_with_usage_and_provider_cost(model: &str) -> TestResult {

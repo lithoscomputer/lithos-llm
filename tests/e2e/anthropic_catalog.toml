@@ -10,6 +10,11 @@
 # Pricing stays in this catalog because Anthropic reports token usage but no
 # in-band cost. The smoke suite therefore asserts `CostSource::Catalog`.
 
+# The five newest rows claim `system_turns`: a mid-conversation system message
+# goes out in place. The older rows reject a system turn ("role 'system' is not
+# supported on this model"), so theirs are hoisted. Both probed 2026-09-01; the
+# negative suite pins the rejection.
+
 schema_version = 1
 
 [providers.anthropic]
@@ -33,7 +38,7 @@ name = "x-api-key"
 display_name = "Claude Fable 5.1"
 api_model = "claude-fable-5-1"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, documents = true, tools = true, forced_tool_choice = false, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, forced_tool_choice = false, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
 
 [providers.anthropic.models."claude-fable-5"]
@@ -41,7 +46,7 @@ display_name = "Claude Fable 5"
 aliases = ["fable", "claude-fable"]
 api_model = "claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
 
 [providers.anthropic.models."claude-opus-5"]
@@ -49,7 +54,7 @@ display_name = "Claude Opus 5"
 aliases = ["opus", "claude-opus"]
 api_model = "claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
 
 [providers.anthropic.models."claude-sonnet-5"]
@@ -57,14 +62,14 @@ display_name = "Claude Sonnet 5"
 aliases = ["sonnet", "claude-sonnet"]
 api_model = "claude-sonnet-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
 
 [providers.anthropic.models."claude-opus-4.8"]
 display_name = "Claude Opus 4.8"
 api_model = "claude-opus-4-8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
 
 [providers.anthropic.models."claude-opus-4.7"]

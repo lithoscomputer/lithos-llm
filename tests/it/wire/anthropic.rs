@@ -929,6 +929,12 @@ const LEVELS_CAPABILITIES: &str = "{ text = true, tools = true, structured_outpu
 const BUDGET_CAPABILITIES: &str =
     "{ text = true, tools = true, structured_output = true, reasoning = true }";
 
+/// The levels capabilities for a model that takes system turns inside the
+/// conversation, as the Claude 5 models and Opus 4.8 do.
+const SYSTEM_TURN_CAPABILITIES: &str = "{ text = true, tools = true, structured_output = true, \
+                                         reasoning = true, reasoning_effort_levels = true, \
+                                         system_turns = true }";
+
 /// The levels capabilities for a model that takes no forced tool choice, as
 /// claude-fable-5-1 does.
 const NO_FORCED_CHOICE_CAPABILITIES: &str = "{ text = true, tools = true, forced_tool_choice = \
@@ -1227,6 +1233,102 @@ async fn a_model_without_forced_tool_choice_refuses_required_and_named_choice_be
     assert_eq!(captured.body["thinking"], json!({ "type": "adaptive" }));
     assert_eq!(captured.body["output_config"]["effort"], json!("high"));
     assert!(response.warnings.is_empty(), "{:?}", response.warnings);
+    crate::json_snapshot!(captured);
+}
+
+/// A conversation whose system prompt is followed, three turns later, by a
+/// second system message — the shape an agent loop produces when it appends
+/// an instruction mid-conversation.
+fn mid_conversation_system_request(model: &str) -> Request {
+    Request::builder()
+        .model(model)
+        .system("Answer with just the city name.")
+        .user("What is the capital of France?")
+        .message(Message::text(Role::Assistant, "Paris."))
+        .user("And of Spain?")
+        .message(Message::text(
+            Role::System,
+            "From now on, write every answer in uppercase letters only.",
+        ))
+        .max_output_tokens(128)
+        .build()
+        .expect("the mid-conversation system request should build")
+}
+
+#[tokio::test]
+async fn a_mid_conversation_system_message_stays_in_place_where_the_model_takes_system_turns() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_with(&server, SYSTEM_TURN_CAPABILITIES, None);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    client
+        .complete(mid_conversation_system_request(&model))
+        .await
+        .expect("the mid-conversation system request should complete");
+
+    let captured = support::captured(&slot);
+    // Only the leading run is the system prompt. The later message is a
+    // `system` turn in the conversation, in the position the caller gave it,
+    // so the top-level field — part of the prefix every preserved thinking
+    // block is bound to — is byte-identical to the previous request's.
+    assert_eq!(
+        captured.body["system"],
+        json!("Answer with just the city name.")
+    );
+    let roles: Vec<&str> = captured.body["messages"]
+        .as_array()
+        .expect("messages is an array")
+        .iter()
+        .filter_map(|message| message["role"].as_str())
+        .collect();
+    assert_eq!(roles, ["user", "assistant", "user", "system"]);
+    assert_eq!(
+        captured.body["messages"][3]["content"],
+        json!([{ "type": "text", "text": "From now on, write every answer in uppercase letters only." }])
+    );
+    crate::json_snapshot!(captured);
+
+    // Counting sends the same shape generation sends.
+    let (_count_mock, count_slot) =
+        support::mount_capture(&server, COUNT_PATH, &json!({ "input_tokens": 7 }));
+    client
+        .count_input_tokens(mid_conversation_system_request(&model))
+        .await
+        .expect("counting should succeed")
+        .expect("Anthropic counts tokens");
+    let counted = support::captured(&count_slot);
+    assert_eq!(counted.body["system"], captured.body["system"]);
+    assert_eq!(counted.body["messages"], captured.body["messages"]);
+}
+
+#[tokio::test]
+async fn a_mid_conversation_system_message_is_hoisted_where_the_model_rejects_system_turns() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_with(&server, LEVELS_CAPABILITIES, None);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &text_response());
+
+    client
+        .complete(mid_conversation_system_request(&model))
+        .await
+        .expect("the mid-conversation system request should complete");
+
+    let captured = support::captured(&slot);
+    // Opus 4.7 and older answer a `system` turn with a 400, so the only
+    // encoding they take is the joined system field. That rewrites the prefix
+    // between requests, which those models do not check.
+    assert_eq!(
+        captured.body["system"],
+        json!(
+            "Answer with just the city name.\n\nFrom now on, write every answer in uppercase letters only."
+        )
+    );
+    let roles: Vec<&str> = captured.body["messages"]
+        .as_array()
+        .expect("messages is an array")
+        .iter()
+        .filter_map(|message| message["role"].as_str())
+        .collect();
+    assert_eq!(roles, ["user", "assistant", "user"]);
     crate::json_snapshot!(captured);
 }
 

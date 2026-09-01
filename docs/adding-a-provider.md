@@ -81,7 +81,13 @@ rejects `required` or a named tool choice for that model, then set
 `forced_tool_choice = false` and record the evidence (a listing whose
 `supported_parameters` omits `tool_choice`, or a live 400) in a dated
 comment. The client refuses forced choices on such a row before dispatch,
-and the E2E forced-choice runners skip it.
+and the E2E forced-choice runners skip it. `system_turns` is read only by
+the Anthropic codec: claim it on a row whose model accepts a `role:
+"system"` message inside `messages` (probe one), and a system message
+appended mid-conversation then goes out in place instead of being hoisted
+into the top-level system field, which keeps the preserved-thinking prefix
+intact. A model that rejects the turn answers `role 'system' is not
+supported on this model`; leave the flag off and the codec hoists.
 
 Agent profile: give the provider row a `metadata.pebble.profile`, and give
 a model row its own value whenever the model's family differs from the

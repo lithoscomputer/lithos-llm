@@ -157,13 +157,15 @@ async fn reasoning_round_trip() -> TestResult {
 /// The same replay on Fable 5.1 with preserved-thinking enforcement on.
 ///
 /// Fable 5.1 binds every thinking block to the bytes before it: the `system`
-/// prompt, the `tools`, and every earlier message. The codec rewrites two
-/// things between the opening and closing turns — it merges tool results
-/// into one `user` turn and places `cache_control` markers — and both must
-/// count as no edit. Setting `prefix_mismatch_behavior` opts the request into
-/// the check on any account, so this cell fails with a 400 naming the change
-/// if the encoder ever rewrites the prefix. `error` rather than `drop_block`
-/// because a silent drop is the failure mode being guarded against.
+/// prompt, the `tools`, and every earlier message. The codec does three
+/// things between the opening and closing turns that must count as no edit:
+/// it merges tool results into one `user` turn, it places `cache_control`
+/// markers, and it carries a system message appended after the tool result
+/// as a `system` turn rather than folding it into the top-level field. Setting
+/// `prefix_mismatch_behavior` opts the request into the check on any account,
+/// so this cell fails with a 400 naming the change if the encoder ever rewrites
+/// the prefix. `error` rather than `drop_block` because a silent drop is the
+/// failure mode being guarded against.
 #[tokio::test]
 #[ignore = "live Anthropic call; run with mise run test:e2e:live"]
 async fn reasoning_round_trip_on_fable_5_1_under_enforcement() -> TestResult {
@@ -225,6 +227,11 @@ async fn replays_reasoning_with_a_tool_result(
             },
         )]));
     if binding.is_some() {
+        // An instruction appended after the tool result is what an agent loop
+        // does between turns. On a model that takes system turns it goes out
+        // in place; hoisting it would rewrite the bound top-level prefix and
+        // fail the check below.
+        closing = closing.message(Message::text(Role::System, "Answer in one short sentence."));
         // The raw `thinking` option replaces the generated adaptive object,
         // so it has to restate the type beside the binding control.
         closing = closing

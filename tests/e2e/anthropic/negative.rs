@@ -4,13 +4,14 @@
 //! right [`ErrorKind`].
 
 use std::env;
+use std::error::Error as StdError;
 use std::time::Duration;
 
 use futures_util::StreamExt as _;
 use lithos_llm::Client;
 use lithos_llm::catalog::Catalog;
 use lithos_llm::credentials::{CredentialHeader, Credentials, SecretValue, StaticCredentials};
-use lithos_llm::types::{ErrorKind, ToolChoice, ToolDefinition};
+use lithos_llm::types::{ErrorKind, Message, Role, ToolChoice, ToolDefinition};
 use serde_json::json;
 
 use crate::anthropic;
@@ -116,6 +117,89 @@ async fn dropping_a_stream_mid_flight_is_clean() -> TestResult {
     Ok(())
 }
 
+/// A live client over a one-row catalog whose claims differ from the roster's.
+///
+/// The roster rows keep the client from sending what a model rejects. These
+/// cells send it anyway, to pin the upstream rejection that justifies the
+/// roster's claim.
+fn client_for_row(row: &str, key: &str) -> Result<Client, Box<dyn StdError>> {
+    let catalog = Catalog::builder()
+        .toml_layer("anthropic-e2e-unrestricted", row)?
+        .build()?;
+    Ok(Client::builder()
+        .catalog(catalog)
+        .credentials(StaticCredentials::new().with(
+            anthropic::PROVIDER,
+            Credentials::header(CredentialHeader::new(
+                "x-api-key",
+                SecretValue::new(key.to_owned()),
+            )),
+        ))
+        .build()?
+        .client)
+}
+
+/// A Haiku 4.5 row that claims system turns, which the model rejects.
+const SYSTEM_TURN_ROW: &str = r#"
+schema_version = 1
+
+[providers.anthropic]
+display_name = "Anthropic"
+adapter = "anthropic"
+codec = "anthropic-messages"
+base_url = "https://api.anthropic.com"
+default_model = "claude-haiku-4.5"
+
+[providers.anthropic.auth]
+type = "header"
+name = "x-api-key"
+
+[providers.anthropic.models."claude-haiku-4.5"]
+display_name = "Claude Haiku 4.5, system turns claimed"
+api_model = "claude-haiku-4-5-20251001"
+capabilities = { text = true, system_turns = true }
+"#;
+
+/// The older rows claim no system turns, so the client hoists their
+/// mid-conversation system messages. This cell claims the capability on Haiku
+/// anyway and pins the 400 that justifies the omission. When Anthropic starts
+/// taking `system` turns on Haiku, this turns red and the row gains the claim.
+#[tokio::test]
+#[ignore = "live Anthropic call; run with `mise run test:e2e`"]
+async fn a_system_turn_is_refused_upstream_where_unclaimed() -> TestResult {
+    if let Some(skip) = support::live_only("live 400 classification") {
+        return skip;
+    }
+    let Ok(key) = env::var(anthropic::KEY_VARIABLE) else {
+        return support::skip("ANTHROPIC_API_KEY is unset");
+    };
+    let client = client_for_row(SYSTEM_TURN_ROW, &key)?;
+    let request = anthropic::request(MODEL)
+        .system("Answer with just the city name.")
+        .user("What is the capital of France?")
+        .message(Message::text(Role::Assistant, "Paris."))
+        .user("And of Spain?")
+        .message(Message::text(Role::System, "Write in uppercase."))
+        .build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("Haiku 4.5 must reject a system turn");
+    assert_eq!(
+        error.kind(),
+        ErrorKind::InvalidRequest,
+        "the system-turn 400 classified as {:?}: {}",
+        error.kind(),
+        error.message()
+    );
+    assert!(
+        error.message().contains("not supported on this model"),
+        "the rejection no longer names the system role: {}",
+        error.message()
+    );
+    Ok(())
+}
+
 /// A Fable 5.1 row that leaves `forced_tool_choice` at its default, so a
 /// forced choice reaches the wire.
 const UNRESTRICTED_ROW: &str = r#"
@@ -152,17 +236,7 @@ async fn a_forced_tool_choice_is_refused_upstream_on_fable_5_1() -> TestResult {
     let Ok(key) = env::var(anthropic::KEY_VARIABLE) else {
         return support::skip("ANTHROPIC_API_KEY is unset");
     };
-    let catalog = Catalog::builder()
-        .toml_layer("anthropic-e2e-unrestricted", UNRESTRICTED_ROW)?
-        .build()?;
-    let client = Client::builder()
-        .catalog(catalog)
-        .credentials(StaticCredentials::new().with(
-            anthropic::PROVIDER,
-            Credentials::header(CredentialHeader::new("x-api-key", SecretValue::new(key))),
-        ))
-        .build()?
-        .client;
+    let client = client_for_row(UNRESTRICTED_ROW, &key)?;
     let request = anthropic::request("claude-fable-5.1")
         .user("What is the weather in Paris?")
         .tool(ToolDefinition::function(

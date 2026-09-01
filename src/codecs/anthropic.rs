@@ -374,7 +374,17 @@ fn message_body(
     let mut body = Map::new();
     body.insert("model".to_owned(), route.api_model().into());
 
-    let mut system = system_text(request.messages());
+    // A model that takes system turns keeps only the leading system run in
+    // the top-level field; a later system message stays in the conversation.
+    // Everywhere else every system message is hoisted, the one encoding
+    // those models take.
+    let system_turns = route.model().capabilities().system_turns;
+    let hoisted = if system_turns {
+        leading_system_run(request.messages())
+    } else {
+        request.messages()
+    };
+    let mut system = system_text(hoisted);
     // Free-form JSON output rides on the system text rather than a schema;
     // see [`JSON_OBJECT_INSTRUCTION`]. The count endpoint keeps `system`, so
     // counting sees the same instruction generation sends.
@@ -388,7 +398,7 @@ fn message_body(
         body.insert("system".to_owned(), system_value(system, cached));
     }
 
-    let mut messages = wire_messages(request.messages());
+    let mut messages = wire_messages(request.messages(), system_turns);
     if cached {
         mark_conversation_prefix(&mut messages);
     }
@@ -644,7 +654,7 @@ fn system_value(text: String, cached: bool) -> Value {
 
 /// One conversation turn translated into Anthropic content blocks.
 struct WireMessage {
-    /// Anthropic accepts `user` and `assistant` only.
+    /// `user` or `assistant`, or `system` on a model that takes system turns.
     role:   &'static str,
     blocks: Vec<Value>,
 }
@@ -655,23 +665,59 @@ impl WireMessage {
     }
 }
 
+/// Whether a message carries system-prompt authority.
+fn is_system(message: &Message) -> bool {
+    matches!(message.role(), Role::System | Role::Developer)
+}
+
+/// The system and developer messages before the first conversational turn.
+///
+/// This run is the system prompt proper: it is hoisted into the top-level
+/// field on every model. What follows it is the conversation, and a system
+/// message inside the conversation is a mid-conversation instruction, which
+/// only some models take in place.
+fn leading_system_run(messages: &[Message]) -> &[Message] {
+    let end = messages
+        .iter()
+        .position(|message| !is_system(message))
+        .unwrap_or(messages.len());
+    &messages[..end]
+}
+
 /// Translates the conversation, dropping the turns Anthropic cannot carry.
 ///
-/// System and developer turns are hoisted into `system`, and every remaining
-/// non-assistant role — a tool result above all — is a `user` turn. A turn
-/// whose parts all encode to nothing is dropped, because Anthropic rejects a
-/// message with empty content.
-fn wire_messages(messages: &[Message]) -> Vec<WireMessage> {
+/// System and developer turns are hoisted into `system` — all of them, or
+/// only the leading run when `system_turns` says the model takes a later one
+/// in place. A system turn carries text only, the same as the hoisted field,
+/// so `flattens_system_content` reports whatever else such a message held.
+/// Every remaining non-assistant role — a tool result above all — is a `user`
+/// turn. A turn whose parts all encode to nothing is dropped, because
+/// Anthropic rejects a message with empty content.
+///
+/// Turns go out in the order given. Anthropic requires a system turn to
+/// follow a `user` turn and to be last or followed by an `assistant` turn;
+/// the codec does not reorder or fold a misplaced one, so the provider's
+/// placement error reaches the caller as an invalid request.
+fn wire_messages(messages: &[Message], system_turns: bool) -> Vec<WireMessage> {
+    let leading = leading_system_run(messages).len();
     let mut wire: Vec<WireMessage> = Vec::new();
-    for message in messages
-        .iter()
-        .filter(|message| !matches!(message.role(), Role::System | Role::Developer))
-    {
+    for (index, message) in messages.iter().enumerate() {
         let role = match message.role() {
+            Role::System | Role::Developer if system_turns && index >= leading => "system",
+            Role::System | Role::Developer => continue,
             Role::Assistant => "assistant",
             _ => "user",
         };
-        let blocks: Vec<Value> = message.content().iter().filter_map(content_block).collect();
+        let blocks: Vec<Value> = if role == "system" {
+            let text = plain_text(message.content());
+            if text.trim().is_empty() {
+                Vec::new()
+            } else {
+                vec![json!({ "type": "text", "text": text })]
+            }
+        } else {
+            message.content().iter().filter_map(content_block).collect()
+        };
         if blocks.is_empty() {
             continue;
         }

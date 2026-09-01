@@ -47,7 +47,7 @@ pub(crate) const TEST_API_KEY: &str = "test-key";
 /// writes its own catalog TOML.
 pub(crate) const FULL_CAPABILITIES: &str = "{ text = true, images = true, audio = true, \
      documents = true, tools = true, structured_output = true, reasoning = true, caching = true, \
-     cache_breakpoints = true, sampling = true }";
+     cache_breakpoints = true, sampling = true, system_turns = true }";
 
 // ===========================================================================
 // Capture and normalization

@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use futures_util::StreamExt as _;
-use lithos_llm::types::ErrorKind;
+use lithos_llm::types::{ErrorKind, Message, Role};
 
 use crate::support::{self, TestResult};
 use crate::venice;
@@ -117,6 +117,48 @@ async fn dropping_a_stream_mid_flight_is_clean() -> TestResult {
 /// Records whether Venice populates rate-limit headers. Nothing pins this
 /// yet; the probe output is what decides whether `rate_limits` gets a hard
 /// assertion here.
+/// Venice's Anthropic translation breaks when a system message carries a
+/// cache breakpoint and a second system message follows it: the upstream
+/// system array gets an empty text block and Anthropic answers 400 `system:
+/// text content blocks must contain non-whitespace text`. Without the
+/// breakpoint the same conversation succeeds, and OpenRouter accepts the
+/// shape as-is (probed 2026-09-01). The smoke suite skips the Claude rows'
+/// mid-conversation cell over this; when Venice fixes the translation this
+/// cell turns red and that skip comes off.
+#[tokio::test]
+#[ignore = "live Venice call; run with `mise run test:e2e`"]
+async fn a_cached_system_prefix_beside_a_later_system_message_is_rejected() -> TestResult {
+    if let Some(skip) = support::live_only("live 400 classification") {
+        return skip;
+    }
+    let Some(client) = venice::live_client() else {
+        return support::skip("VENICE_API_KEY is unset");
+    };
+    // The default auto-cache marks the leading system prompt on a row that
+    // claims breakpoints, which is exactly the shape Venice rejects.
+    let request = venice::request("claude-fable-5.1")
+        .system("Answer with just the city name.")
+        .user("What is the capital of France?")
+        .message(Message::text(Role::Assistant, "Paris."))
+        .user("And of Spain?")
+        .message(Message::text(
+            Role::System,
+            "From now on, write every answer in uppercase letters only.",
+        ))
+        .build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("Venice rejected this shape on 2026-09-01; a success means the bug is fixed");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert!(
+        error.message().contains("non-whitespace text"),
+        "Venice's rejection changed shape: {}",
+        error.message()
+    );
+    Ok(())
+}
+
 #[tokio::test]
 #[ignore = "live Venice call; run with `mise run test:e2e`"]
 async fn probe_rate_limit_headers() -> TestResult {
