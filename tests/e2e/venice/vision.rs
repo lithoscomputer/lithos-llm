@@ -46,6 +46,7 @@ mod url {
 
     url_tests!(
         grok_4_6 "grok-4.6",
+        claude_fable_5_1 "claude-fable-5.1",
         claude_fable_5 "claude-fable-5",
         gpt_5_6_terra "gpt-5.6-terra",
     );

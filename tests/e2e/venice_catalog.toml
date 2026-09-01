@@ -101,6 +101,15 @@ capabilities = { text = true, images = true, tools = true, structured_output = t
 #
 # `reasoning_effort_levels` on these rows follows Venice's listing (true only
 # for claude-fable-5), and that listing is wrong about the models: Claude
+# Venice passes Anthropic's forced-tool-choice 400 through for Fable 5.1
+# (probed 2026-09-01), so the row claims tools without forced_tool_choice and
+# the forced-choice cells skip it. The other flags follow the Fable 5 row.
+[providers.venice.models."claude-fable-5.1"]
+display_name = "Claude Fable 5.1"
+api_model = "claude-fable-5-1"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, forced_tool_choice = false, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
+
 # Opus 5 takes effort levels upstream, proven through OpenRouter. The flags
 # are moot for now because Venice's Anthropic path returns no reasoning at
 # all (see `.ai/repros/venice_claude_reasoning_repro.py`); when Venice fixes

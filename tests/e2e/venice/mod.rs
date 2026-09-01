@@ -55,6 +55,7 @@ macro_rules! model_tests {
             deepseek_v4_pro "deepseek-v4-pro",
             qwen_3_8_max "qwen3.8-max",
             qwen_3_8_27b "qwen3.8-27b",
+            claude_fable_5_1 "claude-fable-5.1",
             claude_fable_5 "claude-fable-5",
             claude_opus_5 "claude-opus-5",
             claude_sonnet_5 "claude-sonnet-5",
@@ -90,6 +91,9 @@ macro_rules! family_tests {
             glm_5_3 "glm-5.3",
             deepseek_v4_flash "deepseek-v4-flash",
             qwen_3_8_max "qwen3.8-max",
+            // Fable 5.1 sits beside Fable 5: tool selection and parallel-call
+            // batching are the behaviors that changed between the two.
+            claude_fable_5_1 "claude-fable-5.1",
             claude_fable_5 "claude-fable-5",
             gpt_5_6_terra "gpt-5.6-terra",
         );

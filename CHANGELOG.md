@@ -8,15 +8,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- The built-in Anthropic and OpenRouter catalogs carry Claude Fable 5.1
-  (`claude-fable-5.1`, wire ids `claude-fable-5-1` and
-  `anthropic/claude-fable-5.1`), verified live on 2026-09-01: Fable 5's
-  limits, effort levels, and rates, with cache reads at $0.25 per million
-  tokens instead of $1.00. Claude Fable 5 stays in both rosters, and the
-  `fable` and `claude-fable` aliases still resolve to it. The live suites
-  cover the new rows end to end — roster, family, effort-level, vision, and
-  structured cells on Anthropic; roster, effort-probe, and reasoning
-  round-trip cells on OpenRouter, recorded for offline replay — plus two
+- The built-in Anthropic, OpenRouter, and Venice catalogs carry Claude
+  Fable 5.1 (`claude-fable-5.1`, wire ids `claude-fable-5-1` on Anthropic
+  and Venice, `anthropic/claude-fable-5.1` on OpenRouter), verified live on
+  2026-09-01: Fable 5's limits, effort levels, and rates, with cache reads
+  at $0.25 per million tokens instead of $1.00. Venice lists it at
+  Anthropic's own rates rather than its marked-up Fable 5 rates. Claude
+  Fable 5 stays in every roster, and the `fable` and `claude-fable` aliases
+  still resolve to it. The live suites cover the new rows end to end —
+  roster, family, effort-level, vision, and structured cells on Anthropic;
+  roster, effort-probe, and reasoning round-trip cells on OpenRouter and
+  roster, family, effort-probe, and round-trip cells on Venice, both
+  recorded for offline replay — plus two
   cells specific to what changed: one pins Anthropic's 400 for a forced
   tool choice on Fable 5.1, and one replays a signed thinking block under
   the `thinking-binding-controls-2026-08-01` beta with

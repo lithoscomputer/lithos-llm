@@ -28982,6 +28982,1275 @@
           }
         ]
       }
+    },
+    {
+      "scenario_id": "venice::reasoning::round_trip::claude_fable_5_1/0001",
+      "namespace": "venice::reasoning::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b75d71ef04d88b86"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKMvwPgdttnTMAPg4YP",
+          "object": "chat.completion",
+          "created": 1788292991,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "tool_calls": [
+                  {
+                    "id": "toolu_01MqJoqXSgfwdxzQ2K9fppFv",
+                    "type": "function",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\": \"Paris\"}"
+                    }
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 409,
+            "completion_tokens": 50,
+            "total_tokens": 459,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00659,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::caching::round_trip::claude_fable_5_1/0001",
+      "namespace": "venice::caching::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "885c9a46efb277d8"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKMwX7xivCkpvWbCN29",
+          "object": "chat.completion",
+          "created": 1788292991,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "lithos-llm",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8340,
+            "completion_tokens": 8,
+            "total_tokens": 8348,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_creation_input_tokens": 8315
+            },
+            "cache_creation_input_tokens": 8315
+          },
+          "cost": {
+            "usd": 0.1045875,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::effort_probes::claude_fable_5_1/0001",
+      "namespace": "venice::reasoning::effort_probes::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "65fa1c070a34b49e"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKMwB2kTUZjjfM6WnmW",
+          "object": "chat.completion",
+          "created": 1788292992,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "We need positive integer solutions to 7n + 3p = 118.\n\n7n ≡ 118 mod 3 → 7n ≡ 1 mod 3 → n ≡ 1 mod 3. n = 1, 4, 7, 10, 13, 16 (7·16=112, p=2). n=19 gives 133 > 118.\n\nCheck n=1: p=37; n=4: p=30; n=7: p=23; n=10: p=16; n=13: p=9; n=16: p=2. All positive.\n\n6",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 169,
+            "total_tokens": 247,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00923,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::presence::claude_fable_5_1/0001",
+      "namespace": "venice::reasoning::presence::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "3e050c960d60cb10"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "data": "{\"id\":\"msg_011CedKMwKi8GijnfQ7sakhX\",\"object\":\"chat.completion.chunk\",\"created\":1788292990,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKMwKi8GijnfQ7sakhX\",\"object\":\"chat.completion.chunk\",\"created\":1788292990,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"We\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKMwKi8GijnfQ7sakhX\",\"object\":\"chat.completion.chunk\",\"created\":1788292990,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" need positive integer solutions to 7n + 3p = 118.\\n\\n7n ≡ 118 (mod 3) → 118 mod 3 = 1, 7 ≡ 1 mod 3, so n ≡ 1 (mod\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKMwKi8GijnfQ7sakhX\",\"object\":\"chat.completion.chunk\",\"created\":1788292991,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" 3).\\n\\nn = 1: p = 111/3 = 37 ✓\\nn = 4: p = 90/3 = 30 ✓\\nn = 7: p = 69/3 = 23 ✓\\nn = 10: p = 48/3 = 16 \"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKMwKi8GijnfQ7sakhX\",\"object\":\"chat.completion.chunk\",\"created\":1788292993,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"✓\\nn = 13: p = 27/3 = 9 ✓\\nn = 16: p = 6/3 = 2 ✓\\nn = 19: 133 > 118 ✗\\n\\n**6**\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKMwKi8GijnfQ7sakhX\",\"object\":\"chat.completion.chunk\",\"created\":1788292993,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKMwKi8GijnfQ7sakhX\",\"object\":\"chat.completion.chunk\",\"created\":1788292993,\"model\":\"claude-fable-5-1\",\"choices\":[],\"usage\":{\"prompt_tokens\":78,\"completion_tokens\":222,\"total_tokens\":300,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"cost\":{\"usd\":0.01188,\"diem\":0}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::round_trip::claude_fable_5_1/0002",
+      "namespace": "venice::reasoning::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "7f2a8848f5910e82"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNDczSkjqnubYdU2GD",
+          "object": "chat.completion",
+          "created": 1788292996,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Paris is currently 21°C, sunny, with a light breeze — that's pretty much ideal picnic weather. It's warm without being hot, the sun is out, and the breeze is gentle enough that you won't be chasing napkins around. Go for it!",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 456,
+            "completion_tokens": 83,
+            "total_tokens": 539,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.008709999999999999,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::effort_probes::claude_fable_5_1/0002",
+      "namespace": "venice::reasoning::effort_probes::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "faa825feb537cf7a"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNKvkdRDTr78m1Gn28",
+          "object": "chat.completion",
+          "created": 1788292997,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Solve 7n + 3p = 118 with n, p ≥ 1.\n\n7n ≡ 118 (mod 3) → n ≡ 1 (mod 3), so n = 1, 4, 7, 10, 13, 16.\nCheck n=16: 7·16=112, p=2 ✓. n=19: 133 > 118 ✗.\n\n**6**",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 120,
+            "total_tokens": 198,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00678,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::sampling::accepted::claude_fable_5_1/0001",
+      "namespace": "venice::sampling::accepted::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "e51c49c9198df12a"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNP4mQYVpZQp7zoXFb",
+          "object": "chat.completion",
+          "created": 1788292997,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello there, it's nice to meet you!",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 16,
+            "total_tokens": 35,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00099,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::basic_completion::claude_fable_5_1/0001",
+      "namespace": "venice::smoke::basic_completion::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "d988aa14c02dadd1"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNb7KJ7Rzzg5Tr8h2C",
+          "object": "chat.completion",
+          "created": 1788293000,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello there, it's nice to meet you!",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 16,
+            "total_tokens": 35,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00099,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::caching::round_trip::claude_fable_5_1/0002",
+      "namespace": "venice::caching::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "a44306b7adb0330c"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNbuSH69ojXM6V85S2",
+          "object": "chat.completion",
+          "created": 1788293000,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Yes.",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8341,
+            "completion_tokens": 6,
+            "total_tokens": 8347,
+            "prompt_tokens_details": {
+              "cached_tokens": 8315
+            },
+            "cache_read_input_tokens": 8315
+          },
+          "cost": {
+            "usd": 0.0026387499999999996,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::multi_turn::claude_fable_5_1/0001",
+      "namespace": "venice::smoke::multi_turn::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "e8d319dcc73e7534"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNgCA3GzfaEJCXw6qx",
+          "object": "chat.completion",
+          "created": 1788293001,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Madrid.",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 40,
+            "completion_tokens": 7,
+            "total_tokens": 47,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00075,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::length_truncation::claude_fable_5_1/0001",
+      "namespace": "venice::smoke::length_truncation::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "9e77c8827e92c604"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNfmcHdNKGmfDaEzkT",
+          "object": "chat.completion",
+          "created": 1788293001,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null
+              },
+              "finish_reason": "length"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 26,
+            "completion_tokens": 32,
+            "total_tokens": 58,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00186,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::stop_sequence::claude_fable_5_1/0001",
+      "namespace": "venice::smoke::stop_sequence::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "4fdc8e0d496ec090"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNt2oKfuqH9Xq473p4",
+          "object": "chat.completion",
+          "created": 1788293003,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "one two three four ",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 53,
+            "completion_tokens": 5,
+            "total_tokens": 58,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00078,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::stream_contract::claude_fable_5_1/0001",
+      "namespace": "venice::smoke::stream_contract::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "04e55f93e255e928"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "data": "{\"id\":\"msg_011CedKNt9ExUaXBVWisTq27\",\"object\":\"chat.completion.chunk\",\"created\":1788293002,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKNt9ExUaXBVWisTq27\",\"object\":\"chat.completion.chunk\",\"created\":1788293002,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi there! \"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKNt9ExUaXBVWisTq27\",\"object\":\"chat.completion.chunk\",\"created\":1788293003,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"👋😊\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKNt9ExUaXBVWisTq27\",\"object\":\"chat.completion.chunk\",\"created\":1788293003,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKNt9ExUaXBVWisTq27\",\"object\":\"chat.completion.chunk\",\"created\":1788293003,\"model\":\"claude-fable-5-1\",\"choices\":[],\"usage\":{\"prompt_tokens\":27,\"completion_tokens\":12,\"total_tokens\":39,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"cost\":{\"usd\":0.0008699999999999999,\"diem\":0}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::system_prompt::claude_fable_5_1/0001",
+      "namespace": "venice::smoke::system_prompt::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "cb710dbdf33b08a9"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNwVQeB1AQgXZWusdA",
+          "object": "chat.completion",
+          "created": 1788293004,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "PONG",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 35,
+            "completion_tokens": 5,
+            "total_tokens": 40,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0006000000000000001,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::structured::json_object::claude_fable_5_1/0001",
+      "namespace": "venice::structured::json_object::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6eea2f4a149e3c46"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKNyN2CYmo6xhjdGQfp",
+          "object": "chat.completion",
+          "created": 1788293006,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "```json\n{\n  \"city\": \"Paris\",\n  \"approximate_population\": 2100000\n}\n```",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 34,
+            "completion_tokens": 33,
+            "total_tokens": 67,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00199,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::tools::auto_choice::claude_fable_5_1/0001",
+      "namespace": "venice::tools::auto_choice::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "4e283feefa441424"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKPBy3mMG33wJX87C2N",
+          "object": "chat.completion",
+          "created": 1788293008,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "tool_calls": [
+                  {
+                    "id": "toolu_01WMUKzqWjLUWmimkBGRb1Hd",
+                    "type": "function",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\": \"Paris\"}"
+                    }
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 394,
+            "completion_tokens": 50,
+            "total_tokens": 444,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0064399999999999995,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::structured::json_schema_streamed::claude_fable_5_1/0001",
+      "namespace": "venice::structured::json_schema_streamed::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "8dc2535ff5234dee"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "data": "{\"id\":\"msg_011CedKPD1oYTM3V454fvabg\",\"object\":\"chat.completion.chunk\",\"created\":1788293008,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKPD1oYTM3V454fvabg\",\"object\":\"chat.completion.chunk\",\"created\":1788293008,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKPD1oYTM3V454fvabg\",\"object\":\"chat.completion.chunk\",\"created\":1788293010,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\"city\\\": \\\"Paris\\\", \\\"population\\\": 2100000}\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKPD1oYTM3V454fvabg\",\"object\":\"chat.completion.chunk\",\"created\":1788293010,\"model\":\"claude-fable-5-1\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CedKPD1oYTM3V454fvabg\",\"object\":\"chat.completion.chunk\",\"created\":1788293010,\"model\":\"claude-fable-5-1\",\"choices\":[],\"usage\":{\"prompt_tokens\":237,\"completion_tokens\":19,\"total_tokens\":256,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"cost\":{\"usd\":0.00332,\"diem\":0}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "venice::structured::json_schema::claude_fable_5_1/0001",
+      "namespace": "venice::structured::json_schema::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "5b77f938f2de60fd"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKPD23upvmbgL9xqiUt",
+          "object": "chat.completion",
+          "created": 1788293010,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"population\":2100000}",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 237,
+            "completion_tokens": 17,
+            "total_tokens": 254,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00322,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::tools::error_result::claude_fable_5_1/0001",
+      "namespace": "venice::tools::error_result::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "0f2ef43187eca69e"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKPNGg2n3LHCpnoc3Mp",
+          "object": "chat.completion",
+          "created": 1788293011,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I wasn't able to find weather data for \"Atlantis\" — the weather service reports it as an unknown city. Since Atlantis is a legendary/mythical city, it likely isn't in any real weather database.\n\nIf you meant a real location (for example, Atlantis in Florida, USA, or Atlantis in the Western Cape, South Africa), let me know which one and I can try again with a more specific name.",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 441,
+            "completion_tokens": 128,
+            "total_tokens": 569,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.01081,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::tools::round_trip::claude_fable_5_1/0001",
+      "namespace": "venice::tools::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "356f40e15d2434c8"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKPcCaGrDL7qeWFK63p",
+          "object": "chat.completion",
+          "created": 1788293013,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "The weather in Paris is currently 18°C and clear.",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 436,
+            "completion_tokens": 20,
+            "total_tokens": 456,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00536,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::vision::inline::claude_fable_5_1/0001",
+      "namespace": "venice::vision::inline::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "fa9f48b6adc8c0bb"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKPgs7pLiyGGMzknjXc",
+          "object": "chat.completion",
+          "created": 1788293014,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Red",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 36,
+            "completion_tokens": 4,
+            "total_tokens": 40,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0005600000000000001,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::tools::parallel_calls::claude_fable_5_1/0001",
+      "namespace": "venice::tools::parallel_calls::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "73f1c2ee790e489d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKPVVWFW2hDKE5umoyX",
+          "object": "chat.completion",
+          "created": 1788293015,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "I'll fetch the current weather for both cities.",
+                "refusal": null,
+                "tool_calls": [
+                  {
+                    "id": "toolu_016eucqFvN4wiMmF6qY9epzP",
+                    "type": "function",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\": \"Paris\"}"
+                    }
+                  },
+                  {
+                    "id": "toolu_015j4KzcocKUfJLSCWj2ufjh",
+                    "type": "function",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\": \"Madrid\"}"
+                    }
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 406,
+            "completion_tokens": 152,
+            "total_tokens": 558,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.01166,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::vision::url::claude_fable_5_1/0001",
+      "namespace": "venice::vision::url::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "ec681dc1e67e0fa2"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CedKPrUZmzVvt6ZNw7n5L",
+          "object": "chat.completion",
+          "created": 1788293017,
+          "model": "claude-fable-5-1",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Cat",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 3393,
+            "completion_tokens": 5,
+            "total_tokens": 3398,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.03418,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
     }
   ]
 }

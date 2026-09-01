@@ -13,6 +13,10 @@
 # markers. `reasoning_effort_levels` on the Claude rows follows Venice's
 # listing, which reflects Venice's own per-model opt-in rather than the
 # models; re-probe when Venice's Anthropic path starts returning reasoning.
+#
+# Claude Fable 5.1 was added on 2026-09-01 from the live listing and probes.
+# Venice lists it at Anthropic's own rates ($10/$50, cache reads $0.25),
+# below its marked-up Fable 5 rates; the listing wins.
 
 schema_version = 1
 
@@ -131,6 +135,21 @@ limits = { context_tokens = 262144, max_output_tokens = 65536 }
 # The one row without cache pricing on Venice, so caching stays unclaimed.
 capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, sampling = true }
 pricing = { input_usd_micros_per_million = 450000, output_usd_micros_per_million = 3200000 }
+
+[providers.venice.models."claude-fable-5.1"]
+display_name = "Claude Fable 5.1"
+api_model = "claude-fable-5-1"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+# Venice passes Anthropic's forced-tool-choice 400 straight through for this
+# model (`tool_choice: type "tool" and "any" are not supported for this
+# model.`, probed 2026-09-01 with both `required` and a named tool), so the
+# row claims tools without forced_tool_choice. Sampling and the cache flags
+# follow the Fable 5 row: Venice accepted a temperature on this route.
+capabilities = { text = true, images = true, tools = true, forced_tool_choice = false, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
+pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
+
+[providers.venice.models."claude-fable-5.1".metadata.pebble]
+profile = "claude-5"
 
 [providers.venice.models."claude-fable-5"]
 display_name = "Claude Fable 5"

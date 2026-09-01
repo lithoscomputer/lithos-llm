@@ -485,6 +485,27 @@ mod tests {
             "claude-opus-4-8"
         );
 
+        // Fable 5.1 keeps Venice's Claude flags but takes no forced tool
+        // choice, and Venice lists it at Anthropic's own rates.
+        let fable_51 = catalog.model("venice", "claude-fable-5.1")?;
+        assert_eq!(fable_51.api_model(), "claude-fable-5-1");
+        assert!(!fable_51.capabilities().forced_tool_choice);
+        assert!(fable_51.capabilities().sampling);
+        assert!(fable_51.capabilities().cache_routing);
+        assert_eq!(
+            fable_51.pricing().map(|pricing| (
+                pricing.input_usd_micros_per_million,
+                pricing.cached_input_usd_micros_per_million,
+            )),
+            Some((Some(10_000_000), Some(250_000)))
+        );
+        assert!(
+            catalog
+                .model("venice", "claude-fable-5")?
+                .capabilities()
+                .forced_tool_choice
+        );
+
         // Live-verified capability corrections win over fabro's claims.
         assert!(
             !catalog

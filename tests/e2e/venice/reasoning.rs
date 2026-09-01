@@ -14,8 +14,8 @@
 //!    in the next turn, which is the shape agent replay depends on.
 
 use lithos_llm::types::{
-    ContentPart, ErrorKind, FinishReason, Message, ReasoningEffort, Role, ToolChoice,
-    ToolDefinition, ToolResult,
+    ContentPart, ErrorKind, FinishReason, Message, ReasoningEffort, RequestBuilder, Role,
+    ToolChoice, ToolDefinition, ToolResult,
 };
 use serde_json::{Value, json};
 
@@ -85,6 +85,7 @@ mod effort_probes {
         kimi_k3 "kimi-k3",
         kimi_k3_fast "kimi-k3-fast",
         glm_5_3 "glm-5.3",
+        claude_fable_5_1 "claude-fable-5.1",
         claude_fable_5 "claude-fable-5",
         gpt_5_6_sol "gpt-5.6-sol",
         gpt_5_6_terra "gpt-5.6-terra",
@@ -113,6 +114,16 @@ mod round_trip {
         grok_4_6 "grok-4.6",
         deepseek_v4_flash "deepseek-v4-flash",
     );
+
+    /// Fable 5.1 takes no forced tool choice, so its round trip opens under
+    /// `auto` with a system instruction naming the tool instead. A separate
+    /// cell rather than a change to the shared runner keeps the three
+    /// recorded cells above on their request hashes.
+    #[tokio::test]
+    #[ignore = "live Venice call; run with `mise run test:e2e`"]
+    async fn claude_fable_5_1() -> TestResult {
+        super::replays_reasoning_with_a_tool_result_under_auto_choice("claude-fable-5.1").await
+    }
 }
 
 /// A question hard enough that a reasoning model actually reasons.
@@ -254,16 +265,31 @@ async fn probes_the_effort_vocabulary(model: &str) -> TestResult {
 /// both back with the tool result. A codec that drops or mangles carried
 /// reasoning breaks here on the provider side, which no mock can prove.
 async fn replays_reasoning_with_a_tool_result(model: &str) -> TestResult {
-    let Some(client) = venice::live_client() else {
-        return support::skip("VENICE_API_KEY is unset");
-    };
-    let first = venice::request(model)
+    let opening = venice::request(model)
         .user("Look up the weather in Paris, then tell me if it suits a picnic.")
         .tool(tools_weather())
         .tool_choice(ToolChoice::Tool {
             name: "get_weather".to_owned(),
-        })
-        .build()?;
+        });
+    replays_reasoning_from(model, opening).await
+}
+
+/// The round trip for a model that takes no forced tool choice: the opening
+/// turn asks for the call in the system prompt and leaves the choice `auto`.
+async fn replays_reasoning_with_a_tool_result_under_auto_choice(model: &str) -> TestResult {
+    let opening = venice::request(model)
+        .system("Use the get_weather tool for every weather question before answering.")
+        .user("Look up the weather in Paris, then tell me if it suits a picnic.")
+        .tool(tools_weather())
+        .tool_choice(ToolChoice::Auto);
+    replays_reasoning_from(model, opening).await
+}
+
+async fn replays_reasoning_from(model: &str, opening: RequestBuilder) -> TestResult {
+    let Some(client) = venice::live_client() else {
+        return support::skip("VENICE_API_KEY is unset");
+    };
+    let first = opening.build()?;
     let opening = client.complete(first).await?;
     let calls = support::tool_calls(&opening);
     let call_id = calls
