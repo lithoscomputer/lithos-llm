@@ -32,6 +32,15 @@ type = "bearer"
 
 # ---------- Anthropic via OpenRouter ----------
 
+# The listing omits `tool_choice` for this row (the Fable 5 row has it), so it
+# claims tools without forced_tool_choice and the forced-choice cells skip it.
+# Verified 2026-09-01 against GET /api/v1/models.
+[providers.openrouter.models."claude-fable-5.1"]
+display_name = "Claude Fable 5.1 (via OpenRouter)"
+api_model = "anthropic/claude-fable-5.1"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, forced_tool_choice = false, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_breakpoints = true }
+
 [providers.openrouter.models."claude-fable-5"]
 display_name = "Claude Fable 5 (via OpenRouter)"
 aliases = ["fable", "claude-fable"]

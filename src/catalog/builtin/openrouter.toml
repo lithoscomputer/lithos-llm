@@ -14,6 +14,9 @@
 # Lithos currently emits `prompt_cache_key` for `cache_routing`, so no row
 # claims that capability. Claude rows do claim explicit cache breakpoints,
 # which OpenRouter documents for its Chat Completions endpoint.
+#
+# Claude Fable 5.1 was added on 2026-09-01 from the live listing. The `fable`
+# and `claude-fable` aliases stay on Fable 5 for now.
 
 schema_version = 1
 
@@ -34,6 +37,21 @@ type = "bearer"
 profile = "openai"
 
 # ---------- Anthropic via OpenRouter ----------
+
+[providers.openrouter.models."claude-fable-5.1"]
+display_name = "Claude Fable 5.1 (via OpenRouter)"
+api_model = "anthropic/claude-fable-5.1"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+# The listing's `supported_parameters` for this row omits `tool_choice`, which
+# the Fable 5 row has: the upstream returns a 400 for a forced choice, so the
+# row claims tools without forced_tool_choice. Cache reads are $0.25/MTok, a
+# quarter of Fable 5's rate; the other rates match Fable 5. Verified
+# 2026-09-01 against GET /api/v1/models.
+capabilities = { text = true, images = true, tools = true, forced_tool_choice = false, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_breakpoints = true }
+pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
+
+[providers.openrouter.models."claude-fable-5.1".metadata.pebble]
+profile = "claude-5"
 
 [providers.openrouter.models."claude-fable-5"]
 display_name = "Claude Fable 5 (via OpenRouter)"

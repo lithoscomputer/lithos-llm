@@ -66245,6 +66245,902 @@
           }
         ]
       }
+    },
+    {
+      "scenario_id": "openrouter::smoke::basic_completion::claude_fable_5_1/0001",
+      "namespace": "openrouter::smoke::basic_completion::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "48b205612652534b"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291726-0ahKEr6r6NCkx7KbGQFs",
+          "object": "chat.completion",
+          "created": 1788291726,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Hello there, it's nice to meet you!",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 16,
+            "total_tokens": 35,
+            "cost": 0.00099,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00099,
+              "upstream_inference_prompt_cost": 0.00019,
+              "upstream_inference_completions_cost": 0.0008
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::round_trip::claude_fable_5_1/0001",
+      "namespace": "openrouter::reasoning::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "f43beb7ca63ac075"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291726-IFZ4Ftp0KxUWkCOTkEwL",
+          "object": "chat.completion",
+          "created": 1788291726,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "tool_calls",
+              "native_finish_reason": "tool_use",
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "reasoning": null,
+                "tool_calls": [
+                  {
+                    "type": "function",
+                    "index": 0,
+                    "id": "toolu_01W8AcyQxefakctyfLxPbxd2",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\": \"Paris\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 409,
+            "completion_tokens": 50,
+            "total_tokens": 459,
+            "cost": 0.00659,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00659,
+              "upstream_inference_prompt_cost": 0.00409,
+              "upstream_inference_completions_cost": 0.0025
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::effort_probes::claude_fable_5_1/0001",
+      "namespace": "openrouter::reasoning::effort_probes::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "d83f4941a7014568"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291726-sMUDIFxAyST3lXChS3LJ",
+          "object": "chat.completion",
+          "created": 1788291726,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "We need positive integer solutions to 7n + 3p = 118.\n\n7n ≡ 118 (mod 3) → 7n ≡ 1 (mod 3) → n ≡ 1 (mod 3). So n = 1, 4, 7, 10, 13, 16.\n\nCheck n=16: 112, p=2 ✓. n=19: 133 > 118.\n\nSolutions: n=1 (p=37), 4 (30), 7 (23), 10 (16), 13 (9), 16 (2).\n\n**6**",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 170,
+            "total_tokens": 248,
+            "cost": 0.00928,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00928,
+              "upstream_inference_prompt_cost": 0.00078,
+              "upstream_inference_completions_cost": 0.0085
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::presence::claude_fable_5_1/0001",
+      "namespace": "openrouter::reasoning::presence::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "970d269cd7ea4c26"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen-1788291726-UyPiHEye1dvWhRMLi13P\",\"object\":\"chat.completion.chunk\",\"created\":1788291726,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"We\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291726-UyPiHEye1dvWhRMLi13P\",\"object\":\"chat.completion.chunk\",\"created\":1788291726,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" need positive integer solutions to 7n + 3p = 118.\\n\\n7n ≡ 118 (mod 3) → 7n ≡ 1 (mod 3) → n ≡ 1 (mod 3).\\n\\nn = 1: p = 37\\nn = 4: p =\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291726-UyPiHEye1dvWhRMLi13P\",\"object\":\"chat.completion.chunk\",\"created\":1788291726,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" 30\\nn = 7: p = 23\\nn = 10: p = 16\\nn = 13: p = 9\\nn = 16: p = 2\\nn = 19: 133 > 118, no.\\n\\n**6**\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291726-UyPiHEye1dvWhRMLi13P\",\"object\":\"chat.completion.chunk\",\"created\":1788291726,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291726-UyPiHEye1dvWhRMLi13P\",\"object\":\"chat.completion.chunk\",\"created\":1788291726,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"service_tier\":\"default\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}],\"usage\":{\"prompt_tokens\":78,\"completion_tokens\":150,\"total_tokens\":228,\"cost\":0.00828,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.00828,\"upstream_inference_prompt_cost\":0.00078,\"upstream_inference_completions_cost\":0.0075},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0,\"audio_tokens\":0}}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::round_trip::claude_fable_5_1/0002",
+      "namespace": "openrouter::reasoning::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "68f505299b0a04b9"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291731-9lLbZ8mxF6tepJEABZ2I",
+          "object": "chat.completion",
+          "created": 1788291731,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Paris is currently 21°C, sunny, with a light breeze — that's ideal picnic weather. It's warm enough to be comfortable without being hot, the sunshine means no rain to worry about, and the light breeze should keep things pleasant (though you may want to secure napkins and anything lightweight). Go for it!",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 456,
+            "completion_tokens": 104,
+            "total_tokens": 560,
+            "cost": 0.00976,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00976,
+              "upstream_inference_prompt_cost": 0.00456,
+              "upstream_inference_completions_cost": 0.0052
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::multi_turn::claude_fable_5_1/0001",
+      "namespace": "openrouter::smoke::multi_turn::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "a280b23bc026b197"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291733-QkquqQ7mnzKWykRNujyW",
+          "object": "chat.completion",
+          "created": 1788291733,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Madrid.",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 40,
+            "completion_tokens": 7,
+            "total_tokens": 47,
+            "cost": 0.00075,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00075,
+              "upstream_inference_prompt_cost": 0.0004,
+              "upstream_inference_completions_cost": 0.00035
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::effort_probes::claude_fable_5_1/0002",
+      "namespace": "openrouter::reasoning::effort_probes::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "92dc5d74fa3bd3f4"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291732-f831jv5NgNRyQzPNfojN",
+          "object": "chat.completion",
+          "created": 1788291732,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "We need positive integer solutions to 7n + 3p = 118.\n\n7n ≡ 118 mod 3 → n ≡ 1 mod 3 (since 118 ≡ 1, 7 ≡ 1). So n = 1, 4, 7, 10, 13, 16.\n- n=1: p=37\n- n=4: p=30\n- n=7: p=23\n- n=10: p=16\n- n=13: p=9\n- n=16: p=2\n\nAll valid (p ≥ 1).\n\n**6**",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 166,
+            "total_tokens": 244,
+            "cost": 0.00908,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00908,
+              "upstream_inference_prompt_cost": 0.00078,
+              "upstream_inference_completions_cost": 0.0083
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::stop_sequence::claude_fable_5_1/0001",
+      "namespace": "openrouter::smoke::stop_sequence::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6277c81515b7b020"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291734-fCu5vMkI5YLgrcRuGC64",
+          "object": "chat.completion",
+          "created": 1788291734,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop_sequence",
+              "message": {
+                "role": "assistant",
+                "content": "one two three four ",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 53,
+            "completion_tokens": 5,
+            "total_tokens": 58,
+            "cost": 0.00078,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00078,
+              "upstream_inference_prompt_cost": 0.00053,
+              "upstream_inference_completions_cost": 0.00025
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::length_truncation::claude_fable_5_1/0001",
+      "namespace": "openrouter::smoke::length_truncation::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6db7deded19c5cb2"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291731-gxN49oI3YbKK6cIj1Y11",
+          "object": "chat.completion",
+          "created": 1788291731,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "length",
+              "native_finish_reason": "max_tokens",
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "reasoning": "This request asks me to count forever without stopping, which isn't something I can literally do since any response has to end at some point.\n\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "This request asks me to count forever without stopping, which isn't something I can literally do since any response has to end at some point.\n\n",
+                    "format": "anthropic-claude-v1",
+                    "index": 0,
+                    "signature": "CAQS4QQKEAgRGAI4AUIIdGhpbmtpbmcSDFCQH+LOymQb3KbpERoMnC+6EGp5ltgbllmHIjCOPyHFtrjJ318WH0XNw9gn6jc5LWLPgW253OEX2DRFDYPmgH1uKoPH133l8MiQU5Yq/gO5b9AxxZA07Gcpg1YmYHcxDVxXZmbDjsQfB83ez3Vp5J1HC0ZAjsKrEfh0tm2U6Sf+fIU58ny9Py9DaeQJyMgrUR73t9jsq+68lZWserxHkcqTOibG5fIlfADKOckYYWVn0V++QolPgJNmZcP19HWz0hqquy/5V3SYf/mpNaNTnwcQmPEYyYxrolT/I+a4k5PcGsvS3/v9ww2WpnwC2tKqVrEXEDi/oE5Jx5LqZu12BagmLSATMQkIDptfANUZLQRgLu+Fzg5YiYWMNDx8gK20QD7vz7aAbkUXVFjE0c+jBKFL9lrGetbi88+J42zyIOUM3Qero24AAb9YTKjqUXeptnTVPIXw3nH9kyGKeyjWQ4lwyWgWTdWmvto++dhBF2R3PKWM2I1cYqVLz66viZMjKYDjGawnhIIHL1goPvtS2FAGoTTTkAH9J66pTbfXsrkQQ19JtvvbgpdKS3Tml9Q5/HEuWr8grmaYlM9i1vlk3HYDidzu0pEiV/z0qyikWuOLEa5WGxnFKlWyrUA1M3aN8puoK9R02DCC86qHuraeYSP9kQQXBZeThL1IQ196y7eOGb8lXPOSEjXUtwYEEb4cAPkySQEDsX3B/q7lfAZAwRE1dNvpgFG9lW4S+wTjfpjmkUjtK6bUTfPqGCifa3K8UODjn1oTtLOzSO1hOuoYAQ=="
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 26,
+            "completion_tokens": 32,
+            "total_tokens": 58,
+            "cost": 0.00186,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00186,
+              "upstream_inference_prompt_cost": 0.00026,
+              "upstream_inference_completions_cost": 0.0016
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 32,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::stream_contract::claude_fable_5_1/0001",
+      "namespace": "openrouter::smoke::stream_contract::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "50cef0f10e576ca6"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen-1788291737-idTjTX4YryPvQEZoShUf\",\"object\":\"chat.completion.chunk\",\"created\":1788291737,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"H\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291737-idTjTX4YryPvQEZoShUf\",\"object\":\"chat.completion.chunk\",\"created\":1788291737,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ello there! 👋😊\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291737-idTjTX4YryPvQEZoShUf\",\"object\":\"chat.completion.chunk\",\"created\":1788291737,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291737-idTjTX4YryPvQEZoShUf\",\"object\":\"chat.completion.chunk\",\"created\":1788291737,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"service_tier\":\"default\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}],\"usage\":{\"prompt_tokens\":27,\"completion_tokens\":12,\"total_tokens\":39,\"cost\":0.00087,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.00087,\"upstream_inference_prompt_cost\":0.00027,\"upstream_inference_completions_cost\":0.0006},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0,\"audio_tokens\":0}}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::system_prompt::claude_fable_5_1/0001",
+      "namespace": "openrouter::smoke::system_prompt::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6d4230f21de7fd3b"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291739-tveb8LyZP6TprO7R5tU3",
+          "object": "chat.completion",
+          "created": 1788291739,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "PONG",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 35,
+            "completion_tokens": 5,
+            "total_tokens": 40,
+            "cost": 0.0006,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.0006,
+              "upstream_inference_prompt_cost": 0.00035,
+              "upstream_inference_completions_cost": 0.00025
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::structured::json_schema::claude_fable_5_1/0001",
+      "namespace": "openrouter::structured::json_schema::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "a058b1d6c98fb009"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291739-e5RMtp6AeGMVbkU7K5Kn",
+          "object": "chat.completion",
+          "created": 1788291739,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"population\":2100000}",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 241,
+            "completion_tokens": 17,
+            "total_tokens": 258,
+            "cost": 0.00326,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00326,
+              "upstream_inference_prompt_cost": 0.00241,
+              "upstream_inference_completions_cost": 0.00085
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::structured::json_object::claude_fable_5_1/0001",
+      "namespace": "openrouter::structured::json_object::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6fc609db37becd44"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291739-MOzRLNsjNsHUrHc7IQWC",
+          "object": "chat.completion",
+          "created": 1788291739,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "```json\n{\n  \"city\": \"Paris\",\n  \"country\": \"France\",\n  \"approximate_population\": 2100000\n}\n```\n\nNote: ~2.1 million refers to the city proper; the greater Paris metropolitan area has roughly 12 million people.",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 34,
+            "completion_tokens": 82,
+            "total_tokens": 116,
+            "cost": 0.00444,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00444,
+              "upstream_inference_prompt_cost": 0.00034,
+              "upstream_inference_completions_cost": 0.0041
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::structured::json_schema_streamed::claude_fable_5_1/0001",
+      "namespace": "openrouter::structured::json_schema_streamed::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "d45882a5f3eba182"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen-1788291741-WlJq6Xv8XWDPewQm4MHb\",\"object\":\"chat.completion.chunk\",\"created\":1788291741,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"city\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291741-WlJq6Xv8XWDPewQm4MHb\",\"object\":\"chat.completion.chunk\",\"created\":1788291741,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\":\\\"Paris\\\",\\\"population\\\":2100000}\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291741-WlJq6Xv8XWDPewQm4MHb\",\"object\":\"chat.completion.chunk\",\"created\":1788291741,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1788291741-WlJq6Xv8XWDPewQm4MHb\",\"object\":\"chat.completion.chunk\",\"created\":1788291741,\"model\":\"anthropic/claude-fable-5.1\",\"provider\":\"Anthropic\",\"service_tier\":\"default\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}],\"usage\":{\"prompt_tokens\":241,\"completion_tokens\":17,\"total_tokens\":258,\"cost\":0.00326,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.00326,\"upstream_inference_prompt_cost\":0.00241,\"upstream_inference_completions_cost\":0.00085},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0,\"audio_tokens\":0}}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "openrouter::tools::round_trip::claude_fable_5_1/0001",
+      "namespace": "openrouter::tools::round_trip::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "9de63c21fa3c25bf"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291744-sGyP93KrL1WmAFgmHHm8",
+          "object": "chat.completion",
+          "created": 1788291744,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "It's currently 18°C and clear in Paris — a pleasant day!",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 436,
+            "completion_tokens": 25,
+            "total_tokens": 461,
+            "cost": 0.00561,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00561,
+              "upstream_inference_prompt_cost": 0.00436,
+              "upstream_inference_completions_cost": 0.00125
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::vision::inline::claude_fable_5_1/0001",
+      "namespace": "openrouter::vision::inline::claude_fable_5_1",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "2a6023ff48319009"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1788291744-PmApUSCrNnUUbEDFf1Yp",
+          "object": "chat.completion",
+          "created": 1788291744,
+          "model": "anthropic/claude-fable-5.1",
+          "provider": "Anthropic",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Red",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 36,
+            "completion_tokens": 4,
+            "total_tokens": 40,
+            "cost": 0.00056,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00056,
+              "upstream_inference_prompt_cost": 0.00036,
+              "upstream_inference_completions_cost": 0.0002
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
     }
   ]
 }

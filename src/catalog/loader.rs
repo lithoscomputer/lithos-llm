@@ -527,6 +527,21 @@ mod tests {
             catalog.model("openrouter", "sonnet")?.api_model(),
             "anthropic/claude-sonnet-5"
         );
+        // The `fable` alias stays on Fable 5; 5.1 is reached by its own id and
+        // is the one Claude row that takes no forced tool choice.
+        let fable = catalog.model("openrouter", "fable")?;
+        assert_eq!(fable.api_model(), "anthropic/claude-fable-5");
+        assert!(fable.capabilities().forced_tool_choice);
+        let fable_51 = catalog.model("openrouter", "claude-fable-5.1")?;
+        assert_eq!(fable_51.api_model(), "anthropic/claude-fable-5.1");
+        assert!(!fable_51.capabilities().forced_tool_choice);
+        assert!(fable_51.capabilities().cache_breakpoints);
+        assert_eq!(
+            fable_51
+                .pricing()
+                .and_then(|pricing| pricing.cached_input_usd_micros_per_million),
+            Some(250_000)
+        );
         assert_eq!(
             catalog.model("openrouter", "deepseek")?.api_model(),
             "deepseek/deepseek-v4-flash-0731"

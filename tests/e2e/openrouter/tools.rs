@@ -79,9 +79,21 @@ fn assert_weather_call(arguments: &Value) {
     );
 }
 
+/// The skip for the cells that force a call. The Fable 5.1 row's listing
+/// omits `tool_choice`, and the upstream answers a forced choice with a 400,
+/// so its row says so and these cells skip it.
+fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
+    let capabilities = openrouter::capabilities(model);
+    if !capabilities.tools {
+        return Some(support::skip("the catalog does not claim tools"));
+    }
+    (!capabilities.forced_tool_choice)
+        .then(|| support::skip("the catalog does not claim forced tool choice"))
+}
+
 async fn calls_the_forced_tool(model: &str) -> TestResult {
-    if !openrouter::capabilities(model).tools {
-        return support::skip("the catalog does not claim tools");
+    if let Some(skip) = forced_choice_unclaimed(model) {
+        return skip;
     }
     // The GLM 4.6 route accepted `required` and ordinary tool use, but a
     // named choice returned no call and its streamed twin idled out through
@@ -119,8 +131,8 @@ async fn calls_the_forced_tool(model: &str) -> TestResult {
 }
 
 async fn streams_the_forced_tool_call(model: &str) -> TestResult {
-    if !openrouter::capabilities(model).tools {
-        return support::skip("the catalog does not claim tools");
+    if let Some(skip) = forced_choice_unclaimed(model) {
+        return skip;
     }
     if model == "glm-4.6" {
         return support::skip("the OpenRouter route does not honor named tool choice");
@@ -211,8 +223,8 @@ async fn calls_a_tool_under_auto_choice(model: &str) -> TestResult {
 }
 
 async fn calls_a_tool_under_required_choice(model: &str) -> TestResult {
-    if !openrouter::capabilities(model).tools {
-        return support::skip("the catalog does not claim tools");
+    if let Some(skip) = forced_choice_unclaimed(model) {
+        return skip;
     }
     // GLM 4.6 returned no tool call after the request idled for two minutes
     // through OpenRouter on 2026-08-29.
