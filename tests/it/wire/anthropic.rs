@@ -929,6 +929,12 @@ const LEVELS_CAPABILITIES: &str = "{ text = true, tools = true, structured_outpu
 const BUDGET_CAPABILITIES: &str =
     "{ text = true, tools = true, structured_output = true, reasoning = true }";
 
+/// The levels capabilities for a model that takes no forced tool choice, as
+/// claude-fable-5-1 does.
+const NO_FORCED_CHOICE_CAPABILITIES: &str = "{ text = true, tools = true, forced_tool_choice = \
+                                             false, structured_output = true, reasoning = true, \
+                                             reasoning_effort_levels = true }";
+
 /// The catalog output limit the model-limit fixture declares.
 const CATALOG_LIMITS: &str = "{ context_tokens = 200000, max_output_tokens = 64000 }";
 
@@ -1170,6 +1176,58 @@ async fn a_forced_tool_choice_drops_thinking_and_output_config() {
     }
 
     crate::json_snapshot!(encoded);
+}
+
+#[tokio::test]
+async fn a_model_without_forced_tool_choice_refuses_required_and_named_choice_before_dispatch() {
+    let mut refused = Vec::new();
+
+    for choice in [ToolChoice::Required, ToolChoice::Tool {
+        name: "get_weather".to_owned(),
+    }] {
+        let server = MockServer::start_async().await;
+        let (client, model) = client_with(&server, NO_FORCED_CHOICE_CAPABILITIES, None);
+        let (mock, _slot) = support::mount_capture(&server, MESSAGES_PATH, &tool_use_response());
+
+        let error = client
+            .complete(tool_choice_effort_request(&model, choice))
+            .await
+            .expect_err("the catalog denies forced tool choice");
+
+        // Claude Fable 5.1 answers a forced choice with a 400, so the row says
+        // so and the client refuses first. The refusal is a catalog rejection
+        // like sampling on Fable: typed, never retried, and reached before any
+        // tokens are spent.
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert_eq!(error.provider_code(), Some("unsupported_capability"));
+        assert_eq!(error.retry_classification(), RetryClassification::Never);
+        assert_eq!(
+            mock.calls_async().await,
+            0,
+            "a refused tool choice must fail before any HTTP request"
+        );
+        refused.push(error.data().clone());
+    }
+
+    crate::json_snapshot!(refused);
+
+    // `auto` is untouched by the restriction: the choice, the adaptive
+    // thinking object, and the output controls all still go out.
+    let server = MockServer::start_async().await;
+    let (client, model) = client_with(&server, NO_FORCED_CHOICE_CAPABILITIES, None);
+    let (_mock, slot) = support::mount_capture(&server, MESSAGES_PATH, &tool_use_response());
+
+    let response = client
+        .complete(tool_choice_effort_request(&model, ToolChoice::Auto))
+        .await
+        .expect("the auto choice should complete");
+
+    let captured = support::captured(&slot);
+    assert_eq!(captured.body["tool_choice"], json!({ "type": "auto" }));
+    assert_eq!(captured.body["thinking"], json!({ "type": "adaptive" }));
+    assert_eq!(captured.body["output_config"]["effort"], json!("high"));
+    assert!(response.warnings.is_empty(), "{:?}", response.warnings);
+    crate::json_snapshot!(captured);
 }
 
 #[tokio::test]

@@ -364,6 +364,18 @@ pub enum ToolChoice {
     },
 }
 
+impl ToolChoice {
+    /// Whether this choice makes a tool call mandatory.
+    ///
+    /// `Required` and a named `Tool` force a call; `Auto` and `None` leave
+    /// the model free to answer in prose. Some models take no forced choice
+    /// at all, which the catalog records as
+    /// [`ModelCapabilities::forced_tool_choice`](crate::catalog::ModelCapabilities::forced_tool_choice).
+    pub fn is_forced(&self) -> bool {
+        matches!(self, Self::Required | Self::Tool { .. })
+    }
+}
+
 /// A tool invocation requested by the model.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ToolCall {

@@ -221,9 +221,14 @@ async fn stream(request: Request, frames: &[&str]) -> (WireCapture, Vec<Value>) 
 /// all. A codec that dropped or substituted the offending part instead would
 /// dispatch a request the caller never wrote.
 async fn refusal(request: Request) -> Error {
+    refusal_with(plain_catalog, request).await
+}
+
+/// [`refusal`] against a catalog of the caller's choosing.
+async fn refusal_with(catalog: CatalogFor, request: Request) -> Error {
     let server = MockServer::start_async().await;
     let client = support::client_for(
-        plain_catalog(&server.base_url()),
+        catalog(&server.base_url()),
         PROVIDER,
         support::bearer_credentials(),
     );
@@ -406,6 +411,48 @@ async fn encodes_replayed_reasoning_as_reasoning_content() {
 
     crate::json_snapshot!(wire);
     crate::json_snapshot!(response);
+}
+
+/// The capabilities of a Chat Completions row that takes no forced tool
+/// choice, as OpenRouter's Claude Fable 5.1 row does.
+const NO_FORCED_CHOICE_CAPABILITIES: &str = "{ text = true, images = true, tools = true, \
+                                             forced_tool_choice = false, structured_output = \
+                                             true, reasoning = true, caching = true, \
+                                             cache_breakpoints = true }";
+
+#[tokio::test]
+async fn refuses_a_forced_tool_choice_the_model_rejects_before_dispatch() {
+    // The gate lives in the client, so an aggregator row that denies forced
+    // tool choice refuses it on this dialect exactly as the native Anthropic
+    // codec does: typed, unretried, and before any HTTP request.
+    let catalog = |base_url: &str| {
+        provider()
+            .with_capabilities(NO_FORCED_CHOICE_CAPABILITIES)
+            .catalog(base_url)
+    };
+    let error = refusal_with(
+        catalog,
+        support::tools_request(
+            &selector(),
+            Some(ToolChoice::Tool {
+                name: "get_weather".to_owned(),
+            }),
+        ),
+    )
+    .await;
+
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert_eq!(error.retry_classification(), RetryClassification::Never);
+    crate::json_snapshot!(error_json(&error));
+
+    // `auto` on the same row still reaches the wire unchanged.
+    let (wire, _) = exchange_with(
+        catalog,
+        support::tools_request(&selector(), Some(ToolChoice::Auto)),
+        &tool_call_response(),
+    )
+    .await;
+    assert_eq!(wire.body["tool_choice"], json!("auto"));
 }
 
 #[tokio::test]

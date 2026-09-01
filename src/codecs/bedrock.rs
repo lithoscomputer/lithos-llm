@@ -886,7 +886,7 @@ fn budget_limit(call: &ResolvedCall) -> u32 {
 /// The upstream model rejects extended thinking together with a forced tool
 /// choice, so a forced choice suppresses the effort encoding entirely.
 fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
-    matches!(choice, Some(ToolChoice::Required | ToolChoice::Tool { .. }))
+    choice.is_some_and(ToolChoice::is_forced)
 }
 
 /// The explicit thinking budget for a reasoning model without effort levels,

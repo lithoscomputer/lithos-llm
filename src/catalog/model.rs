@@ -4,7 +4,12 @@ use super::{Metadata, ModelId, ProviderId};
 use crate::types::Speed;
 
 /// Portable model capabilities.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+///
+/// Every field but one defaults to `false`, so a row claims only what it
+/// names. [`forced_tool_choice`](Self::forced_tool_choice) defaults to `true`
+/// because it records a restriction newer than the schema; see its
+/// documentation.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModelCapabilities {
     #[serde(default)]
@@ -17,6 +22,16 @@ pub struct ModelCapabilities {
     pub documents:               bool,
     #[serde(default)]
     pub tools:                   bool,
+    /// The model takes a forced tool choice: `required`, or one named tool.
+    ///
+    /// Defaults to `true`. Every model that took tools also took a forced
+    /// choice until Claude Fable 5.1, which returns a 400 for one, so a row
+    /// that says nothing keeps the historical behavior and a catalog written
+    /// before this field existed changes nothing. `auto` and `none` are
+    /// always available where `tools` is. The client refuses a forced choice
+    /// before dispatch where this is `false`.
+    #[serde(default = "forced_tool_choice_default")]
+    pub forced_tool_choice:      bool,
     #[serde(default)]
     pub structured_output:       bool,
     #[serde(default)]
@@ -51,6 +66,32 @@ pub struct ModelCapabilities {
     pub cache_routing:           bool,
     #[serde(default)]
     pub sampling:                bool,
+}
+
+impl Default for ModelCapabilities {
+    /// No claims, and the one restriction field at its permissive default.
+    fn default() -> Self {
+        Self {
+            text:                    false,
+            images:                  false,
+            audio:                   false,
+            documents:               false,
+            tools:                   false,
+            forced_tool_choice:      forced_tool_choice_default(),
+            structured_output:       false,
+            reasoning:               false,
+            reasoning_effort_levels: false,
+            caching:                 false,
+            cache_breakpoints:       false,
+            cache_routing:           false,
+            sampling:                false,
+        }
+    }
+}
+
+/// The serde default for [`ModelCapabilities::forced_tool_choice`].
+fn forced_tool_choice_default() -> bool {
+    true
 }
 
 /// Context and output token limits.
@@ -316,6 +357,23 @@ mod tests {
             }),
             speed: None,
         }
+    }
+
+    #[test]
+    fn forced_tool_choice_defaults_to_true() -> Result<(), Box<dyn StdError>> {
+        // A row written before the field existed keeps forcing tools.
+        let silent: ModelCapabilities = toml::from_str("text = true\ntools = true")?;
+        assert!(silent.forced_tool_choice);
+        assert!(ModelCapabilities::default().forced_tool_choice);
+
+        // Only an explicit denial records the restriction.
+        let denied: ModelCapabilities =
+            toml::from_str("text = true\ntools = true\nforced_tool_choice = false")?;
+        assert!(!denied.forced_tool_choice);
+        let rendered = toml::to_string(&denied)?;
+        let round_tripped: ModelCapabilities = toml::from_str(&rendered)?;
+        assert_eq!(round_tripped, denied);
+        Ok(())
     }
 
     #[test]

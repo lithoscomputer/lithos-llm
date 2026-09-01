@@ -38,7 +38,7 @@ use crate::resolver::{
 };
 use crate::types::{
     CacheHint, ContentPart, Error, ErrorKind, Message, Request, Response, ResponseFormat,
-    ResponseStream, Speed,
+    ResponseStream, Speed, ToolChoice,
 };
 
 /// How long the default HTTP client waits to establish a connection.
@@ -249,6 +249,14 @@ fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Erro
     let capabilities = route.model().capabilities();
     if !request.tools().is_empty() && !capabilities.tools {
         return Err(unsupported_capability(route, "tools"));
+    }
+    // A forced choice is what the caller asked the model to do, not a tuning
+    // knob: downgrading it to `auto` could hand back prose where a call was
+    // required. A model that rejects the forced choice refuses it here, before
+    // any tokens are spent, the same way an unclaimed sampling control is.
+    if request.tool_choice().is_some_and(ToolChoice::is_forced) && !capabilities.forced_tool_choice
+    {
+        return Err(unsupported_capability(route, "forced tool choice"));
     }
     if matches!(
         request.response_format(),

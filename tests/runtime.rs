@@ -20,7 +20,7 @@ use lithos_llm::middleware::{
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
     Message, RequestBuildError, Response, ResponseStream, RetryClassification, Role, StreamEvent,
-    TokenCounts,
+    TokenCounts, ToolChoice, ToolDefinition,
 };
 use lithos_llm::{Client, Request};
 use tokio::spawn;
@@ -962,6 +962,77 @@ async fn catalog_capabilities_reject_unsupported_content() -> Result<(), Box<dyn
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.provider_code(), Some("unsupported_capability"));
     assert_eq!(calls.load(Ordering::SeqCst), 0);
+    Ok(())
+}
+
+/// A catalog whose model takes tools but no forced tool choice, as Claude
+/// Fable 5.1 does.
+const NO_FORCED_CHOICE_CATALOG: &str = r#"
+schema_version = 1
+
+[providers.test]
+display_name = "Test"
+adapter = "test-adapter"
+codec = "test-codec"
+base_url = "http://127.0.0.1"
+default_model = "model"
+
+[providers.test.auth]
+type = "none"
+
+[providers.test.models.model]
+display_name = "Test model"
+api_model = "model"
+capabilities = { text = true, tools = true, forced_tool_choice = false }
+"#;
+
+#[tokio::test]
+async fn a_forced_tool_choice_needs_the_capability() -> Result<(), Box<dyn StdError>> {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut adapter = FakeAdapter::successful();
+    adapter.complete_calls = calls.clone();
+    let client = Client::builder()
+        .catalog(
+            Catalog::builder()
+                .overlay_toml(NO_FORCED_CHOICE_CATALOG)?
+                .build()?,
+        )
+        .adapter("test", adapter)
+        .build()?
+        .client;
+    let with_choice = |choice: ToolChoice| {
+        Request::builder()
+            .model("test/model")
+            .user("What is the weather in Paris?")
+            .tool(ToolDefinition::function(
+                "get_weather",
+                "Reads the current weather for a city",
+                serde_json::json!({ "type": "object" }),
+            ))
+            .tool_choice(choice)
+            .build()
+    };
+
+    // `required` and a named tool both force a call the model cannot take,
+    // so both are refused before the adapter sees them.
+    for choice in [ToolChoice::Required, ToolChoice::Tool {
+        name: "get_weather".to_owned(),
+    }] {
+        let error = client
+            .complete(with_choice(choice)?)
+            .await
+            .expect_err("the catalog denies forced tool choice");
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert_eq!(error.provider_code(), Some("unsupported_capability"));
+        assert!(error.message().contains("forced tool choice"));
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+    // `auto` and `none` leave the model free to answer, so they still go out.
+    for choice in [ToolChoice::Auto, ToolChoice::None] {
+        client.complete(with_choice(choice)?).await?;
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
 }
 

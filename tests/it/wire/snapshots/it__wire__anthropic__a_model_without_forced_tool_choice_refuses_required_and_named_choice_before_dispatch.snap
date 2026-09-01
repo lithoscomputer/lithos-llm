@@ -1,0 +1,24 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+[
+  {
+    "kind": "invalid_request",
+    "message": "model anthropic/claude does not support forced tool choice",
+    "provider": "anthropic",
+    "provider_code": "unsupported_capability",
+    "retry": {
+      "type": "never"
+    }
+  },
+  {
+    "kind": "invalid_request",
+    "message": "model anthropic/claude does not support forced tool choice",
+    "provider": "anthropic",
+    "provider_code": "unsupported_capability",
+    "retry": {
+      "type": "never"
+    }
+  }
+]

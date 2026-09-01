@@ -1,0 +1,99 @@
+---
+source: tests/it/wire/anthropic.rs
+expression: rendered
+---
+{
+  "body": {
+    "max_tokens": 8000,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "What is the weather in Paris?",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "output_config": {
+      "effort": "high",
+      "format": {
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "city": {
+              "type": "string"
+            },
+            "population": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "city",
+            "population"
+          ],
+          "type": "object"
+        },
+        "type": "json_schema"
+      }
+    },
+    "stream": false,
+    "thinking": {
+      "type": "adaptive"
+    },
+    "tool_choice": {
+      "type": "auto"
+    },
+    "tools": [
+      {
+        "description": "Reads the current weather for a city",
+        "input_schema": {
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "city"
+          ],
+          "type": "object"
+        },
+        "name": "get_weather"
+      }
+    ]
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "anthropic-version",
+      "2023-06-01"
+    ],
+    [
+      "content-length",
+      "625"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ],
+    [
+      "x-api-key",
+      "[redacted]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/v1/messages"
+}

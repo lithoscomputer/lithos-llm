@@ -565,7 +565,7 @@ fn takes_effort_levels(route: &ResolvedRoute) -> bool {
 /// a forced choice suppresses both thinking and `output_config`. `auto` and
 /// `none` leave the model free to answer in prose and keep them.
 fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
-    matches!(choice, Some(ToolChoice::Required | ToolChoice::Tool { .. }))
+    choice.is_some_and(ToolChoice::is_forced)
 }
 
 /// The explicit thinking budget for a model without effort levels.
