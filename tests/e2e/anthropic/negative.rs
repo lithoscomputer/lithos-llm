@@ -3,10 +3,15 @@
 //! These tests verify that Anthropic's live error envelopes still land in the
 //! right [`ErrorKind`].
 
+use std::env;
 use std::time::Duration;
 
 use futures_util::StreamExt as _;
-use lithos_llm::types::ErrorKind;
+use lithos_llm::Client;
+use lithos_llm::catalog::Catalog;
+use lithos_llm::credentials::{CredentialHeader, Credentials, SecretValue, StaticCredentials};
+use lithos_llm::types::{ErrorKind, ToolChoice, ToolDefinition};
+use serde_json::json;
 
 use crate::anthropic;
 use crate::support::{self, TestResult};
@@ -108,6 +113,87 @@ async fn dropping_a_stream_mid_flight_is_clean() -> TestResult {
     let first = stream.next().await;
     assert!(first.is_some(), "the stream ended before its first event");
     drop(stream);
+    Ok(())
+}
+
+/// A Fable 5.1 row that leaves `forced_tool_choice` at its default, so a
+/// forced choice reaches the wire.
+const UNRESTRICTED_ROW: &str = r#"
+schema_version = 1
+
+[providers.anthropic]
+display_name = "Anthropic"
+adapter = "anthropic"
+codec = "anthropic-messages"
+base_url = "https://api.anthropic.com"
+default_model = "claude-fable-5.1"
+
+[providers.anthropic.auth]
+type = "header"
+name = "x-api-key"
+
+[providers.anthropic.models."claude-fable-5.1"]
+display_name = "Claude Fable 5.1, forced choice unrestricted"
+api_model = "claude-fable-5-1"
+capabilities = { text = true, tools = true, reasoning = true, reasoning_effort_levels = true }
+"#;
+
+/// The catalog row for Fable 5.1 denies forced tool choice, so the client
+/// never sends one. This cell sends one anyway, through a one-row catalog that
+/// leaves the flag at its default, and pins the upstream 400 that justifies
+/// the denial. If Anthropic starts accepting forced choice on Fable 5.1, this
+/// turns red and the restriction comes off the row.
+#[tokio::test]
+#[ignore = "live Anthropic call; run with `mise run test:e2e`"]
+async fn a_forced_tool_choice_is_refused_upstream_on_fable_5_1() -> TestResult {
+    if let Some(skip) = support::live_only("live 400 classification") {
+        return skip;
+    }
+    let Ok(key) = env::var(anthropic::KEY_VARIABLE) else {
+        return support::skip("ANTHROPIC_API_KEY is unset");
+    };
+    let catalog = Catalog::builder()
+        .toml_layer("anthropic-e2e-unrestricted", UNRESTRICTED_ROW)?
+        .build()?;
+    let client = Client::builder()
+        .catalog(catalog)
+        .credentials(StaticCredentials::new().with(
+            anthropic::PROVIDER,
+            Credentials::header(CredentialHeader::new("x-api-key", SecretValue::new(key))),
+        ))
+        .build()?
+        .client;
+    let request = anthropic::request("claude-fable-5.1")
+        .user("What is the weather in Paris?")
+        .tool(ToolDefinition::function(
+            "get_weather",
+            "Reads the current weather for a city",
+            json!({
+                "type": "object",
+                "properties": { "city": { "type": "string" } },
+                "required": ["city"],
+            }),
+        ))
+        .tool_choice(ToolChoice::Tool {
+            name: "get_weather".to_owned(),
+        })
+        .build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("Fable 5.1 must reject a forced tool choice");
+    assert_eq!(
+        error.kind(),
+        ErrorKind::InvalidRequest,
+        "the forced-choice 400 classified as {:?}: {}",
+        error.kind(),
+        error.message()
+    );
+    assert!(
+        error.message().contains("not supported for this model"),
+        "the rejection no longer names the tool choice: {}",
+        error.message()
+    );
     Ok(())
 }
 

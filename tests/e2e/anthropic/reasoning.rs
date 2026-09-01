@@ -3,12 +3,19 @@
 //! Every roster model gets an explicit reasoning request. The modern models
 //! take named effort levels with adaptive thinking; Sonnet 4.5 and Haiku 4.5
 //! take a manual thinking budget derived from the same normalized request.
+//!
+//! The cells that assert reasoning evidence ask for `Max` effort. Adaptive
+//! thinkers may skip reasoning when they judge the question easy, and
+//! Claude Fable 5.1 does exactly that on the hard prompt at `High` (no
+//! thinking block, zero thinking tokens, observed 2026-09-01) while
+//! reasoning at `Xhigh` and `Max`. The strongest level is the one request the
+//! catalog claims every reasoning model must honor with visible reasoning.
 
 use lithos_llm::types::{
     ContentPart, FinishReason, Message, ReasoningEffort, Role, ToolChoice, ToolDefinition,
     ToolResult,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::anthropic::{self, model_tests};
 use crate::support::{self, TestResult};
@@ -35,6 +42,11 @@ mod effort_levels {
     }
 
     level_tests!(
+        fable_5_1_low "claude-fable-5.1" Low,
+        fable_5_1_medium "claude-fable-5.1" Medium,
+        fable_5_1_high "claude-fable-5.1" High,
+        fable_5_1_xhigh "claude-fable-5.1" Xhigh,
+        fable_5_1_max "claude-fable-5.1" Max,
         fable_low "claude-fable-5" Low,
         fable_medium "claude-fable-5" Medium,
         fable_high "claude-fable-5" High,
@@ -96,7 +108,7 @@ async fn shows_reasoning_evidence(model: &str) -> TestResult {
         .complete(
             anthropic::request(model)
                 .user(HARD_PROMPT)
-                .reasoning_effort(ReasoningEffort::High)
+                .reasoning_effort(ReasoningEffort::Max)
                 .build()?,
         )
         .await?;
@@ -139,16 +151,44 @@ async fn accepts_the_effort_level(model: &str, effort: ReasoningEffort) -> TestR
 #[tokio::test]
 #[ignore = "live Anthropic call; run with mise run test:e2e:live"]
 async fn reasoning_round_trip() -> TestResult {
+    replays_reasoning_with_a_tool_result("claude-opus-4.6", None).await
+}
+
+/// The same replay on Fable 5.1 with preserved-thinking enforcement on.
+///
+/// Fable 5.1 binds every thinking block to the bytes before it: the `system`
+/// prompt, the `tools`, and every earlier message. The codec rewrites two
+/// things between the opening and closing turns — it merges tool results
+/// into one `user` turn and places `cache_control` markers — and both must
+/// count as no edit. Setting `prefix_mismatch_behavior` opts the request into
+/// the check on any account, so this cell fails with a 400 naming the change
+/// if the encoder ever rewrites the prefix. `error` rather than `drop_block`
+/// because a silent drop is the failure mode being guarded against.
+#[tokio::test]
+#[ignore = "live Anthropic call; run with mise run test:e2e:live"]
+async fn reasoning_round_trip_on_fable_5_1_under_enforcement() -> TestResult {
+    replays_reasoning_with_a_tool_result("claude-fable-5.1", Some(BindingControls)).await
+}
+
+/// The closing turn opts into preserved-thinking enforcement.
+struct BindingControls;
+
+/// The beta that unlocks `thinking.block_binding`.
+const BINDING_BETA: &str = "thinking-binding-controls-2026-08-01";
+
+async fn replays_reasoning_with_a_tool_result(
+    model: &str,
+    binding: Option<BindingControls>,
+) -> TestResult {
     let Some(client) = anthropic::live_client() else {
         return support::skip("the Anthropic suite is live-only or ANTHROPIC_API_KEY is unset");
     };
-    let model = "claude-opus-4.6";
     let opening = client
         .complete(
             anthropic::request(model)
                 .system("Think carefully, then use get_weather for every weather question.")
                 .user("Look up the weather in Paris.")
-                .reasoning_effort(ReasoningEffort::High)
+                .reasoning_effort(ReasoningEffort::Max)
                 .tool(weather_tool())
                 .tool_choice(ToolChoice::Auto)
                 .build()?,
@@ -167,27 +207,55 @@ async fn reasoning_round_trip() -> TestResult {
         .id
         .clone();
 
-    let closing = client
-        .complete(
-            anthropic::request(model)
-                .system("Think carefully, then use get_weather for every weather question.")
-                .user("Look up the weather in Paris.")
-                .tool(weather_tool())
-                .message(Message::new(Role::Assistant, opening.content.clone()))
-                .message(Message::new(Role::Tool, [ContentPart::ToolResult(
-                    ToolResult {
-                        tool_call_id: call_id,
-                        name:         Some("get_weather".to_owned()),
-                        content:      vec![ContentPart::Text {
-                            text: "21C, sunny, light breeze".to_owned(),
-                        }],
-                        is_error:     false,
-                    },
-                )]))
-                .build()?,
-        )
-        .await?;
+    // Dropping the effort between turns is allowed: effort is not part of
+    // the bound prefix.
+    let mut closing = anthropic::request(model)
+        .system("Think carefully, then use get_weather for every weather question.")
+        .user("Look up the weather in Paris.")
+        .tool(weather_tool())
+        .message(Message::new(Role::Assistant, opening.content.clone()))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: call_id,
+                name:         Some("get_weather".to_owned()),
+                content:      vec![ContentPart::Text {
+                    text: "21C, sunny, light breeze".to_owned(),
+                }],
+                is_error:     false,
+            },
+        )]));
+    if binding.is_some() {
+        // The raw `thinking` option replaces the generated adaptive object,
+        // so it has to restate the type beside the binding control.
+        closing = closing
+            .provider_option(anthropic::PROVIDER, "beta_headers", json!([BINDING_BETA]))
+            .provider_option(
+                anthropic::PROVIDER,
+                "thinking",
+                json!({
+                    "type": "adaptive",
+                    "block_binding": { "prefix_mismatch_behavior": "error" },
+                }),
+            );
+    }
+    let closing = client.complete(closing.build()?).await?;
     assert!(!closing.text().trim().is_empty());
+    if binding.is_some() {
+        // The beta also reports every dropped block. Under `error` a prefix
+        // mismatch never gets this far, so the list can only name blocks a
+        // model switch dropped, and there was none.
+        let dropped = closing
+            .raw
+            .as_ref()
+            .and_then(|raw| raw.get("input_transformations"))
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len);
+        assert_eq!(
+            dropped, 0,
+            "the replay dropped thinking blocks: {:?}",
+            closing.raw
+        );
+    }
     Ok(())
 }
 

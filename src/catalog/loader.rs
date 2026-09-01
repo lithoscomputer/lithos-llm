@@ -611,6 +611,25 @@ mod tests {
         );
         assert!(fable.capabilities().reasoning_effort_levels);
         assert!(!fable.capabilities().sampling);
+        assert!(fable.capabilities().forced_tool_choice);
+
+        // Fable 5.1 shares Fable 5's limits and rates except for cache reads,
+        // and is the one row that takes no forced tool choice.
+        let fable_51 = catalog.model("anthropic", "claude-fable-5.1")?;
+        assert_eq!(fable_51.api_model(), "claude-fable-5-1");
+        assert_eq!(fable_51.limits(), fable.limits());
+        assert!(fable_51.capabilities().reasoning_effort_levels);
+        assert!(!fable_51.capabilities().sampling);
+        assert!(!fable_51.capabilities().forced_tool_choice);
+        let fable_51_pricing = fable_51.pricing().ok_or("Fable 5.1 must be priced")?;
+        assert_eq!(
+            fable_51_pricing.cached_input_usd_micros_per_million,
+            Some(250_000)
+        );
+        assert_eq!(
+            fable_51_pricing.input_usd_micros_per_million,
+            fable.pricing().and_then(|p| p.input_usd_micros_per_million)
+        );
 
         let sonnet_45 = catalog.model("anthropic", "claude-sonnet-4.5")?;
         assert_eq!(

@@ -5,7 +5,10 @@
 
 use std::env;
 
-use lithos_llm::types::{AudioContent, ContentPart, ErrorKind, MediaSource, Message, Role};
+use lithos_llm::types::{
+    AudioContent, ContentPart, ErrorKind, MediaSource, Message, Role, ToolChoice, ToolDefinition,
+};
+use serde_json::json;
 
 use crate::anthropic;
 use crate::support::{self, TestResult};
@@ -21,6 +24,27 @@ async fn sampling_is_rejected_locally_where_unclaimed() -> TestResult {
         .complete(request)
         .await
         .expect_err("claude-fable-5 claims no sampling, so the client must refuse");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_forced_tool_choice_is_rejected_locally_where_unclaimed() -> TestResult {
+    let client = anthropic::client_with_key("preflight-key");
+    let request = anthropic::request("claude-fable-5.1")
+        .user("What is the weather in Paris?")
+        .tool(ToolDefinition::function(
+            "get_weather",
+            "Reads the current weather for a city",
+            json!({ "type": "object" }),
+        ))
+        .tool_choice(ToolChoice::Required)
+        .build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("claude-fable-5.1 claims no forced tool choice, so the client must refuse");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.provider_code(), Some("unsupported_capability"));
     Ok(())

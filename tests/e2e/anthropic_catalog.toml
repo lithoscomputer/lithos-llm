@@ -25,6 +25,17 @@ default_model = "claude-sonnet-5"
 type = "header"
 name = "x-api-key"
 
+# Fable 5.1 returns a 400 for a forced tool choice, so the row claims tools
+# without forced_tool_choice and the forced-choice cells skip it; the negative
+# suite pins the upstream rejection itself. Cache reads are $0.25/MTok.
+# Verified 2026-09-01 against the release notes and the live listing.
+[providers.anthropic.models."claude-fable-5.1"]
+display_name = "Claude Fable 5.1"
+api_model = "claude-fable-5-1"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, forced_tool_choice = false, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
+
 [providers.anthropic.models."claude-fable-5"]
 display_name = "Claude Fable 5"
 aliases = ["fable", "claude-fable"]

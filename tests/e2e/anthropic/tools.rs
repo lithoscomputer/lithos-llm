@@ -79,7 +79,18 @@ fn assert_weather_call(arguments: &Value) {
     );
 }
 
+/// The skip for the cells that force a call. Fable 5.1 answers a forced
+/// choice with a 400, and its row says so; the negative suite pins the
+/// upstream rejection itself.
+fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
+    (!anthropic::capabilities(model).forced_tool_choice)
+        .then(|| support::skip("the catalog does not claim forced tool choice"))
+}
+
 async fn calls_the_forced_tool(model: &str) -> TestResult {
+    if let Some(skip) = forced_choice_unclaimed(model) {
+        return skip;
+    }
     let Some(client) = anthropic::live_client() else {
         return support::skip("ANTHROPIC_API_KEY is unset");
     };
@@ -102,6 +113,9 @@ async fn calls_the_forced_tool(model: &str) -> TestResult {
 }
 
 async fn streams_the_forced_tool_call(model: &str) -> TestResult {
+    if let Some(skip) = forced_choice_unclaimed(model) {
+        return skip;
+    }
     let Some(client) = anthropic::live_client() else {
         return support::skip("ANTHROPIC_API_KEY is unset");
     };
@@ -182,6 +196,9 @@ async fn calls_a_tool_under_auto_choice(model: &str) -> TestResult {
 }
 
 async fn calls_a_tool_under_required_choice(model: &str) -> TestResult {
+    if let Some(skip) = forced_choice_unclaimed(model) {
+        return skip;
+    }
     let Some(client) = anthropic::live_client() else {
         return support::skip("ANTHROPIC_API_KEY is unset");
     };

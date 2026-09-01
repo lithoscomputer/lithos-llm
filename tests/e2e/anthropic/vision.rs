@@ -46,6 +46,7 @@ mod url {
     }
 
     url_tests!(
+        claude_fable_5_1 "claude-fable-5.1",
         claude_fable_5 "claude-fable-5",
         claude_sonnet_4_6 "claude-sonnet-4.6",
         claude_haiku_4_5 "claude-haiku-4.5",
