@@ -161,8 +161,9 @@ const CONTENT_FILTER_MESSAGES: &[&str] = &["content filter", "content policy", "
 /// Handles the shapes this crate's codecs meet: OpenAI and OpenAI-compatible
 /// `{"error":{"message","code","type"}}`, Anthropic
 /// `{"type":"error","error":{"type","message"}}`, Gemini
-/// `{"error":{"code","message","status"}}`, and the Bedrock envelopes that put
-/// the message at `message` or `Message` and the code in `__type`.
+/// `{"error":{"code","message","status"}}`, Venice's bare
+/// `{"error":"<message>"}`, and the Bedrock envelopes that put the message at
+/// `message` or `Message` and the code in `__type`.
 ///
 /// Returns `(None, None)` for a body that carries neither.
 pub(crate) fn extract(body: Option<&Value>) -> (Option<String>, Option<String>) {
@@ -173,6 +174,8 @@ pub(crate) fn extract(body: Option<&Value>) -> (Option<String>, Option<String>) 
 
     let message = error
         .and_then(|error| text(error, "message"))
+        // Venice: `{"error": "<message>", "request_id": "..."}`.
+        .or_else(|| error.and_then(|error| non_empty(error.as_str())))
         .or_else(|| text(body, "message")) // Bedrock SigV4
         .or_else(|| text(body, "Message")) // Bedrock API key
         .or_else(|| text(body, "detail")) // OpenAI Codex endpoint
@@ -792,6 +795,26 @@ mod tests {
             (
                 Some("You exceeded your current quota.".to_owned()),
                 Some("insufficient_quota".to_owned())
+            )
+        );
+    }
+
+    #[test]
+    fn extracts_the_venice_string_error_shape() {
+        // Venice puts the whole message directly under `error`, with no
+        // envelope object and no code. Anthropic's rejection text passes
+        // through it verbatim, so losing it would leave a caller with only
+        // the status code to go on.
+        let body = json!({
+            "error": "system: text content blocks must contain non-whitespace text",
+            "request_id": "wyPFeUJ-GNU1UOTY7xbP2"
+        });
+
+        assert_eq!(
+            extract(Some(&body)),
+            (
+                Some("system: text content blocks must contain non-whitespace text".to_owned()),
+                None
             )
         );
     }
