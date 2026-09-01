@@ -8,6 +8,31 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The built-in Anthropic and OpenRouter catalogs carry Claude Fable 5.1
+  (`claude-fable-5.1`, wire ids `claude-fable-5-1` and
+  `anthropic/claude-fable-5.1`), verified live on 2026-09-01: Fable 5's
+  limits, effort levels, and rates, with cache reads at $0.25 per million
+  tokens instead of $1.00. Claude Fable 5 stays in both rosters, and the
+  `fable` and `claude-fable` aliases still resolve to it. The live suites
+  cover the new rows end to end — roster, family, effort-level, vision, and
+  structured cells on Anthropic; roster, effort-probe, and reasoning
+  round-trip cells on OpenRouter, recorded for offline replay — plus two
+  cells specific to what changed: one pins Anthropic's 400 for a forced
+  tool choice on Fable 5.1, and one replays a signed thinking block under
+  the `thinking-binding-controls-2026-08-01` beta with
+  `prefix_mismatch_behavior: "error"`, proving the codec's merged tool
+  results and moved cache markers pass the model's preserved-thinking
+  prefix check.
+
+- `ModelCapabilities::forced_tool_choice` records whether a model takes a
+  forced tool choice (`required`, or one named tool). It defaults to true,
+  so every existing row and every application-supplied catalog keeps its
+  behavior; Claude Fable 5.1 is the first row to deny it. The client refuses
+  `required` and named choices before dispatch on a row that denies the
+  capability, with the same `unsupported_capability` error an unclaimed
+  sampling control gets, while `auto` and `none` are unaffected.
+  `ToolChoice::is_forced` names the distinction for callers.
+
 - The wire suites now cover the last of the reference implementation's
   request corpus: Codex-mode streaming of a blocking call with sampling
   controls dropped and a `reasoning.effort` field on OpenAI Responses, a

@@ -75,7 +75,13 @@ with no lithos-llm equivalent fall into two groups:
 
 Fields lithos-llm has that fabro lacks: set `text = true` on every row;
 decide `structured_output`, `documents`, `audio`, and `cache_routing`
-from Phase 2 evidence, not from guesses.
+from Phase 2 evidence, not from guesses. `forced_tool_choice` is the one
+capability that defaults to true: leave it alone unless the provider
+rejects `required` or a named tool choice for that model, then set
+`forced_tool_choice = false` and record the evidence (a listing whose
+`supported_parameters` omits `tool_choice`, or a live 400) in a dated
+comment. The client refuses forced choices on such a row before dispatch,
+and the E2E forced-choice runners skip it.
 
 Agent profile: give the provider row a `metadata.pebble.profile`, and give
 a model row its own value whenever the model's family differs from the
