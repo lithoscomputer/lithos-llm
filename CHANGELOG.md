@@ -201,6 +201,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The OpenAI Responses codec builds the reasoning part of a `reasoning`
+  output item from its `content` entries of type `reasoning_text` — the
+  trace itself — joined by a blank line, and falls back to its `summary`
+  blocks of type `summary_text`, joined the same way, when there are none.
+  It used to concatenate every `summary` block and every `content` entry
+  with nothing between them, so an item with two summary blocks and no
+  content produced a run-together copy of the summary that a consumer
+  comparing it against the summary on the opaque `openai.reasoning` item
+  took for a distinct trace; with the same separator the two agree.
+  Entries of any other type are skipped. The stream decoder agrees:
+  `response.reasoning_text.delta` and `response.reasoning_summary_text.delta`
+  both feed the reasoning block live, a fragment that opens a later entry
+  of the same list carries the blank-line separator, and an item that
+  streams both lists is settled on its `content` alone by the terminal
+  item, so a streamed and a blocking decode of the same item yield the
+  same parts.
 - Anthropic JSON-object responses ask for free-form JSON through a system-text
   instruction. The earlier closed object schema admitted only the empty
   object, so provider-enforced structured output discarded the answer.

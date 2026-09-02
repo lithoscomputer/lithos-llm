@@ -38,6 +38,13 @@ jobs:
           version: 2026.6.11
           install_args: --locked
 
+      # mise can treat GitHub's preinstalled Rust toolchains as complete even
+      # when their configured components are absent.
+      - name: Install Rust components
+        run: |
+          rustup component add --toolchain "$RUSTUP_TOOLCHAIN" clippy
+          rustup component add --toolchain nightly-2026-04-14 rustfmt
+
       - name: Restore Rust build cache
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
