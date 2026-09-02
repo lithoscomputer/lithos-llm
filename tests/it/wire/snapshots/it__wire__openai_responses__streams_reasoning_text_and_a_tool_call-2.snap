@@ -44,11 +44,17 @@ expression: rendered
     "id": "rs_stream-item",
     "part": {
       "data": {
+        "content": [
+          {
+            "text": "Weighing the options.",
+            "type": "reasoning_text"
+          }
+        ],
         "encrypted_content": "gAAAAAstreamed-reasoning-state",
         "id": "rs_stream",
         "summary": [
           {
-            "text": "Weighing the options.",
+            "text": "Weighing them.",
             "type": "summary_text"
           }
         ],
@@ -171,11 +177,17 @@ expression: rendered
         },
         {
           "data": {
+            "content": [
+              {
+                "text": "Weighing the options.",
+                "type": "reasoning_text"
+              }
+            ],
             "encrypted_content": "gAAAAAstreamed-reasoning-state",
             "id": "rs_stream",
             "summary": [
               {
-                "text": "Weighing the options.",
+                "text": "Weighing them.",
                 "type": "summary_text"
               }
             ],
@@ -233,11 +245,17 @@ expression: rendered
         "object": "response",
         "output": [
           {
+            "content": [
+              {
+                "text": "Weighing the options.",
+                "type": "reasoning_text"
+              }
+            ],
             "encrypted_content": "gAAAAAstreamed-reasoning-state",
             "id": "rs_stream",
             "summary": [
               {
-                "text": "Weighing the options.",
+                "text": "Weighing them.",
                 "type": "summary_text"
               }
             ],

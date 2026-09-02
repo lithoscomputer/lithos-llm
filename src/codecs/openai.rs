@@ -210,11 +210,12 @@ impl Codec for OpenAiResponsesCodec {
 
     fn stream_decoder(&self, route: &ResolvedRoute) -> Box<dyn StreamDecoder> {
         Box::new(ResponsesStream {
-            assembler: StreamAssembler::new(route),
-            route:     route.clone(),
-            delivered: BTreeSet::new(),
-            skipped:   BTreeSet::new(),
-            started:   false,
+            assembler:         StreamAssembler::new(route),
+            route:             route.clone(),
+            delivered:         BTreeSet::new(),
+            reasoning_entries: BTreeMap::new(),
+            skipped:           BTreeSet::new(),
+            started:           false,
         })
     }
 
@@ -961,15 +962,17 @@ fn decode_tool_call(item: &Value, kind: ToolCallKind) -> ToolCall {
 
 /// Decodes one `reasoning` output item into the parts it contributes.
 ///
-/// The visible summary becomes reasoning content, and the whole item is kept
-/// verbatim — summary-only items included. Replaying a turn's function calls
-/// without their preceding reasoning item draws a provider 400 when the
-/// conversation is not stored, and only the original item, its id included,
-/// satisfies that pairing.
+/// The item's `content` — its `reasoning_text` entries, the trace itself —
+/// becomes reasoning content. Its `summary` does not: a summary is the
+/// provider's digest of that trace, not the trace, and a consumer that wants
+/// it reads it from the opaque item. The whole item is kept verbatim —
+/// summary-only items included. Replaying a turn's function calls without
+/// their preceding reasoning item draws a provider 400 when the conversation
+/// is not stored, and only the original item, its id included, satisfies that
+/// pairing.
 fn decode_reasoning(item: &Value) -> Vec<ContentPart> {
-    let text = reasoning_text(item);
     let mut parts = Vec::new();
-    if !text.is_empty() {
+    if let Some(text) = reasoning_text(item) {
         parts.push(ContentPart::Reasoning(ReasoningContent {
             text,
             signature: None,
@@ -981,16 +984,18 @@ fn decode_reasoning(item: &Value) -> Vec<ContentPart> {
     parts
 }
 
-/// The visible text of one `reasoning` output item.
-fn reasoning_text(item: &Value) -> String {
-    ["summary", "content"]
+/// The reasoning text of one `reasoning` output item: its `content` entries
+/// joined by a blank line, or `None` when it carries no text.
+fn reasoning_text(item: &Value) -> Option<String> {
+    let text = item
+        .get("content")?
+        .as_array()?
         .iter()
-        .filter_map(|key| item.get(*key))
-        .filter_map(Value::as_array)
-        .flatten()
         .filter_map(|part| part.get("text").and_then(Value::as_str))
+        .filter(|text| !text.is_empty())
         .collect::<Vec<_>>()
-        .join("")
+        .join("\n\n");
+    (!text.is_empty()).then_some(text)
 }
 
 /// Normalizes the response status into a finish reason.
@@ -1063,16 +1068,20 @@ fn decode_error(route: &ResolvedRoute, detail: impl Into<String>, raw: Value) ->
 
 /// Decodes one `/v1/responses` stream.
 struct ResponsesStream {
-    assembler: StreamAssembler,
-    route:     ResolvedRoute,
+    assembler:         StreamAssembler,
+    route:             ResolvedRoute,
     /// Blocks that already received content, so a terminal reasoning item
     /// knows whether visible text streamed and its opaque replay block needs
     /// a derived id.
-    delivered: BTreeSet<ContentBlockId>,
+    delivered:         BTreeSet<ContentBlockId>,
+    /// The `content_index` of the last reasoning fragment each reasoning
+    /// block received, so a fragment that opens the next entry can be
+    /// separated from the previous one the way the terminal item is.
+    reasoning_entries: BTreeMap<ContentBlockId, u64>,
     /// Blocks for model-internal items, whose deltas open no block at all.
-    skipped:   BTreeSet<ContentBlockId>,
+    skipped:           BTreeSet<ContentBlockId>,
     /// Whether the `Started` event has been emitted for this stream.
-    started:   bool,
+    started:           bool,
 }
 
 impl StreamDecoder for ResponsesStream {
@@ -1140,9 +1149,11 @@ impl ResponsesStream {
             )),
             "response.output_item.added" => Ok(self.start_item(&block_id(value), item(value))),
             "response.output_text.delta" => Ok(self.text_delta(value)),
-            "response.reasoning_text.delta" | "response.reasoning_summary_text.delta" => {
-                Ok(self.reasoning_delta(value))
-            }
+            // `response.reasoning_summary_text.delta` is not reasoning text
+            // and lands in the ignored arm: the summary reaches a consumer
+            // inside the terminal item, the same way it does when the
+            // response is not streamed.
+            "response.reasoning_text.delta" => Ok(self.reasoning_delta(value)),
             "response.function_call_arguments.delta" | "response.custom_tool_call_input.delta" => {
                 Ok(self.arguments_delta(value))
             }
@@ -1297,16 +1308,16 @@ impl ResponsesStream {
     /// streamed, and takes a derived id when it did, so both parts of one item
     /// keep distinct stable ids.
     fn end_reasoning(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
-        let text = reasoning_text(item);
         let mut events = Vec::new();
-        // The terminal item is the ground truth for the visible text, the
+        // The terminal item is the ground truth for the reasoning text, the
         // same reconciliation the other item kinds get.
-        if !text.is_empty() {
+        if let Some(text) = reasoning_text(item) {
             events.extend(self.deliver(id, |assembler| {
                 assembler.reconcile(id, ContentBlockKind::Reasoning, &text)
             }));
         }
         let visible = self.delivered.contains(id);
+        self.reasoning_entries.remove(id);
         events.extend(self.assembler.end(id));
 
         // Every reasoning item is kept whole, summary-only ones included;
@@ -1336,9 +1347,24 @@ impl ResponsesStream {
         self.deliver(&id, |assembler| assembler.text(&id, &text))
     }
 
+    /// Appends one reasoning fragment.
+    ///
+    /// The terminal item joins its `content` entries with a blank line, so
+    /// the first fragment of a later entry carries that separator too; the
+    /// streamed text then stays a prefix of the whole item's text and the
+    /// closing reconciliation has nothing to replace.
     fn reasoning_delta(&mut self, value: &Value) -> Vec<StreamEvent> {
         let id = block_id(value);
-        let text = delta_text(value);
+        let entry = value
+            .get("content_index")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let mut text = delta_text(value);
+        if let Some(previous) = self.reasoning_entries.insert(id.clone(), entry)
+            && entry > previous
+        {
+            text.insert_str(0, "\n\n");
+        }
         self.deliver(&id, |assembler| assembler.reasoning(&id, &text))
     }
 
@@ -1524,6 +1550,17 @@ mod tests {
             .iter()
             .filter_map(|event| match event {
                 StreamEvent::ContentBlockEnd { part, .. } => Some(part.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Every reasoning delta of a stream, in order.
+    fn reasoning_deltas(events: &[StreamEvent]) -> Vec<&str> {
+        events
+            .iter()
+            .filter_map(|event| match event {
+                StreamEvent::ReasoningDelta { text, .. } => Some(text.as_str()),
                 _ => None,
             })
             .collect()
@@ -1890,14 +1927,21 @@ mod tests {
     fn a_summary_only_reasoning_item_is_kept_for_replay() -> Result<(), Box<dyn StdError>> {
         // Function calls must replay behind their reasoning item, and only
         // the original item with its id satisfies the pairing — even when it
-        // carries a visible summary and no encrypted payload.
+        // carries a visible summary and no encrypted payload. The summary is
+        // not the reasoning trace, so it yields no reasoning part: a
+        // consumer that took one as the trace would show the two summary
+        // blocks run together, and the summary itself is still readable off
+        // the opaque item.
         let route = call(Request::builder().model(MODEL).user("hi").build()?)?
             .route()
             .clone();
         let item = json!({
             "type": "reasoning",
             "id": "rs_1",
-            "summary": [{ "type": "summary_text", "text": "checked" }],
+            "summary": [
+                { "type": "summary_text", "text": "Checked the files." },
+                { "type": "summary_text", "text": "Nothing to change." },
+            ],
         });
 
         let response = codec().decode_response(
@@ -1905,15 +1949,10 @@ mod tests {
             json!({ "id": "resp_1", "status": "completed", "output": [item.clone()] }),
         )?;
 
-        assert_eq!(response.content, vec![
-            ContentPart::Reasoning(ReasoningContent {
-                text:             "checked".to_owned(),
-                signature:        None,
-                signature_origin: None,
-                redacted:         false,
-            }),
-            ContentPart::opaque(REASONING_KIND, item),
-        ]);
+        assert_eq!(response.content, vec![ContentPart::opaque(
+            REASONING_KIND,
+            item
+        )]);
         Ok(())
     }
 
@@ -2164,6 +2203,8 @@ mod tests {
     #[test]
     fn a_reasoning_item_decodes_to_visible_text_and_a_replay_part() -> Result<(), Box<dyn StdError>>
     {
+        // The reasoning part carries the item's `content` — the trace itself
+        // — and none of its `summary`, which stays on the opaque item.
         let route = call(Request::builder().model(MODEL).user("hi").build()?)?
             .route()
             .clone();
@@ -2176,7 +2217,8 @@ mod tests {
                 "output": [{
                     "type": "reasoning",
                     "id": "rs_1",
-                    "summary": [{ "type": "summary_text", "text": "checked" }],
+                    "summary": [{ "type": "summary_text", "text": "Checked the files." }],
+                    "content": [{ "type": "reasoning_text", "text": "checked" }],
                     "encrypted_content": "gAAAA",
                 }],
             }),
@@ -2187,6 +2229,36 @@ mod tests {
         };
         assert_eq!(reasoning.text, "checked");
         assert_eq!(opaque.opaque_namespace(), Some("openai"));
+        Ok(())
+    }
+
+    #[test]
+    fn reasoning_content_entries_join_with_a_blank_line() -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+
+        let response = codec().decode_response(
+            &route,
+            json!({
+                "id": "resp_1",
+                "status": "completed",
+                "output": [{
+                    "type": "reasoning",
+                    "id": "rs_1",
+                    "summary": [],
+                    "content": [
+                        { "type": "reasoning_text", "text": "First." },
+                        { "type": "reasoning_text", "text": "Second." },
+                    ],
+                }],
+            }),
+        )?;
+
+        let [ContentPart::Reasoning(reasoning), _opaque] = response.content.as_slice() else {
+            return Err("expected reasoning text and its replay part".into());
+        };
+        assert_eq!(reasoning.text, "First.\n\nSecond.");
         Ok(())
     }
 
@@ -2794,7 +2866,8 @@ mod tests {
         let item = json!({
             "type": "reasoning",
             "id": "rs_1",
-            "summary": [{ "type": "summary_text", "text": "checked" }],
+            "summary": [{ "type": "summary_text", "text": "Checked the files." }],
+            "content": [{ "type": "reasoning_text", "text": "checked" }],
             "encrypted_content": "gAAAA",
         });
 
@@ -2803,15 +2876,24 @@ mod tests {
             "output_index": 0,
             "item": { "type": "reasoning", "id": "rs_1", "summary": [] },
         })))?;
+        // The summary streams too, and contributes nothing: it is not the
+        // trace, and the blocking decode of the same item never shows it.
         events.extend(decoder.decode(sse(&json!({
             "type": "response.reasoning_summary_text.delta",
             "item_id": "rs_1",
+            "summary_index": 0,
+            "delta": "Checked the files.",
+        })))?);
+        events.extend(decoder.decode(sse(&json!({
+            "type": "response.reasoning_text.delta",
+            "item_id": "rs_1",
+            "content_index": 0,
             "delta": "checked",
         })))?);
         events.extend(decoder.decode(sse(&json!({
             "type": "response.output_item.done",
             "output_index": 0,
-            "item": item,
+            "item": item.clone(),
         })))?);
         events.extend(decoder.finish()?);
 
@@ -2827,7 +2909,147 @@ mod tests {
         assert_eq!(reasoning.text, "checked");
         assert_eq!(kind, "openai.reasoning");
         assert_eq!(data, &item);
+        assert_eq!(reasoning_deltas(&events), vec!["checked"]);
         assert_eq!(completed(&events)?.content, parts);
+        assert_eq!(
+            parts,
+            codec()
+                .decode_response(
+                    &route,
+                    json!({ "id": "resp_1", "status": "completed", "output": [item] })
+                )?
+                .content,
+            "the stream and the blocking decode must agree"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_summary_only_reasoning_item_yields_only_its_replay_part()
+    -> Result<(), Box<dyn StdError>> {
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let item = json!({
+            "type": "reasoning",
+            "id": "rs_1",
+            "summary": [
+                { "type": "summary_text", "text": "Checked the files." },
+                { "type": "summary_text", "text": "Nothing to change." },
+            ],
+            "encrypted_content": "gAAAA",
+        });
+
+        let mut events = decoder.decode(sse(&json!({
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": { "type": "reasoning", "id": "rs_1", "summary": [] },
+        })))?;
+        for (index, delta) in ["Checked the files.", "Nothing to change."]
+            .iter()
+            .enumerate()
+        {
+            events.extend(decoder.decode(sse(&json!({
+                "type": "response.reasoning_summary_text.delta",
+                "item_id": "rs_1",
+                "summary_index": index,
+                "delta": delta,
+            })))?);
+        }
+        events.extend(decoder.decode(sse(&json!({
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": item.clone(),
+        })))?);
+        events.extend(decoder.finish()?);
+
+        assert_block_boundaries(&events)?;
+        assert!(
+            reasoning_deltas(&events).is_empty(),
+            "a summary is not reasoning text and must not stream as one"
+        );
+        let parts = ended_parts(&events);
+        assert_eq!(parts, vec![ContentPart::opaque(
+            REASONING_KIND,
+            item.clone()
+        )]);
+        assert!(
+            events.iter().any(|event| matches!(
+                event,
+                StreamEvent::ContentBlockStart { id, .. } if id.as_str() == "rs_1"
+            )),
+            "with no reasoning block the opaque block keeps the item's own id"
+        );
+        assert_eq!(completed(&events)?.content, parts);
+        assert_eq!(
+            parts,
+            codec()
+                .decode_response(
+                    &route,
+                    json!({ "id": "resp_1", "status": "completed", "output": [item] })
+                )?
+                .content,
+            "the stream and the blocking decode must agree"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn streamed_reasoning_entries_join_the_way_the_terminal_item_does()
+    -> Result<(), Box<dyn StdError>> {
+        // The second `content` entry opens with the blank line the terminal
+        // item's join puts there, so the streamed text is a prefix of the
+        // whole and reconciliation has nothing to add.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let item = json!({
+            "type": "reasoning",
+            "id": "rs_1",
+            "summary": [],
+            "content": [
+                { "type": "reasoning_text", "text": "First." },
+                { "type": "reasoning_text", "text": "Second." },
+            ],
+        });
+
+        let mut events = Vec::new();
+        for (index, delta) in [(0, "Fir"), (0, "st."), (1, "Sec"), (1, "ond.")] {
+            events.extend(decoder.decode(sse(&json!({
+                "type": "response.reasoning_text.delta",
+                "item_id": "rs_1",
+                "content_index": index,
+                "delta": delta,
+            })))?);
+        }
+        events.extend(decoder.decode(sse(&json!({
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": item.clone(),
+        })))?);
+        events.extend(decoder.finish()?);
+
+        assert_block_boundaries(&events)?;
+        assert_eq!(reasoning_deltas(&events), vec![
+            "Fir", "st.", "\n\nSec", "ond."
+        ]);
+        let parts = ended_parts(&events);
+        let [ContentPart::Reasoning(reasoning), _opaque] = parts.as_slice() else {
+            return Err("expected reasoning text and its replay part".into());
+        };
+        assert_eq!(reasoning.text, "First.\n\nSecond.");
+        assert_eq!(
+            parts,
+            codec()
+                .decode_response(
+                    &route,
+                    json!({ "id": "resp_1", "status": "completed", "output": [item] })
+                )?
+                .content,
+            "the stream and the blocking decode must agree"
+        );
         Ok(())
     }
 
@@ -3094,7 +3316,8 @@ mod tests {
         let item = json!({
             "type": "reasoning",
             "id": "rs_1",
-            "summary": [{ "type": "summary_text", "text": "Let me check." }],
+            "summary": [],
+            "content": [{ "type": "reasoning_text", "text": "Let me check." }],
         });
 
         let round_trip = Request::builder()

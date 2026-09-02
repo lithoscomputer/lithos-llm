@@ -1284,11 +1284,15 @@ async fn decodes_rate_limit_headers() {
 // ===========================================================================
 
 /// The reasoning item the streaming transcript closes with.
+///
+/// It carries both a summary and the reasoning text itself. Only the text
+/// becomes a reasoning part; the summary rides along inside the opaque item.
 fn streamed_reasoning_item() -> Value {
     json!({
         "type": "reasoning",
         "id": "rs_stream",
-        "summary": [{ "type": "summary_text", "text": "Weighing the options." }],
+        "summary": [{ "type": "summary_text", "text": "Weighing them." }],
+        "content": [{ "type": "reasoning_text", "text": "Weighing the options." }],
         "encrypted_content": "gAAAAAstreamed-reasoning-state",
     })
 }
@@ -1320,7 +1324,8 @@ fn streamed_function_call_item() -> Value {
 ///
 /// Every frame carries both an `event:` line and a `data:` line, as the real
 /// API does, and the frames the codec ignores — `response.in_progress`,
-/// `response.reasoning_summary_part.added`, `response.output_text.done` — are
+/// `response.reasoning_summary_part.added`,
+/// `response.reasoning_summary_text.delta`, `response.output_text.done` — are
 /// present so the test proves they are ignored rather than assuming it.
 fn stream_transcript() -> String {
     let frames: Vec<(&str, String)> = vec![
@@ -1369,17 +1374,31 @@ fn stream_transcript() -> String {
                 "sequence_number": 4,
                 "item_id": "rs_stream",
                 "output_index": 0,
+                "summary_index": 0,
+                "delta": "Weighing them.",
+            })
+            .to_string(),
+        ),
+        (
+            "response.reasoning_text.delta",
+            json!({
+                "type": "response.reasoning_text.delta",
+                "sequence_number": 5,
+                "item_id": "rs_stream",
+                "output_index": 0,
+                "content_index": 0,
                 "delta": "Weighing ",
             })
             .to_string(),
         ),
         (
-            "response.reasoning_summary_text.delta",
+            "response.reasoning_text.delta",
             json!({
-                "type": "response.reasoning_summary_text.delta",
-                "sequence_number": 5,
+                "type": "response.reasoning_text.delta",
+                "sequence_number": 6,
                 "item_id": "rs_stream",
                 "output_index": 0,
+                "content_index": 0,
                 "delta": "the options.",
             })
             .to_string(),
@@ -1388,7 +1407,7 @@ fn stream_transcript() -> String {
             "response.output_item.done",
             json!({
                 "type": "response.output_item.done",
-                "sequence_number": 6,
+                "sequence_number": 7,
                 "output_index": 0,
                 "item": streamed_reasoning_item(),
             })
@@ -1398,7 +1417,7 @@ fn stream_transcript() -> String {
             "response.output_item.added",
             json!({
                 "type": "response.output_item.added",
-                "sequence_number": 7,
+                "sequence_number": 8,
                 "output_index": 1,
                 "item": {
                     "type": "message",
@@ -1414,7 +1433,7 @@ fn stream_transcript() -> String {
             "response.output_text.delta",
             json!({
                 "type": "response.output_text.delta",
-                "sequence_number": 8,
+                "sequence_number": 9,
                 "item_id": "msg_stream",
                 "output_index": 1,
                 "content_index": 0,
@@ -1426,7 +1445,7 @@ fn stream_transcript() -> String {
             "response.output_text.delta",
             json!({
                 "type": "response.output_text.delta",
-                "sequence_number": 9,
+                "sequence_number": 10,
                 "item_id": "msg_stream",
                 "output_index": 1,
                 "content_index": 0,
@@ -1438,7 +1457,7 @@ fn stream_transcript() -> String {
             "response.output_text.done",
             json!({
                 "type": "response.output_text.done",
-                "sequence_number": 10,
+                "sequence_number": 11,
                 "item_id": "msg_stream",
                 "output_index": 1,
                 "content_index": 0,
@@ -1450,7 +1469,7 @@ fn stream_transcript() -> String {
             "response.output_item.done",
             json!({
                 "type": "response.output_item.done",
-                "sequence_number": 11,
+                "sequence_number": 12,
                 "output_index": 1,
                 "item": streamed_message_item(),
             })
@@ -1460,7 +1479,7 @@ fn stream_transcript() -> String {
             "response.output_item.added",
             json!({
                 "type": "response.output_item.added",
-                "sequence_number": 12,
+                "sequence_number": 13,
                 "output_index": 2,
                 "item": {
                     "type": "function_call",
@@ -1477,7 +1496,7 @@ fn stream_transcript() -> String {
             "response.function_call_arguments.delta",
             json!({
                 "type": "response.function_call_arguments.delta",
-                "sequence_number": 13,
+                "sequence_number": 14,
                 "item_id": "fc_stream",
                 "output_index": 2,
                 "delta": "{\"city\":",
@@ -1488,7 +1507,7 @@ fn stream_transcript() -> String {
             "response.function_call_arguments.delta",
             json!({
                 "type": "response.function_call_arguments.delta",
-                "sequence_number": 14,
+                "sequence_number": 15,
                 "item_id": "fc_stream",
                 "output_index": 2,
                 "delta": "\"Paris\"}",
@@ -1499,7 +1518,7 @@ fn stream_transcript() -> String {
             "response.output_item.done",
             json!({
                 "type": "response.output_item.done",
-                "sequence_number": 15,
+                "sequence_number": 16,
                 "output_index": 2,
                 "item": streamed_function_call_item(),
             })
@@ -1509,7 +1528,7 @@ fn stream_transcript() -> String {
             "response.completed",
             json!({
                 "type": "response.completed",
-                "sequence_number": 16,
+                "sequence_number": 17,
                 "response": {
                     "id": "resp_stream",
                     "object": "response",
