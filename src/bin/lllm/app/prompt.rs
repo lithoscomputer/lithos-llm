@@ -10,9 +10,9 @@ use lithos_llm::types::{
 };
 use serde_json::Value;
 
-use crate::args::{AttachmentArg, PromptArgs, ReasoningEffortArg, SpeedArg, read_schema};
-use crate::output::{self, write_delta, write_text};
-use crate::{CliError, CliResult, OutputState, TerminalState, input, models};
+use crate::app::args::{AttachmentArg, PromptArgs, ReasoningEffortArg, SpeedArg, read_schema};
+use crate::app::output::{self, write_delta, write_text};
+use crate::app::{CliError, CliResult, OutputState, TerminalState, input, models};
 
 pub(crate) async fn run(
     client: &Client,

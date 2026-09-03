@@ -6,8 +6,8 @@ use base64::engine::general_purpose::STANDARD;
 use lithos_llm::types::{AudioContent, ContentPart, DocumentContent, ImageContent, MediaSource};
 use url::Url;
 
-use crate::args::AttachmentArg;
-use crate::{CliError, CliResult};
+use crate::app::args::AttachmentArg;
+use crate::app::{CliError, CliResult};
 
 pub(crate) fn load(argument: &AttachmentArg, stdin: Option<&[u8]>) -> CliResult<ContentPart> {
     if argument.source == "-" {
@@ -144,7 +144,7 @@ mod tests {
     use lithos_llm::types::{ContentPart, MediaSource};
 
     use super::load;
-    use crate::args::AttachmentArg;
+    use crate::app::args::AttachmentArg;
 
     #[test]
     fn standard_input_is_encoded_as_inline_base64() {

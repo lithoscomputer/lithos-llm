@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use lithos_llm::types::{ContentPart, Request, Response};
 use serde::Serialize;
 
-use crate::{CliError, CliResult, OutputState};
+use crate::app::{CliError, CliResult, OutputState};
 
 #[derive(Serialize)]
 struct ResponseEnvelope<'a> {

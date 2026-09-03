@@ -2,12 +2,12 @@ use std::io::Read;
 
 use lithos_llm::types::ContentPart;
 
-use crate::args::AttachmentArg;
-use crate::{CliError, CliResult, attachment};
+use crate::app::args::AttachmentArg;
+use crate::app::{CliError, CliResult, attachment};
 
 #[derive(Debug)]
 pub(crate) struct PreparedInput {
-    pub parts: Vec<ContentPart>,
+    pub(crate) parts: Vec<ContentPart>,
 }
 
 pub(crate) fn prepare(
@@ -71,7 +71,7 @@ mod tests {
     use lithos_llm::types::ContentPart;
 
     use super::prepare;
-    use crate::args::AttachmentArg;
+    use crate::app::args::AttachmentArg;
 
     fn text(parts: &[ContentPart]) -> Option<&str> {
         match parts.first() {

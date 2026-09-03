@@ -8,26 +8,26 @@ use clap::{
     ArgAction, ArgMatches, CommandFactory as _, FromArgMatches as _, Parser, Subcommand, ValueEnum,
 };
 
-use crate::{CliError, CliResult};
+use crate::app::{CliError, CliResult};
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "lithos",
+    name = "lllm",
     version,
     about = "Send stateless prompts through lithos-llm",
     disable_help_subcommand = true
 )]
-pub struct Cli {
+pub(crate) struct Cli {
     #[command(subcommand)]
-    pub command: Command,
+    pub(crate) command: Command,
 
     /// Log library diagnostics to standard error. RUST_LOG overrides this.
     #[arg(long, global = true)]
-    pub verbose: bool,
+    pub(crate) verbose: bool,
 }
 
 #[derive(Debug, Subcommand)]
-pub enum Command {
+pub(crate) enum Command {
     /// Send one stateless prompt.
     Prompt(Box<PromptArgs>),
     /// List and search the built-in model catalog.
@@ -35,77 +35,77 @@ pub enum Command {
 }
 
 #[derive(Clone, Debug)]
-pub struct AttachmentArg {
-    pub source:     String,
-    pub media_type: Option<String>,
+pub(crate) struct AttachmentArg {
+    pub(crate) source:     String,
+    pub(crate) media_type: Option<String>,
 }
 
 #[derive(Debug)]
-pub struct ParsedCli {
-    pub cli:         Cli,
-    pub attachments: Vec<AttachmentArg>,
+pub(crate) struct ParsedCli {
+    pub(crate) cli:         Cli,
+    pub(crate) attachments: Vec<AttachmentArg>,
 }
 
 #[derive(Clone, Debug, Parser)]
-pub struct PromptArgs {
+pub(crate) struct PromptArgs {
     /// Prompt text. Multiple values are joined with one space.
     #[arg(value_name = "PROMPT", num_args = 0..)]
-    pub prompt: Vec<String>,
+    pub(crate) prompt: Vec<String>,
 
     /// Do not stream the response.
     #[arg(long)]
-    pub no_stream: bool,
+    pub(crate) no_stream: bool,
 
     /// Use this model selector unchanged.
     #[arg(short = 'm', long, conflicts_with = "model_query")]
-    pub model: Option<String>,
+    pub(crate) model: Option<String>,
 
     /// Search available models. Every repeated term must match.
     #[arg(short = 'q', long = "model-query", action = ArgAction::Append, conflicts_with = "model")]
-    pub model_query: Vec<String>,
+    pub(crate) model_query: Vec<String>,
 
     /// Add a system message.
     #[arg(short = 's', long)]
-    pub system: Option<String>,
+    pub(crate) system: Option<String>,
 
     #[arg(long)]
-    pub max_output_tokens: Option<u32>,
+    pub(crate) max_output_tokens: Option<u32>,
 
     #[arg(long)]
-    pub temperature: Option<f32>,
+    pub(crate) temperature: Option<f32>,
 
     #[arg(long)]
-    pub top_p: Option<f32>,
+    pub(crate) top_p: Option<f32>,
 
     #[arg(long, value_enum)]
-    pub reasoning_effort: Option<ReasoningEffortArg>,
+    pub(crate) reasoning_effort: Option<ReasoningEffortArg>,
 
     #[arg(long, value_enum)]
-    pub speed: Option<SpeedArg>,
+    pub(crate) speed: Option<SpeedArg>,
 
     /// Call timeout. Use an explicit unit, for example 500ms, 30s, or 2m.
     #[arg(long, value_parser = parse_duration)]
-    pub timeout: Option<Duration>,
+    pub(crate) timeout: Option<Duration>,
 
     #[arg(long, action = ArgAction::Append)]
-    pub stop: Vec<String>,
+    pub(crate) stop: Vec<String>,
 
     #[arg(long, conflicts_with = "no_cache")]
-    pub cache_key: Option<String>,
+    pub(crate) cache_key: Option<String>,
 
     #[arg(long)]
-    pub no_cache: bool,
+    pub(crate) no_cache: bool,
 
     #[arg(long, value_parser = parse_key_value, action = ArgAction::Append)]
-    pub metadata: Vec<KeyValue>,
+    pub(crate) metadata: Vec<KeyValue>,
 
     /// Set a raw option in the selected provider namespace.
     #[arg(short = 'o', long = "option", value_parser = parse_key_value, action = ArgAction::Append)]
-    pub options: Vec<KeyValue>,
+    pub(crate) options: Vec<KeyValue>,
 
     /// Attach a URL or file. Use - to read one attachment from standard input.
     #[arg(short = 'a', long = "attachment", action = ArgAction::Append)]
-    pub attachment: Vec<String>,
+    pub(crate) attachment: Vec<String>,
 
     /// Attach a source with an explicit media type.
     #[arg(
@@ -115,50 +115,50 @@ pub struct PromptArgs {
         num_args = 2,
         action = ArgAction::Append
     )]
-    pub attachment_type: Vec<String>,
+    pub(crate) attachment_type: Vec<String>,
 
     /// Emit a versioned JSON request and response envelope.
     #[arg(long, conflicts_with_all = ["extract", "extract_last"])]
-    pub json: bool,
+    pub(crate) json: bool,
 
     /// Ask the provider for a JSON object.
     #[arg(long, conflicts_with = "schema")]
-    pub json_object: bool,
+    pub(crate) json_object: bool,
 
     /// Ask for a JSON Schema response. Use JSON or @PATH.
     #[arg(long, conflicts_with = "json_object")]
-    pub schema: Option<String>,
+    pub(crate) schema: Option<String>,
 
     /// Name used for --schema. Defaults to response.
     #[arg(long, requires = "schema")]
-    pub schema_name: Option<String>,
+    pub(crate) schema_name: Option<String>,
 
     /// Print the first complete fenced code block.
     #[arg(short = 'x', long, conflicts_with_all = ["extract_last", "json"])]
-    pub extract: bool,
+    pub(crate) extract: bool,
 
     /// Print the last complete fenced code block.
     #[arg(long, conflicts_with_all = ["extract", "json"])]
-    pub extract_last: bool,
+    pub(crate) extract_last: bool,
 }
 
 #[derive(Clone, Debug, Parser)]
-pub struct ModelsArgs {
+pub(crate) struct ModelsArgs {
     /// Terms that every listed model must match.
     #[arg(value_name = "QUERY")]
-    pub query: Vec<String>,
+    pub(crate) query: Vec<String>,
 
     /// Emit the documented JSON model-list shape.
     #[arg(long)]
-    pub json: bool,
+    pub(crate) json: bool,
 
     /// Show only models whose provider adapter is available.
     #[arg(long)]
-    pub available: bool,
+    pub(crate) available: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum ReasoningEffortArg {
+pub(crate) enum ReasoningEffortArg {
     Minimal,
     Low,
     Medium,
@@ -168,19 +168,19 @@ pub enum ReasoningEffortArg {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum SpeedArg {
+pub(crate) enum SpeedArg {
     Fast,
     Balanced,
     Economical,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct KeyValue {
-    pub key:   String,
-    pub value: String,
+pub(crate) struct KeyValue {
+    pub(crate) key:   String,
+    pub(crate) value: String,
 }
 
-pub fn parse_from<I, T>(args: I) -> Result<ParsedCli, clap::Error>
+pub(crate) fn parse_from<I, T>(args: I) -> Result<ParsedCli, clap::Error>
 where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
@@ -199,7 +199,7 @@ where
 {
     let mut args: Vec<OsString> = args.into_iter().map(Into::into).collect();
     if args.is_empty() {
-        args.push(OsString::from("lithos"));
+        args.push(OsString::from("lllm"));
     }
     let insert_prompt = match args.get(1).and_then(|value| value.to_str()) {
         Some("prompt" | "models" | "-h" | "--help" | "-V" | "--version") => false,
@@ -272,7 +272,7 @@ fn parse_duration(raw: &str) -> Result<Duration, String> {
         .map_err(|error| error.to_string())
 }
 
-pub fn read_schema(raw: &str) -> CliResult<serde_json::Value> {
+pub(crate) fn read_schema(raw: &str) -> CliResult<serde_json::Value> {
     let text = if let Some(path) = raw.strip_prefix('@') {
         fs::read_to_string(PathBuf::from(path)).map_err(|source| {
             CliError::input_source(format!("could not read schema file `{path}`"), source)
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn inserts_the_prompt_command() {
-        let parsed = parse_from(["lithos", "hello", "world"]).expect("arguments should parse");
+        let parsed = parse_from(["lllm", "hello", "world"]).expect("arguments should parse");
         let Command::Prompt(args) = parsed.cli.command else {
             panic!("implicit command should be prompt");
         };
@@ -307,7 +307,7 @@ mod tests {
 
     #[test]
     fn double_dash_allows_a_subcommand_as_prompt_text() {
-        let parsed = parse_from(["lithos", "--", "models"]).expect("arguments should parse");
+        let parsed = parse_from(["lllm", "--", "models"]).expect("arguments should parse");
         let Command::Prompt(args) = parsed.cli.command else {
             panic!("double dash should select prompt");
         };
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn preserves_mixed_attachment_order() {
         let parsed = parse_from([
-            "lithos",
+            "lllm",
             "hello",
             "-a",
             "one.png",
@@ -342,16 +342,16 @@ mod tests {
 
     #[test]
     fn verbose_parses_anywhere_as_a_global_flag() {
-        let parsed = parse_from(["lithos", "hello", "--verbose"]).expect("arguments should parse");
+        let parsed = parse_from(["lllm", "hello", "--verbose"]).expect("arguments should parse");
         assert!(parsed.cli.verbose);
 
-        let parsed = parse_from(["lithos", "models", "--verbose"]).expect("arguments should parse");
+        let parsed = parse_from(["lllm", "models", "--verbose"]).expect("arguments should parse");
         assert!(parsed.cli.verbose);
     }
 
     #[test]
     fn double_dash_keeps_verbose_as_prompt_text() {
-        let parsed = parse_from(["lithos", "--", "--verbose"]).expect("arguments should parse");
+        let parsed = parse_from(["lllm", "--", "--verbose"]).expect("arguments should parse");
         assert!(!parsed.cli.verbose);
         let Command::Prompt(args) = parsed.cli.command else {
             panic!("double dash should select prompt");
@@ -362,13 +362,13 @@ mod tests {
     #[test]
     fn requires_a_duration_unit() {
         let error =
-            parse_from(["lithos", "hello", "--timeout", "10"]).expect_err("duration should fail");
+            parse_from(["lllm", "hello", "--timeout", "10"]).expect_err("duration should fail");
         assert!(error.to_string().contains("requires a unit"));
     }
 
     #[test]
     fn output_modes_conflict() {
-        let error = parse_from(["lithos", "hello", "--json", "--extract"])
+        let error = parse_from(["lllm", "hello", "--json", "--extract"])
             .expect_err("output modes should conflict");
         assert!(error.to_string().contains("cannot be used with"));
     }

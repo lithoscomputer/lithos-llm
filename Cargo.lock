@@ -1529,11 +1529,16 @@ dependencies = [
  "aws-smithy-types",
  "axum",
  "base64",
+ "clap",
  "crc32fast",
  "futures-core",
  "futures-util",
  "httpmock",
+ "humantime",
+ "infer",
  "insta",
+ "mime",
+ "mime_guess",
  "reqwest",
  "serde",
  "serde_json",
@@ -1543,28 +1548,8 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "twin-openai",
- "uuid",
-]
-
-[[package]]
-name = "lithos-llm-cli"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "base64",
- "clap",
- "futures-util",
- "humantime",
- "infer",
- "lithos-llm",
- "mime",
- "mime_guess",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing-subscriber",
  "url",
+ "uuid",
 ]
 
 [[package]]

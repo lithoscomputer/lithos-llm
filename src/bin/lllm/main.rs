@@ -3,12 +3,16 @@ use std::future::Future;
 use std::io::{IsTerminal as _, Write as _, stderr, stdin, stdout};
 use std::process::ExitCode;
 
+mod app;
+#[cfg(test)]
+mod runner_tests;
+
+use app::{ExitStatus, ProcessIo, TerminalState, args, format_error_chain};
 use lithos_llm::catalog::Catalog;
 use lithos_llm::client::ClientBuildError;
 use lithos_llm::credentials::EnvironmentCredentials;
 use lithos_llm::middleware::{CancellationToken, TracingMiddleware};
 use lithos_llm::{Client, ClientBuild};
-use lithos_llm_cli::{ExitStatus, ProcessIo, TerminalState, args, format_error_chain};
 use tokio::signal::ctrl_c;
 use tracing_subscriber::EnvFilter;
 
@@ -33,12 +37,10 @@ async fn main() -> ExitCode {
     let stdout = stdout();
     let stderr = stderr();
     let terminal = TerminalState {
-        stdin:  stdin.is_terminal(),
-        stdout: stdout.is_terminal(),
-        stderr: stderr.is_terminal(),
+        stdin: stdin.is_terminal(),
     };
     let status = match Box::pin(run_until_signal(
-        lithos_llm_cli::run(
+        app::run(
             env::args_os(),
             &build.client,
             ProcessIo {
@@ -135,9 +137,8 @@ mod tests {
     use std::io;
 
     use lithos_llm::middleware::CancellationToken;
-    use lithos_llm_cli::ExitStatus;
 
-    use super::run_until_signal;
+    use super::{ExitStatus, run_until_signal};
 
     #[tokio::test]
     async fn a_finished_command_does_not_wait_for_a_signal() {

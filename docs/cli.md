@@ -1,29 +1,35 @@
-# lithos-llm-cli
+# lllm
 
-`lithos-llm-cli` installs the `lithos` binary. It sends one stateless prompt
+The `cli` feature installs the `lllm` binary. It sends one stateless prompt
 through the provider-neutral `lithos-llm` library.
 
 Install it from a checkout:
 
 ```sh
-cargo install --locked --path cli
+cargo install --locked --path . --features cli
+```
+
+Run it without installing:
+
+```sh
+cargo run --features cli -- --help
 ```
 
 Send prompt text with the default streaming output:
 
 ```sh
-lithos 'Explain ownership in Rust'
-lithos prompt 'Explain ownership in Rust' --model openai/gpt-5
-printf 'Explain this input' | lithos
+lllm 'Explain ownership in Rust'
+lllm prompt 'Explain ownership in Rust' --model openai/gpt-5
+printf 'Explain this input' | lllm
 ```
 
 List or search the built-in model catalog without credentials or network
 access:
 
 ```sh
-lithos models
-lithos models claude --available
-lithos models --json
+lllm models
+lllm models claude --available
+lllm models --json
 ```
 
 The JSON model list has this CLI-owned shape:
@@ -46,9 +52,9 @@ The JSON model list has this CLI-owned shape:
 Attach files, URLs, or one standard-input payload:
 
 ```sh
-lithos 'Describe this image' --attachment photo.png
-lithos 'Summarize this' --attachment https://example.com/report.pdf
-cat report.pdf | lithos 'Summarize this' --at - application/pdf
+lllm 'Describe this image' --attachment photo.png
+lllm 'Summarize this' --attachment https://example.com/report.pdf
+cat report.pdf | lllm 'Summarize this' --at - application/pdf
 ```
 
 Use `--json-object` or `--schema` to request structured output. Use `--json`

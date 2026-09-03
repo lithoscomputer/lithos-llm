@@ -14,7 +14,8 @@ use lithos_llm::types::{
     ResponseFormat, ResponseStream, Speed, StreamEvent,
 };
 use lithos_llm::{Client, ClientBuild};
-use lithos_llm_cli::{ExitStatus, ProcessIo, TerminalState, run};
+
+use crate::app::{ExitStatus, ProcessIo, TerminalState, run};
 
 const CATALOG: &str = r#"
 schema_version = 1
@@ -170,9 +171,7 @@ async fn invoke(
             stderr: &mut stderr,
         },
         TerminalState {
-            stdin:  stdin_is_terminal,
-            stdout: false,
-            stderr: false,
+            stdin: stdin_is_terminal,
         },
         cancellation,
     )
@@ -187,7 +186,7 @@ async fn maps_every_request_control_and_provider_option() {
     let (status, stdout, stderr) = invoke(
         &build.client,
         &[
-            "lithos",
+            "lllm",
             "prompt",
             "hello",
             "world",
@@ -271,7 +270,7 @@ async fn streams_only_text_deltas_and_adds_one_newline() {
     let build = client(RecordingAdapter::default());
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "hello", "--model", "alpha/one"],
+        &["lllm", "hello", "--model", "alpha/one"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -290,7 +289,7 @@ async fn no_cache_maps_to_a_disabled_cache_hint() {
     let (status, _, _) = invoke(
         &build.client,
         &[
-            "lithos",
+            "lllm",
             "hello",
             "--model",
             "alpha/one",
@@ -316,7 +315,7 @@ async fn json_output_buffers_and_contains_the_request_and_response() {
     let build = client(RecordingAdapter::default());
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "hello", "--model", "alpha/one", "--json"],
+        &["lllm", "hello", "--model", "alpha/one", "--json"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -339,7 +338,7 @@ async fn schema_flags_map_to_a_named_json_schema() {
     let (status, _, _) = invoke(
         &build.client,
         &[
-            "lithos",
+            "lllm",
             "hello",
             "--model",
             "alpha/one",
@@ -369,7 +368,7 @@ async fn reports_safe_provider_error_fields_on_standard_error() {
     let build = client(FailingAdapter);
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "hello", "--model", "alpha/one", "--no-stream"],
+        &["lllm", "hello", "--model", "alpha/one", "--no-stream"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -392,7 +391,7 @@ async fn reports_input_error_source_chains() {
     let build = client(RecordingAdapter::default());
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "hello", "--schema", "{"],
+        &["lllm", "hello", "--schema", "{"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -414,7 +413,7 @@ async fn a_cancelled_signal_returns_status_130() {
     cancellation.cancel();
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "hello", "--model", "alpha/one"],
+        &["lllm", "hello", "--model", "alpha/one"],
         Vec::new(),
         true,
         cancellation,
@@ -431,7 +430,7 @@ async fn model_listing_marks_runtime_availability_and_filters_it() {
     let build = client(RecordingAdapter::default());
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "models", "--json"],
+        &["lllm", "models", "--json"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -448,7 +447,7 @@ async fn model_listing_marks_runtime_availability_and_filters_it() {
 
     let (_, filtered, _) = invoke(
         &build.client,
-        &["lithos", "models", "--json", "--available"],
+        &["lllm", "models", "--json", "--available"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -465,7 +464,7 @@ async fn model_search_is_case_insensitive_and_reports_no_match() {
     let build = client(adapter.clone());
     let (status, _, _) = invoke(
         &build.client,
-        &["lithos", "hello", "--model-query", "UNO", "--no-stream"],
+        &["lllm", "hello", "--model-query", "UNO", "--no-stream"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -479,7 +478,7 @@ async fn model_search_is_case_insensitive_and_reports_no_match() {
 
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "hello", "-q", "missing"],
+        &["lllm", "hello", "-q", "missing"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -507,18 +506,14 @@ async fn a_closed_output_pipe_is_success() {
     let build = client(RecordingAdapter::default());
     let mut stderr = Vec::new();
     let status = run(
-        ["lithos", "hello", "--model", "alpha/one"],
+        ["lllm", "hello", "--model", "alpha/one"],
         &build.client,
         ProcessIo {
             stdin:  Cursor::new(Vec::new()),
             stdout: BrokenWriter,
             stderr: &mut stderr,
         },
-        TerminalState {
-            stdin:  true,
-            stdout: false,
-            stderr: false,
-        },
+        TerminalState { stdin: true },
         CancellationToken::new(),
     )
     .await;
@@ -532,7 +527,7 @@ async fn non_utf8_standard_input_is_a_usage_error() {
     let build = client(RecordingAdapter::default());
     let (status, stdout, stderr) = invoke(
         &build.client,
-        &["lithos", "--model", "alpha/one"],
+        &["lllm", "--model", "alpha/one"],
         vec![0xff],
         false,
         CancellationToken::new(),

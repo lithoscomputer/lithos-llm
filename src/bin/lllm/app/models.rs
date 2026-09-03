@@ -4,9 +4,9 @@ use lithos_llm::Client;
 use lithos_llm::catalog::{CatalogModel, CatalogProvider, ModelCapabilities};
 use serde::Serialize;
 
-use crate::args::ModelsArgs;
-use crate::output::write_text;
-use crate::{CliError, CliResult, OutputState};
+use crate::app::args::ModelsArgs;
+use crate::app::output::write_text;
+use crate::app::{CliError, CliResult, OutputState};
 
 #[derive(Debug, Serialize)]
 struct ModelList {

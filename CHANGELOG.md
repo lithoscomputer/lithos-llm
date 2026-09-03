@@ -186,6 +186,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The root `lithos-llm` package now provides the `lllm` executable behind the
+  optional `cli` feature. It replaces the separate, unpublished
+  `lithos-llm-cli` workspace package and the former `lithos` executable name.
+
 - Gemini deliberately declares no speed pricing tiers: the protocol has no
   speed control, so `fast` and `economical` requests on its priced models
   fail locally before dispatch. The OpenRouter Gemini 3.1 Pro long-context

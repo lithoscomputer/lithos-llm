@@ -9,7 +9,7 @@ use lithos_llm::middleware::CancellationToken;
 use lithos_llm::types::{Error as LlmError, ErrorKind};
 use thiserror::Error;
 
-pub mod args;
+pub(crate) mod args;
 mod attachment;
 mod input;
 mod models;
@@ -18,10 +18,10 @@ mod prompt;
 
 use args::Command;
 
-pub type CliResult<T> = Result<T, CliError>;
+pub(crate) type CliResult<T> = Result<T, CliError>;
 
 #[derive(Debug, Error)]
-pub enum CliError {
+pub(crate) enum CliError {
     #[error("{message}")]
     Input { message: String },
     #[error("{message}")]
@@ -53,20 +53,18 @@ impl CliError {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct TerminalState {
-    pub stdin:  bool,
-    pub stdout: bool,
-    pub stderr: bool,
+pub(crate) struct TerminalState {
+    pub(crate) stdin: bool,
 }
 
-pub struct ProcessIo<R, W, E> {
-    pub stdin:  R,
-    pub stdout: W,
-    pub stderr: E,
+pub(crate) struct ProcessIo<R, W, E> {
+    pub(crate) stdin:  R,
+    pub(crate) stdout: W,
+    pub(crate) stderr: E,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ExitStatus {
+pub(crate) enum ExitStatus {
     Success,
     Failure,
     Usage,
@@ -74,7 +72,7 @@ pub enum ExitStatus {
 }
 
 impl ExitStatus {
-    pub const fn code(self) -> u8 {
+    pub(crate) const fn code(self) -> u8 {
         match self {
             Self::Success => 0,
             Self::Failure => 1,
@@ -90,7 +88,7 @@ pub(crate) enum OutputState {
     Closed,
 }
 
-pub async fn run<I, T, R, W, E>(
+pub(crate) async fn run<I, T, R, W, E>(
     arguments: I,
     client: &Client,
     mut io: ProcessIo<R, W, E>,
@@ -182,8 +180,7 @@ fn render_error(error: &CliError) -> String {
     rendered
 }
 
-/// Formats an error and each preserved source for command-line diagnostics.
-pub fn format_error_chain(error: &(dyn StdError + 'static)) -> String {
+pub(crate) fn format_error_chain(error: &(dyn StdError + 'static)) -> String {
     let mut rendered = error.to_string();
     append_sources(&mut rendered, error);
     rendered

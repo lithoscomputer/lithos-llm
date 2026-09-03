@@ -4,9 +4,9 @@
 separates catalog data, model resolution, credentials, middleware, provider
 adapters, wire codecs, and HTTP transport.
 
-This workspace also contains the stateless `lithos` command-line application.
-See the [CLI documentation](https://github.com/lithoscomputer/lithos-llm/tree/main/cli)
-for installation and usage.
+The optional `cli` feature provides the stateless `lllm` command-line
+application. See the [CLI documentation](docs/cli.md) for installation and
+usage.
 
 Applications can use built-in OpenAI, Anthropic, Gemini,
 OpenAI-compatible, and optional Amazon Bedrock adapters. Applications can also

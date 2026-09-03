@@ -1,11 +1,13 @@
+#![cfg(feature = "cli")]
+
 use std::process::Command;
 
 #[test]
 fn help_runs_without_credentials() {
-    let output = Command::new(env!("CARGO_BIN_EXE_lithos"))
+    let output = Command::new(env!("CARGO_BIN_EXE_lllm"))
         .arg("--help")
         .output()
-        .expect("lithos --help should run");
+        .expect("lllm --help should run");
 
     assert!(output.status.success());
     assert!(String::from_utf8_lossy(&output.stdout).contains("Send stateless prompts"));
@@ -14,10 +16,10 @@ fn help_runs_without_credentials() {
 
 #[test]
 fn models_runs_without_credentials_or_network() {
-    let output = Command::new(env!("CARGO_BIN_EXE_lithos"))
+    let output = Command::new(env!("CARGO_BIN_EXE_lllm"))
         .args(["models", "--json"])
         .output()
-        .expect("lithos models should run");
+        .expect("lllm models should run");
 
     assert!(output.status.success());
     let value: serde_json::Value =
