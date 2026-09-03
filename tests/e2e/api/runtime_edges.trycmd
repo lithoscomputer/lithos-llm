@@ -128,14 +128,14 @@ $ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml invalid-js
     "retry": {
       "type": "safe"
     },
-    "source_message": "error decoding response body for url (http://127.0.0.1:3932/v1/responses)"
+    "source_message": "error decoding response body for url (http://127.0.0.1:3931/v1/responses)"
   },
   "debug": "Error { kind: ResponseDecode, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
   "display": "provider openai returned invalid JSON",
   "retry_after_ms": null,
   "provider_retry_after_ms": null,
   "raw_data": null,
-  "source": "error decoding response body for url (http://127.0.0.1:3932/v1/responses)"
+  "source": "error decoding response body for url (http://127.0.0.1:3931/v1/responses)"
 }
 
 ```
@@ -160,14 +160,14 @@ $ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml complete-t
     "retry": {
       "type": "never"
     },
-    "source_message": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+    "source_message": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
   },
   "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
   "display": "request to provider openai failed",
   "retry_after_ms": null,
   "provider_retry_after_ms": null,
   "raw_data": null,
-  "source": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+  "source": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
 }
 
 ```
@@ -192,14 +192,14 @@ $ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml stream-tim
     "retry": {
       "type": "safe"
     },
-    "source_message": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+    "source_message": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
   },
   "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
   "display": "request to provider openai failed",
   "retry_after_ms": null,
   "provider_retry_after_ms": null,
   "raw_data": null,
-  "source": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+  "source": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
 }
 
 ```
