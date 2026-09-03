@@ -261,10 +261,22 @@ async fn stream(
         let Some(item) = item else {
             break;
         };
-        match item.map_err(|source| CliError::Call {
-            route:  route.to_owned(),
-            source: Box::new(source),
-        })? {
+        let event = match item {
+            Ok(event) => event,
+            Err(source) => {
+                if wrote_delta
+                    && !ends_with_newline
+                    && write_delta(output_writer, "\n")? == OutputState::Closed
+                {
+                    return Ok(OutputState::Closed);
+                }
+                return Err(CliError::Call {
+                    route:  route.to_owned(),
+                    source: Box::new(source),
+                });
+            }
+        };
+        match event {
             StreamEvent::TextDelta { text, .. } => {
                 wrote_delta = true;
                 if !text.is_empty() {

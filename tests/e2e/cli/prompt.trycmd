@@ -10,6 +10,25 @@ Hello from twin
 $ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture 'Streaming prompt'
 Hello from twin
 
+$ OPENROUTER_API_KEY=chat-unterminated-data-line lllm --catalog catalog.toml --model openrouter/fixture 'Chat unterminated data line'
+Chat tail
+
+$ OPENROUTER_API_KEY=chat-split-data-line lllm --catalog catalog.toml --model openrouter/fixture 'Chat split data line'
+Split chat
+
+$ OPENROUTER_API_KEY=chat-invalid-utf8-line lllm --catalog catalog.toml --model openrouter/fixture 'Chat invalid UTF-8 line'
+? 1
+error: stream_decode: an SSE frame was not UTF-8 route=openrouter/fixture
+  caused by: invalid utf-8 sequence of 1 bytes from index 6
+
+$ OPENROUTER_API_KEY=chat-visible-body-failure lllm --catalog catalog.toml --model openrouter/fixture 'Chat visible body failure'
+? 1
+Partial chat
+error: network: reading the provider response stream failed route=openrouter/fixture provider=openrouter
+  caused by: error decoding response body
+  caused by: error reading a body from connection
+  caused by: unexpected EOF during chunk size line
+
 $ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --schema 'name, age int' --no-stream 'Invent a person'
 {"name":"Ada","age":37}
 
