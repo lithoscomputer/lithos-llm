@@ -89,6 +89,15 @@ The JSON model list has this CLI-owned shape:
 }
 ```
 
+Add a local TOML catalog layer for one process with `--catalog`. The option
+can be repeated. Later files win when layers overlap. The CLI does not save
+the files or change the built-in catalog:
+
+```sh
+lllm --catalog local-models.toml -m local/qwen 'Hello'
+lllm --catalog local-models.toml models --provider local
+```
+
 Attach files, URLs, or one standard-input payload:
 
 ```sh

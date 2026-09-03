@@ -1,29 +1,49 @@
-use std::env;
 use std::future::Future;
 use std::io::{IsTerminal as _, Write as _, stderr, stdin, stdout};
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::{env, fs};
 
 mod app;
 #[cfg(test)]
 mod runner_tests;
 
 use app::{CliEnvironment, ExitStatus, ProcessIo, TerminalState, args, format_error_chain};
-use lithos_llm::catalog::{AuthScheme, Catalog};
+use lithos_llm::catalog::{AuthScheme, Catalog, CatalogBuilder, CatalogError};
 use lithos_llm::client::ClientBuildError;
 use lithos_llm::credentials::{CredentialProvider as _, EnvironmentCredentials};
 use lithos_llm::middleware::{CancellationToken, TracingMiddleware};
 use lithos_llm::{Client, ClientBuild};
+use thiserror::Error;
 use tokio::signal::ctrl_c;
 use tracing_subscriber::EnvFilter;
+
+#[derive(Debug, Error)]
+enum StartupError {
+    #[error("could not read catalog overlay `{path}` as UTF-8")]
+    CatalogFile {
+        path:   PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not build the catalog")]
+    Catalog(#[source] CatalogError),
+    #[error("could not build the client")]
+    Client(#[source] ClientBuildError),
+}
 
 #[tokio::main]
 async fn main() -> ExitCode {
     // The subscriber must exist before the client builds, but `run` owns
     // argument parsing and clap error rendering. This early parse only reads
     // the flag; a parse failure is reported by `run`.
-    let verbose = args::parse_from(env::args_os()).is_ok_and(|parsed| parsed.cli.verbose);
+    let early = args::parse_from(env::args_os()).ok();
+    let verbose = early.as_ref().is_some_and(|parsed| parsed.cli.verbose);
+    let catalog_paths = early
+        .as_ref()
+        .map_or(&[][..], |parsed| parsed.cli.catalog.as_slice());
     init_tracing(verbose);
-    let (build, environment) = match build_client().await {
+    let (build, environment) = match build_client(catalog_paths).await {
         Ok(build) => build,
         Err(error) => {
             let diagnostic = format_error_chain(&error);
@@ -71,11 +91,14 @@ async fn main() -> ExitCode {
 ///
 /// This mirrors [`Client::from_env`] and adds [`TracingMiddleware`], so the
 /// library's call spans reach the subscriber [`init_tracing`] installs.
-async fn build_client() -> Result<(ClientBuild, CliEnvironment), ClientBuildError> {
-    let catalog = Catalog::builder()
-        .with_builtin()
-        .build()
-        .map_err(|source| ClientBuildError::BuiltInCatalog { source })?;
+async fn build_client(
+    catalog_paths: &[PathBuf],
+) -> Result<(ClientBuild, CliEnvironment), StartupError> {
+    let mut builder = Catalog::builder().with_builtin();
+    for path in catalog_paths {
+        builder = add_catalog_file(builder, path)?;
+    }
+    let catalog = builder.build().map_err(StartupError::Catalog)?;
     let credentials = EnvironmentCredentials::conventional();
     let mut configured = Vec::new();
     for provider in catalog.providers() {
@@ -90,8 +113,19 @@ async fn build_client() -> Result<(ClientBuild, CliEnvironment), ClientBuildErro
         .catalog(catalog)
         .credentials(credentials)
         .middleware(TracingMiddleware)
-        .build()?;
+        .build()
+        .map_err(StartupError::Client)?;
     Ok((build, environment))
+}
+
+fn add_catalog_file(builder: CatalogBuilder, path: &Path) -> Result<CatalogBuilder, StartupError> {
+    let source = fs::read_to_string(path).map_err(|source| StartupError::CatalogFile {
+        path: path.to_owned(),
+        source,
+    })?;
+    builder
+        .toml_layer(path.display().to_string(), &source)
+        .map_err(StartupError::Catalog)
 }
 
 /// Installs a stderr tracing subscriber when `RUST_LOG` or `--verbose` asks

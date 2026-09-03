@@ -27,6 +27,10 @@ pub(crate) struct Cli {
     /// Log library diagnostics to standard error. RUST_LOG overrides this.
     #[arg(long, global = true)]
     pub(crate) verbose: bool,
+
+    /// Add a local TOML catalog overlay for this process. Can be repeated.
+    #[arg(long, global = true, value_name = "PATH", action = ArgAction::Append)]
+    pub(crate) catalog: Vec<PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -276,14 +280,28 @@ where
     if args.is_empty() {
         args.push(OsString::from("lllm"));
     }
-    let insert_prompt = match args.get(1).and_then(|value| value.to_str()) {
-        Some("prompt" | "resolve" | "models" | "-h" | "--help" | "-V" | "--version") => false,
-        Some(_) | None => true,
-    };
+    let insert_prompt = !has_explicit_command(&args);
     if insert_prompt {
         args.insert(1, OsString::from("prompt"));
     }
     args
+}
+
+fn has_explicit_command(args: &[OsString]) -> bool {
+    let mut index = 1;
+    while let Some(argument) = args.get(index).and_then(|value| value.to_str()) {
+        match argument {
+            "prompt" | "resolve" | "models" | "-h" | "--help" | "-V" | "--version" => {
+                return true;
+            }
+            "--verbose" => index += 1,
+            "--catalog" => index += 2,
+            "--" => return false,
+            value if value.starts_with("--catalog=") => index += 1,
+            _ => return false,
+        }
+    }
+    false
 }
 
 fn prompt_matches(matches: &ArgMatches) -> Option<&ArgMatches> {
@@ -443,6 +461,7 @@ fn concise_schema(raw: &str) -> CliResult<serde_json::Value> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
     use std::{env, fs, process};
 
     use super::{Command, parse_from, read_multi_schema, read_schema};
@@ -498,6 +517,14 @@ mod tests {
 
         let parsed = parse_from(["lllm", "models", "--verbose"]).expect("arguments should parse");
         assert!(parsed.cli.verbose);
+    }
+
+    #[test]
+    fn global_options_can_precede_an_explicit_command() {
+        let parsed = parse_from(["lllm", "--catalog", "local.toml", "models"])
+            .expect("arguments should parse");
+        assert!(matches!(parsed.cli.command, Command::Models(_)));
+        assert_eq!(parsed.cli.catalog, [PathBuf::from("local.toml")]);
     }
 
     #[test]
