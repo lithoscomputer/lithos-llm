@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::error::Error as StdError;
 use std::ffi::OsString;
 use std::fmt::Write as _;
@@ -5,6 +6,7 @@ use std::io::{Error as IoError, Read, Write};
 use std::time::Duration;
 
 use lithos_llm::Client;
+use lithos_llm::catalog::ProviderId;
 use lithos_llm::middleware::CancellationToken;
 use lithos_llm::types::{Error as LlmError, ErrorKind};
 use thiserror::Error;
@@ -19,6 +21,43 @@ mod prompt;
 use args::Command;
 
 pub(crate) type CliResult<T> = Result<T, CliError>;
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct CliEnvironment {
+    model:                Option<OsString>,
+    configured_providers: BTreeSet<ProviderId>,
+}
+
+impl CliEnvironment {
+    pub(crate) fn new(
+        model: Option<OsString>,
+        configured_providers: impl IntoIterator<Item = ProviderId>,
+    ) -> Self {
+        Self {
+            model,
+            configured_providers: configured_providers.into_iter().collect(),
+        }
+    }
+
+    pub(crate) fn model(&self) -> CliResult<Option<&str>> {
+        let Some(model) = &self.model else {
+            return Ok(None);
+        };
+        let model = model.to_str().ok_or_else(|| CliError::Input {
+            message: "LLLM_MODEL must contain valid UTF-8".to_owned(),
+        })?;
+        if model.trim().is_empty() {
+            return Err(CliError::Input {
+                message: "LLLM_MODEL must not be empty".to_owned(),
+            });
+        }
+        Ok(Some(model))
+    }
+
+    pub(crate) fn credentials_configured(&self, provider: &ProviderId) -> bool {
+        self.configured_providers.contains(provider)
+    }
+}
 
 #[derive(Debug, Error)]
 pub(crate) enum CliError {
@@ -93,6 +132,7 @@ pub(crate) async fn run<I, T, R, W, E>(
     client: &Client,
     mut io: ProcessIo<R, W, E>,
     terminal: TerminalState,
+    environment: &CliEnvironment,
     cancellation: CancellationToken,
 ) -> ExitStatus
 where
@@ -121,7 +161,12 @@ where
     };
 
     let result = match parsed.cli.command {
-        Command::Models(arguments) => models::render(client, &arguments, &mut io.stdout),
+        Command::Models(arguments) => {
+            models::render(client, &arguments, environment, &mut io.stdout)
+        }
+        Command::Resolve(arguments) => {
+            models::render_resolution(client, &arguments, environment, &mut io.stdout)
+        }
         Command::Prompt(arguments) => {
             prompt::run(
                 client,
@@ -130,6 +175,7 @@ where
                 terminal,
                 &mut io.stdin,
                 &mut io.stdout,
+                environment,
                 &cancellation,
             )
             .await

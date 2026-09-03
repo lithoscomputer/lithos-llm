@@ -7,10 +7,10 @@ mod app;
 #[cfg(test)]
 mod runner_tests;
 
-use app::{ExitStatus, ProcessIo, TerminalState, args, format_error_chain};
-use lithos_llm::catalog::Catalog;
+use app::{CliEnvironment, ExitStatus, ProcessIo, TerminalState, args, format_error_chain};
+use lithos_llm::catalog::{AuthScheme, Catalog};
 use lithos_llm::client::ClientBuildError;
-use lithos_llm::credentials::EnvironmentCredentials;
+use lithos_llm::credentials::{CredentialProvider as _, EnvironmentCredentials};
 use lithos_llm::middleware::{CancellationToken, TracingMiddleware};
 use lithos_llm::{Client, ClientBuild};
 use tokio::signal::ctrl_c;
@@ -23,7 +23,7 @@ async fn main() -> ExitCode {
     // the flag; a parse failure is reported by `run`.
     let verbose = args::parse_from(env::args_os()).is_ok_and(|parsed| parsed.cli.verbose);
     init_tracing(verbose);
-    let build = match build_client() {
+    let (build, environment) = match build_client().await {
         Ok(build) => build,
         Err(error) => {
             let diagnostic = format_error_chain(&error);
@@ -49,6 +49,7 @@ async fn main() -> ExitCode {
                 stderr: stderr.lock(),
             },
             terminal,
+            &environment,
             cancellation.clone(),
         ),
         ctrl_c(),
@@ -70,16 +71,27 @@ async fn main() -> ExitCode {
 ///
 /// This mirrors [`Client::from_env`] and adds [`TracingMiddleware`], so the
 /// library's call spans reach the subscriber [`init_tracing`] installs.
-fn build_client() -> Result<ClientBuild, ClientBuildError> {
+async fn build_client() -> Result<(ClientBuild, CliEnvironment), ClientBuildError> {
     let catalog = Catalog::builder()
         .with_builtin()
         .build()
         .map_err(|source| ClientBuildError::BuiltInCatalog { source })?;
-    Client::builder()
+    let credentials = EnvironmentCredentials::conventional();
+    let mut configured = Vec::new();
+    for provider in catalog.providers() {
+        if matches!(provider.auth(), AuthScheme::None)
+            || credentials.credentials(provider).await.is_ok()
+        {
+            configured.push(provider.id().clone());
+        }
+    }
+    let environment = CliEnvironment::new(env::var_os("LLLM_MODEL"), configured);
+    let build = Client::builder()
         .catalog(catalog)
-        .credentials(EnvironmentCredentials::conventional())
+        .credentials(credentials)
         .middleware(TracingMiddleware)
-        .build()
+        .build()?;
+    Ok((build, environment))
 }
 
 /// Installs a stderr tracing subscriber when `RUST_LOG` or `--verbose` asks

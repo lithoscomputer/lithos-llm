@@ -15,7 +15,7 @@ use lithos_llm::types::{
 };
 use lithos_llm::{Client, ClientBuild};
 
-use crate::app::{ExitStatus, ProcessIo, TerminalState, run};
+use crate::app::{CliEnvironment, ExitStatus, ProcessIo, TerminalState, run};
 
 const CATALOG: &str = r#"
 schema_version = 1
@@ -160,6 +160,32 @@ async fn invoke(
     stdin_is_terminal: bool,
     cancellation: CancellationToken,
 ) -> (ExitStatus, Vec<u8>, Vec<u8>) {
+    invoke_with_environment(
+        client,
+        arguments,
+        stdin,
+        stdin_is_terminal,
+        &test_environment(None),
+        cancellation,
+    )
+    .await
+}
+
+fn test_environment(model: Option<&str>) -> CliEnvironment {
+    CliEnvironment::new(model.map(Into::into), [
+        ProviderId::new("alpha"),
+        ProviderId::new("beta"),
+    ])
+}
+
+async fn invoke_with_environment(
+    client: &Client,
+    arguments: &[&str],
+    stdin: Vec<u8>,
+    stdin_is_terminal: bool,
+    environment: &CliEnvironment,
+    cancellation: CancellationToken,
+) -> (ExitStatus, Vec<u8>, Vec<u8>) {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let status = run(
@@ -173,6 +199,7 @@ async fn invoke(
         TerminalState {
             stdin: stdin_is_terminal,
         },
+        environment,
         cancellation,
     )
     .await;
@@ -440,14 +467,19 @@ async fn model_listing_marks_runtime_availability_and_filters_it() {
     let listing: serde_json::Value =
         serde_json::from_slice(&stdout).expect("output should be JSON");
     assert_eq!(listing["models"][0]["selector"], "alpha/one");
-    assert_eq!(listing["models"][0]["available"], true);
+    assert_eq!(listing["version"], 2);
+    assert_eq!(listing["effective_default"], "alpha/one");
+    assert_eq!(listing["models"][0]["adapter_compiled"], true);
+    assert_eq!(listing["models"][0]["credentials_configured"], true);
+    assert_eq!(listing["models"][0]["effective_default"], true);
     assert_eq!(listing["models"][1]["selector"], "beta/two");
-    assert_eq!(listing["models"][1]["available"], false);
+    assert_eq!(listing["models"][1]["adapter_compiled"], false);
+    assert_eq!(listing["models"][1]["credentials_configured"], true);
     assert!(stderr.is_empty());
 
     let (_, filtered, _) = invoke(
         &build.client,
-        &["lllm", "models", "--json", "--available"],
+        &["lllm", "models", "--json", "--adapter-compiled"],
         Vec::new(),
         true,
         CancellationToken::new(),
@@ -489,6 +521,102 @@ async fn model_search_is_case_insensitive_and_reports_no_match() {
     assert!(String::from_utf8_lossy(&stderr).contains("missing"));
 }
 
+#[tokio::test]
+async fn model_selection_uses_the_documented_precedence() {
+    let adapter = RecordingAdapter::default();
+    let build = client(adapter.clone());
+    let environment = test_environment(Some("alpha/uno"));
+
+    let (status, stdout, stderr) = invoke_with_environment(
+        &build.client,
+        &["lllm", "resolve"],
+        Vec::new(),
+        true,
+        &environment,
+        CancellationToken::new(),
+    )
+    .await;
+    assert_eq!(status, ExitStatus::Success);
+    assert_eq!(stdout, b"alpha/one\n");
+    assert!(stderr.is_empty());
+
+    let (_, stdout, _) = invoke_with_environment(
+        &build.client,
+        &["lllm", "resolve", "--model-query", "one"],
+        Vec::new(),
+        true,
+        &environment,
+        CancellationToken::new(),
+    )
+    .await;
+    assert_eq!(stdout, b"alpha/one\n");
+
+    let (_, stdout, _) = invoke_with_environment(
+        &build.client,
+        &[
+            "lllm",
+            "resolve",
+            "--model",
+            "alpha/one",
+            "--model-query",
+            "missing",
+        ],
+        Vec::new(),
+        true,
+        &environment,
+        CancellationToken::new(),
+    )
+    .await;
+    assert_eq!(stdout, b"alpha/one\n");
+    assert!(
+        adapter
+            .requests
+            .lock()
+            .expect("request lock should work")
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn environment_model_is_used_for_prompts_and_marked_in_models() {
+    let adapter = RecordingAdapter::default();
+    let build = client(adapter.clone());
+    let environment = test_environment(Some("uno"));
+    let (status, _, _) = invoke_with_environment(
+        &build.client,
+        &["lllm", "hello", "--no-stream"],
+        Vec::new(),
+        true,
+        &environment,
+        CancellationToken::new(),
+    )
+    .await;
+    assert_eq!(status, ExitStatus::Success);
+    assert_eq!(
+        adapter
+            .requests
+            .lock()
+            .expect("request lock should work")
+            .last()
+            .map(Request::model),
+        Some("uno")
+    );
+
+    let (_, stdout, _) = invoke_with_environment(
+        &build.client,
+        &["lllm", "models", "--json"],
+        Vec::new(),
+        true,
+        &environment,
+        CancellationToken::new(),
+    )
+    .await;
+    let listing: serde_json::Value =
+        serde_json::from_slice(&stdout).expect("output should be JSON");
+    assert_eq!(listing["effective_default"], "alpha/one");
+    assert_eq!(listing["models"][0]["effective_default"], true);
+}
+
 struct BrokenWriter;
 
 impl Write for BrokenWriter {
@@ -514,6 +642,7 @@ async fn a_closed_output_pipe_is_success() {
             stderr: &mut stderr,
         },
         TerminalState { stdin: true },
+        &test_environment(None),
         CancellationToken::new(),
     )
     .await;

@@ -23,27 +23,50 @@ lllm prompt 'Explain ownership in Rust' --model openai/gpt-5
 printf 'Explain this input' | lllm
 ```
 
+Model selection uses this precedence:
+
+1. `--model`
+2. `--model-query`
+3. `LLLM_MODEL`
+4. The highest-priority catalog default with a compiled adapter
+
+Print the canonical provider and model without making a provider request:
+
+```sh
+lllm resolve
+lllm resolve --model claude-sonnet
+lllm resolve --model-query sonnet
+```
+
 List or search the built-in model catalog without credentials or network
 access:
 
 ```sh
 lllm models
-lllm models claude --available
+lllm models claude --adapter-compiled
 lllm models --json
 ```
+
+The table marks the effective default. It reports adapter and credential
+status separately. `ADAPTER` means that this CLI contains the provider
+adapter. `CREDENTIALS` means that the required environment credentials are
+configured. An unauthenticated provider is always configured.
 
 The JSON model list has this CLI-owned shape:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
+  "effective_default": "provider/model",
   "models": [
     {
       "selector": "provider/model",
       "display_name": "Model name",
       "aliases": [],
       "capabilities": { "text": true },
-      "available": true
+      "adapter_compiled": true,
+      "credentials_configured": true,
+      "effective_default": true
     }
   ]
 }

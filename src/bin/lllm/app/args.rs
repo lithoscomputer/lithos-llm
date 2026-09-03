@@ -30,8 +30,21 @@ pub(crate) struct Cli {
 pub(crate) enum Command {
     /// Send one stateless prompt.
     Prompt(Box<PromptArgs>),
+    /// Print the canonical route without making a request.
+    Resolve(ResolveArgs),
     /// List and search the built-in model catalog.
     Models(ModelsArgs),
+}
+
+#[derive(Clone, Debug, Parser)]
+pub(crate) struct ResolveArgs {
+    /// Use this model selector unchanged.
+    #[arg(short = 'm', long)]
+    pub(crate) model: Option<String>,
+
+    /// Search compiled models. Every repeated term must match.
+    #[arg(short = 'q', long = "model-query", action = ArgAction::Append)]
+    pub(crate) model_query: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -57,11 +70,11 @@ pub(crate) struct PromptArgs {
     pub(crate) no_stream: bool,
 
     /// Use this model selector unchanged.
-    #[arg(short = 'm', long, conflicts_with = "model_query")]
+    #[arg(short = 'm', long)]
     pub(crate) model: Option<String>,
 
-    /// Search available models. Every repeated term must match.
-    #[arg(short = 'q', long = "model-query", action = ArgAction::Append, conflicts_with = "model")]
+    /// Search compiled models. Every repeated term must match.
+    #[arg(short = 'q', long = "model-query", action = ArgAction::Append)]
     pub(crate) model_query: Vec<String>,
 
     /// Add a system message.
@@ -152,9 +165,9 @@ pub(crate) struct ModelsArgs {
     #[arg(long)]
     pub(crate) json: bool,
 
-    /// Show only models whose provider adapter is available.
-    #[arg(long)]
-    pub(crate) available: bool,
+    /// Show only models whose provider adapter is compiled into this CLI.
+    #[arg(long = "adapter-compiled", alias = "available")]
+    pub(crate) adapter_compiled: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -202,7 +215,7 @@ where
         args.push(OsString::from("lllm"));
     }
     let insert_prompt = match args.get(1).and_then(|value| value.to_str()) {
-        Some("prompt" | "models" | "-h" | "--help" | "-V" | "--version") => false,
+        Some("prompt" | "resolve" | "models" | "-h" | "--help" | "-V" | "--version") => false,
         Some(_) | None => true,
     };
     if insert_prompt {

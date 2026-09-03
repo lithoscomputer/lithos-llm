@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::app::args::{AttachmentArg, PromptArgs, ReasoningEffortArg, SpeedArg, read_schema};
 use crate::app::output::{self, write_delta, write_text};
-use crate::app::{CliError, CliResult, OutputState, TerminalState, input, models};
+use crate::app::{CliEnvironment, CliError, CliResult, OutputState, TerminalState, input, models};
 
 pub(crate) async fn run(
     client: &Client,
@@ -21,16 +21,16 @@ pub(crate) async fn run(
     terminal: TerminalState,
     stdin: &mut impl Read,
     stdout: &mut impl Write,
+    environment: &CliEnvironment,
     cancellation: &CancellationToken,
 ) -> CliResult<OutputState> {
     let input = input::prepare(&args.prompt, attachments, terminal.stdin, stdin)?;
-    let model = if let Some(model) = &args.model {
-        model.clone()
-    } else if args.model_query.is_empty() {
-        "default".to_owned()
-    } else {
-        models::select(client, &args.model_query)?
-    };
+    let model = models::select_model(
+        client,
+        args.model.as_deref(),
+        &args.model_query,
+        environment,
+    )?;
     let format = response_format(args)?;
     let request = request(client, args, &model, &input.parts, format)?;
     let buffered = args.json || args.extract || args.extract_last;
