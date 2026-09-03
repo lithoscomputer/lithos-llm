@@ -1,0 +1,41 @@
+# Gemini calls use the real codec and declarative HTTP transcripts.
+
+```console
+$ GEMINI_API_KEY=gemini-rich lllm --catalog catalog.toml -m gemini/fixture --no-stream --system 'Be concise' --attachment https://example.com/image.png --attachment-type document.pdf application/pdf --attachment-type audio.wav audio/wav --schema 'answer, score int' --schema-name result --max-output-tokens 64 --temperature 0.2 --top-p 0.9 --reasoning-effort high --speed fast --stop END --cache-key stable --metadata trace=yes --option 'safety_settings=[]' 'Gemini rich request'
+{"answer":"ready","score":7}
+
+$ GEMINI_API_KEY=gemini-complete lllm --catalog catalog.toml -m gemini/fixture --no-stream 'Gemini complete transcript'
+Hello from Gemini.
+
+$ GEMINI_API_KEY=gemini-stream lllm --catalog catalog.toml -m gemini/fixture 'Gemini stream transcript'
+Streaming Gemini.
+
+$ GEMINI_API_KEY=gemini-tools lllm --catalog catalog.toml probe -m gemini/fixture --tools
+passed gemini/fixture · 60 input · 6 output · [..]
+
+$ GEMINI_API_KEY=gemini-blocked lllm --catalog catalog.toml -m gemini/fixture --no-stream 'Gemini blocked prompt'
+? 1
+error: [..]
+
+$ GEMINI_API_KEY=gemini-stream-blocked lllm --catalog catalog.toml -m gemini/fixture 'Gemini stream blocked prompt'
+? 1
+error: [..]
+
+$ GEMINI_API_KEY=gemini-malformed lllm --catalog catalog.toml -m gemini/fixture --no-stream 'Gemini malformed response'
+? 1
+error: response_decode: Gemini returned no candidates in the response route=gemini/fixture provider=gemini
+
+$ GEMINI_API_KEY=gemini-invalid-stream lllm --catalog catalog.toml -m gemini/fixture 'Gemini invalid stream'
+? 1
+error: stream_decode: Gemini returned an invalid stream event route=gemini/fixture provider=gemini
+  caused by: [..]
+
+$ GEMINI_API_KEY=gemini-stream-error lllm --catalog catalog.toml -m gemini/fixture 'Gemini stream provider error'
+? 1
+error: [..]
+
+$ GEMINI_API_KEY=gemini-http-error lllm --catalog catalog.toml -m gemini/fixture --no-stream 'Gemini provider error'
+? 1
+error: [..]
+
+```

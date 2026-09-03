@@ -158,6 +158,166 @@
       "content_type": "application/json",
       "headers": { "retry-after": "2" },
       "body": { "type": "error", "error": { "type": "rate_limit_error", "message": "fixture rate limit" }, "request_id": "req_limit" }
+    },
+    {
+      "id": "gemini-rich",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Gemini rich request",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "responseId": "gemini-rich-response",
+        "modelVersion": "gemini-fixture-v1",
+        "candidates": [{
+          "content": { "role": "model", "parts": [
+            { "text": "I should answer with JSON.", "thought": true, "thoughtSignature": "gemini-rich-signature" },
+            { "text": "{\"answer\":\"ready\",\"score\":7}" },
+            { "functionCall": { "id": "unused-rich", "name": "unused", "args": { "value": 1 } }, "thoughtSignature": "unused-signature" },
+            { "inlineData": { "mimeType": "application/octet-stream", "data": "AA==" } }
+          ] },
+          "finishReason": "STOP"
+        }],
+        "usageMetadata": {
+          "promptTokenCount": 120,
+          "candidatesTokenCount": 12,
+          "thoughtsTokenCount": 9,
+          "cachedContentTokenCount": 20,
+          "toolUsePromptTokenCount": 4
+        }
+      }
+    },
+    {
+      "id": "gemini-complete",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Gemini complete transcript",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "modelVersion": "gemini-fixture-v1",
+        "candidates": [{
+          "content": { "role": "model", "parts": [
+            { "text": "Think briefly.", "thought": true },
+            { "text": "Think with proof.", "thought": true, "thoughtSignature": "gemini-complete-signature" },
+            { "text": "Hello from Gemini." },
+            { "functionCall": { "name": "lookup", "args": { "query": "fixture" } }, "thoughtSignature": "gemini-tool-signature" },
+            { "functionCall": { "id": "explicit-call", "name": "other" } },
+            { "unknown": true }
+          ] },
+          "finishReason": "MAX_TOKENS"
+        }],
+        "usageMetadata": {
+          "promptTokenCount": 18,
+          "candidatesTokenCount": 7,
+          "thoughtsTokenCount": 3,
+          "cachedContentTokenCount": 2,
+          "toolUsePromptTokenCount": 1
+        }
+      }
+    },
+    {
+      "id": "gemini-stream",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:streamGenerateContent",
+      "body_contains": "Gemini stream transcript",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: {\"error\":null,\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Plan one.\",\"thought\":true,\"thoughtSignature\":\"sig-one\"},{\"text\":\"Plan two.\",\"thought\":true,\"thoughtSignature\":\"sig-two\"}]}}],\"usageMetadata\":{\"promptTokenCount\":30,\"cachedContentTokenCount\":5}}\n\ndata: {\"responseId\":\"gemini-stream-response\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Streaming \"},{\"text\":\"reasoning between\",\"thought\":true},{\"text\":\"Gemini.\"},{\"functionCall\":{\"name\":\"background\",\"args\":{\"value\":1}},\"thoughtSignature\":\"call-signature\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":35,\"candidatesTokenCount\":8,\"thoughtsTokenCount\":6,\"cachedContentTokenCount\":5,\"toolUsePromptTokenCount\":2}}\n\n"
+    },
+    {
+      "id": "gemini-tool-first",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "responseId": "gemini-tool-1",
+        "candidates": [{ "content": { "parts": [{ "functionCall": { "name": "add", "args": { "a": 15, "b": 27 } }, "thoughtSignature": "tool-sig-1" }] }, "finishReason": "STOP" }],
+        "usageMetadata": { "promptTokenCount": 10, "candidatesTokenCount": 1 }
+      }
+    },
+    {
+      "id": "gemini-tool-second",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "responseId": "gemini-tool-2",
+        "candidates": [{ "content": { "parts": [{ "functionCall": { "id": "call_second", "name": "add", "args": { "a": 42, "b": 42 } } }] }, "finishReason": "STOP" }],
+        "usageMetadata": { "promptTokenCount": 20, "candidatesTokenCount": 2 }
+      }
+    },
+    {
+      "id": "gemini-tool-final",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "responseId": "gemini-tool-3",
+        "candidates": [{ "content": { "parts": [{ "text": "84 is even because it is divisible by two." }] }, "finishReason": "STOP" }],
+        "usageMetadata": { "promptTokenCount": 30, "candidatesTokenCount": 3 }
+      }
+    },
+    {
+      "id": "gemini-blocked",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Gemini blocked prompt",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "responseId": "gemini-blocked", "promptFeedback": { "blockReason": "PROHIBITED_CONTENT" }, "usageMetadata": { "promptTokenCount": 4 } }
+    },
+    {
+      "id": "gemini-stream-blocked",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:streamGenerateContent",
+      "body_contains": "Gemini stream blocked prompt",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: {\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}\n\n"
+    },
+    {
+      "id": "gemini-malformed",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Gemini malformed response",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "responseId": "gemini-malformed", "usageMetadata": {} }
+    },
+    {
+      "id": "gemini-invalid-stream",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:streamGenerateContent",
+      "body_contains": "Gemini invalid stream",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: not-json\n\n"
+    },
+    {
+      "id": "gemini-stream-error",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:streamGenerateContent",
+      "body_contains": "Gemini stream provider error",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: {\"error\":{\"code\":429,\"status\":\"RESOURCE_EXHAUSTED\",\"message\":\"fixture stream limit\"}}\n\n"
+    },
+    {
+      "id": "gemini-http-error",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:generateContent",
+      "body_contains": "Gemini provider error",
+      "status": 503,
+      "content_type": "application/json",
+      "headers": { "retry-after": "1" },
+      "body": { "error": { "code": 503, "status": "UNAVAILABLE", "message": "fixture unavailable" } }
     }
   ]
 }

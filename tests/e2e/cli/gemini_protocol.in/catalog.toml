@@ -1,0 +1,10 @@
+schema_version = 1
+
+[providers.gemini]
+base_url = "http://127.0.0.1:3932"
+
+[providers.gemini.models.fixture]
+display_name = "Gemini generateContent fixture"
+aliases = ["gemini-fixture"]
+api_model = "gemini-fixture-v1"
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
