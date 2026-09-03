@@ -1,0 +1,10 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:3932/v1"
+auth = { type = "header", name = "x-api-key" }
+
+[providers.openai.models.mismatch]
+display_name = "Mismatch"
+api_model = "mismatch"
+capabilities = { text = true }

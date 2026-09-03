@@ -1,0 +1,9 @@
+{
+  "cases": [
+    { "type": "missing_catalog", "name": "missing_catalog" },
+    { "type": "from_env", "name": "from_env" },
+    { "type": "catalog", "name": "all_providers", "path": "client-build-catalog.toml" },
+    { "type": "catalog", "name": "enabled_subset", "path": "client-build-catalog.toml", "enabled": ["healthy"] },
+    { "type": "catalog", "name": "unknown_enabled", "path": "client-build-catalog.toml", "enabled": ["absent"] }
+  ]
+}

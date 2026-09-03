@@ -1,0 +1,25 @@
+{
+  "catalog": "resolve-catalog.toml",
+  "cases": [
+    {
+      "name": "provider_without_default",
+      "request": { "model": "alpha", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
+      "available": "all"
+    },
+    {
+      "name": "provider_unavailable",
+      "request": { "model": "beta/two", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
+      "available": []
+    },
+    {
+      "name": "unknown_model",
+      "request": { "model": "unknown", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
+      "available": "all"
+    },
+    {
+      "name": "success",
+      "request": { "model": "beta", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
+      "available": ["beta"]
+    }
+  ]
+}

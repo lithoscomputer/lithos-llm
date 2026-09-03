@@ -1,0 +1,10 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:3932/codex"
+adapter_options = { mode = "codex" }
+
+[providers.openai.models.fixture-codex]
+display_name = "Codex"
+api_model = "fixture-codex"
+capabilities = { text = true }

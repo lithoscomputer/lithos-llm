@@ -1,0 +1,9 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:9/v1"
+
+[providers.openai.models.network]
+display_name = "Network"
+api_model = "network"
+capabilities = { text = true }

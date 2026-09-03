@@ -12,13 +12,13 @@ use std::{env, fs};
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 use futures_util::stream::unfold;
-use lithos_llm::Client;
 use lithos_llm::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter, ResolvedCall,
 };
 use lithos_llm::catalog::{
     AdapterId, Catalog, CatalogBuilder, CatalogProvider, ModelId, ProviderId,
 };
+use lithos_llm::client::ClientBuildError;
 use lithos_llm::credentials::{
     CredentialHeader, CredentialProvider, Credentials, EnvironmentCredentials,
     EnvironmentCredentialsBuilder, HttpAuthentication, NoCredentials, SecretValue,
@@ -30,13 +30,14 @@ use lithos_llm::middleware::{
     Output, RetryMiddleware, RetryPolicy, RetryStage, TimeoutMiddleware, finalize_stream,
     inspect_stream, map_stream,
 };
-use lithos_llm::resolver::CatalogResolver;
+use lithos_llm::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
 use lithos_llm::types::{
     AudioContent, CacheHint, ContentPart, DocumentContent, Error, ErrorKind, FinishReason,
     ImageContent, MediaSource, Message, ReasoningEffort, Request, RequestBuildError, Response,
     ResponseFormat, ResponseStream, RetryClassification, Role, Speed, StreamEvent, TokenCounts,
     ToolCall, ToolChoice, ToolDefinition, Warning,
 };
+use lithos_llm::{Client, ClientBuild};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::time::sleep;
@@ -84,6 +85,14 @@ async fn run() -> Result<(), Box<dyn StdError>> {
         "values" => {
             let exercise = read_json(required_argument(&mut arguments, "values path")?)?;
             exercise_values(exercise)
+        }
+        "client-builds" => {
+            let exercise = read_json(required_argument(&mut arguments, "client builds path")?)?;
+            exercise_client_builds(exercise)
+        }
+        "resolve-matrix" => {
+            let exercise = read_json(required_argument(&mut arguments, "resolve matrix path")?)?;
+            exercise_resolver(exercise)?
         }
         "credentials" => {
             let exercise = read_json(required_argument(
@@ -657,6 +666,162 @@ fn exercise_values(exercise: ValuesExercise) -> Value {
         "warnings": warnings,
         "inclusive_tokens": inclusive_tokens,
     })
+}
+
+#[derive(Debug, Deserialize)]
+struct ClientBuildExercise {
+    cases: Vec<ClientBuildCase>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ClientBuildCase {
+    MissingCatalog {
+        name: String,
+    },
+    FromEnv {
+        name: String,
+    },
+    Catalog {
+        name:    String,
+        path:    String,
+        enabled: Option<Vec<String>>,
+    },
+}
+
+fn exercise_client_builds(exercise: ClientBuildExercise) -> Value {
+    let cases = exercise
+        .cases
+        .into_iter()
+        .map(|case| match case {
+            ClientBuildCase::MissingCatalog { name } => {
+                render_client_build_result(&name, Client::builder().build())
+            }
+            ClientBuildCase::FromEnv { name } => {
+                render_client_build_result(&name, Client::from_env())
+            }
+            ClientBuildCase::Catalog {
+                name,
+                path,
+                enabled,
+            } => {
+                let result = fs::read_to_string(&path)
+                    .map_err(|error| error.to_string())
+                    .and_then(|source| {
+                        Catalog::builder()
+                            .toml_layer(path, &source)
+                            .and_then(CatalogBuilder::build)
+                            .map_err(|error| error.to_string())
+                    });
+                match result {
+                    Ok(catalog) => {
+                        let mut builder = Client::builder().catalog(catalog);
+                        if let Some(enabled) = enabled {
+                            builder = builder.enabled_providers(enabled);
+                        }
+                        render_client_build_result(&name, builder.build())
+                    }
+                    Err(error) => json!({ "name": name, "error": error }),
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    json!({ "kind": "client_builds", "cases": cases })
+}
+
+fn render_client_build_result(name: &str, result: Result<ClientBuild, ClientBuildError>) -> Value {
+    match result {
+        Ok(build) => {
+            let all = AvailableProviders::all(build.client.catalog());
+            let available = build
+                .client
+                .available_providers()
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            let all = all.iter().map(ToString::to_string).collect::<Vec<_>>();
+            let issues = build
+                .issues
+                .into_iter()
+                .map(|issue| {
+                    json!({
+                        "provider": issue.provider,
+                        "adapter": issue.adapter,
+                        "cause": issue.cause.to_string(),
+                        "source": StdError::source(&issue.cause).map(ToString::to_string),
+                    })
+                })
+                .collect::<Vec<_>>();
+            json!({
+                "name": name,
+                "result": "ok",
+                "client": format!("{:?}", build.client),
+                "available": available,
+                "all": all,
+                "issues": issues,
+            })
+        }
+        Err(error) => json!({
+            "name": name,
+            "error": error.to_string(),
+            "source": StdError::source(&error).map(ToString::to_string),
+        }),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ResolveExercise {
+    catalog: String,
+    cases:   Vec<ResolveCase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ResolveCase {
+    name:      String,
+    request:   Request,
+    available: ResolveAvailability,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ResolveAvailability {
+    Named(String),
+    Providers(Vec<ProviderId>),
+}
+
+fn exercise_resolver(exercise: ResolveExercise) -> Result<Value, Box<dyn StdError>> {
+    let source = fs::read_to_string(&exercise.catalog)?;
+    let catalog = Catalog::builder()
+        .toml_layer(exercise.catalog, &source)?
+        .build()?;
+    let cases = exercise
+        .cases
+        .into_iter()
+        .map(|case| {
+            let available = match case.available {
+                ResolveAvailability::Named(name) if name == "all" => {
+                    AvailableProviders::all(&catalog)
+                }
+                ResolveAvailability::Named(_) => AvailableProviders::default(),
+                ResolveAvailability::Providers(providers) => AvailableProviders::new(providers),
+            };
+            match CatalogResolver.resolve(&case.request, &catalog, &available) {
+                Ok(route) => json!({
+                    "name": case.name,
+                    "result": "ok",
+                    "provider": route.provider().id(),
+                    "model": route.model().id(),
+                    "api_model": route.api_model(),
+                    "handle": route.handle(),
+                }),
+                Err(error) => json!({
+                    "name": case.name,
+                    "error": error.to_string(),
+                }),
+            }
+        })
+        .collect::<Vec<_>>();
+    Ok(json!({ "kind": "resolve_matrix", "cases": cases }))
 }
 
 #[derive(Debug, Deserialize)]

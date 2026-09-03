@@ -1,0 +1,28 @@
+schema_version = 1
+
+[providers.alpha]
+display_name = "Alpha"
+adapter = "custom"
+codec = "custom"
+base_url = "https://example.com"
+priority = 20
+auth = { type = "none" }
+
+[providers.alpha.models.one]
+display_name = "One"
+api_model = "alpha-one"
+capabilities = { text = true }
+
+[providers.beta]
+display_name = "Beta"
+adapter = "custom"
+codec = "custom"
+base_url = "https://example.com"
+priority = 10
+default_model = "two"
+auth = { type = "none" }
+
+[providers.beta.models.two]
+display_name = "Two"
+api_model = "beta-two"
+capabilities = { text = true }

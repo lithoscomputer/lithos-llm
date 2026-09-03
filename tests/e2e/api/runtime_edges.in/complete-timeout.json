@@ -1,0 +1,1 @@
+{ "model": "openai/transport", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Transport complete timeout" }] }], "timeout": 1 }

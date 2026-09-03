@@ -1,0 +1,10 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:3932/v1"
+auth = { type = "headers" }
+
+[providers.openai.models.headers]
+display_name = "Headers"
+api_model = "headers"
+capabilities = { text = true }

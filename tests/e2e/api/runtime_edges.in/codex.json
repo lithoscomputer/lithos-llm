@@ -1,0 +1,1 @@
+{ "model": "openai/fixture-codex", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Codex streaming complete" }] }] }

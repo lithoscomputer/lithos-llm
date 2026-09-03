@@ -83,4 +83,34 @@ $ lllm Hello --attachment-type attachment.bin not-a-media-type
 error: media type `not-a-media-type` is invalid
   caused by: mime parse error: a slash (/) was missing between the type and subtype
 
+$ lllm Hello --attachment https://example.com/unknown
+? 2
+error: could not infer the remote attachment media type; use --attachment-type
+
+$ lllm Hello --attachment unknown
+? 2
+error: could not infer the media type for `unknown`; use --attachment-type
+
+$ lllm Hello --attachment-type attachment.bin video/mp4
+? 2
+error: video attachment type `video/mp4` is not supported
+
+$ lllm Hello --attachment -
+? 2
+error: a standard-input attachment requires --attachment-type - MEDIA_TYPE
+
+$ lllm Hello --attachment - --attachment-type - image/png
+? 2
+error: only one attachment can read from standard input
+
+$ lllm Hello --fragment missing-fragment.txt
+? 2
+error: could not read fragment `missing-fragment.txt` as UTF-8
+  caused by: No such file or directory (os error 2)
+
+$ lllm Hello --system-fragment missing-system.txt
+? 2
+error: could not read system fragment `missing-system.txt` as UTF-8
+  caused by: No such file or directory (os error 2)
+
 ```

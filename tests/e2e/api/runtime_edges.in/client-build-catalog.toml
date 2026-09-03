@@ -1,0 +1,37 @@
+schema_version = 1
+
+[providers.disabled]
+display_name = "Disabled built-in"
+adapter = "bedrock"
+codec = "bedrock-converse"
+base_url = "https://example.com"
+auth = { type = "none" }
+
+[providers.healthy]
+display_name = "Healthy"
+adapter = "openai"
+codec = "openai-responses"
+base_url = "https://example.com"
+auth = { type = "none" }
+
+[providers.invalid-options]
+display_name = "Invalid options"
+adapter = "openai"
+codec = "openai-responses"
+base_url = "https://example.com"
+auth = { type = "none" }
+adapter_options = { mode = "turbo" }
+
+[providers.missing]
+display_name = "Missing factory"
+adapter = "custom-adapter"
+codec = "custom-codec"
+base_url = "https://example.com"
+auth = { type = "none" }
+
+[providers.wrong-codec]
+display_name = "Wrong codec"
+adapter = "openai"
+codec = "anthropic-messages"
+base_url = "https://example.com"
+auth = { type = "none" }

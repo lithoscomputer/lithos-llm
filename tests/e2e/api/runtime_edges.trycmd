@@ -1,0 +1,456 @@
+# Client construction and resolution are selected by declarative records.
+
+```console
+$ lithos-llm-e2e client-builds client-builds.json
+{
+  "kind": "client_builds",
+  "cases": [
+    {
+      "name": "missing_catalog",
+      "error": "a catalog is required",
+      "source": null
+    },
+    {
+      "name": "from_env",
+      "result": "ok",
+      "client": "Client { available_providers: AvailableProviders { providers: {ProviderId(/"anthropic/"), ProviderId(/"fireworks/"), ProviderId(/"gemini/"), ProviderId(/"modal/"), ProviderId(/"moonshot/"), ProviderId(/"openai/"), ProviderId(/"openrouter/"), ProviderId(/"venice/")} }, .. }",
+      "available": [
+        "anthropic",
+        "fireworks",
+        "gemini",
+        "modal",
+        "moonshot",
+        "openai",
+        "openrouter",
+        "venice"
+      ],
+      "all": [
+        "anthropic",
+        "bedrock",
+        "fireworks",
+        "gemini",
+        "modal",
+        "moonshot",
+        "openai",
+        "openrouter",
+        "venice"
+      ],
+      "issues": [
+        {
+          "provider": "bedrock",
+          "adapter": "bedrock",
+          "cause": "the feature for adapter bedrock is disabled",
+          "source": null
+        }
+      ]
+    },
+    {
+      "name": "all_providers",
+      "result": "ok",
+      "client": "Client { available_providers: AvailableProviders { providers: {ProviderId(/"healthy/")} }, .. }",
+      "available": [
+        "healthy"
+      ],
+      "all": [
+        "disabled",
+        "healthy",
+        "invalid-options",
+        "missing",
+        "wrong-codec"
+      ],
+      "issues": [
+        {
+          "provider": "disabled",
+          "adapter": "bedrock",
+          "cause": "the feature for adapter bedrock is disabled",
+          "source": null
+        },
+        {
+          "provider": "invalid-options",
+          "adapter": "openai",
+          "cause": "adapter construction failed",
+          "source": "provider invalid-options has invalid adapter options"
+        },
+        {
+          "provider": "missing",
+          "adapter": "custom-adapter",
+          "cause": "no adapter factory is registered for adapter custom-adapter",
+          "source": null
+        },
+        {
+          "provider": "wrong-codec",
+          "adapter": "openai",
+          "cause": "adapter construction failed",
+          "source": "provider wrong-codec uses unsupported codec anthropic-messages"
+        }
+      ]
+    },
+    {
+      "name": "enabled_subset",
+      "result": "ok",
+      "client": "Client { available_providers: AvailableProviders { providers: {ProviderId(/"healthy/")} }, .. }",
+      "available": [
+        "healthy"
+      ],
+      "all": [
+        "disabled",
+        "healthy",
+        "invalid-options",
+        "missing",
+        "wrong-codec"
+      ],
+      "issues": []
+    },
+    {
+      "name": "unknown_enabled",
+      "error": "enabled provider `absent` is not in the catalog",
+      "source": null
+    }
+  ]
+}
+
+```
+
+```console
+$ lithos-llm-e2e resolve-matrix resolver.json
+{
+  "kind": "resolve_matrix",
+  "cases": [
+    {
+      "name": "provider_without_default",
+      "error": "provider alpha has no default model"
+    },
+    {
+      "name": "provider_unavailable",
+      "error": "provider beta has no registered adapter"
+    },
+    {
+      "name": "unknown_model",
+      "error": "model selector `unknown` was not found"
+    },
+    {
+      "name": "success",
+      "result": "ok",
+      "provider": "beta",
+      "model": "two",
+      "api_model": "beta-two",
+      "handle": {
+        "provider": "beta",
+        "model": "two"
+      }
+    }
+  ]
+}
+
+```
+
+# HTTP edge behavior uses local deterministic response fixtures.
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml invalid-json.json
+{
+  "kind": "error",
+  "error": {
+    "kind": "error",
+    "error_kind": "ResponseDecode",
+    "message": "provider openai returned invalid JSON",
+    "provider": "openai",
+    "status": null,
+    "provider_code": null,
+    "retry": "Safe"
+  },
+  "data": {
+    "kind": "response_decode",
+    "message": "provider openai returned invalid JSON",
+    "provider": "openai",
+    "retry": {
+      "type": "safe"
+    },
+    "source_message": "error decoding response body for url (http://127.0.0.1:3932/v1/responses)"
+  },
+  "debug": "Error { kind: ResponseDecode, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
+  "display": "provider openai returned invalid JSON",
+  "retry_after_ms": null,
+  "provider_retry_after_ms": null,
+  "raw_data": null,
+  "source": "error decoding response body for url (http://127.0.0.1:3932/v1/responses)"
+}
+
+```
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml complete-timeout.json
+{
+  "kind": "error",
+  "error": {
+    "kind": "error",
+    "error_kind": "Timeout",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "status": null,
+    "provider_code": null,
+    "retry": "Never"
+  },
+  "data": {
+    "kind": "timeout",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "retry": {
+      "type": "never"
+    },
+    "source_message": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+  },
+  "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
+  "display": "request to provider openai failed",
+  "retry_after_ms": null,
+  "provider_retry_after_ms": null,
+  "raw_data": null,
+  "source": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+}
+
+```
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml stream-timeout.json stream
+{
+  "kind": "error",
+  "error": {
+    "kind": "error",
+    "error_kind": "Timeout",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "status": null,
+    "provider_code": null,
+    "retry": "Safe"
+  },
+  "data": {
+    "kind": "timeout",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "retry": {
+      "type": "safe"
+    },
+    "source_message": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+  },
+  "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
+  "display": "request to provider openai failed",
+  "retry_after_ms": null,
+  "provider_retry_after_ms": null,
+  "raw_data": null,
+  "source": "error sending request for url (http://127.0.0.1:3932/v1/responses)"
+}
+
+```
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call headers-catalog.toml headers.json
+{
+  "kind": "complete",
+  "text": "headers accepted",
+  "response": {
+    "id": "resp-headers",
+    "model": {
+      "provider": "openai",
+      "model": "headers"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "headers accepted"
+      },
+      {
+        "type": "opaque",
+        "kind": "openai.message",
+        "data": {
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "headers accepted"
+            }
+          ]
+        }
+      }
+    ],
+    "finish_reason": "stop",
+    "usage": {
+      "input": 2,
+      "output": 2,
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
+    },
+    "raw": {
+      "id": "resp-headers",
+      "status": "completed",
+      "output": [
+        {
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "headers accepted"
+            }
+          ]
+        }
+      ],
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 2
+      }
+    }
+  }
+}
+
+```
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call mismatch-catalog.toml mismatch.json
+{
+  "kind": "error",
+  "error": {
+    "kind": "error",
+    "error_kind": "Authentication",
+    "message": "credentials for provider openai do not match its authentication scheme",
+    "provider": "openai",
+    "status": null,
+    "provider_code": null,
+    "retry": "Never"
+  },
+  "data": {
+    "kind": "authentication",
+    "message": "credentials for provider openai do not match its authentication scheme",
+    "provider": "openai",
+    "retry": {
+      "type": "never"
+    }
+  },
+  "debug": "Error { kind: Authentication, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+  "display": "credentials for provider openai do not match its authentication scheme",
+  "retry_after_ms": null,
+  "provider_retry_after_ms": null,
+  "raw_data": null,
+  "source": null
+}
+
+```
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call network-catalog.toml network.json
+{
+  "kind": "error",
+  "error": {
+    "kind": "error",
+    "error_kind": "Network",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "status": null,
+    "provider_code": null,
+    "retry": "Safe"
+  },
+  "data": {
+    "kind": "network",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "retry": {
+      "type": "safe"
+    },
+    "source_message": "error sending request for url (http://127.0.0.1:9/v1/responses)"
+  },
+  "debug": "Error { kind: Network, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
+  "display": "request to provider openai failed",
+  "retry_after_ms": null,
+  "provider_retry_after_ms": null,
+  "raw_data": null,
+  "source": "error sending request for url (http://127.0.0.1:9/v1/responses)"
+}
+
+```
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call network-catalog.toml network.json stream
+{
+  "kind": "error",
+  "error": {
+    "kind": "error",
+    "error_kind": "Network",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "status": null,
+    "provider_code": null,
+    "retry": "Safe"
+  },
+  "data": {
+    "kind": "network",
+    "message": "request to provider openai failed",
+    "provider": "openai",
+    "retry": {
+      "type": "safe"
+    },
+    "source_message": "error sending request for url (http://127.0.0.1:9/v1/responses)"
+  },
+  "debug": "Error { kind: Network, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
+  "display": "request to provider openai failed",
+  "retry_after_ms": null,
+  "provider_retry_after_ms": null,
+  "raw_data": null,
+  "source": "error sending request for url (http://127.0.0.1:9/v1/responses)"
+}
+
+```
+
+```console
+$ OPENAI_API_KEY=transport lithos-llm-e2e call codex-catalog.toml codex.json
+{
+  "kind": "complete",
+  "text": "Codex ",
+  "response": {
+    "id": "resp-codex",
+    "model": {
+      "provider": "openai",
+      "model": "fixture-codex"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "Codex "
+      }
+    ],
+    "finish_reason": "stop",
+    "usage": {
+      "input": 3,
+      "output": 2,
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
+    },
+    "rate_limits": {
+      "request_limit": 50,
+      "request_remaining": 49
+    },
+    "raw": {
+      "id": "resp-codex",
+      "status": "completed",
+      "output": [
+        {
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "Codex complete"
+            }
+          ]
+        }
+      ],
+      "usage": {
+        "input_tokens": 3,
+        "output_tokens": 2
+      }
+    }
+  }
+}
+
+```

@@ -684,6 +684,26 @@
     },
     {
       "id": "error-spent", "method": "POST", "path_contains": "/v1/responses", "body_contains": "Error spent message", "status": 429, "content_type": "application/json", "body": { "error": { "message": "Please purchase credits", "code": "rate_limit_exceeded" } }
+    },
+    {
+      "id": "transport-invalid-json", "method": "POST", "path_contains": "/v1/responses", "body_contains": "Transport invalid JSON", "status": 200, "content_type": "application/json", "body": "this is not JSON"
+    },
+    {
+      "id": "transport-complete-timeout", "method": "POST", "path_contains": "/v1/responses", "body_contains": "Transport complete timeout", "status": 200, "content_type": "application/json", "delay_ms": 100,
+      "body": { "id": "timeout", "status": "completed", "output": [], "usage": { "input_tokens": 1, "output_tokens": 1 } }
+    },
+    {
+      "id": "transport-stream-timeout", "method": "POST", "path_contains": "/v1/responses", "body_contains": "Transport stream timeout", "status": 200, "content_type": "text/event-stream", "delay_ms": 100,
+      "body": "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"timeout\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n"
+    },
+    {
+      "id": "transport-headers-auth", "method": "POST", "path_contains": "/v1/responses", "body_contains": "Transport headers auth", "status": 200, "content_type": "application/json",
+      "body": { "id": "resp-headers", "status": "completed", "output": [{ "type": "message", "role": "assistant", "content": [{ "type": "output_text", "text": "headers accepted" }] }], "usage": { "input_tokens": 2, "output_tokens": 2 } }
+    },
+    {
+      "id": "codex-streaming-complete", "method": "POST", "path_contains": "/codex/responses", "body_contains": "Codex streaming complete", "status": 200, "content_type": "text/event-stream",
+      "headers": { "x-ratelimit-limit-requests": "50", "x-ratelimit-remaining-requests": "49" },
+      "body": "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"Codex \"}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-codex\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Codex complete\"}]}],\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}}\n\n"
     }
   ]
 }

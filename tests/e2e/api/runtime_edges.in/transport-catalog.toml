@@ -1,0 +1,10 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:3932/v1"
+default_headers = { "x-e2e-default" = "present" }
+
+[providers.openai.models.transport]
+display_name = "Transport"
+api_model = "transport"
+capabilities = { text = true }
