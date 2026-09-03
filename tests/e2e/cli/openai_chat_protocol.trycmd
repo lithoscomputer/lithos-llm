@@ -1,0 +1,65 @@
+# OpenAI Chat-compatible calls use the real codec and declarative transcripts.
+
+```console
+$ OPENROUTER_API_KEY=chat-rich lllm --catalog catalog.toml -m openrouter/fixture --no-stream --system 'Be concise' --attachment image.png --attachment https://example.com/image.png --schema 'answer, score int' --schema-name result --max-output-tokens 64 --temperature 0.2 --top-p 0.9 --reasoning-effort xhigh --speed fast --stop END --cache-key stable --metadata trace=yes --option user=fixture 'Chat rich request'
+{"answer":"ready","score":7}
+
+$ OPENROUTER_API_KEY=chat-complete lllm --catalog catalog.toml -m openrouter/fixture --no-stream 'Chat complete transcript'
+Hello from Chat.
+
+$ OPENROUTER_API_KEY=chat-stream lllm --catalog catalog.toml -m openrouter/fixture 'Chat stream transcript'
+Streaming Chat.
+
+$ OPENROUTER_API_KEY=chat-tools lllm --catalog catalog.toml probe -m openrouter/fixture --tools
+passed openrouter/fixture · 60 input · 6 output · [..]
+
+$ OPENROUTER_API_KEY=chat-refusal lllm --catalog catalog.toml -m openrouter/fixture --no-stream 'Chat refusal'
+? 1
+error: content_filter: provider openrouter refused the request: not allowed route=openrouter/fixture provider=openrouter code=refusal
+
+$ OPENROUTER_API_KEY=chat-stream-refusal lllm --catalog catalog.toml -m openrouter/fixture 'Chat stream refusal'
+? 1
+error: content_filter: provider openrouter refused the request: stream not allowed route=openrouter/fixture provider=openrouter code=refusal
+
+$ OPENROUTER_API_KEY=chat-no-choices lllm --catalog catalog.toml -m openrouter/fixture --no-stream 'Chat no choices'
+? 1
+error: response_decode: provider openrouter returned no choices in the response route=openrouter/fixture provider=openrouter
+
+$ OPENROUTER_API_KEY=chat-no-message lllm --catalog catalog.toml -m openrouter/fixture --no-stream 'Chat no message'
+? 1
+error: response_decode: provider openrouter returned a choice without a message object route=openrouter/fixture provider=openrouter
+
+$ OPENROUTER_API_KEY=chat-tool-no-id lllm --catalog catalog.toml -m openrouter/fixture --no-stream 'Chat tool without id'
+? 1
+error: response_decode: provider openrouter returned a tool call without an id route=openrouter/fixture provider=openrouter
+
+$ OPENROUTER_API_KEY=chat-tool-no-name lllm --catalog catalog.toml -m openrouter/fixture --no-stream 'Chat tool without name'
+? 1
+error: response_decode: provider openrouter returned a tool call without a function name route=openrouter/fixture provider=openrouter
+
+$ OPENROUTER_API_KEY=chat-invalid-stream lllm --catalog catalog.toml -m openrouter/fixture 'Chat invalid stream'
+? 1
+error: stream_decode: provider openrouter returned an invalid stream chunk route=openrouter/fixture provider=openrouter
+  caused by: [..]
+
+$ OPENROUTER_API_KEY=chat-indexless-tool lllm --catalog catalog.toml -m openrouter/fixture 'Chat indexless tool stream'
+? 1
+error: stream_decode: provider openrouter streamed a tool-call fragment without an index route=openrouter/fixture provider=openrouter
+
+$ OPENROUTER_API_KEY=chat-stream-error lllm --catalog catalog.toml -m openrouter/fixture 'Chat stream provider error'
+? 1
+error: [..]
+
+$ OPENROUTER_API_KEY=chat-http-error lllm --catalog catalog.toml -m openrouter/fixture --no-stream 'Chat provider error'
+? 1
+error: [..]
+
+$ OPENROUTER_API_KEY=chat-document lllm --catalog catalog.toml -m openrouter/fixture --no-stream --attachment document.pdf 'Chat document input'
+? 2
+error: invalid_request: provider openrouter does not support document content route=openrouter/fixture provider=openrouter code=unsupported_capability
+
+$ OPENROUTER_API_KEY=chat-audio lllm --catalog catalog.toml -m openrouter/fixture --no-stream --attachment-type audio.wav audio/wav 'Chat audio input'
+? 2
+error: invalid_request: provider openrouter does not support audio content route=openrouter/fixture provider=openrouter code=unsupported_capability
+
+```

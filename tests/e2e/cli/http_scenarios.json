@@ -318,6 +318,209 @@
       "content_type": "application/json",
       "headers": { "retry-after": "1" },
       "body": { "error": { "code": 503, "status": "UNAVAILABLE", "message": "fixture unavailable" } }
+    },
+    {
+      "id": "chat-rich",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat rich request",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "chat-rich-response",
+        "model": "chat-fixture-v1",
+        "choices": [{
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "reasoning_details": [{ "type": "encrypted", "index": 0, "data": "rich-details" }],
+            "reasoning": "I should answer with JSON.",
+            "content": "{\"answer\":\"ready\",\"score\":7}",
+            "tool_calls": [{ "id": "unused-rich", "type": "function", "function": { "name": "unused", "arguments": "{\"value\":1}" } }]
+          },
+          "finish_reason": "stop"
+        }],
+        "usage": {
+          "prompt_tokens": 120,
+          "completion_tokens": 30,
+          "prompt_tokens_details": { "cached_tokens": 20, "cache_write_tokens": 5 },
+          "completion_tokens_details": { "reasoning_tokens": 10 },
+          "cost": 0.001234,
+          "cost_details": { "upstream_inference_cost": 0.001 }
+        }
+      }
+    },
+    {
+      "id": "chat-complete",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat complete transcript",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "chat-complete-response",
+        "model": "chat-fixture-v1",
+        "choices": [{
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "reasoning_details": { "type": "summary", "summary": "complete-details" },
+            "reasoning_content": "Think briefly.",
+            "content": [{ "type": "text", "text": "Hello " }, { "type": "text", "text": "from Chat." }, { "type": "image_url", "image_url": { "url": "ignored" } }],
+            "tool_calls": [
+              { "id": "complete-call", "type": "function", "function": { "name": "lookup", "arguments": "not-json" } },
+              { "id": "empty-arguments", "type": "function", "function": { "name": "other", "arguments": "" } }
+            ]
+          },
+          "finish_reason": "length"
+        }],
+        "usage": {
+          "prompt_tokens": 40,
+          "completion_tokens": 15,
+          "prompt_cache_hit_tokens": 6,
+          "cache_creation_input_tokens": 4,
+          "reasoning_tokens": 5
+        },
+        "cost": { "usd": 0.002345, "diem": 3 }
+      }
+    },
+    {
+      "id": "chat-stream",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat stream transcript",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: {\"error\":null,\"choices\":[{\"delta\":{\"reasoning_details\":[{\"type\":\"encrypted\",\"index\":0,\"data\":\"part-\"},7],\"reasoning\":\"Plan \",\"content\":[{\"text\":\"Streaming \"}],\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"a\\\":\"}}]}}]}\ndata: {\"id\":\"chat-stream-response\",\"choices\":[{\"delta\":{\"reasoning_details\":{\"type\":\"encrypted\",\"index\":0,\"data\":\"details\",\"signature\":\"sig\"},\"reasoning_content\":\"carefully.\",\"content\":\"Chat.\",\"tool_calls\":[{\"index\":0,\"id\":\"stream-call\",\"function\":{\"name\":\"background\",\"arguments\":\"1}\"}}]},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":25,\"completion_tokens\":8,\"prompt_tokens_details\":{\"cached_tokens\":3,\"cache_creation_input_tokens\":2},\"completion_tokens_details\":{\"reasoning_tokens\":2}},\"cost\":{\"usd\":0.000321}}\ndata: [DONE]\n"
+    },
+    {
+      "id": "chat-tool-first",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "chat-tool-1",
+        "choices": [{ "message": { "role": "assistant", "reasoning_content": "Use add.", "tool_calls": [{ "id": "call_first", "type": "function", "function": { "name": "add", "arguments": "{\"a\":15,\"b\":27}" } }] }, "finish_reason": "stop" }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 1 }
+      }
+    },
+    {
+      "id": "chat-tool-second",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "chat-tool-2",
+        "choices": [{ "message": { "role": "assistant", "tool_calls": [{ "id": "call_second", "type": "function", "function": { "name": "add", "arguments": "{\"a\":42,\"b\":42}" } }] }, "finish_reason": "tool_calls" }],
+        "usage": { "prompt_tokens": 20, "completion_tokens": 2 }
+      }
+    },
+    {
+      "id": "chat-tool-final",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "chat-tool-3",
+        "choices": [{ "message": { "role": "assistant", "content": "84 is even because it is divisible by two." }, "finish_reason": "stop" }],
+        "usage": { "prompt_tokens": 30, "completion_tokens": 3 }
+      }
+    },
+    {
+      "id": "chat-refusal",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat refusal",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "id": "chat-refusal", "choices": [{ "message": { "role": "assistant", "refusal": "not allowed" }, "finish_reason": "stop" }] }
+    },
+    {
+      "id": "chat-stream-refusal",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat stream refusal",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: {\"choices\":[{\"delta\":{\"refusal\":\"stream not \"}}]}\ndata: {\"choices\":[{\"delta\":{\"refusal\":\"allowed\"},\"finish_reason\":\"stop\"}]}\ndata: [DONE]\n"
+    },
+    {
+      "id": "chat-no-choices",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat no choices",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "id": "chat-no-choices", "choices": [] }
+    },
+    {
+      "id": "chat-no-message",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat no message",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "id": "chat-no-message", "choices": [{ "finish_reason": "stop" }] }
+    },
+    {
+      "id": "chat-tool-no-id",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat tool without id",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "id": "chat-tool-no-id", "choices": [{ "message": { "tool_calls": [{ "function": { "name": "broken", "arguments": "{}" } }] }, "finish_reason": "tool_calls" }] }
+    },
+    {
+      "id": "chat-tool-no-name",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat tool without name",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "id": "chat-tool-no-name", "choices": [{ "message": { "tool_calls": [{ "id": "broken-call", "function": { "arguments": "{}" } }] }, "finish_reason": "tool_calls" }] }
+    },
+    {
+      "id": "chat-invalid-stream",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat invalid stream",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: not-json\n\n"
+    },
+    {
+      "id": "chat-indexless-tool",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat indexless tool stream",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"missing-index\",\"function\":{\"name\":\"broken\",\"arguments\":\"{}\"}}]}}]}\n\n"
+    },
+    {
+      "id": "chat-stream-error",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat stream provider error",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "data: {\"error\":{\"code\":\"rate_limit_exceeded\",\"message\":\"fixture stream limit\",\"type\":\"rate_limit_error\"}}\n\n"
+    },
+    {
+      "id": "chat-http-error",
+      "method": "POST",
+      "path_contains": "/v1/chat/completions",
+      "body_contains": "Chat provider error",
+      "status": 400,
+      "content_type": "application/json",
+      "body": { "error": { "code": "context_length_exceeded", "message": "fixture context limit", "type": "invalid_request_error", "param": "messages" } }
     }
   ]
 }
