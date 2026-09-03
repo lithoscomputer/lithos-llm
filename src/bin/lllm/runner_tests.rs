@@ -427,6 +427,32 @@ async fn usage_is_written_to_standard_error_for_streaming() {
 }
 
 #[tokio::test]
+async fn usage_is_written_to_standard_error_for_non_streaming() {
+    let build = client(RecordingAdapter::default());
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &[
+            "lllm",
+            "hello",
+            "--model",
+            "alpha/one",
+            "--no-stream",
+            "--usage",
+        ],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Success);
+    assert_eq!(stdout, b"complete output\n");
+    let usage = String::from_utf8(stderr).expect("usage should be UTF-8");
+    assert!(usage.starts_with("alpha/one · 1,240 input · 183 output · $0.00431 · "));
+    assert!(usage.ends_with("ms\n") || usage.ends_with("s\n"));
+}
+
+#[tokio::test]
 async fn no_cache_maps_to_a_disabled_cache_hint() {
     let adapter = RecordingAdapter::default();
     let build = client(adapter.clone());
@@ -619,6 +645,26 @@ async fn top_level_help_shows_the_implicit_prompt_form_and_examples() {
 }
 
 #[tokio::test]
+async fn prompt_help_shows_aliases_and_key_value_syntax() {
+    let build = client(RecordingAdapter::default());
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "prompt", "--help"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Success);
+    assert!(stderr.is_empty());
+    let help = String::from_utf8(stdout).expect("help should be UTF-8");
+    assert!(help.contains("--xl"));
+    assert!(help.contains("--metadata <KEY=VALUE>"));
+    assert!(help.contains("--option <KEY=VALUE>"));
+}
+
+#[tokio::test]
 async fn reports_input_error_source_chains() {
     let build = client(RecordingAdapter::default());
     let (status, stdout, stderr) = invoke(
@@ -745,6 +791,19 @@ async fn model_listing_filters_compose() {
     let listing: serde_json::Value =
         serde_json::from_slice(&stdout).expect("output should be JSON");
     assert_eq!(listing["models"].as_array().map(Vec::len), Some(0));
+
+    let (_, stdout, _) = invoke(
+        &build.client,
+        &["lllm", "models", "--json", "--capability", "tools"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+    let listing: serde_json::Value =
+        serde_json::from_slice(&stdout).expect("output should be JSON");
+    assert_eq!(listing["models"].as_array().map(Vec::len), Some(1));
+    assert_eq!(listing["models"][0]["selector"], "alpha/one");
 }
 
 #[tokio::test]

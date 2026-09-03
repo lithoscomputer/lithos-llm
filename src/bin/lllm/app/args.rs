@@ -528,6 +528,25 @@ mod tests {
     }
 
     #[test]
+    fn a_catalog_can_precede_an_implicit_prompt() {
+        let parsed = parse_from([
+            "lllm",
+            "--catalog",
+            "local.toml",
+            "--model",
+            "local/qwen",
+            "hello",
+        ])
+        .expect("arguments should parse");
+        let Command::Prompt(args) = parsed.cli.command else {
+            panic!("implicit command should be prompt");
+        };
+        assert_eq!(parsed.cli.catalog, [PathBuf::from("local.toml")]);
+        assert_eq!(args.model.as_deref(), Some("local/qwen"));
+        assert_eq!(args.prompt, ["hello"]);
+    }
+
+    #[test]
     fn double_dash_keeps_verbose_as_prompt_text() {
         let parsed = parse_from(["lllm", "--", "--verbose"]).expect("arguments should parse");
         assert!(!parsed.cli.verbose);
@@ -561,6 +580,15 @@ mod tests {
     }
 
     #[test]
+    fn key_value_options_require_an_equals_sign() {
+        for option in ["--metadata", "--option"] {
+            let error = parse_from(["lllm", "hello", option, "missing-value"])
+                .expect_err("arguments should fail");
+            assert!(error.to_string().contains("expected KEY=VALUE"));
+        }
+    }
+
+    #[test]
     fn reads_a_schema_from_a_file() {
         let path = env::temp_dir().join(format!("lithos-schema-{}.json", process::id()));
         fs::write(&path, r#"{"type":"object"}"#).expect("fixture should be written");
@@ -589,5 +617,43 @@ mod tests {
         let multi = read_multi_schema("name, age int").expect("schema should compile");
         assert_eq!(multi["type"], "array");
         assert_eq!(multi["items"]["properties"]["age"]["type"], "integer");
+
+        let multi = read_multi_schema(r#"{"type":"integer"}"#).expect("JSON schema should compile");
+        assert_eq!(multi["items"]["type"], "integer");
+    }
+
+    #[test]
+    fn rejects_invalid_concise_schemas() {
+        for (schema, expected) in [
+            ("", "expected NAME"),
+            ("name, name int", "is repeated"),
+            ("identifier uuid", "unknown schema type `uuid`"),
+            ("full name string", "expected NAME"),
+        ] {
+            let error = read_schema(schema).expect_err("schema should fail");
+            assert!(error.to_string().contains(expected), "{error}");
+        }
+    }
+
+    #[test]
+    fn schema_modes_conflict_and_schema_names_require_a_schema() {
+        let error = parse_from([
+            "lllm",
+            "hello",
+            "--schema",
+            "name",
+            "--schema-multi",
+            "name",
+        ])
+        .expect_err("schema modes should conflict");
+        assert!(error.to_string().contains("cannot be used with"));
+
+        let error = parse_from(["lllm", "hello", "--schema-name", "person"])
+            .expect_err("schema name should require a schema");
+        assert!(
+            error
+                .to_string()
+                .contains("required arguments were not provided")
+        );
     }
 }

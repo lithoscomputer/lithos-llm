@@ -111,7 +111,9 @@ fn read_text_file(path: &Path, kind: &str) -> CliResult<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error as _;
     use std::io::Cursor;
+    use std::{env, fs, process, slice};
 
     use lithos_llm::types::ContentPart;
 
@@ -191,5 +193,27 @@ mod tests {
         )
         .expect_err("input should fail");
         assert!(error.to_string().contains("URLs are not supported"));
+    }
+
+    #[test]
+    fn rejects_a_fragment_file_that_is_not_utf8() {
+        let path = env::temp_dir().join(format!("lllm-invalid-utf8-{}.txt", process::id()));
+        fs::write(&path, [0xff]).expect("fixture should be written");
+        let mut stdin = Cursor::new(Vec::new());
+
+        let error = prepare(&[], slice::from_ref(&path), &[], true, &mut stdin)
+            .expect_err("input should fail");
+
+        fs::remove_file(path).expect("fixture should be removed");
+        assert!(error.to_string().contains("as UTF-8"));
+        assert!(error.source().is_some());
+    }
+
+    #[test]
+    fn rejects_standard_input_as_a_fragment() {
+        let mut stdin = Cursor::new(Vec::new());
+        let error =
+            prepare(&[], &["-".into()], &[], true, &mut stdin).expect_err("input should fail");
+        assert!(error.to_string().contains("local file"));
     }
 }

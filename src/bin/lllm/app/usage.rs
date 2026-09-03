@@ -71,7 +71,11 @@ mod tests {
 
     #[test]
     fn formats_compact_values_without_floating_point_cost_rounding() {
+        assert_eq!(grouped(0), "0");
+        assert_eq!(grouped(999), "999");
+        assert_eq!(grouped(1_000), "1,000");
         assert_eq!(grouped(1_240), "1,240");
+        assert_eq!(grouped(1_234_567), "1,234,567");
         assert_eq!(
             cost(Some(Cost {
                 usd_micros: 4_310,
@@ -79,6 +83,16 @@ mod tests {
             })),
             "$0.00431"
         );
+        assert_eq!(
+            cost(Some(Cost {
+                usd_micros: 2_000_000,
+                source:     CostSource::Provider,
+            })),
+            "$2"
+        );
+        assert_eq!(cost(None), "cost unknown");
+        assert_eq!(duration(Duration::from_millis(999)), "999ms");
+        assert_eq!(duration(Duration::from_secs(1)), "1s");
         assert_eq!(duration(Duration::from_millis(1_800)), "1.8s");
     }
 }
