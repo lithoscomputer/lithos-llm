@@ -105,7 +105,16 @@ async fn run() -> Result<(), Box<dyn StdError>> {
             let catalog = required_argument(&mut arguments, "catalog path")?;
             let request = read_request(required_argument(&mut arguments, "request path")?)?;
             let mode = arguments.next().unwrap_or_else(|| "complete".to_owned());
-            call(Path::new(&catalog), request, &mode).await?
+            call(Path::new(&catalog), request, &mode, CallOptions::default()).await?
+        }
+        "call-case" => {
+            let catalog = required_argument(&mut arguments, "catalog path")?;
+            let case: CallCase = read_json(required_argument(&mut arguments, "call case path")?)?;
+            call(Path::new(&catalog), case.request, &case.mode, CallOptions {
+                stream_idle_timeout_ms:  case.stream_idle_timeout_ms,
+                poll_after_stream_error: case.poll_after_stream_error,
+            })
+            .await?
         }
         "calls" => {
             let catalog = required_argument(&mut arguments, "catalog path")?;
@@ -1092,16 +1101,20 @@ async fn call(
     catalog_path: &Path,
     request: Request,
     mode: &str,
+    options: CallOptions,
 ) -> Result<Value, Box<dyn StdError>> {
     let source = fs::read_to_string(catalog_path)?;
     let catalog = Catalog::builder()
         .with_builtin()
         .toml_layer(catalog_path.display().to_string(), &source)?
         .build()?;
-    let build = Client::builder()
+    let mut builder = Client::builder()
         .catalog(catalog)
-        .credentials(EnvironmentCredentials::conventional())
-        .build()?;
+        .credentials(EnvironmentCredentials::conventional());
+    if let Some(timeout_ms) = options.stream_idle_timeout_ms {
+        builder = builder.stream_idle_timeout(Some(Duration::from_millis(timeout_ms)));
+    }
+    let build = builder.build()?;
     match mode {
         "complete" => match build.client.complete(request).await {
             Ok(response) => Ok(json!({
@@ -1122,7 +1135,9 @@ async fn call(
                         })),
                         Err(error) => {
                             events.push(render_error_details(&error));
-                            break;
+                            if !options.poll_after_stream_error {
+                                break;
+                            }
                         }
                     }
                 }
@@ -1137,9 +1152,29 @@ async fn call(
 async fn calls(catalog_path: &Path, requests: Vec<Request>) -> Result<Value, Box<dyn StdError>> {
     let mut results = Vec::new();
     for request in requests {
-        results.push(call(catalog_path, request, "complete").await?);
+        results.push(call(catalog_path, request, "complete", CallOptions::default()).await?);
     }
     Ok(json!({ "kind": "calls", "results": results }))
+}
+
+#[derive(Debug, Deserialize)]
+struct CallCase {
+    request:                 Request,
+    #[serde(default = "complete_call_mode")]
+    mode:                    String,
+    stream_idle_timeout_ms:  Option<u64>,
+    #[serde(default)]
+    poll_after_stream_error: bool,
+}
+
+fn complete_call_mode() -> String {
+    "complete".to_owned()
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct CallOptions {
+    stream_idle_timeout_ms:  Option<u64>,
+    poll_after_stream_error: bool,
 }
 
 fn render_error(error: &Error) -> Value {

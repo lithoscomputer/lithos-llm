@@ -205,6 +205,68 @@ $ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml stream-tim
 ```
 
 ```console
+$ OPENAI_API_KEY=oai-stream-idle-timeout lithos-llm-e2e call-case twin-catalog.toml idle-timeout.json
+{
+  "kind": "stream",
+  "events": [
+    {
+      "name": "started:visible=false",
+      "event": {
+        "type": "started",
+        "id": null
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "msg_idle",
+        "kind": {
+          "type": "text"
+        }
+      }
+    },
+    {
+      "name": "text:visible=true",
+      "event": {
+        "type": "text_delta",
+        "id": "msg_idle",
+        "text": "Before idle"
+      }
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "Timeout",
+        "message": "provider openai stopped sending stream data",
+        "provider": "openai",
+        "status": null,
+        "provider_code": null,
+        "retry": "Safe"
+      },
+      "data": {
+        "kind": "timeout",
+        "message": "provider openai stopped sending stream data",
+        "provider": "openai",
+        "retry": {
+          "type": "safe"
+        },
+        "source_message": "deadline has elapsed"
+      },
+      "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
+      "display": "provider openai stopped sending stream data",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": "deadline has elapsed"
+    }
+  ]
+}
+
+```
+
+```console
 $ OPENAI_API_KEY=transport lithos-llm-e2e call headers-catalog.toml headers.json
 {
   "kind": "complete",

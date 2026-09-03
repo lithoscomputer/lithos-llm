@@ -1,0 +1,16 @@
+{
+  "request": {
+    "model": "openai/fixture",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          { "type": "text", "text": "OpenAI stream idle timeout" }
+        ]
+      }
+    ]
+  },
+  "mode": "stream",
+  "stream_idle_timeout_ms": 10,
+  "poll_after_stream_error": true
+}

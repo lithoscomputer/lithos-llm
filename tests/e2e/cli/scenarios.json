@@ -783,6 +783,32 @@
           }
         ]
       }
+    },
+    {
+      "scenario_id": "oai-stream-idle-timeout",
+      "namespace": "oai-stream-idle-timeout",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": true,
+        "input_contains": "OpenAI stream idle timeout"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "chunks": [
+          {
+            "kind": "text",
+            "text": "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_idle\",\"delta\":\"Before idle\"}\n\n"
+          },
+          {
+            "kind": "text",
+            "text": "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_idle\",\"status\":\"completed\"}}\n\n",
+            "delay_ms": 50
+          }
+        ]
+      }
     }
   ]
 }
