@@ -1,0 +1,49 @@
+[
+  {
+    "name": "full",
+    "spec": {
+      "model": "fixture/model",
+      "messages": [{ "role": "assistant", "name": "helper", "tool_call_id": "call-1", "content": [{ "type": "text", "text": "Earlier" }] }],
+      "system": "System",
+      "developer": "Developer",
+      "user": "User",
+      "tools": [
+        { "name": "lookup", "description": "Lookup", "kind": { "type": "function", "input_schema": { "type": "object" } } },
+        { "name": "shell", "description": "Shell", "kind": { "type": "custom", "format": { "type": "grammar" } } }
+      ],
+      "tool_choice": { "type": "tool", "name": "lookup" },
+      "response_format": { "type": "json_schema", "name": "answer", "schema": { "type": "object" } },
+      "max_output_tokens": 42,
+      "temperature": 0.5,
+      "top_p": 0.75,
+      "reasoning_effort": "xhigh",
+      "cache_hint": { "type": "disabled" },
+      "cache_key": "cache-key",
+      "speed": "fast",
+      "timeout_ms": 1250,
+      "stop_sequence": "ONE",
+      "stop_sequences": ["TWO", "THREE"],
+      "metadata": { "trace": "yes" },
+      "provider_options": { "fixture": { "one": 1 } },
+      "provider_option_entries": [{ "provider": "fixture", "key": "two", "value": true }]
+    }
+  },
+  { "name": "missing_model", "spec": { "user": "hello" } },
+  { "name": "empty_model", "spec": { "model": " ", "user": "hello" } },
+  { "name": "no_messages", "spec": { "model": "fixture/model" } },
+  { "name": "empty_message", "spec": { "model": "fixture/model", "messages": [{ "role": "user", "content": [] }] } },
+  { "name": "zero_output", "spec": { "model": "fixture/model", "user": "hello", "max_output_tokens": 0 } },
+  { "name": "temperature_low", "spec": { "model": "fixture/model", "user": "hello", "temperature": -0.1 } },
+  { "name": "temperature_high", "spec": { "model": "fixture/model", "user": "hello", "temperature": 2.1 } },
+  { "name": "top_p_low", "spec": { "model": "fixture/model", "user": "hello", "top_p": -0.1 } },
+  { "name": "top_p_high", "spec": { "model": "fixture/model", "user": "hello", "top_p": 1.1 } },
+  { "name": "zero_timeout", "spec": { "model": "fixture/model", "user": "hello", "timeout_ms": 0 } },
+  { "name": "empty_stop", "spec": { "model": "fixture/model", "user": "hello", "stop_sequence": " " } },
+  { "name": "empty_metadata", "spec": { "model": "fixture/model", "user": "hello", "metadata": { " ": "bad" } } },
+  { "name": "empty_tool", "spec": { "model": "fixture/model", "user": "hello", "tools": [{ "name": "", "description": "bad", "kind": { "type": "function", "input_schema": {} } }] } },
+  { "name": "duplicate_tool", "spec": { "model": "fixture/model", "user": "hello", "tools": [{ "name": "same", "description": "one", "kind": { "type": "function", "input_schema": {} } }, { "name": "same", "description": "two", "kind": { "type": "function", "input_schema": {} } }] } },
+  { "name": "custom_format", "spec": { "model": "fixture/model", "user": "hello", "tools": [{ "name": "custom", "description": "bad", "kind": { "type": "custom", "format": null } }] } },
+  { "name": "unknown_choice", "spec": { "model": "fixture/model", "user": "hello", "tool_choice": { "type": "tool", "name": "missing" } } },
+  { "name": "empty_schema", "spec": { "model": "fixture/model", "user": "hello", "response_format": { "type": "json_schema", "name": " ", "schema": {} } } },
+  { "name": "empty_provider", "spec": { "model": "fixture/model", "user": "hello", "provider_options": { " ": { "bad": true } } } }
+]

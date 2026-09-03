@@ -1,0 +1,530 @@
+# HTTP failures are declarative response fixtures classified through public calls.
+
+```console
+$ OPENAI_API_KEY=errors lithos-llm-e2e calls catalog.toml errors.json
+{
+  "kind": "calls",
+  "results": [
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "Authentication",
+        "message": "provider openai credential rejected",
+        "provider": "openai",
+        "status": 401,
+        "provider_code": "invalid_api_key",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "authentication",
+        "message": "provider openai credential rejected",
+        "provider": "openai",
+        "status": 401,
+        "provider_code": "invalid_api_key",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "error": {
+            "message": "credential rejected",
+            "code": "invalid_api_key"
+          }
+        }
+      },
+      "debug": "Error { kind: Authentication, provider: Some(ProviderId(/"openai/")), status: Some(401), provider_code: Some(/"invalid_api_key/"), retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai credential rejected",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "error": {
+          "message": "credential rejected",
+          "code": "invalid_api_key"
+        }
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "AccessDenied",
+        "message": "provider openai access denied",
+        "provider": "openai",
+        "status": 403,
+        "provider_code": null,
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "access_denied",
+        "message": "provider openai access denied",
+        "provider": "openai",
+        "status": 403,
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": "access denied"
+      },
+      "debug": "Error { kind: AccessDenied, provider: Some(ProviderId(/"openai/")), status: Some(403), provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai access denied",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": "access denied",
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "NotFound",
+        "message": "provider openai model does not exist",
+        "provider": "openai",
+        "status": 404,
+        "provider_code": "not_found",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "not_found",
+        "message": "provider openai model does not exist",
+        "provider": "openai",
+        "status": 404,
+        "provider_code": "not_found",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "message": "model does not exist",
+          "code": "not_found"
+        }
+      },
+      "debug": "Error { kind: NotFound, provider: Some(ProviderId(/"openai/")), status: Some(404), provider_code: Some(/"not_found/"), retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai model does not exist",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "message": "model does not exist",
+        "code": "not_found"
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "Timeout",
+        "message": "provider openai returned HTTP status 408",
+        "provider": "openai",
+        "status": 408,
+        "provider_code": null,
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "timeout",
+        "message": "provider openai returned HTTP status 408",
+        "provider": "openai",
+        "status": 408,
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: Some(408), provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "provider openai returned HTTP status 408",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "ContextLength",
+        "message": "provider openai too many tokens",
+        "provider": "openai",
+        "status": 413,
+        "provider_code": null,
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "context_length",
+        "message": "provider openai too many tokens",
+        "provider": "openai",
+        "status": 413,
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "Message": "too many tokens"
+        }
+      },
+      "debug": "Error { kind: ContextLength, provider: Some(ProviderId(/"openai/")), status: Some(413), provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai too many tokens",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "Message": "too many tokens"
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "QuotaExceeded",
+        "message": "provider openai quota consumed",
+        "provider": "openai",
+        "status": 429,
+        "provider_code": "insufficient_quota",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "quota_exceeded",
+        "message": "provider openai quota consumed",
+        "provider": "openai",
+        "status": 429,
+        "provider_code": "insufficient_quota",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "error": {
+            "message": "quota consumed",
+            "type": "insufficient_quota"
+          }
+        },
+        "provider_retry_after_millis": 500
+      },
+      "debug": "Error { kind: QuotaExceeded, provider: Some(ProviderId(/"openai/")), status: Some(429), provider_code: Some(/"insufficient_quota/"), retry: Never, provider_retry_after_millis: Some(500), has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai quota consumed",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": 500,
+      "raw_data": {
+        "error": {
+          "message": "quota consumed",
+          "type": "insufficient_quota"
+        }
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "Authentication",
+        "message": "provider openai API key not valid",
+        "provider": "openai",
+        "status": 400,
+        "provider_code": null,
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "authentication",
+        "message": "provider openai API key not valid",
+        "provider": "openai",
+        "status": 400,
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "error": {
+            "message": "API key not valid"
+          }
+        }
+      },
+      "debug": "Error { kind: Authentication, provider: Some(ProviderId(/"openai/")), status: Some(400), provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai API key not valid",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "error": {
+          "message": "API key not valid"
+        }
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "ContextLength",
+        "message": "provider openai large",
+        "provider": "openai",
+        "status": 422,
+        "provider_code": "request_too_large",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "context_length",
+        "message": "provider openai large",
+        "provider": "openai",
+        "status": 422,
+        "provider_code": "request_too_large",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "error": {
+            "type": "request_too_large",
+            "message": "large"
+          }
+        }
+      },
+      "debug": "Error { kind: ContextLength, provider: Some(ProviderId(/"openai/")), status: Some(422), provider_code: Some(/"request_too_large/"), retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai large",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "error": {
+          "type": "request_too_large",
+          "message": "large"
+        }
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "Timeout",
+        "message": "provider openai deadline",
+        "provider": "openai",
+        "status": 504,
+        "provider_code": "DEADLINE_EXCEEDED",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "timeout",
+        "message": "provider openai deadline",
+        "provider": "openai",
+        "status": 504,
+        "provider_code": "DEADLINE_EXCEEDED",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "error": {
+            "status": "DEADLINE_EXCEEDED",
+            "message": "deadline"
+          }
+        }
+      },
+      "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: Some(504), provider_code: Some(/"DEADLINE_EXCEEDED/"), retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai deadline",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "error": {
+          "status": "DEADLINE_EXCEEDED",
+          "message": "deadline"
+        }
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "Server",
+        "message": "provider openai temporary server problem",
+        "provider": "openai",
+        "status": 503,
+        "provider_code": null,
+        "retry": "Safe"
+      },
+      "data": {
+        "kind": "server",
+        "message": "provider openai temporary server problem",
+        "provider": "openai",
+        "status": 503,
+        "retry": {
+          "type": "safe"
+        },
+        "raw_data": "temporary server problem"
+      },
+      "debug": "Error { kind: Server, provider: Some(ProviderId(/"openai/")), status: Some(503), provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai temporary server problem",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": "temporary server problem",
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "NotFound",
+        "message": "provider openai model not found",
+        "provider": "openai",
+        "status": 418,
+        "provider_code": null,
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "not_found",
+        "message": "provider openai model not found",
+        "provider": "openai",
+        "status": 418,
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "error": "model not found"
+        }
+      },
+      "debug": "Error { kind: NotFound, provider: Some(ProviderId(/"openai/")), status: Some(418), provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai model not found",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "error": "model not found"
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "RateLimit",
+        "message": "provider openai throttled",
+        "provider": "openai",
+        "status": 400,
+        "provider_code": "ThrottlingException",
+        "retry": "Safe"
+      },
+      "data": {
+        "kind": "rate_limit",
+        "message": "provider openai throttled",
+        "provider": "openai",
+        "status": 400,
+        "provider_code": "ThrottlingException",
+        "retry": {
+          "type": "safe"
+        },
+        "raw_data": {
+          "Message": "throttled",
+          "__type": "prefix#ThrottlingException"
+        }
+      },
+      "debug": "Error { kind: RateLimit, provider: Some(ProviderId(/"openai/")), status: Some(400), provider_code: Some(/"ThrottlingException/"), retry: Safe, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai throttled",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "Message": "throttled",
+        "__type": "prefix#ThrottlingException"
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "ContentFilter",
+        "message": "provider openai content policy violation",
+        "provider": "openai",
+        "status": 400,
+        "provider_code": "content_filter",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "content_filter",
+        "message": "provider openai content policy violation",
+        "provider": "openai",
+        "status": 400,
+        "provider_code": "content_filter",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "detail": "content policy violation",
+          "type": "content_filter"
+        }
+      },
+      "debug": "Error { kind: ContentFilter, provider: Some(ProviderId(/"openai/")), status: Some(400), provider_code: Some(/"content_filter/"), retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai content policy violation",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "detail": "content policy violation",
+        "type": "content_filter"
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "provider openai bad option",
+        "provider": "openai",
+        "status": 400,
+        "provider_code": "unsupported_feature",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "provider openai bad option",
+        "provider": "openai",
+        "status": 400,
+        "provider_code": "unsupported_feature",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "code": "unsupported_feature",
+          "message": "bad option"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: Some(400), provider_code: Some(/"unsupported_feature/"), retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai bad option",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "code": "unsupported_feature",
+        "message": "bad option"
+      },
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "QuotaExceeded",
+        "message": "provider openai Please purchase credits",
+        "provider": "openai",
+        "status": 429,
+        "provider_code": "rate_limit_exceeded",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "quota_exceeded",
+        "message": "provider openai Please purchase credits",
+        "provider": "openai",
+        "status": 429,
+        "provider_code": "rate_limit_exceeded",
+        "retry": {
+          "type": "never"
+        },
+        "raw_data": {
+          "error": {
+            "message": "Please purchase credits",
+            "code": "rate_limit_exceeded"
+          }
+        }
+      },
+      "debug": "Error { kind: QuotaExceeded, provider: Some(ProviderId(/"openai/")), status: Some(429), provider_code: Some(/"rate_limit_exceeded/"), retry: Never, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai Please purchase credits",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "error": {
+          "message": "Please purchase credits",
+          "code": "rate_limit_exceeded"
+        }
+      },
+      "source": null
+    }
+  ]
+}
+
+```

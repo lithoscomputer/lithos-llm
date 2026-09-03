@@ -1,0 +1,769 @@
+# Public construction and configuration contracts are declared in data files.
+
+```console
+$ lithos-llm-e2e requests requests.json
+{
+  "kind": "requests",
+  "cases": [
+    {
+      "name": "full",
+      "result": "ok",
+      "model": "fixture/model",
+      "messages": 4,
+      "tools": 2,
+      "tool_choice": {
+        "type": "tool",
+        "name": "lookup"
+      },
+      "response_format": {
+        "type": "json_schema",
+        "name": "answer",
+        "schema": {
+          "type": "object"
+        }
+      },
+      "max_output_tokens": 42,
+      "temperature": 0.5,
+      "top_p": 0.75,
+      "reasoning_effort": "xhigh",
+      "cache_hint": {
+        "type": "key",
+        "key": "cache-key"
+      },
+      "speed": "fast",
+      "timeout_ms": 1250,
+      "stop_sequences": [
+        "ONE",
+        "TWO",
+        "THREE"
+      ],
+      "metadata": {
+        "trace": "yes"
+      },
+      "provider_options": {
+        "fixture": {
+          "one": 1,
+          "two": true
+        }
+      },
+      "fixture_options": {
+        "one": 1,
+        "two": true
+      },
+      "serialized": {
+        "model": "fixture/model",
+        "messages": [
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Earlier"
+              }
+            ],
+            "name": "helper",
+            "tool_call_id": "call-1"
+          },
+          {
+            "role": "system",
+            "content": [
+              {
+                "type": "text",
+                "text": "System"
+              }
+            ]
+          },
+          {
+            "role": "developer",
+            "content": [
+              {
+                "type": "text",
+                "text": "Developer"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "User"
+              }
+            ]
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Lookup",
+            "kind": {
+              "type": "function",
+              "input_schema": {
+                "type": "object"
+              }
+            }
+          },
+          {
+            "name": "shell",
+            "description": "Shell",
+            "kind": {
+              "type": "custom",
+              "format": {
+                "type": "grammar"
+              }
+            }
+          }
+        ],
+        "tool_choice": {
+          "type": "tool",
+          "name": "lookup"
+        },
+        "response_format": {
+          "type": "json_schema",
+          "name": "answer",
+          "schema": {
+            "type": "object"
+          }
+        },
+        "max_output_tokens": 42,
+        "temperature": 0.5,
+        "top_p": 0.75,
+        "reasoning_effort": "xhigh",
+        "cache_hint": {
+          "type": "key",
+          "key": "cache-key"
+        },
+        "speed": "fast",
+        "timeout": 1250,
+        "stop_sequences": [
+          "ONE",
+          "TWO",
+          "THREE"
+        ],
+        "metadata": {
+          "trace": "yes"
+        },
+        "provider_options": {
+          "fixture": {
+            "one": 1,
+            "two": true
+          }
+        }
+      }
+    },
+    {
+      "name": "missing_model",
+      "result": "error",
+      "message": "a model selector is required"
+    },
+    {
+      "name": "empty_model",
+      "result": "error",
+      "message": "the model selector must not be empty"
+    },
+    {
+      "name": "no_messages",
+      "result": "error",
+      "message": "at least one message is required"
+    },
+    {
+      "name": "empty_message",
+      "result": "error",
+      "message": "messages must contain at least one content part"
+    },
+    {
+      "name": "zero_output",
+      "result": "error",
+      "message": "max_output_tokens must be greater than zero"
+    },
+    {
+      "name": "temperature_low",
+      "result": "error",
+      "message": "temperature must be between 0 and 2"
+    },
+    {
+      "name": "temperature_high",
+      "result": "error",
+      "message": "temperature must be between 0 and 2"
+    },
+    {
+      "name": "top_p_low",
+      "result": "error",
+      "message": "top_p must be between 0 and 1"
+    },
+    {
+      "name": "top_p_high",
+      "result": "error",
+      "message": "top_p must be between 0 and 1"
+    },
+    {
+      "name": "zero_timeout",
+      "result": "error",
+      "message": "timeout must be greater than zero"
+    },
+    {
+      "name": "empty_stop",
+      "result": "error",
+      "message": "stop sequences must not be empty"
+    },
+    {
+      "name": "empty_metadata",
+      "result": "error",
+      "message": "metadata keys must not be empty"
+    },
+    {
+      "name": "empty_tool",
+      "result": "error",
+      "message": "tool names must not be empty"
+    },
+    {
+      "name": "duplicate_tool",
+      "result": "error",
+      "message": "tool names must be unique"
+    },
+    {
+      "name": "custom_format",
+      "result": "error",
+      "message": "custom tools must define a format"
+    },
+    {
+      "name": "unknown_choice",
+      "result": "error",
+      "message": "the selected tool must be present in the request tools"
+    },
+    {
+      "name": "empty_schema",
+      "result": "error",
+      "message": "JSON schema names must not be empty"
+    },
+    {
+      "name": "empty_provider",
+      "result": "error",
+      "message": "provider option namespaces must not be empty"
+    }
+  ]
+}
+
+$ lithos-llm-e2e catalog catalog.json
+{
+  "kind": "catalog",
+  "schema_version": 1,
+  "provider_count": 5,
+  "providers": [
+    {
+      "id": "aws",
+      "display_name": "AWS",
+      "aliases": [],
+      "adapter": "custom",
+      "codec": "custom",
+      "base_url": "http://127.0.0.1",
+      "auth": {
+        "type": "aws",
+        "region": "us-east-1"
+      },
+      "priority": 0,
+      "allows_passthrough": false,
+      "default_model": null,
+      "default_headers": {},
+      "adapter_options": null,
+      "default_options": {},
+      "metadata_app": null,
+      "models": []
+    },
+    {
+      "id": "bedrock",
+      "display_name": "Bedrock",
+      "aliases": [],
+      "adapter": "custom",
+      "codec": "custom",
+      "base_url": "http://127.0.0.1",
+      "auth": {
+        "type": "bedrock_bearer"
+      },
+      "priority": 0,
+      "allows_passthrough": false,
+      "default_model": null,
+      "default_headers": {},
+      "adapter_options": null,
+      "default_options": {},
+      "metadata_app": null,
+      "models": []
+    },
+    {
+      "id": "fixture",
+      "display_name": "Fixture",
+      "aliases": [
+        "fx"
+      ],
+      "adapter": "fixture-adapter",
+      "codec": "openai-chat",
+      "base_url": "http://127.0.0.1",
+      "auth": {
+        "type": "bearer",
+        "header": "authorization",
+        "prefix": "Bearer "
+      },
+      "priority": 7,
+      "allows_passthrough": true,
+      "default_model": "model",
+      "default_headers": {
+        "x-fixture": "base",
+        "x-overlay": "yes"
+      },
+      "adapter_options": {
+        "mode": "test"
+      },
+      "default_options": {
+        "base": true,
+        "overlay": true
+      },
+      "metadata_app": {
+        "mode": "overlay"
+      },
+      "models": [
+        {
+          "id": "model",
+          "provider": "fixture",
+          "display_name": "Model",
+          "aliases": [
+            "alias"
+          ],
+          "api_model": "wire-model",
+          "limits": {
+            "context_tokens": 1000,
+            "max_output_tokens": 100
+          },
+          "capabilities": {
+            "text": true,
+            "images": false,
+            "audio": false,
+            "documents": false,
+            "tools": true,
+            "forced_tool_choice": true,
+            "structured_output": false,
+            "reasoning": false,
+            "reasoning_effort_levels": false,
+            "caching": false,
+            "cache_breakpoints": false,
+            "cache_routing": false,
+            "sampling": true,
+            "system_turns": false
+          },
+          "pricing": {
+            "input_usd_micros_per_million": 1000000,
+            "output_usd_micros_per_million": 2000000,
+            "cached_input_usd_micros_per_million": 100000,
+            "cache_write_usd_micros_per_million": 500000,
+            "long_context": {
+              "above_input_tokens": 100,
+              "input_usd_micros_per_million": 3000000,
+              "output_usd_micros_per_million": null,
+              "cached_input_usd_micros_per_million": null,
+              "cache_write_usd_micros_per_million": null
+            },
+            "speed": {
+              "fast": {
+                "output_usd_micros_per_million": 4000000
+              },
+              "balanced": {},
+              "economical": {
+                "input_usd_micros_per_million": 500000
+              }
+            }
+          },
+          "base_pricing": {
+            "input_usd_micros_per_million": 1000000,
+            "output_usd_micros_per_million": 2000000,
+            "cached_input_usd_micros_per_million": 100000,
+            "cache_write_usd_micros_per_million": 500000,
+            "long_context": {
+              "above_input_tokens": 100,
+              "input_usd_micros_per_million": 3000000,
+              "output_usd_micros_per_million": null,
+              "cached_input_usd_micros_per_million": null,
+              "cache_write_usd_micros_per_million": null
+            },
+            "speed": {
+              "fast": {
+                "output_usd_micros_per_million": 4000000
+              },
+              "balanced": {},
+              "economical": {
+                "input_usd_micros_per_million": 500000
+              }
+            }
+          },
+          "long_pricing": {
+            "input_usd_micros_per_million": 3000000,
+            "output_usd_micros_per_million": 2000000,
+            "cached_input_usd_micros_per_million": 100000,
+            "cache_write_usd_micros_per_million": 500000,
+            "long_context": {
+              "above_input_tokens": 100,
+              "input_usd_micros_per_million": 3000000,
+              "output_usd_micros_per_million": null,
+              "cached_input_usd_micros_per_million": null,
+              "cache_write_usd_micros_per_million": null
+            },
+            "speed": {
+              "fast": {
+                "output_usd_micros_per_million": 4000000
+              },
+              "balanced": {},
+              "economical": {
+                "input_usd_micros_per_million": 500000
+              }
+            }
+          },
+          "fast_pricing": {
+            "input_usd_micros_per_million": 1000000,
+            "output_usd_micros_per_million": 4000000,
+            "cached_input_usd_micros_per_million": 100000,
+            "cache_write_usd_micros_per_million": 500000,
+            "long_context": {
+              "above_input_tokens": 100,
+              "input_usd_micros_per_million": 3000000,
+              "output_usd_micros_per_million": null,
+              "cached_input_usd_micros_per_million": null,
+              "cache_write_usd_micros_per_million": null
+            },
+            "speed": {
+              "fast": {
+                "output_usd_micros_per_million": 4000000
+              },
+              "balanced": {},
+              "economical": {
+                "input_usd_micros_per_million": 500000
+              }
+            }
+          },
+          "balanced_pricing": {
+            "input_usd_micros_per_million": 1000000,
+            "output_usd_micros_per_million": 2000000,
+            "cached_input_usd_micros_per_million": 100000,
+            "cache_write_usd_micros_per_million": 500000,
+            "long_context": {
+              "above_input_tokens": 100,
+              "input_usd_micros_per_million": 3000000,
+              "output_usd_micros_per_million": null,
+              "cached_input_usd_micros_per_million": null,
+              "cache_write_usd_micros_per_million": null
+            },
+            "speed": {
+              "fast": {
+                "output_usd_micros_per_million": 4000000
+              },
+              "balanced": {},
+              "economical": {
+                "input_usd_micros_per_million": 500000
+              }
+            }
+          },
+          "economical_pricing": {
+            "input_usd_micros_per_million": 500000,
+            "output_usd_micros_per_million": 2000000,
+            "cached_input_usd_micros_per_million": 100000,
+            "cache_write_usd_micros_per_million": 500000,
+            "long_context": {
+              "above_input_tokens": 100,
+              "input_usd_micros_per_million": 3000000,
+              "output_usd_micros_per_million": null,
+              "cached_input_usd_micros_per_million": null,
+              "cache_write_usd_micros_per_million": null
+            },
+            "speed": {
+              "fast": {
+                "output_usd_micros_per_million": 4000000
+              },
+              "balanced": {},
+              "economical": {
+                "input_usd_micros_per_million": 500000
+              }
+            }
+          },
+          "metadata_app": {
+            "mode": "model"
+          },
+          "metadata_app_map": {
+            "mode": "model"
+          },
+          "passthrough": false
+        }
+      ]
+    },
+    {
+      "id": "header",
+      "display_name": "Header",
+      "aliases": [],
+      "adapter": "custom",
+      "codec": "custom",
+      "base_url": "http://127.0.0.1",
+      "auth": {
+        "type": "header",
+        "name": "x-key"
+      },
+      "priority": 0,
+      "allows_passthrough": false,
+      "default_model": null,
+      "default_headers": {},
+      "adapter_options": null,
+      "default_options": {},
+      "metadata_app": null,
+      "models": []
+    },
+    {
+      "id": "headers",
+      "display_name": "Headers",
+      "aliases": [],
+      "adapter": "custom",
+      "codec": "custom",
+      "base_url": "http://127.0.0.1",
+      "auth": {
+        "type": "headers"
+      },
+      "priority": 0,
+      "allows_passthrough": false,
+      "default_model": null,
+      "default_headers": {},
+      "adapter_options": null,
+      "default_options": {},
+      "metadata_app": null,
+      "models": []
+    }
+  ],
+  "provider_lookups": [
+    {
+      "selector": "fixture",
+      "result": "fixture"
+    },
+    {
+      "selector": "fx",
+      "result": "fixture"
+    },
+    {
+      "selector": "missing",
+      "result": "provider `missing` was not found"
+    }
+  ],
+  "model_lookups": [
+    {
+      "provider": "fixture",
+      "model": "model",
+      "result": "fixture/model"
+    },
+    {
+      "provider": "fx",
+      "model": "alias",
+      "result": "fixture/model"
+    },
+    {
+      "provider": "fixture",
+      "model": "wire-model",
+      "result": "fixture/model"
+    },
+    {
+      "provider": "fixture",
+      "model": "missing",
+      "result": "model `missing` was not found for provider fixture"
+    },
+    {
+      "provider": "missing",
+      "model": "model",
+      "result": "provider `missing` was not found"
+    }
+  ],
+  "canonical_lookup": true
+}
+
+$ E2E_FIRST=first E2E_BEARER=bearer E2E_EXTRA=extra E2E_FALLBACK=fallback E2E_BEDROCK=bedrock E2E_BEDROCK_FALLBACK=bedrock-fallback OPENAI_API_KEY=openai lithos-llm-e2e credentials credentials.json
+{
+  "kind": "credentials",
+  "results": [
+    {
+      "provider": "fixture",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::Bearer(<redacted>), extra_header_names: [/"x-first/", /"x-extra/"] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "bearer",
+            "length": 6,
+            "debug": "SecretValue(<redacted>)"
+          },
+          "extra_headers": [
+            {
+              "name": "x-first",
+              "length": 5
+            },
+            {
+              "name": "x-extra",
+              "length": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "provider": "fallback",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::Header(/"x-fallback/"), extra_header_names: [] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "header",
+            "name": "x-fallback",
+            "length": 8,
+            "debug": "CredentialHeader { name: /"x-fallback/", value: /"<redacted>/" }"
+          },
+          "extra_headers": []
+        }
+      }
+    },
+    {
+      "provider": "aws",
+      "result": {
+        "debug": "Credentials::AwsDefaultChain { region: Some(/"us-west-2/") }",
+        "detail": {
+          "type": "aws_default_chain",
+          "region": "us-west-2"
+        }
+      }
+    },
+    {
+      "provider": "aws-fallback",
+      "result": {
+        "debug": "Credentials::AwsDefaultChain { region: None }",
+        "detail": {
+          "type": "aws_default_chain",
+          "region": null
+        }
+      }
+    },
+    {
+      "provider": "bedrock",
+      "result": {
+        "debug": "Credentials::BedrockBearer(<redacted>)",
+        "detail": {
+          "type": "bedrock_bearer",
+          "length": 7
+        }
+      }
+    },
+    {
+      "provider": "bedrock-fallback",
+      "result": {
+        "debug": "Credentials::BedrockBearer(<redacted>)",
+        "detail": {
+          "type": "bedrock_bearer",
+          "length": 16
+        }
+      }
+    },
+    {
+      "provider": "unconfigured",
+      "result": {
+        "error": "credentials are not configured for provider unconfigured",
+        "source": null
+      }
+    },
+    {
+      "provider": "openai",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::Bearer(<redacted>), extra_header_names: [] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "bearer",
+            "length": 6,
+            "debug": "SecretValue(<redacted>)"
+          },
+          "extra_headers": []
+        }
+      }
+    },
+    {
+      "provider": "fixture",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::None, extra_header_names: [] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "none"
+          },
+          "extra_headers": []
+        }
+      }
+    },
+    {
+      "provider": "fixture",
+      "result": {
+        "error": "credentials are not configured for provider fixture",
+        "source": null
+      }
+    },
+    {
+      "provider": "fixture",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::Bearer(<redacted>), extra_header_names: [] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "bearer",
+            "length": 13,
+            "debug": "SecretValue(<redacted>)"
+          },
+          "extra_headers": []
+        }
+      }
+    },
+    {
+      "provider": "fixture",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::Header(/"x-static/"), extra_header_names: [] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "header",
+            "name": "x-static",
+            "length": 13,
+            "debug": "CredentialHeader { name: /"x-static/", value: /"<redacted>/" }"
+          },
+          "extra_headers": []
+        }
+      }
+    },
+    {
+      "provider": "fixture",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::None, extra_header_names: [/"x-extra/"] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "none"
+          },
+          "extra_headers": [
+            {
+              "name": "x-extra",
+              "length": 13
+            }
+          ]
+        }
+      }
+    },
+    {
+      "provider": "fixture",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::None, extra_header_names: [] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "none"
+          },
+          "extra_headers": []
+        }
+      }
+    }
+  ]
+}
+
+```

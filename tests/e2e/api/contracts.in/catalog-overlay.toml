@@ -1,0 +1,4 @@
+[providers.fixture]
+default_headers = { "x-overlay" = "yes" }
+default_options = { overlay = true }
+metadata = { app = { mode = "overlay" } }

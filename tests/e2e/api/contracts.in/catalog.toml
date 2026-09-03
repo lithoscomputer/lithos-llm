@@ -1,0 +1,53 @@
+schema_version = 1
+
+[providers.fixture]
+display_name = "Fixture"
+aliases = ["fx"]
+adapter = "fixture-adapter"
+codec = "openai-chat"
+base_url = "http://127.0.0.1"
+auth = { type = "bearer" }
+priority = 7
+allow_passthrough = true
+default_model = "model"
+default_headers = { "x-fixture" = "base" }
+adapter_options = { mode = "test" }
+default_options = { base = true }
+metadata = { app = { mode = "base" } }
+
+[providers.fixture.models.model]
+display_name = "Model"
+aliases = ["alias"]
+api_model = "wire-model"
+limits = { context_tokens = 1000, max_output_tokens = 100 }
+capabilities = { text = true, tools = true, sampling = true }
+pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 2000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 500000, long_context = { above_input_tokens = 100, input_usd_micros_per_million = 3000000 }, speed = { fast = { output_usd_micros_per_million = 4000000 }, balanced = {}, economical = { input_usd_micros_per_million = 500000 } } }
+metadata = { app = { mode = "model" } }
+
+[providers.header]
+display_name = "Header"
+adapter = "custom"
+codec = "custom"
+base_url = "http://127.0.0.1"
+auth = { type = "header", name = "x-key" }
+
+[providers.headers]
+display_name = "Headers"
+adapter = "custom"
+codec = "custom"
+base_url = "http://127.0.0.1"
+auth = { type = "headers" }
+
+[providers.aws]
+display_name = "AWS"
+adapter = "custom"
+codec = "custom"
+base_url = "http://127.0.0.1"
+auth = { type = "aws", region = "us-east-1" }
+
+[providers.bedrock]
+display_name = "Bedrock"
+adapter = "custom"
+codec = "custom"
+base_url = "http://127.0.0.1"
+auth = { type = "bedrock_bearer" }

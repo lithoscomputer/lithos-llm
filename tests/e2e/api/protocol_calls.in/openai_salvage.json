@@ -1,0 +1,4 @@
+{
+  "model": "openai/fixture",
+  "messages": [{ "role": "user", "content": [{ "type": "text", "text": "OpenAI salvage stream" }] }]
+}

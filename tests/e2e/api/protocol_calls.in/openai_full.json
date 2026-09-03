@@ -1,0 +1,44 @@
+{
+  "model": "openai/fixture",
+  "messages": [
+    { "role": "system", "content": [{ "type": "text", "text": "OpenAI full system" }, { "type": "image", "source": { "type": "url", "url": "https://example.com/system.png" } }] },
+    { "role": "developer", "content": [{ "type": "text", "text": "Developer text" }] },
+    { "role": "user", "content": [
+      { "type": "text", "text": "OpenAI full request" },
+      { "type": "json", "value": { "input": true } },
+      { "type": "image", "source": { "type": "url", "url": "https://example.com/image.png", "media_type": "image/png" }, "detail": "low" },
+      { "type": "image", "source": { "type": "base64", "data": "AA==", "media_type": "image/png" } },
+      { "type": "document", "source": { "type": "url", "url": "https://example.com/doc.pdf" }, "name": "remote.pdf" },
+      { "type": "document", "source": { "type": "base64", "data": "AQ==", "media_type": "application/pdf" }, "name": "inline.pdf" }
+    ] },
+    { "role": "assistant", "content": [
+      { "type": "reasoning", "text": "Readable reasoning", "signature": "foreign", "signature_origin": "gemini", "redacted": false },
+      { "type": "opaque", "kind": "openai.reasoning", "data": { "id": "rs_replay", "type": "reasoning", "summary": [{ "type": "summary_text", "text": "Replay" }], "encrypted_content": "cipher" } },
+      { "type": "opaque", "kind": "foreign.item", "data": { "type": "ignored" } },
+      { "type": "tool_call", "id": "function-call", "name": "lookup", "arguments": { "query": "rust" }, "kind": "function", "raw_arguments": "{\"query\":\"rust\"}", "provider_metadata": { "openai": { "item_id": "fc-item" } } },
+      { "type": "tool_call", "id": "custom-call", "name": "shell", "arguments": "echo ready", "kind": "custom", "raw_arguments": "echo ready" },
+      { "type": "tool_call", "id": "nameless", "name": "", "arguments": {} }
+    ] },
+    { "role": "tool", "name": "shell", "tool_call_id": "custom-call", "content": [{ "type": "text", "text": "custom output" }] },
+    { "role": "tool", "content": [
+      { "type": "tool_result", "tool_call_id": "function-call", "name": "lookup", "content": [{ "type": "json", "value": { "one": 1 } }, { "type": "json", "value": { "two": 2 } }], "is_error": true },
+      { "type": "tool_result", "tool_call_id": "mixed", "content": [{ "type": "text", "text": "text" }, { "type": "json", "value": { "mixed": true } }] }
+    ] }
+  ],
+  "tools": [
+    { "name": "lookup", "description": "Lookup", "kind": { "type": "function", "input_schema": { "type": "object" } } },
+    { "name": "shell", "description": "Shell", "kind": { "type": "custom", "format": { "type": "grammar", "syntax": "lark" } } }
+  ],
+  "tool_choice": { "type": "required" },
+  "response_format": { "type": "text" },
+  "max_output_tokens": 99,
+  "temperature": 0.25,
+  "top_p": 0.8,
+  "reasoning_effort": "max",
+  "cache_hint": { "type": "auto" },
+  "speed": "economical",
+  "timeout": 2000,
+  "stop_sequences": ["STOP"],
+  "metadata": { "suite": "e2e" },
+  "provider_options": { "openai": { "parallel_tool_calls": false } }
+}

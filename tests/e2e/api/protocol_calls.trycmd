@@ -1,0 +1,802 @@
+# Complete public calls encode full declarative request documents.
+
+```console
+$ OPENAI_API_KEY=openai-full lithos-llm-e2e call catalog.toml openai_full.json
+{
+  "kind": "complete",
+  "text": "OpenAI full response",
+  "response": {
+    "id": "resp_full",
+    "model": {
+      "provider": "openai",
+      "model": "fixture"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "OpenAI full response"
+      },
+      {
+        "type": "opaque",
+        "kind": "openai.message",
+        "data": {
+          "id": "message-full",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "OpenAI full response"
+            }
+          ]
+        }
+      },
+      {
+        "type": "reasoning",
+        "text": "Reason one/n/nReason two"
+      },
+      {
+        "type": "opaque",
+        "kind": "openai.reasoning",
+        "data": {
+          "id": "reason-full",
+          "type": "reasoning",
+          "content": [
+            {
+              "type": "reasoning_text",
+              "text": "Reason one"
+            },
+            {
+              "type": "reasoning_text",
+              "text": "Reason two"
+            }
+          ],
+          "summary": [
+            {
+              "type": "summary_text",
+              "text": "Summary"
+            }
+          ],
+          "encrypted_content": "encrypted"
+        }
+      },
+      {
+        "type": "tool_call",
+        "id": "function-output",
+        "name": "lookup",
+        "arguments": {
+          "query": "done"
+        },
+        "kind": "function",
+        "raw_arguments": "{/"query/":/"done/"}",
+        "provider_metadata": {
+          "openai": {
+            "item_id": "function-item"
+          }
+        }
+      },
+      {
+        "type": "tool_call",
+        "id": "custom-output",
+        "name": "shell",
+        "arguments": "echo done",
+        "kind": "custom",
+        "raw_arguments": "echo done",
+        "provider_metadata": {
+          "openai": {
+            "item_id": "custom-item"
+          }
+        }
+      }
+    ],
+    "finish_reason": "length",
+    "usage": {
+      "input": 40,
+      "output": 15,
+      "reasoning": 5,
+      "cache_read": 7,
+      "cache_write": 3
+    },
+    "warnings": [
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support non-text tool result content"
+      },
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support non-text system content"
+      },
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support stop sequences"
+      }
+    ],
+    "raw": {
+      "id": "resp_full",
+      "status": "incomplete",
+      "incomplete_details": {
+        "reason": "max_output_tokens"
+      },
+      "output": [
+        {
+          "id": "message-full",
+          "type": "message",
+          "role": "assistant",
+          "content": [
+            {
+              "type": "output_text",
+              "text": "OpenAI full response"
+            }
+          ]
+        },
+        {
+          "id": "reason-full",
+          "type": "reasoning",
+          "content": [
+            {
+              "type": "reasoning_text",
+              "text": "Reason one"
+            },
+            {
+              "type": "reasoning_text",
+              "text": "Reason two"
+            }
+          ],
+          "summary": [
+            {
+              "type": "summary_text",
+              "text": "Summary"
+            }
+          ],
+          "encrypted_content": "encrypted"
+        },
+        {
+          "id": "function-item",
+          "call_id": "function-output",
+          "type": "function_call",
+          "name": "lookup",
+          "arguments": "{/"query/":/"done/"}"
+        },
+        {
+          "id": "custom-item",
+          "call_id": "custom-output",
+          "type": "custom_tool_call",
+          "name": "shell",
+          "input": "echo done"
+        },
+        {
+          "id": "internal-item",
+          "call_id": "internal-output",
+          "type": "function_call",
+          "arguments": "{}"
+        }
+      ],
+      "usage": {
+        "input_tokens": 50,
+        "input_tokens_details": {
+          "cached_tokens": 7,
+          "cache_write_tokens": 3
+        },
+        "output_tokens": 20,
+        "output_tokens_details": {
+          "reasoning_tokens": 5
+        }
+      }
+    }
+  }
+}
+
+$ ANTHROPIC_API_KEY=anthropic-full lithos-llm-e2e call catalog.toml anthropic_full.json
+{
+  "kind": "complete",
+  "text": "Anthropic full response",
+  "response": {
+    "id": "msg_full",
+    "model": {
+      "provider": "anthropic",
+      "model": "fixture"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "Anthropic full response"
+      }
+    ],
+    "finish_reason": "length",
+    "usage": {
+      "input": 70,
+      "output": 10,
+      "reasoning": 0,
+      "cache_read": 5,
+      "cache_write": 6
+    },
+    "warnings": [
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support non-text system content"
+      },
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support reasoning signed by another provider"
+      }
+    ],
+    "raw": {
+      "id": "msg_full",
+      "model": "claude-fixture",
+      "content": [
+        {
+          "type": "text",
+          "text": "Anthropic full response"
+        }
+      ],
+      "stop_reason": "max_tokens",
+      "usage": {
+        "input_tokens": 70,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 5,
+        "cache_creation_input_tokens": 6
+      }
+    }
+  }
+}
+
+$ OPENAI_API_KEY=openai-stream lithos-llm-e2e call catalog.toml openai_stream.json stream
+{
+  "kind": "stream",
+  "events": [
+    {
+      "name": "started:visible=false",
+      "event": {
+        "type": "started",
+        "id": "resp-edge"
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "msg-edge",
+        "kind": {
+          "type": "text"
+        }
+      }
+    },
+    {
+      "name": "text:visible=true",
+      "event": {
+        "type": "text_delta",
+        "id": "msg-edge",
+        "text": "Edge "
+      }
+    },
+    {
+      "name": "text:visible=true",
+      "event": {
+        "type": "text_delta",
+        "id": "msg-edge",
+        "text": "stream"
+      }
+    },
+    {
+      "name": "block_end:visible=true",
+      "event": {
+        "type": "content_block_end",
+        "id": "msg-edge",
+        "part": {
+          "type": "text",
+          "text": "Edge stream"
+        }
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "msg-edge-item",
+        "kind": {
+          "type": "opaque",
+          "kind": "openai.message"
+        }
+      }
+    },
+    {
+      "name": "block_end:visible=true",
+      "event": {
+        "type": "content_block_end",
+        "id": "msg-edge-item",
+        "part": {
+          "type": "opaque",
+          "kind": "openai.message",
+          "data": {
+            "id": "msg-edge",
+            "type": "message",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Edge stream"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "reason-edge",
+        "kind": {
+          "type": "reasoning"
+        }
+      }
+    },
+    {
+      "name": "reasoning:visible=true",
+      "event": {
+        "type": "reasoning_delta",
+        "id": "reason-edge",
+        "text": "First"
+      }
+    },
+    {
+      "name": "reasoning:visible=true",
+      "event": {
+        "type": "reasoning_delta",
+        "id": "reason-edge",
+        "text": "/n/nSecond"
+      }
+    },
+    {
+      "name": "reasoning:visible=true",
+      "event": {
+        "type": "reasoning_delta",
+        "id": "reason-edge",
+        "text": "Reason"
+      }
+    },
+    {
+      "name": "block_end:visible=true",
+      "event": {
+        "type": "content_block_end",
+        "id": "reason-edge",
+        "part": {
+          "type": "reasoning",
+          "text": "Reason complete"
+        }
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "reason-edge-item",
+        "kind": {
+          "type": "opaque",
+          "kind": "openai.reasoning"
+        }
+      }
+    },
+    {
+      "name": "block_end:visible=true",
+      "event": {
+        "type": "content_block_end",
+        "id": "reason-edge-item",
+        "part": {
+          "type": "opaque",
+          "kind": "openai.reasoning",
+          "data": {
+            "id": "reason-edge",
+            "type": "reasoning",
+            "content": [
+              {
+                "type": "reasoning_text",
+                "text": "Reason complete"
+              }
+            ],
+            "summary": [
+              {
+                "type": "summary_text",
+                "text": "First"
+              },
+              {
+                "type": "summary_text",
+                "text": "Second"
+              }
+            ],
+            "encrypted_content": "cipher"
+          }
+        }
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "function-edge",
+        "kind": {
+          "type": "tool_call",
+          "id": "function-edge",
+          "kind": "function"
+        }
+      }
+    },
+    {
+      "name": "tool:visible=true",
+      "event": {
+        "type": "tool_call_delta",
+        "id": "function-edge",
+        "arguments": "{/"x/":"
+      }
+    },
+    {
+      "name": "tool:visible=true",
+      "event": {
+        "type": "tool_call_delta",
+        "id": "function-edge",
+        "arguments": "1}"
+      }
+    },
+    {
+      "name": "block_end:visible=true",
+      "event": {
+        "type": "content_block_end",
+        "id": "function-edge",
+        "part": {
+          "type": "tool_call",
+          "id": "call-edge",
+          "name": "lookup",
+          "arguments": {
+            "x": 1
+          },
+          "kind": "function",
+          "raw_arguments": "{/"x/":1}",
+          "provider_metadata": {
+            "openai": {
+              "item_id": "function-edge"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "custom-edge",
+        "kind": {
+          "type": "tool_call",
+          "id": "custom-call",
+          "name": "shell",
+          "kind": "custom"
+        }
+      }
+    },
+    {
+      "name": "tool:visible=true",
+      "event": {
+        "type": "tool_call_delta",
+        "id": "custom-edge",
+        "arguments": "echo ready"
+      }
+    },
+    {
+      "name": "block_end:visible=true",
+      "event": {
+        "type": "content_block_end",
+        "id": "custom-edge",
+        "part": {
+          "type": "tool_call",
+          "id": "custom-call",
+          "name": "shell",
+          "arguments": "echo ready",
+          "kind": "custom",
+          "raw_arguments": "echo ready",
+          "provider_metadata": {
+            "openai": {
+              "item_id": "custom-edge"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "usage:visible=false",
+      "event": {
+        "type": "usage",
+        "usage": {
+          "input": 20,
+          "output": 5,
+          "reasoning": 3,
+          "cache_read": 0,
+          "cache_write": 0
+        }
+      }
+    },
+    {
+      "name": "completed:visible=true",
+      "event": {
+        "type": "completed",
+        "response": {
+          "id": "resp-edge",
+          "model": {
+            "provider": "openai",
+            "model": "fixture"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Edge stream"
+            },
+            {
+              "type": "opaque",
+              "kind": "openai.message",
+              "data": {
+                "id": "msg-edge",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "output_text",
+                    "text": "Edge stream"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "reasoning",
+              "text": "Reason complete"
+            },
+            {
+              "type": "opaque",
+              "kind": "openai.reasoning",
+              "data": {
+                "id": "reason-edge",
+                "type": "reasoning",
+                "content": [
+                  {
+                    "type": "reasoning_text",
+                    "text": "Reason complete"
+                  }
+                ],
+                "summary": [
+                  {
+                    "type": "summary_text",
+                    "text": "First"
+                  },
+                  {
+                    "type": "summary_text",
+                    "text": "Second"
+                  }
+                ],
+                "encrypted_content": "cipher"
+              }
+            },
+            {
+              "type": "tool_call",
+              "id": "call-edge",
+              "name": "lookup",
+              "arguments": {
+                "x": 1
+              },
+              "kind": "function",
+              "raw_arguments": "{/"x/":1}",
+              "provider_metadata": {
+                "openai": {
+                  "item_id": "function-edge"
+                }
+              }
+            },
+            {
+              "type": "tool_call",
+              "id": "custom-call",
+              "name": "shell",
+              "arguments": "echo ready",
+              "kind": "custom",
+              "raw_arguments": "echo ready",
+              "provider_metadata": {
+                "openai": {
+                  "item_id": "custom-edge"
+                }
+              }
+            }
+          ],
+          "finish_reason": "tool_call",
+          "usage": {
+            "input": 20,
+            "output": 5,
+            "reasoning": 3,
+            "cache_read": 0,
+            "cache_write": 0
+          },
+          "raw": {
+            "id": "resp-edge",
+            "status": "completed",
+            "output": [
+              {
+                "id": "msg-edge",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "output_text",
+                    "text": "Edge stream"
+                  }
+                ]
+              },
+              {
+                "id": "reason-edge",
+                "type": "reasoning",
+                "content": [
+                  {
+                    "type": "reasoning_text",
+                    "text": "Reason complete"
+                  }
+                ],
+                "summary": [],
+                "encrypted_content": "cipher"
+              },
+              {
+                "id": "function-edge",
+                "call_id": "call-edge",
+                "type": "function_call",
+                "name": "lookup",
+                "arguments": "{/"x/":1}"
+              }
+            ],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 8,
+              "output_tokens_details": {
+                "reasoning_tokens": 3
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+
+$ OPENAI_API_KEY=openai-salvage lithos-llm-e2e call catalog.toml openai_salvage.json stream
+{
+  "kind": "stream",
+  "events": [
+    {
+      "name": "started:visible=false",
+      "event": {
+        "type": "started",
+        "id": null
+      }
+    },
+    {
+      "name": "block_start:visible=false",
+      "event": {
+        "type": "content_block_start",
+        "id": "block-9",
+        "kind": {
+          "type": "text"
+        }
+      }
+    },
+    {
+      "name": "text:visible=true",
+      "event": {
+        "type": "text_delta",
+        "id": "block-9",
+        "text": "Salvaged"
+      }
+    },
+    {
+      "name": "usage:visible=false",
+      "event": {
+        "type": "usage",
+        "usage": {
+          "input": 4,
+          "output": 2,
+          "reasoning": 0,
+          "cache_read": 0,
+          "cache_write": 0
+        }
+      }
+    },
+    {
+      "name": "block_end:visible=true",
+      "event": {
+        "type": "content_block_end",
+        "id": "block-9",
+        "part": {
+          "type": "text",
+          "text": "Salvaged"
+        }
+      }
+    },
+    {
+      "name": "completed:visible=true",
+      "event": {
+        "type": "completed",
+        "response": {
+          "id": "resp-salvage",
+          "model": {
+            "provider": "openai",
+            "model": "fixture"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Salvaged"
+            }
+          ],
+          "finish_reason": "length",
+          "usage": {
+            "input": 4,
+            "output": 2,
+            "reasoning": 0,
+            "cache_read": 0,
+            "cache_write": 0
+          },
+          "raw": {
+            "type": "response.incomplete",
+            "id": "resp-salvage",
+            "status": "incomplete",
+            "usage": {
+              "input_tokens": 4,
+              "output_tokens": 2
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+
+$ OPENAI_API_KEY=openai-failed lithos-llm-e2e call catalog.toml openai_failed.json stream
+{
+  "kind": "stream",
+  "events": [
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "Server",
+        "message": "provider openai stream failed",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "server_error",
+        "retry": "Safe"
+      },
+      "data": {
+        "kind": "server",
+        "message": "provider openai stream failed",
+        "provider": "openai",
+        "provider_code": "server_error",
+        "retry": {
+          "type": "safe"
+        },
+        "raw_data": {
+          "type": "response.failed",
+          "error": {
+            "code": "server_error",
+            "message": "stream failed",
+            "type": "server_error"
+          }
+        }
+      },
+      "debug": "Error { kind: Server, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"server_error/"), retry: Safe, provider_retry_after_millis: None, has_raw_data: true, has_source: false, .. }",
+      "display": "provider openai stream failed",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": {
+        "type": "response.failed",
+        "error": {
+          "code": "server_error",
+          "message": "stream failed",
+          "type": "server_error"
+        }
+      },
+      "source": null
+    }
+  ]
+}
+
+```

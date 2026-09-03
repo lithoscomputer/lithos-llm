@@ -1,0 +1,9 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:3932/v1"
+
+[providers.openai.models.fixture]
+display_name = "Error fixture"
+api_model = "responses-v1"
+capabilities = { text = true }

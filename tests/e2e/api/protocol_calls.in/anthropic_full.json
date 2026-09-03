@@ -1,0 +1,39 @@
+{
+  "model": "anthropic/fixture",
+  "messages": [
+    { "role": "system", "content": [{ "type": "text", "text": "Anthropic full system" }, { "type": "image", "source": { "type": "base64", "data": "AA==", "media_type": "image/png" } }] },
+    { "role": "user", "content": [{ "type": "text", "text": "First user turn" }] },
+    { "role": "assistant", "content": [
+      { "type": "reasoning", "text": "Visible thought", "signature": "sig", "signature_origin": "anthropic", "redacted": false },
+      { "type": "reasoning", "text": "redacted-data", "redacted": true },
+      { "type": "reasoning", "text": "foreign thought", "signature": "foreign", "signature_origin": "gemini", "redacted": false },
+      { "type": "tool_call", "id": "tool-1", "name": "lookup", "arguments": { "query": "rust" } },
+      { "type": "opaque", "kind": "anthropic.native", "data": { "type": "server_tool_use", "id": "server-1", "name": "search", "input": {} } },
+      { "type": "opaque", "kind": "foreign.native", "data": { "type": "ignored" } }
+    ] },
+    { "role": "tool", "content": [{ "type": "tool_result", "tool_call_id": "tool-1", "name": "lookup", "content": [{ "type": "text", "text": "found" }, { "type": "json", "value": { "ok": true } }, { "type": "image", "source": { "type": "base64", "data": "AQ==", "media_type": "image/png" } }], "is_error": false }] },
+    { "role": "user", "content": [
+      { "type": "text", "text": "Anthropic full request" },
+      { "type": "json", "value": { "input": true } },
+      { "type": "image", "source": { "type": "url", "url": "https://example.com/image.png" } },
+      { "type": "image", "source": { "type": "base64", "data": "Ag==", "media_type": "image/jpeg" } },
+      { "type": "document", "source": { "type": "url", "url": "https://example.com/doc.pdf" }, "name": "remote" },
+      { "type": "document", "source": { "type": "base64", "data": "Aw==", "media_type": "application/pdf" }, "name": "inline" }
+    ] },
+    { "role": "developer", "content": [{ "type": "text", "text": "Late instruction" }] },
+    { "role": "assistant", "content": [{ "type": "text", "text": "Ready" }] }
+  ],
+  "tools": [{ "name": "lookup", "description": "Lookup", "kind": { "type": "function", "input_schema": { "type": "object" } } }],
+  "tool_choice": { "type": "auto" },
+  "response_format": { "type": "json_object" },
+  "max_output_tokens": 4096,
+  "temperature": 0.4,
+  "top_p": 0.7,
+  "reasoning_effort": "minimal",
+  "cache_hint": { "type": "auto" },
+  "speed": "balanced",
+  "timeout": 2000,
+  "stop_sequences": ["STOP"],
+  "metadata": { "suite": "e2e" },
+  "provider_options": { "anthropic": { "beta_headers": ["full-beta"] } }
+}

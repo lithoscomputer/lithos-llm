@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::error::Error as StdError;
 use std::io::{self, Write as _};
 use std::num::NonZeroUsize;
@@ -17,7 +17,11 @@ use lithos_llm::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter, ResolvedCall,
 };
 use lithos_llm::catalog::{AdapterId, Catalog, CatalogProvider, ModelId, ProviderId};
-use lithos_llm::credentials::{EnvironmentCredentials, NoCredentials};
+use lithos_llm::credentials::{
+    CredentialHeader, CredentialProvider, Credentials, EnvironmentCredentials,
+    EnvironmentCredentialsBuilder, HttpAuthentication, NoCredentials, SecretValue,
+    StaticCredentials,
+};
 use lithos_llm::estimate::{EstimateWarning, request_tokens};
 use lithos_llm::middleware::{
     Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Observer, ObserverMiddleware,
@@ -26,8 +30,9 @@ use lithos_llm::middleware::{
 };
 use lithos_llm::resolver::CatalogResolver;
 use lithos_llm::types::{
-    ContentPart, Error, ErrorKind, Request, Response, ResponseStream, RetryClassification,
-    StreamEvent, TokenCounts,
+    CacheHint, ContentPart, Error, ErrorKind, Message, ReasoningEffort, Request, RequestBuildError,
+    Response, ResponseFormat, ResponseStream, RetryClassification, Speed, StreamEvent, TokenCounts,
+    ToolChoice, ToolDefinition,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -60,6 +65,32 @@ async fn run() -> Result<(), Box<dyn StdError>> {
         "simulate" => {
             let simulation = read_json(required_argument(&mut arguments, "simulation path")?)?;
             simulate(simulation).await?
+        }
+        "requests" => {
+            let cases = read_json(required_argument(&mut arguments, "request cases path")?)?;
+            exercise_requests(cases)
+        }
+        "catalog" => {
+            let exercise = read_json(required_argument(&mut arguments, "catalog exercise path")?)?;
+            exercise_catalog(exercise)
+        }
+        "credentials" => {
+            let exercise = read_json(required_argument(
+                &mut arguments,
+                "credentials exercise path",
+            )?)?;
+            exercise_credentials(exercise).await?
+        }
+        "call" => {
+            let catalog = required_argument(&mut arguments, "catalog path")?;
+            let request = read_request(required_argument(&mut arguments, "request path")?)?;
+            let mode = arguments.next().unwrap_or_else(|| "complete".to_owned());
+            call(Path::new(&catalog), request, &mode).await?
+        }
+        "calls" => {
+            let catalog = required_argument(&mut arguments, "catalog path")?;
+            let requests = read_json(required_argument(&mut arguments, "requests path")?)?;
+            calls(Path::new(&catalog), requests).await?
         }
         other => return Err(format!("unknown action `{other}`").into()),
     };
@@ -108,6 +139,523 @@ fn estimate(request: &Request) -> Value {
     })
 }
 
+#[derive(Debug, Deserialize)]
+struct RequestCase {
+    name: String,
+    spec: RequestSpec,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct RequestSpec {
+    model:                   Option<String>,
+    #[serde(default)]
+    messages:                Vec<Message>,
+    system:                  Option<String>,
+    developer:               Option<String>,
+    user:                    Option<String>,
+    #[serde(default)]
+    tools:                   Vec<ToolDefinition>,
+    tool_choice:             Option<ToolChoice>,
+    response_format:         Option<ResponseFormat>,
+    max_output_tokens:       Option<u32>,
+    temperature:             Option<f32>,
+    top_p:                   Option<f32>,
+    reasoning_effort:        Option<ReasoningEffort>,
+    cache_hint:              Option<CacheHint>,
+    cache_key:               Option<String>,
+    speed:                   Option<Speed>,
+    timeout_ms:              Option<u64>,
+    stop_sequence:           Option<String>,
+    #[serde(default)]
+    stop_sequences:          Vec<String>,
+    #[serde(default)]
+    metadata:                BTreeMap<String, String>,
+    #[serde(default)]
+    provider_options:        BTreeMap<ProviderId, serde_json::Map<String, Value>>,
+    #[serde(default)]
+    provider_option_entries: Vec<ProviderOptionEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ProviderOptionEntry {
+    provider: ProviderId,
+    key:      String,
+    value:    Value,
+}
+
+fn exercise_requests(cases: Vec<RequestCase>) -> Value {
+    let results = cases
+        .into_iter()
+        .map(|case| {
+            let name = case.name;
+            match build_request(case.spec) {
+                Ok(request) => json!({
+                    "name": name,
+                    "result": "ok",
+                    "model": request.model(),
+                    "messages": request.messages().len(),
+                    "tools": request.tools().len(),
+                    "tool_choice": request.tool_choice(),
+                    "response_format": request.response_format(),
+                    "max_output_tokens": request.max_output_tokens(),
+                    "temperature": request.temperature(),
+                    "top_p": request.top_p(),
+                    "reasoning_effort": request.reasoning_effort(),
+                    "cache_hint": request.cache_hint(),
+                    "speed": request.speed(),
+                    "timeout_ms": request.timeout().map(|value| value.as_millis()),
+                    "stop_sequences": request.stop_sequences(),
+                    "metadata": request.metadata(),
+                    "provider_options": request.provider_options(),
+                    "fixture_options": request.options_for(&ProviderId::new("fixture")),
+                    "serialized": request,
+                }),
+                Err(error) => json!({
+                    "name": name,
+                    "result": "error",
+                    "message": error.to_string(),
+                }),
+            }
+        })
+        .collect::<Vec<_>>();
+    json!({ "kind": "requests", "cases": results })
+}
+
+fn build_request(spec: RequestSpec) -> Result<Request, RequestBuildError> {
+    let mut builder = Request::builder();
+    if let Some(model) = spec.model {
+        builder = builder.model(model);
+    }
+    for message in spec.messages {
+        builder = builder.message(message);
+    }
+    if let Some(text) = spec.system {
+        builder = builder.system(text);
+    }
+    if let Some(text) = spec.developer {
+        builder = builder.developer(text);
+    }
+    if let Some(text) = spec.user {
+        builder = builder.user(text);
+    }
+    for tool in spec.tools {
+        builder = builder.tool(tool);
+    }
+    if let Some(choice) = spec.tool_choice {
+        builder = builder.tool_choice(choice);
+    }
+    if let Some(format) = spec.response_format {
+        builder = builder.response_format(format);
+    }
+    if let Some(tokens) = spec.max_output_tokens {
+        builder = builder.max_output_tokens(tokens);
+    }
+    if let Some(temperature) = spec.temperature {
+        builder = builder.temperature(temperature);
+    }
+    if let Some(top_p) = spec.top_p {
+        builder = builder.top_p(top_p);
+    }
+    if let Some(effort) = spec.reasoning_effort {
+        builder = builder.reasoning_effort(effort);
+    }
+    if let Some(hint) = spec.cache_hint {
+        builder = builder.cache_hint(hint);
+    }
+    if let Some(key) = spec.cache_key {
+        builder = builder.cache_key(key);
+    }
+    if let Some(speed) = spec.speed {
+        builder = builder.speed(speed);
+    }
+    if let Some(milliseconds) = spec.timeout_ms {
+        builder = builder.timeout(Duration::from_millis(milliseconds));
+    }
+    if let Some(sequence) = spec.stop_sequence {
+        builder = builder.stop_sequence(sequence);
+    }
+    builder = builder.stop_sequences(spec.stop_sequences);
+    for (key, value) in spec.metadata {
+        builder = builder.metadata_entry(key, value);
+    }
+    for (provider, options) in spec.provider_options {
+        builder = builder.provider_options(provider, options);
+    }
+    for entry in spec.provider_option_entries {
+        builder = builder.provider_option(entry.provider, entry.key, entry.value);
+    }
+    builder.build()
+}
+
+#[derive(Debug, Deserialize)]
+struct CatalogExercise {
+    #[serde(default)]
+    builtin:          bool,
+    #[serde(default)]
+    layers:           Vec<CatalogLayer>,
+    #[serde(default)]
+    provider_lookups: Vec<String>,
+    #[serde(default)]
+    model_lookups:    Vec<ModelLookup>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum CatalogLayer {
+    Named { name: String, path: String },
+    Overlay { path: String },
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelLookup {
+    provider: String,
+    model:    String,
+}
+
+fn exercise_catalog(exercise: CatalogExercise) -> Value {
+    let mut builder = Catalog::builder();
+    if exercise.builtin {
+        builder = builder.with_builtin();
+    }
+    for layer in exercise.layers {
+        let result = match layer {
+            CatalogLayer::Named { name, path } => fs::read_to_string(path)
+                .map_err(|error| error.to_string())
+                .and_then(|source| {
+                    builder
+                        .toml_layer(name, &source)
+                        .map_err(|error| error.to_string())
+                }),
+            CatalogLayer::Overlay { path } => fs::read_to_string(path)
+                .map_err(|error| error.to_string())
+                .and_then(|source| {
+                    builder
+                        .overlay_toml(&source)
+                        .map_err(|error| error.to_string())
+                }),
+        };
+        match result {
+            Ok(next) => builder = next,
+            Err(error) => return json!({ "kind": "catalog_error", "message": error }),
+        }
+    }
+    let catalog = match builder.build() {
+        Ok(catalog) => catalog,
+        Err(error) => return json!({ "kind": "catalog_error", "message": error.to_string() }),
+    };
+    let providers = catalog
+        .providers()
+        .map(|provider| {
+            let models = provider
+                .models()
+                .map(|model| {
+                    let pricing = model.pricing();
+                    json!({
+                        "id": model.id(),
+                        "provider": model.provider_id(),
+                        "display_name": model.display_name(),
+                        "aliases": model.aliases(),
+                        "api_model": model.api_model(),
+                        "limits": model.limits(),
+                        "capabilities": model.capabilities(),
+                        "pricing": pricing,
+                        "base_pricing": pricing.map(|value| value.for_input_tokens(1)),
+                        "long_pricing": pricing.map(|value| value.for_input_tokens(u64::MAX)),
+                        "fast_pricing": pricing.map(|value| value.for_speed(Some(Speed::Fast))),
+                        "balanced_pricing": pricing.map(|value| value.for_speed(Some(Speed::Balanced))),
+                        "economical_pricing": pricing.map(|value| value.for_speed(Some(Speed::Economical))),
+                        "metadata_app": model.metadata().get("app"),
+                        "metadata_app_map": model.metadata().namespace::<BTreeMap<String, String>>("app").map_or_else(|error| json!({"error": error.to_string()}), |value| json!(value)),
+                        "passthrough": model.is_passthrough(),
+                    })
+                })
+                .collect::<Vec<_>>();
+            json!({
+                "id": provider.id(),
+                "display_name": provider.display_name(),
+                "aliases": provider.aliases(),
+                "adapter": provider.adapter(),
+                "codec": provider.codec(),
+                "base_url": provider.base_url(),
+                "auth": provider.auth(),
+                "priority": provider.priority(),
+                "allows_passthrough": provider.allows_passthrough(),
+                "default_model": provider.default_model(),
+                "default_headers": provider.default_headers(),
+                "adapter_options": provider.adapter_options(),
+                "default_options": provider.default_options(),
+                "metadata_app": provider.metadata().get("app"),
+                "models": models,
+            })
+        })
+        .collect::<Vec<_>>();
+    let provider_lookups = exercise
+        .provider_lookups
+        .into_iter()
+        .map(|selector| {
+            let result = catalog.provider(&selector).map_or_else(
+                |error| error.to_string(),
+                |provider| provider.id().to_string(),
+            );
+            json!({ "selector": selector, "result": result })
+        })
+        .collect::<Vec<_>>();
+    let model_lookups = exercise
+        .model_lookups
+        .into_iter()
+        .map(|lookup| {
+            let result = catalog.model(&lookup.provider, &lookup.model).map_or_else(
+                |error| error.to_string(),
+                |model| format!("{}/{}", model.provider_id(), model.id()),
+            );
+            json!({ "provider": lookup.provider, "model": lookup.model, "result": result })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "kind": "catalog",
+        "schema_version": catalog.schema_version(),
+        "provider_count": providers.len(),
+        "providers": providers,
+        "provider_lookups": provider_lookups,
+        "model_lookups": model_lookups,
+        "canonical_lookup": catalog.provider_by_id(&ProviderId::new("fixture")).is_some(),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct CredentialsExercise {
+    catalog:     String,
+    #[serde(default)]
+    operations:  Vec<CredentialOperation>,
+    #[serde(default)]
+    resolutions: Vec<CredentialResolution>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum CredentialOperation {
+    Bearer {
+        provider: String,
+        variable: String,
+    },
+    Header {
+        provider: String,
+        name:     String,
+        variable: String,
+    },
+    BearerHeader {
+        provider: String,
+        name:     String,
+        variable: String,
+    },
+    OrBearer {
+        provider: String,
+        variable: String,
+    },
+    OrHeader {
+        provider: String,
+        name:     String,
+        variable: String,
+    },
+    AwsDefaultChain {
+        provider: String,
+        region:   Option<String>,
+    },
+    OrAwsDefaultChain {
+        provider: String,
+        region:   Option<String>,
+    },
+    BedrockBearer {
+        provider: String,
+        variable: String,
+    },
+    OrBedrockBearer {
+        provider: String,
+        variable: String,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "source", rename_all = "snake_case")]
+enum CredentialResolution {
+    Environment { provider: String },
+    Conventional { provider: String },
+    None { provider: String },
+    StaticMissing { provider: String },
+    StaticBearer { provider: String },
+    StaticHeader { provider: String },
+    StaticHeaders { provider: String },
+    StaticNone { provider: String },
+}
+
+async fn exercise_credentials(exercise: CredentialsExercise) -> Result<Value, Box<dyn StdError>> {
+    let source = fs::read_to_string(exercise.catalog)?;
+    let catalog = Catalog::builder()
+        .toml_layer("credentials", &source)?
+        .build()?;
+    let mut builder = EnvironmentCredentials::builder();
+    for operation in exercise.operations {
+        builder = apply_credential_operation(builder, operation);
+    }
+    let environment = builder.build();
+    let conventional = EnvironmentCredentials::conventional();
+    let mut results = Vec::new();
+    for resolution in exercise.resolutions {
+        let (provider_name, result) = match resolution {
+            CredentialResolution::Environment { provider } => {
+                let result = resolve_credentials(&catalog, &provider, &environment).await;
+                (provider, result)
+            }
+            CredentialResolution::Conventional { provider } => {
+                let result = resolve_credentials(&catalog, &provider, &conventional).await;
+                (provider, result)
+            }
+            CredentialResolution::None { provider } => {
+                let result = resolve_credentials(&catalog, &provider, &NoCredentials).await;
+                (provider, result)
+            }
+            CredentialResolution::StaticMissing { provider } => {
+                let result =
+                    resolve_credentials(&catalog, &provider, &StaticCredentials::new()).await;
+                (provider, result)
+            }
+            CredentialResolution::StaticBearer { provider } => {
+                let credentials = StaticCredentials::new().with(
+                    provider.clone(),
+                    Credentials::bearer(SecretValue::new("static-secret")),
+                );
+                let result = resolve_credentials(&catalog, &provider, &credentials).await;
+                (provider, result)
+            }
+            CredentialResolution::StaticHeader { provider } => {
+                let credentials = StaticCredentials::new().with(
+                    provider.clone(),
+                    Credentials::header(CredentialHeader::new(
+                        "x-static",
+                        SecretValue::new("static-secret"),
+                    )),
+                );
+                let result = resolve_credentials(&catalog, &provider, &credentials).await;
+                (provider, result)
+            }
+            CredentialResolution::StaticHeaders { provider } => {
+                let credentials = StaticCredentials::new().with(
+                    provider.clone(),
+                    Credentials::headers([CredentialHeader::new(
+                        "x-extra",
+                        SecretValue::new("static-secret"),
+                    )]),
+                );
+                let result = resolve_credentials(&catalog, &provider, &credentials).await;
+                (provider, result)
+            }
+            CredentialResolution::StaticNone { provider } => {
+                let credentials =
+                    StaticCredentials::new().with(provider.clone(), Credentials::none());
+                let result = resolve_credentials(&catalog, &provider, &credentials).await;
+                (provider, result)
+            }
+        };
+        results.push(json!({ "provider": provider_name, "result": result }));
+    }
+    Ok(json!({ "kind": "credentials", "results": results }))
+}
+
+fn apply_credential_operation(
+    builder: EnvironmentCredentialsBuilder,
+    operation: CredentialOperation,
+) -> EnvironmentCredentialsBuilder {
+    match operation {
+        CredentialOperation::Bearer { provider, variable } => builder.bearer(provider, variable),
+        CredentialOperation::Header {
+            provider,
+            name,
+            variable,
+        } => builder.header(provider, name, variable),
+        CredentialOperation::BearerHeader {
+            provider,
+            name,
+            variable,
+        } => builder.bearer_header(provider, name, variable),
+        CredentialOperation::OrBearer { provider, variable } => {
+            builder.or_bearer(provider, variable)
+        }
+        CredentialOperation::OrHeader {
+            provider,
+            name,
+            variable,
+        } => builder.or_header(provider, name, variable),
+        CredentialOperation::AwsDefaultChain { provider, region } => {
+            builder.aws_default_chain(provider, region)
+        }
+        CredentialOperation::OrAwsDefaultChain { provider, region } => {
+            builder.or_aws_default_chain(provider, region)
+        }
+        CredentialOperation::BedrockBearer { provider, variable } => {
+            builder.bedrock_bearer(provider, variable)
+        }
+        CredentialOperation::OrBedrockBearer { provider, variable } => {
+            builder.or_bedrock_bearer(provider, variable)
+        }
+    }
+}
+
+async fn resolve_credentials(
+    catalog: &Catalog,
+    provider: &str,
+    credentials: &dyn CredentialProvider,
+) -> Value {
+    let Ok(provider) = catalog.provider(provider) else {
+        return json!({ "error": "provider not found" });
+    };
+    match credentials.credentials(provider).await {
+        Ok(credentials) => render_credentials(&credentials),
+        Err(error) => json!({
+            "error": error.to_string(),
+            "source": StdError::source(&error).map(ToString::to_string),
+        }),
+    }
+}
+
+fn render_credentials(credentials: &Credentials) -> Value {
+    let detail = match credentials {
+        Credentials::Http(http) => {
+            let auth = match &http.auth {
+                HttpAuthentication::None => json!({ "type": "none" }),
+                HttpAuthentication::Bearer(secret) => json!({
+                    "type": "bearer",
+                    "length": secret.expose_secret().len(),
+                    "debug": format!("{secret:?}"),
+                }),
+                HttpAuthentication::Header(header) => json!({
+                    "type": "header",
+                    "name": header.name,
+                    "length": header.value.expose_secret().len(),
+                    "debug": format!("{header:?}"),
+                }),
+                _ => json!({ "type": "unknown" }),
+            };
+            json!({
+                "type": "http",
+                "auth": auth,
+                "extra_headers": http.extra_headers.iter().map(|header| json!({
+                    "name": header.name,
+                    "length": header.value.expose_secret().len(),
+                })).collect::<Vec<_>>(),
+            })
+        }
+        Credentials::AwsDefaultChain { region } => {
+            json!({ "type": "aws_default_chain", "region": region })
+        }
+        Credentials::BedrockBearer(secret) => json!({
+            "type": "bedrock_bearer",
+            "length": secret.expose_secret().len(),
+        }),
+        _ => json!({ "type": "unknown" }),
+    };
+    json!({ "debug": format!("{credentials:?}"), "detail": detail })
+}
+
 async fn count(catalog_path: &Path, request: Request) -> Result<Value, Box<dyn StdError>> {
     let source = fs::read_to_string(catalog_path)?;
     let catalog = Catalog::builder()
@@ -129,6 +677,60 @@ async fn count(catalog_path: &Path, request: Request) -> Result<Value, Box<dyn S
     }
 }
 
+async fn call(
+    catalog_path: &Path,
+    request: Request,
+    mode: &str,
+) -> Result<Value, Box<dyn StdError>> {
+    let source = fs::read_to_string(catalog_path)?;
+    let catalog = Catalog::builder()
+        .with_builtin()
+        .toml_layer(catalog_path.display().to_string(), &source)?
+        .build()?;
+    let build = Client::builder()
+        .catalog(catalog)
+        .credentials(EnvironmentCredentials::conventional())
+        .build()?;
+    match mode {
+        "complete" => match build.client.complete(request).await {
+            Ok(response) => Ok(json!({
+                "kind": "complete",
+                "text": response.text(),
+                "response": response,
+            })),
+            Err(error) => Ok(render_error_details(&error)),
+        },
+        "stream" => match build.client.stream(request).await {
+            Ok(mut stream) => {
+                let mut events = Vec::new();
+                while let Some(item) = stream.next().await {
+                    match item {
+                        Ok(event) => events.push(json!({
+                            "name": event_name(&event),
+                            "event": event,
+                        })),
+                        Err(error) => {
+                            events.push(render_error_details(&error));
+                            break;
+                        }
+                    }
+                }
+                Ok(json!({ "kind": "stream", "events": events }))
+            }
+            Err(error) => Ok(render_error_details(&error)),
+        },
+        other => Err(format!("unknown call mode `{other}`").into()),
+    }
+}
+
+async fn calls(catalog_path: &Path, requests: Vec<Request>) -> Result<Value, Box<dyn StdError>> {
+    let mut results = Vec::new();
+    for request in requests {
+        results.push(call(catalog_path, request, "complete").await?);
+    }
+    Ok(json!({ "kind": "calls", "results": results }))
+}
+
 fn render_error(error: &Error) -> Value {
     json!({
         "kind": "error",
@@ -138,6 +740,20 @@ fn render_error(error: &Error) -> Value {
         "status": error.status(),
         "provider_code": error.provider_code(),
         "retry": format!("{:?}", error.retry_classification()),
+    })
+}
+
+fn render_error_details(error: &Error) -> Value {
+    json!({
+        "kind": "error",
+        "error": render_error(error),
+        "data": error.data(),
+        "debug": format!("{error:?}"),
+        "display": error.to_string(),
+        "retry_after_ms": error.retry_after().map(|value| value.as_millis()),
+        "provider_retry_after_ms": error.provider_retry_after().map(|value| value.as_millis()),
+        "raw_data": error.raw_data(),
+        "source": StdError::source(error).map(ToString::to_string),
     })
 }
 

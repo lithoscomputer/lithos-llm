@@ -1,0 +1,14 @@
+{
+  "layers": [
+    { "type": "named", "name": "base", "path": "catalog.toml" },
+    { "type": "overlay", "path": "catalog-overlay.toml" }
+  ],
+  "provider_lookups": ["fixture", "fx", "missing"],
+  "model_lookups": [
+    { "provider": "fixture", "model": "model" },
+    { "provider": "fx", "model": "alias" },
+    { "provider": "fixture", "model": "wire-model" },
+    { "provider": "fixture", "model": "missing" },
+    { "provider": "missing", "model": "model" }
+  ]
+}

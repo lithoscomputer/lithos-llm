@@ -1,0 +1,17 @@
+[
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error status 401" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error status 403" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error status 404" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error status 408" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error status 413" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error quota 429" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error invalid key 400" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error context 422" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error deadline 504" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error plain server 503" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error string 418" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error bedrock shape" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error detail shape" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error unsupported code" }] }] },
+  { "model": "openai/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Error spent message" }] }] }
+]
