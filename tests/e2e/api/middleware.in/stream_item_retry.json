@@ -1,0 +1,26 @@
+{
+  "mode": "stream",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "retry stream item" }] }] },
+  "retry": { "max_attempts": 3, "initial_delay_ms": 0, "max_delay_ms": 0, "retry_after_cap_ms": 50, "observer": true },
+  "concurrency": 1,
+  "observer": true,
+  "stream_hooks": true,
+  "steps": [
+    { "type": "stream", "items": [
+      { "type": "event", "event": { "type": "started", "id": "discarded" } },
+      { "type": "event", "event": { "type": "usage", "usage": { "input": 1, "output": 0, "reasoning": 0, "cache_read": 0, "cache_write": 0 } } },
+      { "type": "error", "message": "stream failed before output", "retry": "safe" }
+    ] },
+    { "type": "stream", "items": [
+      { "type": "event", "event": { "type": "started", "id": "kept" } },
+      { "type": "event", "event": { "type": "rate_limits", "rate_limits": { "request_limit": 10, "request_remaining": 9 } } },
+      { "type": "event", "event": { "type": "content_block_start", "id": "text-0", "kind": { "type": "text" } } },
+      { "type": "event", "event": { "type": "text_delta", "id": "text-0", "text": "visible" } },
+      { "type": "event", "event": { "type": "reasoning_delta", "id": "reasoning-0", "text": "thought" } },
+      { "type": "event", "event": { "type": "tool_call_delta", "id": "tool-0", "arguments": "{}" } },
+      { "type": "event", "event": { "type": "content_block_end", "id": "text-0", "part": { "type": "text", "text": "visible" } } },
+      { "type": "event", "event": { "type": "usage", "usage": { "input": 2, "output": 3, "reasoning": 4, "cache_read": 5, "cache_write": 6 } } },
+      { "type": "event", "event": { "type": "completed", "response": { "id": "kept", "model": { "provider": "fixture", "model": "model" }, "content": [{ "type": "text", "text": "visible" }], "finish_reason": "stop", "usage": { "input": 2, "output": 3, "reasoning": 4, "cache_read": 5, "cache_write": 6 } } } }
+    ] }
+  ]
+}

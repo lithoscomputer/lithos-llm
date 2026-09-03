@@ -1,0 +1,8 @@
+{
+  "mode": "complete",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "timeout complete" }] }] },
+  "registration": "arc",
+  "timeout_ms": 5,
+  "observer": true,
+  "steps": [{ "type": "complete", "text": "too late", "delay_ms": 20 }]
+}

@@ -1,0 +1,16 @@
+{
+  "mode": "complete",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "retry complete" }] }] },
+  "registration": "factory",
+  "builder_variants": true,
+  "retry": { "max_attempts": 3, "initial_delay_ms": 0, "max_delay_ms": 0, "retry_after_cap_ms": 50, "observer": true },
+  "timeout_ms": 100,
+  "concurrency": 1,
+  "observer": true,
+  "initial_attempt": 0,
+  "exercise_extensions": true,
+  "steps": [
+    { "type": "error", "message": "retry once", "retry": "safe" },
+    { "type": "complete", "text": "complete after retry" }
+  ]
+}

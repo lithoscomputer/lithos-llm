@@ -1,0 +1,10 @@
+{
+  "mode": "complete",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "deadline retry" }] }] },
+  "deadline_ms": 10,
+  "retry": { "max_attempts": 3, "initial_delay_ms": 50, "max_delay_ms": 50, "retry_after_cap_ms": 100, "observer": true },
+  "steps": [
+    { "type": "error", "message": "deadline blocks retry", "retry": "safe" },
+    { "type": "complete", "text": "must not run" }
+  ]
+}

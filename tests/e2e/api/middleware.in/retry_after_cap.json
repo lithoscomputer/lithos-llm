@@ -1,0 +1,9 @@
+{
+  "mode": "complete",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "retry after cap" }] }] },
+  "retry": { "max_attempts": 3, "initial_delay_ms": 0, "max_delay_ms": 0, "retry_after_cap_ms": 5, "observer": true },
+  "steps": [
+    { "type": "error", "message": "wait too long", "retry": "after", "retry_after_ms": 10 },
+    { "type": "complete", "text": "must not run" }
+  ]
+}

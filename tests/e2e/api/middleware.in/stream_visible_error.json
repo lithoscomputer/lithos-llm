@@ -1,0 +1,13 @@
+{
+  "mode": "stream",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "visible stream error" }] }] },
+  "retry": { "max_attempts": 3, "initial_delay_ms": 0, "max_delay_ms": 0, "retry_after_cap_ms": 50, "observer": true },
+  "steps": [
+    { "type": "stream", "items": [
+      { "type": "event", "event": { "type": "started", "id": "visible-error" } },
+      { "type": "event", "event": { "type": "text_delta", "id": "text-0", "text": "partial" } },
+      { "type": "error", "message": "stream failed after output", "retry": "safe" }
+    ] },
+    { "type": "stream", "items": [] }
+  ]
+}

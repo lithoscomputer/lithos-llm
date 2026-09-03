@@ -1,0 +1,287 @@
+# Middleware behavior is defined in JSON and asserted as command output.
+
+```console
+$ lithos-llm-e2e simulate complete_retry.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "complete",
+    "text": "complete after retry",
+    "tokens": 15
+  },
+  "adapter_calls": 2,
+  "attempts": [
+    1,
+    2
+  ],
+  "extension_exercised": true,
+  "observer": {
+    "starts": 2,
+    "completes": 2,
+    "events": 0,
+    "errors": 1,
+    "retries": 1,
+    "request_retries": 1,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate retry_after_cap.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "error",
+    "error_kind": "Server",
+    "message": "wait too long",
+    "provider": "fixture",
+    "status": 503,
+    "provider_code": "fixture_error",
+    "retry": "After { millis: 10 }"
+  },
+  "adapter_calls": 1,
+  "attempts": [
+    1
+  ],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 0,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 0,
+    "request_retries": 0,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate timeout_complete.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "error",
+    "error_kind": "Timeout",
+    "message": "the LLM call timed out",
+    "provider": null,
+    "status": null,
+    "provider_code": null,
+    "retry": "Never"
+  },
+  "adapter_calls": 1,
+  "attempts": [
+    1
+  ],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 1,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 0,
+    "request_retries": 0,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate cancelled.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "error",
+    "error_kind": "Cancelled",
+    "message": "the call was cancelled",
+    "provider": null,
+    "status": null,
+    "provider_code": null,
+    "retry": "Never"
+  },
+  "adapter_calls": 0,
+  "attempts": [],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 0,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 0,
+    "request_retries": 0,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate deadline_expired.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "error",
+    "error_kind": "Timeout",
+    "message": "the call deadline expired",
+    "provider": null,
+    "status": null,
+    "provider_code": null,
+    "retry": "Never"
+  },
+  "adapter_calls": 0,
+  "attempts": [],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 0,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 0,
+    "request_retries": 0,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate deadline_prevents_retry.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "error",
+    "error_kind": "Server",
+    "message": "deadline blocks retry",
+    "provider": "fixture",
+    "status": 503,
+    "provider_code": "fixture_error",
+    "retry": "Safe"
+  },
+  "adapter_calls": 1,
+  "attempts": [
+    1
+  ],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 0,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 0,
+    "request_retries": 0,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate stream_open_retry.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "stream",
+    "events": [
+      "started:visible=false",
+      "text:visible=true",
+      "completed:visible=true"
+    ],
+    "inspected": 3,
+    "finalized": 1
+  },
+  "adapter_calls": 2,
+  "attempts": [
+    1,
+    2
+  ],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 0,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 1,
+    "request_retries": 1,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate stream_item_retry.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "stream",
+    "events": [
+      "started:visible=false",
+      "rate_limits:visible=false",
+      "block_start:visible=false",
+      "text:visible=true",
+      "reasoning:visible=true",
+      "tool:visible=true",
+      "block_end:visible=true",
+      "usage:visible=false",
+      "completed:visible=true"
+    ],
+    "inspected": 9,
+    "finalized": 1
+  },
+  "adapter_calls": 2,
+  "attempts": [
+    1,
+    2
+  ],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 2,
+    "completes": 0,
+    "events": 12,
+    "errors": 1,
+    "retries": 1,
+    "request_retries": 0,
+    "stream_retries": 1
+  }
+}
+
+$ lithos-llm-e2e simulate stream_visible_error.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "stream",
+    "events": [
+      "started:visible=false",
+      "text:visible=true",
+      "error:Server"
+    ],
+    "inspected": 0,
+    "finalized": 0
+  },
+  "adapter_calls": 1,
+  "attempts": [
+    1
+  ],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 0,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 0,
+    "request_retries": 0,
+    "stream_retries": 0
+  }
+}
+
+$ lithos-llm-e2e simulate timeout_stream.json
+{
+  "kind": "simulation",
+  "result": {
+    "kind": "stream",
+    "events": [
+      "error:Timeout"
+    ],
+    "inspected": 0,
+    "finalized": 0
+  },
+  "adapter_calls": 1,
+  "attempts": [
+    1
+  ],
+  "extension_exercised": false,
+  "observer": {
+    "starts": 1,
+    "completes": 0,
+    "events": 0,
+    "errors": 0,
+    "retries": 0,
+    "request_retries": 0,
+    "stream_retries": 0
+  }
+}
+
+```

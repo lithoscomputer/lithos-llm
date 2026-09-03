@@ -1,0 +1,9 @@
+{
+  "mode": "stream",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "timeout stream read" }] }] },
+  "timeout_ms": 5,
+  "observer": true,
+  "steps": [{ "type": "stream", "items": [
+    { "type": "event", "delay_ms": 20, "event": { "type": "started", "id": "too-late" } }
+  ] }]
+}

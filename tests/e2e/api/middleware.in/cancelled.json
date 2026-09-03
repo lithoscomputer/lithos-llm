@@ -1,0 +1,6 @@
+{
+  "mode": "complete",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "cancel first" }] }] },
+  "cancel_before": true,
+  "steps": [{ "type": "complete", "text": "must not run" }]
+}

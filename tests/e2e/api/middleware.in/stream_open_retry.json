@@ -1,0 +1,14 @@
+{
+  "mode": "stream",
+  "request": { "model": "fixture/model", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "retry stream open" }] }] },
+  "retry": { "max_attempts": 3, "initial_delay_ms": 0, "max_delay_ms": 0, "retry_after_cap_ms": 50, "observer": true },
+  "stream_hooks": true,
+  "steps": [
+    { "type": "error", "message": "open failed", "retry": "safe" },
+    { "type": "stream", "items": [
+      { "type": "event", "event": { "type": "started", "id": "stream-open" } },
+      { "type": "event", "event": { "type": "text_delta", "id": "text-0", "text": "ready" } },
+      { "type": "event", "event": { "type": "completed", "response": { "id": "stream-open", "model": { "provider": "fixture", "model": "model" }, "content": [{ "type": "text", "text": "ready" }], "finish_reason": "stop", "usage": { "input": 1, "output": 1, "reasoning": 0, "cache_read": 0, "cache_write": 0 } } } }
+    ] }
+  ]
+}
