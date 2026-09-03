@@ -333,6 +333,63 @@ async fn maps_every_request_control_and_provider_option() {
 }
 
 #[tokio::test]
+async fn local_fragments_become_user_and_system_context() {
+    let directory = std::env::temp_dir();
+    let user_one = directory.join(format!("lllm-user-one-{}.txt", std::process::id()));
+    let user_two = directory.join(format!("lllm-user-two-{}.txt", std::process::id()));
+    let system = directory.join(format!("lllm-system-{}.txt", std::process::id()));
+    std::fs::write(&user_one, "first context").expect("fixture should be written");
+    std::fs::write(&user_two, "second context").expect("fixture should be written");
+    std::fs::write(&system, "review policy").expect("fixture should be written");
+
+    let adapter = RecordingAdapter::default();
+    let build = client(adapter.clone());
+    let arguments = [
+        "lllm",
+        "Review",
+        "--model",
+        "alpha/one",
+        "--no-stream",
+        "--system",
+        "Be precise",
+        "--system-fragment",
+        system.to_str().expect("path should be UTF-8"),
+        "-f",
+        user_one.to_str().expect("path should be UTF-8"),
+        "-f",
+        user_two.to_str().expect("path should be UTF-8"),
+    ];
+    let (status, _, stderr) = invoke(
+        &build.client,
+        &arguments,
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    std::fs::remove_file(user_one).expect("fixture should be removed");
+    std::fs::remove_file(user_two).expect("fixture should be removed");
+    std::fs::remove_file(system).expect("fixture should be removed");
+    assert_eq!(status, ExitStatus::Success);
+    assert!(stderr.is_empty());
+    let requests = adapter.requests.lock().expect("request lock should work");
+    let request = requests.last().expect("adapter should receive a request");
+    assert!(matches!(
+        request.messages()[0].content(),
+        [ContentPart::Text { text }] if text == "Be precise\n\nreview policy"
+    ));
+    assert!(matches!(
+        request.messages()[1].content(),
+        [
+            ContentPart::Text { text: first },
+            ContentPart::Text { text: second },
+            ContentPart::Text { text: prompt },
+        ] if first == "first context" && second == "second context" && prompt == "Review"
+    ));
+}
+
+#[tokio::test]
 async fn streams_only_text_deltas_and_adds_one_newline() {
     let build = client(RecordingAdapter::default());
     let (status, stdout, stderr) = invoke(

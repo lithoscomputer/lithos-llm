@@ -28,7 +28,14 @@ pub(crate) async fn run(
     environment: &CliEnvironment,
     cancellation: &CancellationToken,
 ) -> CliResult<OutputState> {
-    let input = input::prepare(&args.prompt, attachments, terminal.stdin, stdin)?;
+    let input = input::prepare(
+        &args.prompt,
+        &args.fragments,
+        attachments,
+        terminal.stdin,
+        stdin,
+    )?;
+    let system = input::system_text(args.system.as_deref(), &args.system_fragments)?;
     let model = models::select_model(
         client,
         args.model.as_deref(),
@@ -36,7 +43,14 @@ pub(crate) async fn run(
         environment,
     )?;
     let format = response_format(args)?;
-    let (request, route) = request(client, args, &model, &input.parts, format)?;
+    let (request, route) = request(
+        client,
+        args,
+        &model,
+        &input.parts,
+        system.as_deref(),
+        format,
+    )?;
     let buffered = args.json || args.extract || args.extract_last;
     if !args.no_stream && !buffered {
         stream(
@@ -84,9 +98,10 @@ fn request(
     args: &PromptArgs,
     model: &str,
     parts: &[ContentPart],
+    system: Option<&str>,
     format: Option<ResponseFormat>,
 ) -> CliResult<(Request, String)> {
-    let initial = build_request(args, model, parts, format.clone(), None)?;
+    let initial = build_request(args, model, parts, system, format.clone(), None)?;
     let route = client
         .resolve_route(&initial)
         .map_err(|error| models::selection_error(client, model, error))?;
@@ -94,7 +109,14 @@ fn request(
     let request = if args.options.is_empty() {
         initial
     } else {
-        build_request(args, model, parts, format, Some(route.provider().id()))?
+        build_request(
+            args,
+            model,
+            parts,
+            system,
+            format,
+            Some(route.provider().id()),
+        )?
     };
     Ok((request, route_name))
 }
@@ -103,11 +125,12 @@ fn build_request(
     args: &PromptArgs,
     model: &str,
     parts: &[ContentPart],
+    system: Option<&str>,
     format: Option<ResponseFormat>,
     option_provider: Option<&ProviderId>,
 ) -> CliResult<Request> {
     let mut builder = Request::builder().model(model);
-    if let Some(system) = &args.system {
+    if let Some(system) = system {
         builder = builder.system(system);
     }
     builder = builder.message(Message::new(Role::User, parts.iter().cloned()));

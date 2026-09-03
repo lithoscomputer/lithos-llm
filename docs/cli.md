@@ -114,6 +114,18 @@ lllm --schema-multi 'name, age int' 'Invent three people'
 
 Full JSON Schema objects and `@PATH` files continue to work with both flags.
 
+Add local UTF-8 files as stateless text context with repeated `-f` or
+`--fragment` options. Use `--system-fragment` to append a file to the system
+message:
+
+```sh
+lllm -f README.md -f Cargo.toml 'Review this project'
+lllm --system-fragment review-policy.md 'Review src/lib.rs'
+```
+
+Fragments do not accept standard input, URLs, or stored aliases. Attachments
+remain the binary and remote-content path.
+
 Pass `--verbose` to see the library's debug diagnostics on standard error.
 `RUST_LOG` selects a custom filter and overrides `--verbose`, for example
 `RUST_LOG=lithos_llm=trace`. Without either, the CLI prints no telemetry.
