@@ -183,6 +183,35 @@ pub(crate) struct ModelsArgs {
     /// Show only models whose provider adapter is compiled into this CLI.
     #[arg(long = "adapter-compiled", alias = "available")]
     pub(crate) adapter_compiled: bool,
+
+    /// Show only models from this provider ID or alias.
+    #[arg(long)]
+    pub(crate) provider: Option<String>,
+
+    /// Show only models with this capability.
+    #[arg(long, value_enum)]
+    pub(crate) capability: Option<CapabilityArg>,
+
+    /// Show only models whose credentials are configured.
+    #[arg(long)]
+    pub(crate) configured: bool,
+
+    /// Show only the effective default model.
+    #[arg(long = "default")]
+    pub(crate) effective_default_only: bool,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub(crate) enum CapabilityArg {
+    Text,
+    Images,
+    Audio,
+    Documents,
+    Tools,
+    StructuredOutput,
+    Reasoning,
+    Caching,
+    Sampling,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]

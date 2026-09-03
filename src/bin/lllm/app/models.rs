@@ -6,7 +6,7 @@ use lithos_llm::resolver::ModelSelectionError;
 use lithos_llm::types::{Message, Request, Role};
 use serde::Serialize;
 
-use crate::app::args::{ModelsArgs, ResolveArgs};
+use crate::app::args::{CapabilityArg, ModelsArgs, ResolveArgs};
 use crate::app::output::write_text;
 use crate::app::{CliEnvironment, CliError, CliResult, OutputState};
 
@@ -26,6 +26,15 @@ struct ModelEntry {
     adapter_compiled:       bool,
     credentials_configured: bool,
     effective_default:      bool,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct Filters<'a> {
+    only_compiled:          bool,
+    only_configured:        bool,
+    only_effective_default: bool,
+    provider:               Option<&'a str>,
+    capability:             Option<CapabilityArg>,
 }
 
 pub(crate) fn select_model(
@@ -48,7 +57,10 @@ fn select_query(
     terms: &[String],
     environment: &CliEnvironment,
 ) -> CliResult<String> {
-    let mut models = entries(client, true, terms, environment, None);
+    let mut models = entries(client, terms, environment, None, Filters {
+        only_compiled: true,
+        ..Filters::default()
+    });
     if models.is_empty() {
         return Err(CliError::Input {
             message: format!(
@@ -75,13 +87,30 @@ pub(crate) fn render(
     output: &mut impl Write,
 ) -> CliResult<OutputState> {
     let default = canonical_route(client, environment.model()?.unwrap_or("default"))?;
-    let models = entries(
-        client,
-        args.adapter_compiled,
-        &args.query,
-        environment,
-        Some(&default),
-    );
+    let provider = args
+        .provider
+        .as_deref()
+        .map(|selector| {
+            client
+                .catalog()
+                .providers()
+                .find(|provider| {
+                    provider.id().as_str() == selector
+                        || provider.aliases().iter().any(|alias| alias == selector)
+                })
+                .map(|provider| provider.id().as_str())
+                .ok_or_else(|| CliError::Input {
+                    message: format!("provider `{selector}` was not found"),
+                })
+        })
+        .transpose()?;
+    let models = entries(client, &args.query, environment, Some(&default), Filters {
+        only_compiled: args.adapter_compiled,
+        only_configured: args.configured,
+        only_effective_default: args.effective_default_only,
+        provider,
+        capability: args.capability,
+    });
     let rendered = if args.json {
         serde_json::to_string_pretty(&ModelList {
             version: 2,
@@ -175,21 +204,50 @@ fn edit_distance(left: &str, right: &str) -> usize {
 
 fn entries(
     client: &Client,
-    only_compiled: bool,
     terms: &[String],
     environment: &CliEnvironment,
     effective_default: Option<&str>,
+    filters: Filters<'_>,
 ) -> Vec<ModelEntry> {
     let mut models: Vec<_> = client
         .catalog()
         .providers()
         .flat_map(CatalogProvider::models)
         .map(|model| entry(client, model, environment, effective_default))
-        .filter(|model| !only_compiled || model.adapter_compiled)
+        .filter(|model| !filters.only_compiled || model.adapter_compiled)
+        .filter(|model| !filters.only_configured || model.credentials_configured)
+        .filter(|model| !filters.only_effective_default || model.effective_default)
+        .filter(|model| {
+            filters.provider.is_none_or(|provider| {
+                model
+                    .selector
+                    .split_once('/')
+                    .is_some_and(|(model_provider, _)| model_provider == provider)
+            })
+        })
+        .filter(|model| {
+            filters
+                .capability
+                .is_none_or(|capability| has_capability(model.capabilities, capability))
+        })
         .filter(|model| matches_terms(model, terms))
         .collect();
     models.sort_by(|left, right| left.selector.cmp(&right.selector));
     models
+}
+
+const fn has_capability(capabilities: ModelCapabilities, capability: CapabilityArg) -> bool {
+    match capability {
+        CapabilityArg::Text => capabilities.text,
+        CapabilityArg::Images => capabilities.images,
+        CapabilityArg::Audio => capabilities.audio,
+        CapabilityArg::Documents => capabilities.documents,
+        CapabilityArg::Tools => capabilities.tools,
+        CapabilityArg::StructuredOutput => capabilities.structured_output,
+        CapabilityArg::Reasoning => capabilities.reasoning,
+        CapabilityArg::Caching => capabilities.caching,
+        CapabilityArg::Sampling => capabilities.sampling,
+    }
 }
 
 fn entry(

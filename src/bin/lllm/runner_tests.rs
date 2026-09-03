@@ -606,6 +606,58 @@ async fn model_listing_marks_runtime_availability_and_filters_it() {
 }
 
 #[tokio::test]
+async fn model_listing_filters_compose() {
+    let build = client(RecordingAdapter::default());
+    let environment = CliEnvironment::new(None, [ProviderId::new("alpha")]);
+    let (status, stdout, stderr) = invoke_with_environment(
+        &build.client,
+        &[
+            "lllm",
+            "models",
+            "--json",
+            "--provider",
+            "a",
+            "--capability",
+            "structured-output",
+            "--configured",
+            "--default",
+        ],
+        Vec::new(),
+        true,
+        &environment,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Success);
+    assert!(stderr.is_empty());
+    let listing: serde_json::Value =
+        serde_json::from_slice(&stdout).expect("output should be JSON");
+    assert_eq!(listing["models"].as_array().map(Vec::len), Some(1));
+    assert_eq!(listing["models"][0]["selector"], "alpha/one");
+
+    let (_, stdout, _) = invoke(
+        &build.client,
+        &[
+            "lllm",
+            "models",
+            "--json",
+            "--provider",
+            "beta",
+            "--capability",
+            "tools",
+        ],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+    let listing: serde_json::Value =
+        serde_json::from_slice(&stdout).expect("output should be JSON");
+    assert_eq!(listing["models"].as_array().map(Vec::len), Some(0));
+}
+
+#[tokio::test]
 async fn model_search_is_case_insensitive_and_reports_no_match() {
     let adapter = RecordingAdapter::default();
     let build = client(adapter.clone());

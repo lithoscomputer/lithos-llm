@@ -54,6 +54,11 @@ access:
 ```sh
 lllm models
 lllm models claude --adapter-compiled
+lllm models --provider anthropic
+lllm models --capability tools
+lllm models --capability structured-output
+lllm models --configured
+lllm models --default
 lllm models --json
 ```
 
@@ -61,6 +66,8 @@ The table marks the effective default. It reports adapter and credential
 status separately. `ADAPTER` means that this CLI contains the provider
 adapter. `CREDENTIALS` means that the required environment credentials are
 configured. An unauthenticated provider is always configured.
+Filters can be combined. Use `--configured --adapter-compiled` to list routes
+that have both credentials and an adapter.
 
 The JSON model list has this CLI-owned shape:
 
