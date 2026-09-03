@@ -75,7 +75,7 @@ pub(crate) enum CliError {
     Call {
         route:  String,
         #[source]
-        source: LlmError,
+        source: Box<LlmError>,
     },
     #[error("the operation was interrupted")]
     Interrupted,
@@ -214,7 +214,7 @@ fn status_for(error: &CliError) -> ExitStatus {
 
 fn render_error(error: &CliError) -> String {
     let (error, route) = match error {
-        CliError::Call { route, source } => (source, route.as_str()),
+        CliError::Call { route, source } => (source.as_ref(), route.as_str()),
         _ => return format!("error: {}", format_error_chain(error)),
     };
     let mut rendered = format!("error: {}: {}", error_kind(error.kind()), error.message());

@@ -178,7 +178,7 @@ fn closest_selector(client: &Client, selector: &str) -> Option<String> {
         })
         .map(|(name, canonical)| (edit_distance(&needle, &name.to_lowercase()), canonical))
         .filter(|(distance, _)| *distance <= threshold)
-        .min_by(|left, right| left.cmp(right))
+        .min()
         .map(|(_, canonical)| canonical)
 }
 

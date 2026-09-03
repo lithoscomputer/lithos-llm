@@ -1,13 +1,14 @@
 use std::error::Error as StdError;
-use std::fmt;
 use std::io::{self, Cursor, Write};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
+use std::{env, fmt, fs, process};
 
 use async_trait::async_trait;
 use futures_util::stream;
 use lithos_llm::adapter::{ProviderAdapter, ResolvedCall};
 use lithos_llm::catalog::{AdapterId, Catalog, ModelId, ProviderId};
+use lithos_llm::credentials::CredentialError;
 use lithos_llm::middleware::CancellationToken;
 use lithos_llm::types::{
     CacheHint, ContentBlockId, ContentPart, Cost, CostSource, Error, ErrorKind, ReasoningEffort,
@@ -153,10 +154,10 @@ fn provider_error() -> Error {
 fn credential_error() -> Error {
     Error::new(ErrorKind::Authentication, "credentials are unavailable")
         .with_provider(ProviderId::new("alpha"))
-        .with_source(lithos_llm::credentials::CredentialError::Environment {
+        .with_source(CredentialError::Environment {
             provider: ProviderId::new("alpha"),
             variable: "ALPHA_API_KEY".to_owned(),
-            source:   std::env::VarError::NotPresent,
+            source:   env::VarError::NotPresent,
         })
 }
 
@@ -334,13 +335,13 @@ async fn maps_every_request_control_and_provider_option() {
 
 #[tokio::test]
 async fn local_fragments_become_user_and_system_context() {
-    let directory = std::env::temp_dir();
-    let user_one = directory.join(format!("lllm-user-one-{}.txt", std::process::id()));
-    let user_two = directory.join(format!("lllm-user-two-{}.txt", std::process::id()));
-    let system = directory.join(format!("lllm-system-{}.txt", std::process::id()));
-    std::fs::write(&user_one, "first context").expect("fixture should be written");
-    std::fs::write(&user_two, "second context").expect("fixture should be written");
-    std::fs::write(&system, "review policy").expect("fixture should be written");
+    let directory = env::temp_dir();
+    let user_one = directory.join(format!("lllm-user-one-{}.txt", process::id()));
+    let user_two = directory.join(format!("lllm-user-two-{}.txt", process::id()));
+    let system = directory.join(format!("lllm-system-{}.txt", process::id()));
+    fs::write(&user_one, "first context").expect("fixture should be written");
+    fs::write(&user_two, "second context").expect("fixture should be written");
+    fs::write(&system, "review policy").expect("fixture should be written");
 
     let adapter = RecordingAdapter::default();
     let build = client(adapter.clone());
@@ -368,9 +369,9 @@ async fn local_fragments_become_user_and_system_context() {
     )
     .await;
 
-    std::fs::remove_file(user_one).expect("fixture should be removed");
-    std::fs::remove_file(user_two).expect("fixture should be removed");
-    std::fs::remove_file(system).expect("fixture should be removed");
+    fs::remove_file(user_one).expect("fixture should be removed");
+    fs::remove_file(user_two).expect("fixture should be removed");
+    fs::remove_file(system).expect("fixture should be removed");
     assert_eq!(status, ExitStatus::Success);
     assert!(stderr.is_empty());
     let requests = adapter.requests.lock().expect("request lock should work");

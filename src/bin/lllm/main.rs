@@ -1,5 +1,5 @@
 use std::future::Future;
-use std::io::{IsTerminal as _, Write as _, stderr, stdin, stdout};
+use std::io::{Error as IoError, IsTerminal as _, Write as _, stderr, stdin, stdout};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::{env, fs};
@@ -24,7 +24,7 @@ enum StartupError {
     CatalogFile {
         path:   PathBuf,
         #[source]
-        source: std::io::Error,
+        source: IoError,
     },
     #[error("could not build the catalog")]
     Catalog(#[source] CatalogError),

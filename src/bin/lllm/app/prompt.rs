@@ -15,7 +15,9 @@ use crate::app::args::{
     AttachmentArg, PromptArgs, ReasoningEffortArg, SpeedArg, read_multi_schema, read_schema,
 };
 use crate::app::output::{self, write_delta, write_text};
-use crate::app::{CliEnvironment, CliError, CliResult, OutputState, TerminalState, input, models};
+use crate::app::{
+    CliEnvironment, CliError, CliResult, OutputState, TerminalState, input, models, usage,
+};
 
 pub(crate) async fn run(
     client: &Client,
@@ -202,13 +204,13 @@ async fn complete(
         result = client.complete_with_context(request.clone(), CallContext::new()) => result,
     };
     let response = result.map_err(|source| CliError::Call {
-        route: route.to_owned(),
-        source,
+        route:  route.to_owned(),
+        source: Box::new(source),
     })?;
     let text = buffered_text(&request, &response, args)?;
     let state = write_text(output_writer, &text)?;
     if args.usage {
-        crate::app::usage::write(error_writer, &response, started.elapsed())?;
+        usage::write(error_writer, &response, started.elapsed())?;
     }
     Ok(state)
 }
@@ -244,8 +246,8 @@ async fn stream(
         result = client.stream_with_context(request, CallContext::new()) => result,
     };
     let mut stream = result.map_err(|source| CliError::Call {
-        route: route.to_owned(),
-        source,
+        route:  route.to_owned(),
+        source: Box::new(source),
     })?;
     let mut response = None;
     let mut wrote_delta = false;
@@ -260,8 +262,8 @@ async fn stream(
             break;
         };
         match item.map_err(|source| CliError::Call {
-            route: route.to_owned(),
-            source,
+            route:  route.to_owned(),
+            source: Box::new(source),
         })? {
             StreamEvent::TextDelta { text, .. } => {
                 wrote_delta = true;
@@ -280,10 +282,10 @@ async fn stream(
     }
     let response = response.ok_or_else(|| CliError::Call {
         route:  route.to_owned(),
-        source: lithos_llm::Error::new(
+        source: Box::new(lithos_llm::Error::new(
             ErrorKind::ResponseDecode,
             "the response stream ended without a completed response",
-        ),
+        )),
     })?;
     let state = if wrote_delta {
         if ends_with_newline {
@@ -295,7 +297,7 @@ async fn stream(
         write_text(output_writer, &output::response_text(&response)?)?
     };
     if show_usage {
-        crate::app::usage::write(error_writer, &response, started.elapsed())?;
+        usage::write(error_writer, &response, started.elapsed())?;
     }
     Ok(state)
 }
