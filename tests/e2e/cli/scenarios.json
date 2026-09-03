@@ -560,7 +560,7 @@
         "content_type": "application/json",
         "chunks": [
           { "kind": "text", "text": "{\"id\":\"partial\"" },
-          { "kind": "text", "text": "}", "delay_ms": 50 }
+          { "kind": "text", "text": "}", "delay_ms": 2000 }
         ]
       }
     },
@@ -585,7 +585,7 @@
           {
             "kind": "text",
             "text": "event: response.completed\ndata: {}\n\n",
-            "delay_ms": 50
+            "delay_ms": 2000
           }
         ]
       }
