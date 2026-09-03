@@ -1,0 +1,41 @@
+# Anthropic Messages calls use the real codec and declarative HTTP transcripts.
+
+```console
+$ ANTHROPIC_API_KEY=anthropic-rich lllm --catalog catalog.toml -m anthropic/fixture --no-stream --system 'Be concise' --attachment https://example.com/image.png --attachment-type document.pdf application/pdf --schema 'answer, score int' --schema-name result --max-output-tokens 2048 --temperature 0.2 --top-p 0.9 --reasoning-effort low --speed fast --stop END --cache-key stable --metadata trace=yes --option 'beta_headers=["fixture-beta"]' 'Anthropic rich request'
+{"answer":"ready","score":7}
+
+$ ANTHROPIC_API_KEY=anthropic-complete lllm --catalog catalog.toml -m anthropic/fixture --no-stream 'Anthropic complete transcript'
+Hello from Anthropic.
+
+$ ANTHROPIC_API_KEY=anthropic-stream lllm --catalog catalog.toml -m anthropic/fixture 'Anthropic stream transcript'
+Streaming Anthropic.
+
+$ ANTHROPIC_API_KEY=anthropic-tools lllm --catalog catalog.toml probe -m anthropic/fixture --tools
+passed anthropic/fixture · 60 input · 6 output · [..]
+
+$ ANTHROPIC_API_KEY=anthropic-refusal lllm --catalog catalog.toml -m anthropic/fixture --no-stream 'Anthropic refusal'
+? 1
+error: content_filter: provider anthropic refused the request: not allowed route=anthropic/fixture provider=anthropic code=refusal
+
+$ ANTHROPIC_API_KEY=anthropic-stream-refusal lllm --catalog catalog.toml -m anthropic/fixture 'Anthropic stream refusal'
+? 1
+error: content_filter: provider anthropic refused the request: stream not allowed route=anthropic/fixture provider=anthropic code=refusal
+
+$ ANTHROPIC_API_KEY=anthropic-malformed lllm --catalog catalog.toml -m anthropic/fixture --no-stream 'Anthropic malformed response'
+? 1
+error: response_decode: Anthropic returned a response without the id field route=anthropic/fixture provider=anthropic
+
+$ ANTHROPIC_API_KEY=anthropic-invalid-stream lllm --catalog catalog.toml -m anthropic/fixture 'Anthropic invalid stream'
+? 1
+error: stream_decode: Anthropic returned an invalid stream event route=anthropic/fixture provider=anthropic
+  caused by: [..]
+
+$ ANTHROPIC_API_KEY=anthropic-http-error lllm --catalog catalog.toml -m anthropic/fixture --no-stream 'Anthropic provider error'
+? 1
+error: [..]
+
+$ ANTHROPIC_API_KEY=anthropic-audio lllm --catalog catalog.toml -m anthropic/fixture --no-stream --attachment-type audio.wav audio/wav 'Anthropic audio input'
+? 2
+error: invalid_request: provider anthropic does not support audio content route=anthropic/fixture provider=anthropic code=unsupported_capability
+
+```

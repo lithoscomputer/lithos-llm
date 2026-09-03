@@ -1,0 +1,10 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:3931/v1"
+
+[providers.openai.models.fixture]
+display_name = "OpenAI Responses fixture"
+aliases = ["responses-fixture"]
+api_model = "responses-v1"
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }

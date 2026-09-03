@@ -1,0 +1,163 @@
+{
+  "scenarios": [
+    {
+      "id": "anthropic-rich",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic rich request",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "msg_rich",
+        "model": "claude-fixture",
+        "content": [
+          { "type": "thinking", "thinking": "I should answer with JSON.", "signature": "sig-rich" },
+          { "type": "redacted_thinking", "data": "encrypted-rich" },
+          { "type": "text", "text": "{\"answer\":\"ready\",\"score\":7}" },
+          { "type": "server_tool_result", "tool_use_id": "server-1", "content": { "ok": true } }
+        ],
+        "stop_reason": "end_turn",
+        "usage": {
+          "input_tokens": 101,
+          "output_tokens": 17,
+          "cache_read_input_tokens": 11,
+          "cache_creation_input_tokens": 13
+        }
+      }
+    },
+    {
+      "id": "anthropic-complete",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic complete transcript",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "msg_complete",
+        "model": "claude-fixture",
+        "content": [
+          { "type": "thinking", "thinking": "A short greeting is best.", "signature": "sig-complete" },
+          { "type": "redacted_thinking", "data": "encrypted-complete" },
+          { "type": "text", "text": "Hello from Anthropic." },
+          { "type": "tool_use", "id": "unused-call", "name": "unused", "input": "{\"raw\":true}" },
+          { "type": "citation", "source": "fixture" },
+          { "missing_type": true }
+        ],
+        "stop_reason": "end_turn",
+        "usage": {
+          "input_tokens": 21,
+          "output_tokens": 8,
+          "cache_read_input_tokens": 3,
+          "cache_creation_input_tokens": 4
+        }
+      }
+    },
+    {
+      "id": "anthropic-stream",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic stream transcript",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_stream\",\"usage\":{\"input_tokens\":31,\"cache_read_input_tokens\":5,\"cache_creation_input_tokens\":7}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"Plan\",\"signature\":\"sig-start\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" carefully\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"sig-final\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"redacted_thinking\",\"data\":\"encrypted-stream\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"server_tool_use\",\"id\":\"server-2\",\"name\":\"lookup\",\"input\":{}}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"query\\\":\\\"fixture\\\"}\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":2}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":3,\"content_block\":{\"type\":\"text\",\"text\":\"Streaming \"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":3,\"delta\":{\"type\":\"text_delta\",\"text\":\"Anthropic.\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":3,\"content_block\":{\"signature\":\"stop-signature\"}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":12}}\n\nevent: ping\ndata: {\"type\":\"ping\"}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+    },
+    {
+      "id": "anthropic-tool-first",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "msg_tool_1",
+        "model": "claude-fixture",
+        "content": [{ "type": "tool_use", "id": "call_first", "name": "add", "input": { "a": 15, "b": 27 } }],
+        "stop_reason": "tool_use",
+        "usage": { "input_tokens": 10, "output_tokens": 1 }
+      }
+    },
+    {
+      "id": "anthropic-tool-second",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "msg_tool_2",
+        "model": "claude-fixture",
+        "content": [{ "type": "tool_use", "id": "call_second", "name": "add", "input": { "a": 42, "b": 42 } }],
+        "stop_reason": "tool_use",
+        "usage": { "input_tokens": 20, "output_tokens": 2 }
+      }
+    },
+    {
+      "id": "anthropic-tool-final",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Use the add tool twice",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "msg_tool_3",
+        "model": "claude-fixture",
+        "content": [{ "type": "text", "text": "84 is even because it is divisible by two." }],
+        "stop_reason": "end_turn",
+        "usage": { "input_tokens": 30, "output_tokens": 3 }
+      }
+    },
+    {
+      "id": "anthropic-refusal",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic refusal",
+      "status": 200,
+      "content_type": "application/json",
+      "body": {
+        "id": "msg_refusal",
+        "model": "claude-fixture",
+        "content": [],
+        "stop_reason": "refusal",
+        "stop_details": { "explanation": "not allowed" },
+        "usage": { "input_tokens": 3, "output_tokens": 0 }
+      }
+    },
+    {
+      "id": "anthropic-stream-refusal",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic stream refusal",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_stream_refusal\",\"usage\":{\"input_tokens\":3}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"refusal\",\"stop_details\":{\"explanation\":\"stream not allowed\"}},\"usage\":{\"output_tokens\":0}}\n\n"
+    },
+    {
+      "id": "anthropic-malformed",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic malformed response",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "model": "claude-fixture", "content": [], "usage": {} }
+    },
+    {
+      "id": "anthropic-invalid-stream",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic invalid stream",
+      "status": 200,
+      "content_type": "text/event-stream",
+      "body": "event: message_start\ndata: not-json\n\n"
+    },
+    {
+      "id": "anthropic-http-error",
+      "method": "POST",
+      "path_contains": "/v1/messages",
+      "body_contains": "Anthropic provider error",
+      "status": 429,
+      "content_type": "application/json",
+      "headers": { "retry-after": "2" },
+      "body": { "type": "error", "error": { "type": "rate_limit_error", "message": "fixture rate limit" }, "request_id": "req_limit" }
+    }
+  ]
+}

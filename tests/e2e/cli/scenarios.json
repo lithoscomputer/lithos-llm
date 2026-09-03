@@ -297,6 +297,191 @@
         "input_contains": "Say OK"
       },
       "script": { "kind": "hang", "delay_before_headers_ms": 5000 }
+    },
+    {
+      "scenario_id": "oai-rich",
+      "namespace": "oai-rich",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "OpenAI rich request"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "{\"answer\":\"ready\",\"score\":7}",
+        "usage": { "input_tokens": 40, "output_tokens": 12 }
+      }
+    },
+    {
+      "scenario_id": "oai-complete",
+      "namespace": "oai-complete",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "OpenAI complete transcript"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_complete",
+          "object": "response",
+          "status": "completed",
+          "output": [
+            {
+              "id": "rs_complete",
+              "type": "reasoning",
+              "content": [
+                { "type": "reasoning_text", "text": "First reason." },
+                { "type": "reasoning_text", "text": "Second reason." }
+              ],
+              "summary": [{ "type": "summary_text", "text": "Summary." }],
+              "encrypted_content": "opaque"
+            },
+            {
+              "id": "msg_complete",
+              "type": "message",
+              "status": "completed",
+              "role": "assistant",
+              "content": [
+                { "type": "output_text", "text": "Hello " },
+                { "type": "output_text", "text": "there." },
+                { "type": "unknown", "text": "ignored" }
+              ]
+            },
+            {
+              "id": "fc_complete",
+              "call_id": "call_complete",
+              "type": "function_call",
+              "name": "add",
+              "arguments": "{\"a\":1,\"b\":2}"
+            },
+            {
+              "id": "custom_complete",
+              "call_id": "call_custom",
+              "type": "custom_tool_call",
+              "name": "shell",
+              "input": "echo ready"
+            },
+            { "id": "internal", "type": "web_search_call", "status": "completed" }
+          ],
+          "usage": {
+            "input_tokens": 100,
+            "input_tokens_details": { "cached_tokens": 25, "cache_write_tokens": 5 },
+            "output_tokens": 30,
+            "output_tokens_details": { "reasoning_tokens": 10 }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "oai-stream",
+      "namespace": "oai-stream",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": true,
+        "input_contains": "OpenAI stream transcript"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "Looking that up.",
+        "reasoning": ["Weighing ", "the options."],
+        "usage": { "input_tokens": 41, "output_tokens": 27 }
+      }
+    },
+    {
+      "scenario_id": "oai-tool-first",
+      "namespace": "oai-tools",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "Use the add tool twice"
+      },
+      "script": {
+        "kind": "success",
+        "tool_calls": [
+          { "id": "oai_call_first", "name": "add", "arguments": { "a": 15, "b": 27 } }
+        ],
+        "usage": { "input_tokens": 10, "output_tokens": 1 }
+      }
+    },
+    {
+      "scenario_id": "oai-tool-second",
+      "namespace": "oai-tools",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "Use the add tool twice"
+      },
+      "script": {
+        "kind": "success",
+        "tool_calls": [
+          { "id": "oai_call_second", "name": "add", "arguments": { "a": 42, "b": 42 } }
+        ],
+        "usage": { "input_tokens": 20, "output_tokens": 2 }
+      }
+    },
+    {
+      "scenario_id": "oai-tool-final",
+      "namespace": "oai-tools",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "Use the add tool twice"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "84 is even because it is divisible by two.",
+        "usage": { "input_tokens": 30, "output_tokens": 3 }
+      }
+    },
+    {
+      "scenario_id": "oai-refusal",
+      "namespace": "oai-refusal",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "OpenAI refusal"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_refusal",
+          "status": "completed",
+          "output": [{
+            "id": "msg_refusal",
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "refusal", "refusal": "not allowed" }]
+          }]
+        }
+      }
+    },
+    {
+      "scenario_id": "oai-malformed",
+      "namespace": "oai-malformed",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "OpenAI malformed response"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {}
+      }
     }
   ]
 }

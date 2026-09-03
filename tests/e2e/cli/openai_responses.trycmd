@@ -1,0 +1,28 @@
+# OpenAI Responses calls use the real codec and deterministic twin transcripts.
+
+```console
+$ OPENAI_API_KEY=oai-rich lllm --catalog catalog.toml -m openai/fixture --no-stream --system 'Be concise' --attachment https://example.com/image.png --attachment-type document.pdf application/pdf --schema 'answer, score int' --schema-name result --max-output-tokens 64 --temperature 0.2 --top-p 0.9 --reasoning-effort high --speed fast --stop END --cache-key stable --metadata trace=yes --option store=true 'OpenAI rich request'
+{"answer":"ready","score":7}
+
+$ OPENAI_API_KEY=oai-complete lllm --catalog catalog.toml -m openai/fixture --no-stream 'OpenAI complete transcript'
+Hello there.
+
+$ OPENAI_API_KEY=oai-stream lllm --catalog catalog.toml -m openai/fixture 'OpenAI stream transcript'
+Looking that up.
+
+$ OPENAI_API_KEY=oai-tools lllm --catalog catalog.toml probe -m openai/fixture --tools
+passed openai/fixture · 60 input · 6 output · [..]
+
+$ OPENAI_API_KEY=oai-refusal lllm --catalog catalog.toml -m openai/fixture --no-stream 'OpenAI refusal'
+? 1
+error: content_filter: provider openai refused the request: not allowed route=openai/fixture provider=openai code=refusal
+
+$ OPENAI_API_KEY=oai-malformed lllm --catalog catalog.toml -m openai/fixture --no-stream 'OpenAI malformed response'
+? 1
+error: response_decode: provider openai returned a 200 body without a Responses output array route=openai/fixture provider=openai
+
+$ OPENAI_API_KEY=oai-audio lllm --catalog catalog.toml -m openai/fixture --no-stream --attachment-type audio.wav audio/wav 'OpenAI audio input'
+? 2
+error: invalid_request: provider openai does not support audio content route=openai/fixture provider=openai code=unsupported_capability
+
+```
