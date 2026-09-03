@@ -830,6 +830,99 @@
           }
         ]
       }
+    },
+    {
+      "scenario_id": "oai-json-body-failure",
+      "namespace": "oai-json-body-failure",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "OpenAI JSON body failure"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "application/json",
+        "chunks": [
+          { "kind": "text", "text": "{\"id\":\"incomplete\"" },
+          {
+            "kind": "error",
+            "message": "scripted connection failure",
+            "delay_ms": 25
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "oai-visible-body-failure",
+      "namespace": "oai-visible-body-failure",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": true,
+        "input_contains": "OpenAI visible body failure"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "chunks": [
+          {
+            "kind": "text",
+            "text": "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_partial_response\",\"delta\":\"Partial response\"}\n\n"
+          },
+          {
+            "kind": "error",
+            "message": "scripted connection failure",
+            "delay_ms": 25
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "oai-split-utf8-stream",
+      "namespace": "oai-split-utf8-stream",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": true,
+        "input_contains": "OpenAI split UTF-8 stream"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "chunks": [
+          { "kind": "bytes", "bytes": [101,118,101,110,116,58,32,114,101,115,112,111,110,115,101,46,111,117,116,112,117,116,95,116,101,120,116,46,100,101,108,116,97,10,100,97,116,97,58,32,123,34,116,121,112,101,34,58,34,114,101,115,112,111,110,115,101,46,111,117,116,112,117,116,95,116,101,120,116,46,100,101,108,116,97,34,44,34,105,116,101,109,95,105,100,34,58,34,109,115,103,95,117,116,102,56,34,44,34,100,101,108,116,97,34,58,34,99,97,102,195] },
+          {
+            "kind": "bytes",
+            "bytes": [169,34,125,10,10,101,118,101,110,116,58,32,114,101,115,112,111,110,115,101,46,99,111,109,112,108,101,116,101,100,10,100,97,116,97,58,32,123,34,116,121,112,101,34,58,34,114,101,115,112,111,110,115,101,46,99,111,109,112,108,101,116,101,100,34,44,34,114,101,115,112,111,110,115,101,34,58,123,34,105,100,34,58,34,114,101,115,112,95,117,116,102,56,34,44,34,115,116,97,116,117,115,34,58,34,99,111,109,112,108,101,116,101,100,34,125,125,10,10],
+            "delay_ms": 5
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "oai-multiline-data-stream",
+      "namespace": "oai-multiline-data-stream",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": true,
+        "input_contains": "OpenAI multiline data stream"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "chunks": [
+          {
+            "kind": "text",
+            "text": "event: response.output_text.delta\ndata: {\"type\":\ndata: \"response.output_text.delta\",\"item_id\":\"msg_multiline\",\"delta\":\"Multiline data\"}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_multiline\",\"status\":\"completed\"}}\n\n"
+          }
+        ]
+      }
     }
   ]
 }

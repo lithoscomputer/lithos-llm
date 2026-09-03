@@ -74,6 +74,27 @@ $ OPENAI_API_KEY=oai-long-text-error lllm --catalog catalog.toml -m openai/fixtu
 ? 1
 error: server: provider openai ééé[..]… route=openai/fixture provider=openai status=503
 
+$ OPENAI_API_KEY=oai-json-body-failure lllm --catalog catalog.toml -m openai/fixture --no-stream 'OpenAI JSON body failure'
+? 1
+error: response_decode: provider openai returned invalid JSON route=openai/fixture provider=openai
+  caused by: error decoding response body for url (http://127.0.0.1:3931/v1/responses)
+  caused by: error reading a body from connection
+  caused by: unexpected EOF during chunk size line
+
+$ OPENAI_API_KEY=oai-visible-body-failure lllm --catalog catalog.toml -m openai/fixture 'OpenAI visible body failure'
+? 1
+Partial response
+error: network: reading the provider response stream failed route=openai/fixture provider=openai
+  caused by: error decoding response body
+  caused by: error reading a body from connection
+  caused by: unexpected EOF during chunk size line
+
+$ OPENAI_API_KEY=oai-split-utf8-stream lllm --catalog catalog.toml -m openai/fixture 'OpenAI split UTF-8 stream'
+café
+
+$ OPENAI_API_KEY=oai-multiline-data-stream lllm --catalog catalog.toml -m openai/fixture 'OpenAI multiline data stream'
+Multiline data
+
 $ OPENAI_API_KEY=oai-audio lllm --catalog catalog.toml -m openai/fixture --no-stream --attachment-type audio.wav audio/wav 'OpenAI audio input'
 ? 2
 error: invalid_request: provider openai does not support audio content route=openai/fixture provider=openai code=unsupported_capability
