@@ -23,6 +23,13 @@ lllm prompt 'Explain ownership in Rust' --model openai/gpt-5
 printf 'Explain this input' | lllm
 ```
 
+Add `-u` or `--usage` to print a compact model, token, cost, and latency
+summary to standard error. Standard output remains safe to pipe:
+
+```text
+anthropic/claude-sonnet-5 · 1,240 input · 183 output · $0.00431 · 1.8s
+```
+
 Model selection uses this precedence:
 
 1. `--model`

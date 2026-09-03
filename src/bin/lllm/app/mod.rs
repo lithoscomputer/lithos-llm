@@ -17,6 +17,7 @@ mod input;
 mod models;
 mod output;
 mod prompt;
+mod usage;
 
 use args::Command;
 
@@ -175,6 +176,7 @@ where
                 terminal,
                 &mut io.stdin,
                 &mut io.stdout,
+                &mut io.stderr,
                 environment,
                 &cancellation,
             )

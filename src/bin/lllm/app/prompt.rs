@@ -1,4 +1,5 @@
 use std::io::{Read, Write};
+use std::time::Instant;
 
 use futures_util::StreamExt as _;
 use lithos_llm::Client;
@@ -21,6 +22,7 @@ pub(crate) async fn run(
     terminal: TerminalState,
     stdin: &mut impl Read,
     stdout: &mut impl Write,
+    stderr: &mut impl Write,
     environment: &CliEnvironment,
     cancellation: &CancellationToken,
 ) -> CliResult<OutputState> {
@@ -35,9 +37,9 @@ pub(crate) async fn run(
     let request = request(client, args, &model, &input.parts, format)?;
     let buffered = args.json || args.extract || args.extract_last;
     if !args.no_stream && !buffered {
-        stream(client, request, stdout, cancellation).await
+        stream(client, request, stdout, stderr, args.usage, cancellation).await
     } else {
-        complete(client, request, args, stdout, cancellation).await
+        complete(client, request, args, stdout, stderr, cancellation).await
     }
 }
 
@@ -144,8 +146,10 @@ async fn complete(
     request: Request,
     args: &PromptArgs,
     output_writer: &mut impl Write,
+    error_writer: &mut impl Write,
     cancellation: &CancellationToken,
 ) -> CliResult<OutputState> {
+    let started = Instant::now();
     let result = tokio::select! {
         biased;
         () = cancellation.cancelled() => return Err(CliError::Interrupted),
@@ -153,7 +157,11 @@ async fn complete(
     };
     let response = result.map_err(CliError::Llm)?;
     let text = buffered_text(&request, &response, args)?;
-    write_text(output_writer, &text)
+    let state = write_text(output_writer, &text)?;
+    if args.usage {
+        crate::app::usage::write(error_writer, &response, started.elapsed())?;
+    }
+    Ok(state)
 }
 
 fn buffered_text(request: &Request, response: &Response, args: &PromptArgs) -> CliResult<String> {
@@ -175,8 +183,11 @@ async fn stream(
     client: &Client,
     request: Request,
     output_writer: &mut impl Write,
+    error_writer: &mut impl Write,
+    show_usage: bool,
     cancellation: &CancellationToken,
 ) -> CliResult<OutputState> {
+    let started = Instant::now();
     let result = tokio::select! {
         biased;
         () = cancellation.cancelled() => return Err(CliError::Interrupted),
@@ -217,15 +228,19 @@ async fn stream(
             "the response stream ended without a completed response",
         ))
     })?;
-    if wrote_delta {
+    let state = if wrote_delta {
         if ends_with_newline {
-            Ok(OutputState::Written)
+            OutputState::Written
         } else {
-            write_delta(output_writer, "\n")
+            write_delta(output_writer, "\n")?
         }
     } else {
-        write_text(output_writer, &output::response_text(&response)?)
+        write_text(output_writer, &output::response_text(&response)?)?
+    };
+    if show_usage {
+        crate::app::usage::write(error_writer, &response, started.elapsed())?;
     }
+    Ok(state)
 }
 
 const fn reasoning_effort(value: ReasoningEffortArg) -> ReasoningEffort {

@@ -10,8 +10,8 @@ use lithos_llm::adapter::{ProviderAdapter, ResolvedCall};
 use lithos_llm::catalog::{AdapterId, Catalog, ModelId, ProviderId};
 use lithos_llm::middleware::CancellationToken;
 use lithos_llm::types::{
-    CacheHint, ContentBlockId, ContentPart, Error, ErrorKind, ReasoningEffort, Request, Response,
-    ResponseFormat, ResponseStream, Speed, StreamEvent,
+    CacheHint, ContentBlockId, ContentPart, Cost, CostSource, Error, ErrorKind, ReasoningEffort,
+    Request, Response, ResponseFormat, ResponseStream, Speed, StreamEvent, TokenCounts,
 };
 use lithos_llm::{Client, ClientBuild};
 
@@ -133,11 +133,23 @@ fn provider_error() -> Error {
 }
 
 fn response(text: &str) -> Response {
-    Response::new(ProviderId::new("alpha"), ModelId::new("one"), vec![
+    let mut response = Response::new(ProviderId::new("alpha"), ModelId::new("one"), vec![
         ContentPart::Text {
             text: text.to_owned(),
         },
-    ])
+    ]);
+    response.usage = TokenCounts {
+        input:       1_000,
+        output:      150,
+        reasoning:   33,
+        cache_read:  200,
+        cache_write: 40,
+    };
+    response.cost = Some(Cost {
+        usd_micros: 4_310,
+        source:     CostSource::Catalog,
+    });
+    response
 }
 
 fn client(adapter: impl ProviderAdapter + 'static) -> ClientBuild {
@@ -307,6 +319,25 @@ async fn streams_only_text_deltas_and_adds_one_newline() {
     assert_eq!(status, ExitStatus::Success);
     assert_eq!(stdout, b"stream output\n");
     assert!(stderr.is_empty());
+}
+
+#[tokio::test]
+async fn usage_is_written_to_standard_error_for_streaming() {
+    let build = client(RecordingAdapter::default());
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "hello", "--model", "alpha/one", "--usage"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Success);
+    assert_eq!(stdout, b"stream output\n");
+    let usage = String::from_utf8(stderr).expect("usage should be UTF-8");
+    assert!(usage.starts_with("alpha/one · 1,240 input · 183 output · $0.00431 · "));
+    assert!(usage.ends_with("ms\n") || usage.ends_with("s\n"));
 }
 
 #[tokio::test]

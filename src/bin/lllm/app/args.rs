@@ -69,6 +69,10 @@ pub(crate) struct PromptArgs {
     #[arg(long)]
     pub(crate) no_stream: bool,
 
+    /// Print model, token, cost, and latency usage to standard error.
+    #[arg(short = 'u', long)]
+    pub(crate) usage: bool,
+
     /// Use this model selector unchanged.
     #[arg(short = 'm', long)]
     pub(crate) model: Option<String>,
