@@ -128,9 +128,7 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
 trycmd = "1.2.1"
 # The record-and-replay proxy for the live E2E suite, pinned to the
 # codex-passthrough revision plus input_file support
-# (branch codex-passthrough-input-file; twins#7 carries the same fix to
-# main) until the twins stack merges.
-twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "9b8fa1b5bac6d8c7f23cfb93967fd5a628e77246" }
+twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "1f0fdfbdb3dbd72036a235dd102928acb316a6bb" }
 
 [lints]
 workspace = true
