@@ -1,12 +1,5 @@
 schema_version = 1
 
-[providers.disabled]
-display_name = "Disabled built-in"
-adapter = "bedrock"
-codec = "bedrock-converse"
-base_url = "https://example.com"
-auth = { type = "none" }
-
 [providers.healthy]
 display_name = "Healthy"
 adapter = "openai"

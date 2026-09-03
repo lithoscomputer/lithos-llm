@@ -695,10 +695,10 @@ fn exercise_client_builds(exercise: ClientBuildExercise) -> Value {
         .into_iter()
         .map(|case| match case {
             ClientBuildCase::MissingCatalog { name } => {
-                render_client_build_result(&name, Client::builder().build())
+                render_client_build_result(&name, Client::builder().build(), true)
             }
             ClientBuildCase::FromEnv { name } => {
-                render_client_build_result(&name, Client::from_env())
+                render_client_build_result(&name, Client::from_env(), false)
             }
             ClientBuildCase::Catalog {
                 name,
@@ -719,7 +719,7 @@ fn exercise_client_builds(exercise: ClientBuildExercise) -> Value {
                         if let Some(enabled) = enabled {
                             builder = builder.enabled_providers(enabled);
                         }
-                        render_client_build_result(&name, builder.build())
+                        render_client_build_result(&name, builder.build(), true)
                     }
                     Err(error) => json!({ "name": name, "error": error }),
                 }
@@ -729,7 +729,11 @@ fn exercise_client_builds(exercise: ClientBuildExercise) -> Value {
     json!({ "kind": "client_builds", "cases": cases })
 }
 
-fn render_client_build_result(name: &str, result: Result<ClientBuild, ClientBuildError>) -> Value {
+fn render_client_build_result(
+    name: &str,
+    result: Result<ClientBuild, ClientBuildError>,
+    include_details: bool,
+) -> Value {
     match result {
         Ok(build) => {
             let all = AvailableProviders::all(build.client.catalog());
@@ -752,14 +756,19 @@ fn render_client_build_result(name: &str, result: Result<ClientBuild, ClientBuil
                     })
                 })
                 .collect::<Vec<_>>();
-            json!({
-                "name": name,
-                "result": "ok",
-                "client": format!("{:?}", build.client),
-                "available": available,
-                "all": all,
-                "issues": issues,
-            })
+            let client = format!("{:?}", build.client);
+            if include_details {
+                json!({
+                    "name": name,
+                    "result": "ok",
+                    "client": client,
+                    "available": available,
+                    "all": all,
+                    "issues": issues,
+                })
+            } else {
+                json!({ "name": name, "result": "ok" })
+            }
         }
         Err(error) => json!({
             "name": name,

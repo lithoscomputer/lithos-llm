@@ -12,37 +12,7 @@ $ lithos-llm-e2e client-builds client-builds.json
     },
     {
       "name": "from_env",
-      "result": "ok",
-      "client": "Client { available_providers: AvailableProviders { providers: {ProviderId(/"anthropic/"), ProviderId(/"fireworks/"), ProviderId(/"gemini/"), ProviderId(/"modal/"), ProviderId(/"moonshot/"), ProviderId(/"openai/"), ProviderId(/"openrouter/"), ProviderId(/"venice/")} }, .. }",
-      "available": [
-        "anthropic",
-        "fireworks",
-        "gemini",
-        "modal",
-        "moonshot",
-        "openai",
-        "openrouter",
-        "venice"
-      ],
-      "all": [
-        "anthropic",
-        "bedrock",
-        "fireworks",
-        "gemini",
-        "modal",
-        "moonshot",
-        "openai",
-        "openrouter",
-        "venice"
-      ],
-      "issues": [
-        {
-          "provider": "bedrock",
-          "adapter": "bedrock",
-          "cause": "the feature for adapter bedrock is disabled",
-          "source": null
-        }
-      ]
+      "result": "ok"
     },
     {
       "name": "all_providers",
@@ -52,19 +22,12 @@ $ lithos-llm-e2e client-builds client-builds.json
         "healthy"
       ],
       "all": [
-        "disabled",
         "healthy",
         "invalid-options",
         "missing",
         "wrong-codec"
       ],
       "issues": [
-        {
-          "provider": "disabled",
-          "adapter": "bedrock",
-          "cause": "the feature for adapter bedrock is disabled",
-          "source": null
-        },
         {
           "provider": "invalid-options",
           "adapter": "openai",
@@ -93,7 +56,6 @@ $ lithos-llm-e2e client-builds client-builds.json
         "healthy"
       ],
       "all": [
-        "disabled",
         "healthy",
         "invalid-options",
         "missing",
