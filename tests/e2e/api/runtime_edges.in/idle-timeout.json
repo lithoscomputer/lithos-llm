@@ -11,6 +11,6 @@
     ]
   },
   "mode": "stream",
-  "stream_idle_timeout_ms": 10,
+  "stream_idle_timeout_ms": 1000,
   "poll_after_stream_error": true
 }

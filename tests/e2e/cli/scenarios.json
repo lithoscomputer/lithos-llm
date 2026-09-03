@@ -805,7 +805,7 @@
           {
             "kind": "text",
             "text": "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_idle\",\"status\":\"completed\"}}\n\n",
-            "delay_ms": 50
+            "delay_ms": 10000
           }
         ]
       }
