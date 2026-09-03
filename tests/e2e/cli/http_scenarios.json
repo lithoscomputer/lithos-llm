@@ -320,15 +320,6 @@
       "body": { "error": { "code": 503, "status": "UNAVAILABLE", "message": "fixture unavailable" } }
     },
     {
-      "id": "count-openai",
-      "method": "POST",
-      "path_contains": "/v1/responses/input_tokens",
-      "body_contains": "Count OpenAI tokens",
-      "status": 200,
-      "content_type": "application/json",
-      "body": { "object": "response.input_tokens", "input_tokens": 123 }
-    },
-    {
       "id": "count-anthropic",
       "method": "POST",
       "path_contains": "/v1/messages/count_tokens",
@@ -345,15 +336,6 @@
       "status": 200,
       "content_type": "application/json",
       "body": { "totalTokens": 345 }
-    },
-    {
-      "id": "count-openai-malformed",
-      "method": "POST",
-      "path_contains": "/v1/responses/input_tokens",
-      "body_contains": "Count malformed OpenAI tokens",
-      "status": 200,
-      "content_type": "application/json",
-      "body": { "object": "response", "input_tokens": 456 }
     },
     {
       "id": "count-anthropic-malformed",
@@ -387,11 +369,6 @@
         "stop_reason": "max_tokens",
         "usage": { "input_tokens": 70, "output_tokens": 10, "cache_read_input_tokens": 5, "cache_creation_input_tokens": 6 }
       }
-    },
-    {
-      "id": "codex-streaming-complete", "method": "POST", "path_contains": "/codex/responses", "body_contains": "Codex streaming complete", "status": 200, "content_type": "text/event-stream",
-      "headers": { "x-ratelimit-limit-requests": "50", "x-ratelimit-remaining-requests": "49" },
-      "body": "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"Codex \"}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-codex\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Codex complete\"}]}],\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}}\n\n"
     }
   ]
 }

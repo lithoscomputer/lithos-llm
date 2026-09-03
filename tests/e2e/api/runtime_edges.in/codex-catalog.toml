@@ -1,7 +1,7 @@
 schema_version = 1
 
 [providers.openai]
-base_url = "http://127.0.0.1:3932/codex"
+base_url = "http://127.0.0.1:3931/codex"
 adapter_options = { mode = "codex" }
 
 [providers.openai.models.fixture-codex]

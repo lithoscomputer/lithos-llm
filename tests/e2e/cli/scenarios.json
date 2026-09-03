@@ -1750,6 +1750,73 @@
           }
         ]
       }
+    },
+    {
+      "scenario_id": "count-openai",
+      "namespace": "count-openai",
+      "matcher": {
+        "endpoint": "responses.input_tokens",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "Count OpenAI tokens"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "application/json",
+        "chunks": [
+          {
+            "kind": "text",
+            "text": "{\"object\":\"response.input_tokens\",\"input_tokens\":123}"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "count-openai-malformed",
+      "namespace": "count-openai-malformed",
+      "matcher": {
+        "endpoint": "responses.input_tokens",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "Count malformed OpenAI tokens"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "application/json",
+        "chunks": [
+          {
+            "kind": "text",
+            "text": "{\"object\":\"response\",\"input_tokens\":456}"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "codex-streaming-complete",
+      "namespace": "transport",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "fixture-codex",
+        "stream": true,
+        "input_contains": "Codex streaming complete"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "headers": {
+          "x-ratelimit-limit-requests": "50",
+          "x-ratelimit-remaining-requests": "49"
+        },
+        "chunks": [
+          {
+            "kind": "text",
+            "text": "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"Codex \"}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-codex\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Codex complete\"}]}],\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}}\n\n"
+          }
+        ]
+      }
     }
   ]
 }
