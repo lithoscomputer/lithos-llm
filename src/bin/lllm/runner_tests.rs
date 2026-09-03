@@ -96,6 +96,8 @@ impl ProviderAdapter for RecordingAdapter {
 
 struct FailingAdapter;
 
+struct CredentialFailingAdapter;
+
 #[derive(Debug)]
 struct ProviderSource;
 
@@ -123,6 +125,22 @@ impl ProviderAdapter for FailingAdapter {
     }
 }
 
+#[async_trait]
+impl ProviderAdapter for CredentialFailingAdapter {
+    fn id(&self) -> &AdapterId {
+        static ID: OnceLock<AdapterId> = OnceLock::new();
+        ID.get_or_init(|| AdapterId::new("fake"))
+    }
+
+    async fn complete(&self, _call: &ResolvedCall) -> Result<Response, Error> {
+        Err(credential_error())
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        Err(credential_error())
+    }
+}
+
 fn provider_error() -> Error {
     Error::new(ErrorKind::RateLimit, "request was limited")
         .with_provider(ProviderId::new("alpha"))
@@ -130,6 +148,16 @@ fn provider_error() -> Error {
         .with_provider_code("rate_limit")
         .with_provider_retry_after(Duration::from_secs(2))
         .with_source(ProviderSource)
+}
+
+fn credential_error() -> Error {
+    Error::new(ErrorKind::Authentication, "credentials are unavailable")
+        .with_provider(ProviderId::new("alpha"))
+        .with_source(lithos_llm::credentials::CredentialError::Environment {
+            provider: ProviderId::new("alpha"),
+            variable: "ALPHA_API_KEY".to_owned(),
+            source:   std::env::VarError::NotPresent,
+        })
 }
 
 fn response(text: &str) -> Response {
@@ -437,11 +465,67 @@ async fn reports_safe_provider_error_fields_on_standard_error() {
     assert!(stdout.is_empty());
     let diagnostic = String::from_utf8(stderr).expect("diagnostic should be UTF-8");
     assert!(diagnostic.contains("error: rate_limit: request was limited"));
+    assert!(diagnostic.contains("route=alpha/one"));
     assert!(diagnostic.contains("provider=alpha"));
     assert!(diagnostic.contains("status=429"));
     assert!(diagnostic.contains("code=rate_limit"));
     assert!(diagnostic.contains("retry_after=2s"));
     assert!(diagnostic.contains("caused by: the upstream connection closed"));
+}
+
+#[tokio::test]
+async fn credential_errors_name_the_route_and_environment_variable() {
+    let build = client(CredentialFailingAdapter);
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "hello", "--model", "alpha/one", "--no-stream"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Failure);
+    assert!(stdout.is_empty());
+    let diagnostic = String::from_utf8(stderr).expect("diagnostic should be UTF-8");
+    assert!(diagnostic.contains("route=alpha/one"));
+    assert!(diagnostic.contains("hint: set ALPHA_API_KEY"));
+}
+
+#[tokio::test]
+async fn unknown_models_suggest_the_closest_canonical_selector() {
+    let build = client(RecordingAdapter::default());
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "resolve", "--model", "alpha/onn"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Usage);
+    assert!(stdout.is_empty());
+    assert!(String::from_utf8_lossy(&stderr).contains("Did you mean `alpha/one`?"));
+}
+
+#[tokio::test]
+async fn top_level_help_shows_the_implicit_prompt_form_and_examples() {
+    let build = client(RecordingAdapter::default());
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "--help"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Success);
+    assert!(stderr.is_empty());
+    let help = String::from_utf8(stdout).expect("help should be UTF-8");
+    assert!(help.contains("Usage: lllm [OPTIONS] [PROMPT]..."));
+    assert!(help.contains("Examples:"));
 }
 
 #[tokio::test]

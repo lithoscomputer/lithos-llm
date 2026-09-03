@@ -34,12 +34,21 @@ pub(crate) async fn run(
         environment,
     )?;
     let format = response_format(args)?;
-    let request = request(client, args, &model, &input.parts, format)?;
+    let (request, route) = request(client, args, &model, &input.parts, format)?;
     let buffered = args.json || args.extract || args.extract_last;
     if !args.no_stream && !buffered {
-        stream(client, request, stdout, stderr, args.usage, cancellation).await
+        stream(
+            client,
+            request,
+            &route,
+            stdout,
+            stderr,
+            args.usage,
+            cancellation,
+        )
+        .await
     } else {
-        complete(client, request, args, stdout, stderr, cancellation).await
+        complete(client, request, &route, args, stdout, stderr, cancellation).await
     }
 }
 
@@ -65,16 +74,18 @@ fn request(
     model: &str,
     parts: &[ContentPart],
     format: Option<ResponseFormat>,
-) -> CliResult<Request> {
+) -> CliResult<(Request, String)> {
     let initial = build_request(args, model, parts, format.clone(), None)?;
     let route = client
         .resolve_route(&initial)
-        .map_err(|error| CliError::Llm(error.into()))?;
-    if args.options.is_empty() {
-        Ok(initial)
+        .map_err(|error| models::selection_error(client, model, error))?;
+    let route_name = route.handle().to_string();
+    let request = if args.options.is_empty() {
+        initial
     } else {
-        build_request(args, model, parts, format, Some(route.provider().id()))
-    }
+        build_request(args, model, parts, format, Some(route.provider().id()))?
+    };
+    Ok((request, route_name))
 }
 
 fn build_request(
@@ -144,6 +155,7 @@ fn apply_controls(
 async fn complete(
     client: &Client,
     request: Request,
+    route: &str,
     args: &PromptArgs,
     output_writer: &mut impl Write,
     error_writer: &mut impl Write,
@@ -155,7 +167,10 @@ async fn complete(
         () = cancellation.cancelled() => return Err(CliError::Interrupted),
         result = client.complete_with_context(request.clone(), CallContext::new()) => result,
     };
-    let response = result.map_err(CliError::Llm)?;
+    let response = result.map_err(|source| CliError::Call {
+        route: route.to_owned(),
+        source,
+    })?;
     let text = buffered_text(&request, &response, args)?;
     let state = write_text(output_writer, &text)?;
     if args.usage {
@@ -182,6 +197,7 @@ fn buffered_text(request: &Request, response: &Response, args: &PromptArgs) -> C
 async fn stream(
     client: &Client,
     request: Request,
+    route: &str,
     output_writer: &mut impl Write,
     error_writer: &mut impl Write,
     show_usage: bool,
@@ -193,7 +209,10 @@ async fn stream(
         () = cancellation.cancelled() => return Err(CliError::Interrupted),
         result = client.stream_with_context(request, CallContext::new()) => result,
     };
-    let mut stream = result.map_err(CliError::Llm)?;
+    let mut stream = result.map_err(|source| CliError::Call {
+        route: route.to_owned(),
+        source,
+    })?;
     let mut response = None;
     let mut wrote_delta = false;
     let mut ends_with_newline = false;
@@ -206,7 +225,10 @@ async fn stream(
         let Some(item) = item else {
             break;
         };
-        match item.map_err(CliError::Llm)? {
+        match item.map_err(|source| CliError::Call {
+            route: route.to_owned(),
+            source,
+        })? {
             StreamEvent::TextDelta { text, .. } => {
                 wrote_delta = true;
                 if !text.is_empty() {
@@ -222,11 +244,12 @@ async fn stream(
             _ => {}
         }
     }
-    let response = response.ok_or_else(|| {
-        CliError::Llm(lithos_llm::Error::new(
+    let response = response.ok_or_else(|| CliError::Call {
+        route:  route.to_owned(),
+        source: lithos_llm::Error::new(
             ErrorKind::ResponseDecode,
             "the response stream ended without a completed response",
-        ))
+        ),
     })?;
     let state = if wrote_delta {
         if ends_with_newline {

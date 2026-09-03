@@ -45,6 +45,9 @@ lllm resolve --model claude-sonnet
 lllm resolve --model-query sonnet
 ```
 
+Use `--option KEY=VALUE` and `--metadata KEY=VALUE` for raw request values.
+Use `--xl` as the short form of `--extract-last`.
+
 List or search the built-in model catalog without credentials or network
 access:
 

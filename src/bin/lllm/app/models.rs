@@ -2,6 +2,7 @@ use std::io::Write;
 
 use lithos_llm::Client;
 use lithos_llm::catalog::{CatalogModel, CatalogProvider, ModelCapabilities};
+use lithos_llm::resolver::ModelSelectionError;
 use lithos_llm::types::{Message, Request, Role};
 use serde::Serialize;
 
@@ -117,8 +118,59 @@ fn canonical_route(client: &Client, selector: &str) -> CliResult<String> {
         .map_err(|source| CliError::input_source("could not resolve model", source))?;
     let route = client
         .resolve_route(&request)
-        .map_err(|error| CliError::Llm(error.into()))?;
+        .map_err(|error| selection_error(client, selector, error))?;
     Ok(format!("{}/{}", route.provider().id(), route.model().id()))
+}
+
+pub(crate) fn selection_error(
+    client: &Client,
+    selector: &str,
+    source: ModelSelectionError,
+) -> CliError {
+    let suggestion = closest_selector(client, selector)
+        .map(|candidate| format!(" Did you mean `{candidate}`?"))
+        .unwrap_or_default();
+    CliError::input_source(format!("{source}.{suggestion}"), source)
+}
+
+fn closest_selector(client: &Client, selector: &str) -> Option<String> {
+    let needle = selector.to_lowercase();
+    let threshold = 2_usize.max(needle.chars().count() / 3);
+    client
+        .catalog()
+        .providers()
+        .flat_map(|provider| {
+            provider.models().flat_map(move |model| {
+                let canonical = format!("{}/{}", provider.id(), model.id());
+                let mut names = vec![canonical.clone(), model.id().to_string()];
+                names.extend(model.aliases().iter().cloned());
+                names.into_iter().map(move |name| (name, canonical.clone()))
+            })
+        })
+        .map(|(name, canonical)| (edit_distance(&needle, &name.to_lowercase()), canonical))
+        .filter(|(distance, _)| *distance <= threshold)
+        .min_by(|left, right| left.cmp(right))
+        .map(|(_, canonical)| canonical)
+}
+
+fn edit_distance(left: &str, right: &str) -> usize {
+    let right: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right.len()).collect();
+    for (left_index, left_character) in left.chars().enumerate() {
+        let mut current = Vec::with_capacity(right.len() + 1);
+        current.push(left_index + 1);
+        for (right_index, right_character) in right.iter().enumerate() {
+            let substitution =
+                previous[right_index] + usize::from(left_character != *right_character);
+            current.push(
+                substitution
+                    .min(previous[right_index + 1] + 1)
+                    .min(current[right_index] + 1),
+            );
+        }
+        previous = current;
+    }
+    previous[right.len()]
 }
 
 fn entries(
