@@ -1,0 +1,87 @@
+# Public token APIs are exercised through a data-driven black-box runner.
+
+```console
+$ lithos-llm-e2e estimate full_request.json
+{
+  "kind": "estimate",
+  "tokens": 8256,
+  "warnings": [
+    {
+      "code": "media",
+      "message": "media content was sized from bytes, not tokenized",
+      "present": true
+    },
+    {
+      "code": "opaque_content",
+      "message": "provider-native content was measured as JSON text",
+      "present": true
+    },
+    {
+      "code": "provider_options",
+      "message": "provider options were measured as JSON text",
+      "present": true
+    }
+  ],
+  "has_media_warning": true
+}
+
+$ OPENAI_API_KEY=count-openai lithos-llm-e2e count catalog.toml openai.json
+{
+  "kind": "provider_count",
+  "tokens": 123,
+  "model": "openai/fixture"
+}
+
+$ ANTHROPIC_API_KEY=count-anthropic lithos-llm-e2e count catalog.toml anthropic.json
+{
+  "kind": "provider_count",
+  "tokens": 234,
+  "model": "anthropic/fixture"
+}
+
+$ GEMINI_API_KEY=count-gemini lithos-llm-e2e count catalog.toml gemini.json
+{
+  "kind": "provider_count",
+  "tokens": 345,
+  "model": "gemini/fixture"
+}
+
+$ OPENROUTER_API_KEY=count-chat lithos-llm-e2e count catalog.toml chat.json
+{
+  "kind": "unsupported"
+}
+
+$ OPENAI_API_KEY=count-openai-malformed lithos-llm-e2e count catalog.toml openai_malformed.json
+{
+  "kind": "error",
+  "error_kind": "ResponseDecode",
+  "message": "provider openai returned an input token count with object response",
+  "provider": "openai",
+  "status": null,
+  "provider_code": null,
+  "retry": "Safe"
+}
+
+$ ANTHROPIC_API_KEY=count-anthropic-malformed lithos-llm-e2e count catalog.toml anthropic_malformed.json
+{
+  "kind": "error",
+  "error_kind": "ResponseDecode",
+  "message": "Anthropic returned a token count without an input_tokens field",
+  "provider": "anthropic",
+  "status": null,
+  "provider_code": null,
+  "retry": "Never"
+}
+
+$ GEMINI_API_KEY=count-gemini-malformed lithos-llm-e2e count catalog.toml gemini_malformed.json
+{
+  "kind": "error",
+  "error_kind": "ResponseDecode",
+  "message": "Gemini returned a token count without a totalTokens field",
+  "provider": "gemini",
+  "status": null,
+  "provider_code": null,
+  "retry": "Never"
+}
+
+```

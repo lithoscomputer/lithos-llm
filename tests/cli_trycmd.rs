@@ -1,11 +1,11 @@
 #![cfg(feature = "cli")]
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::{env, fs};
 
 use axum::Router;
 use axum::body::{Body, Bytes, to_bytes};
@@ -16,6 +16,8 @@ use axum::routing::any;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::net::TcpListener;
+use tokio::task::JoinHandle;
+use tokio::time::sleep;
 use twin_openai::config::Config;
 
 const FIXTURE_ADDRESS: &str = "127.0.0.1:3931";
@@ -67,14 +69,16 @@ async fn cli_contract() {
     let protocol_server = protocol_server().await;
 
     let cases = trycmd::TestCases::new();
-    if let Ok(profile_file) = std::env::var("LLVM_PROFILE_FILE") {
+    if let Ok(profile_file) = env::var("LLVM_PROFILE_FILE") {
         cases.env("LLVM_PROFILE_FILE", profile_file);
     }
     cases
         .env("RUST_LOG", "")
         .case("tests/e2e/cli/*.trycmd")
-        .case("tests/e2e/cli/*.toml")
-        .run();
+        .case("tests/e2e/cli/*.toml");
+    #[cfg(feature = "e2e-driver")]
+    cases.case("tests/e2e/api/*.trycmd");
+    cases.run();
 
     server.abort();
     protocol_server.abort();
@@ -91,7 +95,7 @@ async fn cli_contract() {
     );
 }
 
-async fn protocol_server() -> tokio::task::JoinHandle<()> {
+async fn protocol_server() -> JoinHandle<()> {
     let source = fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/cli/http_scenarios.json"),
     )
@@ -133,8 +137,7 @@ async fn protocol_response(State(state): State<ProtocolState>, request: Request)
             .status(StatusCode::INTERNAL_SERVER_ERROR)
             .header("content-type", "application/json")
             .body(Body::from(format!(
-                "{{\"error\":{{\"message\":\"no protocol scenario matched {} {}\"}}}}",
-                method, path
+                "{{\"error\":{{\"message\":\"no protocol scenario matched {method} {path}\"}}}}"
             )))
             .expect("unmatched fixture response should build"),
     }
@@ -164,7 +167,7 @@ fn take_scenario(
 
 async fn scenario_response(scenario: ProtocolScenario) -> Response<Body> {
     if scenario.delay_ms > 0 {
-        tokio::time::sleep(Duration::from_millis(scenario.delay_ms)).await;
+        sleep(Duration::from_millis(scenario.delay_ms)).await;
     }
     let status = StatusCode::from_u16(scenario.status).expect("fixture status should be valid");
     let mut response = Response::builder()

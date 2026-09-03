@@ -1,0 +1,1 @@
+{ "model": "gemini/fixture", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "Count Gemini tokens" }] }], "temperature": 0.1, "provider_options": { "gemini": { "safety_settings": [] } } }

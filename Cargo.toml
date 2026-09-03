@@ -24,6 +24,13 @@ name = "lllm"
 path = "src/bin/lllm/main.rs"
 required-features = ["cli"]
 
+[[bin]]
+name = "lithos-llm-e2e"
+path = "tests/e2e/driver/main.rs"
+required-features = ["e2e-driver"]
+test = false
+bench = false
+
 [workspace]
 members = ["."]
 resolver = "3"
@@ -80,6 +87,7 @@ bedrock-aws = [
   "dep:aws-smithy-types",
 ]
 environment-credentials = ["runtime"]
+e2e-driver = ["cli"]
 
 [dependencies]
 async-trait = { version = "0.1.89", optional = true }

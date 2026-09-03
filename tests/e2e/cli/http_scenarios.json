@@ -521,6 +521,60 @@
       "status": 400,
       "content_type": "application/json",
       "body": { "error": { "code": "context_length_exceeded", "message": "fixture context limit", "type": "invalid_request_error", "param": "messages" } }
+    },
+    {
+      "id": "count-openai",
+      "method": "POST",
+      "path_contains": "/v1/responses/input_tokens",
+      "body_contains": "Count OpenAI tokens",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "object": "response.input_tokens", "input_tokens": 123 }
+    },
+    {
+      "id": "count-anthropic",
+      "method": "POST",
+      "path_contains": "/v1/messages/count_tokens",
+      "body_contains": "Count Anthropic tokens",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "input_tokens": 234 }
+    },
+    {
+      "id": "count-gemini",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:countTokens",
+      "body_contains": "Count Gemini tokens",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "totalTokens": 345 }
+    },
+    {
+      "id": "count-openai-malformed",
+      "method": "POST",
+      "path_contains": "/v1/responses/input_tokens",
+      "body_contains": "Count malformed OpenAI tokens",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "object": "response", "input_tokens": 456 }
+    },
+    {
+      "id": "count-anthropic-malformed",
+      "method": "POST",
+      "path_contains": "/v1/messages/count_tokens",
+      "body_contains": "Count malformed Anthropic tokens",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "tokens": 567 }
+    },
+    {
+      "id": "count-gemini-malformed",
+      "method": "POST",
+      "path_contains": "/v1beta/models/gemini-fixture-v1:countTokens",
+      "body_contains": "Count malformed Gemini tokens",
+      "status": 200,
+      "content_type": "application/json",
+      "body": { "tokens": 678 }
     }
   ]
 }

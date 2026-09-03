@@ -1,0 +1,1 @@
+{ "model": "anthropic/fixture", "messages": [{ "role": "system", "content": [{ "type": "text", "text": "Count exactly." }] }, { "role": "user", "content": [{ "type": "text", "text": "Count Anthropic tokens" }] }], "reasoning_effort": "low", "speed": "fast", "provider_options": { "anthropic": { "beta_headers": ["fixture-count"] } } }
