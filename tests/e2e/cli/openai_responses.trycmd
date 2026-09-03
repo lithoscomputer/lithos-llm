@@ -53,6 +53,23 @@ error: timeout: reading the provider response stream failed route=openai/fixture
   caused by: request or response body error
   caused by: operation timed out
 
+$ OPENAI_API_KEY=oai-crlf-split-stream lllm --catalog catalog.toml -m openai/fixture 'OpenAI CRLF split stream'
+CRLF response
+
+$ OPENAI_API_KEY=oai-unterminated-stream lllm --catalog catalog.toml -m openai/fixture 'OpenAI unterminated stream'
+Unterminated response
+
+$ OPENAI_API_KEY=oai-data-less-tail lllm --catalog catalog.toml -m openai/fixture 'OpenAI data-less tail'
+Data-less tail
+
+$ OPENAI_API_KEY=oai-whitespace-tail lllm --catalog catalog.toml -m openai/fixture 'OpenAI whitespace tail'
+Whitespace tail
+
+$ OPENAI_API_KEY=oai-unterminated-invalid-utf8 lllm --catalog catalog.toml -m openai/fixture 'OpenAI unterminated invalid UTF-8'
+? 1
+error: stream_decode: an SSE frame was not UTF-8 route=openai/fixture
+  caused by: invalid utf-8 sequence of 1 bytes from index 6
+
 $ OPENAI_API_KEY=oai-audio lllm --catalog catalog.toml -m openai/fixture --no-stream --attachment-type audio.wav audio/wav 'OpenAI audio input'
 ? 2
 error: invalid_request: provider openai does not support audio content route=openai/fixture provider=openai code=unsupported_capability
