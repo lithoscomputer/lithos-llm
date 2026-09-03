@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use std::{env, fs};
 
 use axum::Router;
@@ -17,14 +16,13 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
-use tokio::time::sleep;
 use twin_openai::config::Config;
 
-const FIXTURE_ADDRESS: &str = "127.0.0.1:3931";
-const PROTOCOL_FIXTURE_ADDRESS: &str = "127.0.0.1:3932";
+const OPENAI_FIXTURE_ADDRESS: &str = "127.0.0.1:3931";
+const NON_OPENAI_FIXTURE_ADDRESS: &str = "127.0.0.1:3932";
 
 #[derive(Clone, Debug, Deserialize)]
-struct ProtocolScenario {
+struct NonOpenAiScenario {
     id:            String,
     method:        String,
     path_contains: String,
@@ -34,39 +32,37 @@ struct ProtocolScenario {
     #[serde(default)]
     headers:       BTreeMap<String, String>,
     body:          Value,
-    #[serde(default)]
-    delay_ms:      u64,
 }
 
 #[derive(Debug, Deserialize)]
-struct ProtocolScenarios {
-    scenarios: Vec<ProtocolScenario>,
+struct NonOpenAiScenarios {
+    scenarios: Vec<NonOpenAiScenario>,
 }
 
 #[derive(Clone)]
-struct ProtocolState {
-    scenarios: Arc<Mutex<Vec<ProtocolScenario>>>,
+struct NonOpenAiState {
+    scenarios: Arc<Mutex<Vec<NonOpenAiScenario>>>,
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn cli_contract() {
-    let address: SocketAddr = FIXTURE_ADDRESS
+    let address: SocketAddr = OPENAI_FIXTURE_ADDRESS
         .parse()
-        .expect("fixture address should parse");
+        .expect("OpenAI fixture address should parse");
     let mut config = Config::from_lookup(&|_| None).expect("fixture configuration should build");
     config.bind_addr = address;
     config.scenarios_path =
-        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/cli/scenarios.json"));
+        Some(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/cli/openai_scenarios.json"));
     let app = twin_openai::build_app_with_config(config).expect("fixture app should build");
     let listener = TcpListener::bind(address)
         .await
-        .expect("fixture address should be available");
-    let server = tokio::spawn(async move {
+        .expect("OpenAI fixture address should be available");
+    let openai_server = tokio::spawn(async move {
         axum::serve(listener, app)
             .await
-            .expect("fixture server should run");
+            .expect("OpenAI fixture server should run");
     });
-    let protocol_server = protocol_server().await;
+    let non_openai_server = non_openai_server().await;
 
     let cases = trycmd::TestCases::new();
     if let Ok(profile_file) = env::var("LLVM_PROFILE_FILE") {
@@ -80,48 +76,55 @@ async fn cli_contract() {
     cases.case("tests/e2e/api/*.trycmd");
     cases.run();
 
-    server.abort();
-    protocol_server.abort();
-    let error = server
+    openai_server.abort();
+    non_openai_server.abort();
+    let error = openai_server
         .await
-        .expect_err("fixture server should stop by cancellation");
-    assert!(error.is_cancelled(), "fixture server should be cancelled");
-    let error = protocol_server
-        .await
-        .expect_err("protocol fixture server should stop by cancellation");
+        .expect_err("OpenAI fixture server should stop by cancellation");
     assert!(
         error.is_cancelled(),
-        "protocol fixture server should be cancelled"
+        "OpenAI fixture server should be cancelled"
+    );
+    let error = non_openai_server
+        .await
+        .expect_err("non-OpenAI fixture server should stop by cancellation");
+    assert!(
+        error.is_cancelled(),
+        "non-OpenAI fixture server should be cancelled"
     );
 }
 
-async fn protocol_server() -> JoinHandle<()> {
+async fn non_openai_server() -> JoinHandle<()> {
     let source = fs::read_to_string(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/cli/http_scenarios.json"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/e2e/cli/anthropic_gemini_scenarios.json"),
     )
-    .expect("protocol scenarios should be readable");
-    let scenarios: ProtocolScenarios =
-        serde_json::from_str(&source).expect("protocol scenarios should be valid JSON");
-    let state = ProtocolState {
+    .expect("Anthropic and Gemini scenarios should be readable");
+    let scenarios: NonOpenAiScenarios =
+        serde_json::from_str(&source).expect("Anthropic and Gemini scenarios should be valid JSON");
+    let state = NonOpenAiState {
         scenarios: Arc::new(Mutex::new(scenarios.scenarios)),
     };
     let app = Router::new()
-        .route("/{*path}", any(protocol_response))
+        .route("/{*path}", any(non_openai_response))
         .with_state(state);
-    let address: SocketAddr = PROTOCOL_FIXTURE_ADDRESS
+    let address: SocketAddr = NON_OPENAI_FIXTURE_ADDRESS
         .parse()
-        .expect("protocol fixture address should parse");
+        .expect("non-OpenAI fixture address should parse");
     let listener = TcpListener::bind(address)
         .await
-        .expect("protocol fixture address should be available");
+        .expect("non-OpenAI fixture address should be available");
     tokio::spawn(async move {
         axum::serve(listener, app)
             .await
-            .expect("protocol fixture server should run");
+            .expect("non-OpenAI fixture server should run");
     })
 }
 
-async fn protocol_response(State(state): State<ProtocolState>, request: Request) -> Response<Body> {
+async fn non_openai_response(
+    State(state): State<NonOpenAiState>,
+    request: Request,
+) -> Response<Body> {
     let method = request.method().clone();
     let path = request
         .uri()
@@ -132,28 +135,28 @@ async fn protocol_response(State(state): State<ProtocolState>, request: Request)
         .expect("fixture request body should be readable");
     let scenario = take_scenario(&state, &method, &path, &body);
     match scenario {
-        Some(scenario) => scenario_response(scenario).await,
+        Some(scenario) => scenario_response(scenario),
         None => Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
             .header("content-type", "application/json")
             .body(Body::from(format!(
-                "{{\"error\":{{\"message\":\"no protocol scenario matched {method} {path}\"}}}}"
+                "{{\"error\":{{\"message\":\"no non-OpenAI scenario matched {method} {path}\"}}}}"
             )))
             .expect("unmatched fixture response should build"),
     }
 }
 
 fn take_scenario(
-    state: &ProtocolState,
+    state: &NonOpenAiState,
     method: &Method,
     path: &str,
     body: &Bytes,
-) -> Option<ProtocolScenario> {
+) -> Option<NonOpenAiScenario> {
     let text = String::from_utf8_lossy(body);
     let mut scenarios = state
         .scenarios
         .lock()
-        .expect("protocol scenario lock should not be poisoned");
+        .expect("non-OpenAI scenario lock should not be poisoned");
     let position = scenarios.iter().position(|scenario| {
         scenario.method == method.as_str()
             && path.contains(&scenario.path_contains)
@@ -165,10 +168,7 @@ fn take_scenario(
     Some(scenarios.remove(position))
 }
 
-async fn scenario_response(scenario: ProtocolScenario) -> Response<Body> {
-    if scenario.delay_ms > 0 {
-        sleep(Duration::from_millis(scenario.delay_ms)).await;
-    }
+fn scenario_response(scenario: NonOpenAiScenario) -> Response<Body> {
     let status = StatusCode::from_u16(scenario.status).expect("fixture status should be valid");
     let mut response = Response::builder()
         .status(status)

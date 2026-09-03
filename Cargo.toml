@@ -126,8 +126,8 @@ serde_json = "1.0.145"
 tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.20", default-features = false, features = ["registry", "fmt", "env-filter"] }
 trycmd = "1.2.1"
-# The record-and-replay proxy for the live E2E suite, pinned to the
-# OpenAI-family scenario revision plus input_file support
+# The OpenAI-compatible twin for declarative fixtures and live E2E replay,
+# pinned to the revision with raw transport and Codex route support.
 twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "4544abda35a6063d02a6feae85f49d98a776b06b" }
 
 [lints]
