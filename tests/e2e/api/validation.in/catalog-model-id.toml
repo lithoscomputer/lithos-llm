@@ -1,0 +1,12 @@
+schema_version = 1
+
+[providers.test]
+display_name = "Test"
+adapter = "custom"
+codec = "custom"
+base_url = "https://example.com"
+auth = { type = "none" }
+
+[providers.test.models."bad model"]
+display_name = "Bad"
+api_model = "bad"

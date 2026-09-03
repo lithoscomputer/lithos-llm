@@ -1,0 +1,86 @@
+[
+  {
+    "model": "openai/no-tools",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "tools" }] }],
+    "tools": [{ "name": "lookup", "description": "Lookup", "kind": { "type": "function", "input_schema": {} } }]
+  },
+  {
+    "model": "openai/no-force",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "force" }] }],
+    "tools": [{ "name": "lookup", "description": "Lookup", "kind": { "type": "function", "input_schema": {} } }],
+    "tool_choice": { "type": "required" }
+  },
+  {
+    "model": "openai/no-structured",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "json" }] }],
+    "response_format": { "type": "json_object" }
+  },
+  {
+    "model": "openai/no-reasoning",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "reason" }] }],
+    "reasoning_effort": "high"
+  },
+  {
+    "model": "openai/no-sampling",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "sample" }] }],
+    "temperature": 0.4
+  },
+  {
+    "model": "openai/no-sampling",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "sample" }] }],
+    "top_p": 0.8
+  },
+  {
+    "model": "openai/no-cache",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "cache" }] }],
+    "cache_hint": { "type": "auto" }
+  },
+  {
+    "model": "openai/no-cache",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "cache" }] }],
+    "cache_hint": { "type": "key", "key": "route" }
+  },
+  {
+    "model": "openai/no-speed",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "fast" }] }],
+    "speed": "fast"
+  },
+  {
+    "model": "openai/no-speed",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "cheap" }] }],
+    "speed": "economical"
+  },
+  {
+    "model": "openai/limited",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "large" }] }],
+    "max_output_tokens": 11
+  },
+  {
+    "model": "openai/no-text",
+    "messages": [{ "role": "user", "content": [{ "type": "text", "text": "text" }] }]
+  },
+  {
+    "model": "openai/no-images",
+    "messages": [{ "role": "user", "content": [{ "type": "image", "source": { "type": "url", "url": "https://example.com/image.png" } }] }]
+  },
+  {
+    "model": "openai/no-audio",
+    "messages": [{ "role": "user", "content": [{ "type": "audio", "source": { "type": "base64", "data": "YQ==", "media_type": "audio/wav" } }] }]
+  },
+  {
+    "model": "openai/no-documents",
+    "messages": [{ "role": "user", "content": [{ "type": "document", "source": { "type": "base64", "data": "ZA==", "media_type": "application/pdf" }, "name": "doc.pdf" }] }]
+  },
+  {
+    "model": "openai/no-reasoning-part",
+    "messages": [{ "role": "assistant", "content": [{ "type": "reasoning", "text": "thought", "signature": null, "signature_origin": null, "redacted": false }] }]
+  },
+  {
+    "model": "openai/no-tool-call",
+    "messages": [{ "role": "assistant", "content": [{ "type": "tool_call", "id": "call-1", "name": "lookup", "arguments": {}, "kind": "function" }] }]
+  },
+  {
+    "model": "openai/no-tool-result",
+    "messages": [{ "role": "tool", "content": [{ "type": "tool_result", "tool_call_id": "call-1", "name": "lookup", "content": [{ "type": "text", "text": "done" }], "is_error": false }] }]
+  }
+]

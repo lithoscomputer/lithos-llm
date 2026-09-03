@@ -1,0 +1,17 @@
+schema_version = 1
+
+[providers.first]
+display_name = "First"
+aliases = ["shared"]
+adapter = "custom"
+codec = "custom"
+base_url = "https://example.com"
+auth = { type = "none" }
+
+[providers.second]
+display_name = "Second"
+aliases = ["shared"]
+adapter = "custom"
+codec = "custom"
+base_url = "https://example.com"
+auth = { type = "none" }

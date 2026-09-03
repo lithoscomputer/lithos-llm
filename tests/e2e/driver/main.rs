@@ -16,7 +16,9 @@ use lithos_llm::Client;
 use lithos_llm::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter, ResolvedCall,
 };
-use lithos_llm::catalog::{AdapterId, Catalog, CatalogProvider, ModelId, ProviderId};
+use lithos_llm::catalog::{
+    AdapterId, Catalog, CatalogBuilder, CatalogProvider, ModelId, ProviderId,
+};
 use lithos_llm::credentials::{
     CredentialHeader, CredentialProvider, Credentials, EnvironmentCredentials,
     EnvironmentCredentialsBuilder, HttpAuthentication, NoCredentials, SecretValue,
@@ -30,9 +32,10 @@ use lithos_llm::middleware::{
 };
 use lithos_llm::resolver::CatalogResolver;
 use lithos_llm::types::{
-    CacheHint, ContentPart, Error, ErrorKind, Message, ReasoningEffort, Request, RequestBuildError,
-    Response, ResponseFormat, ResponseStream, RetryClassification, Speed, StreamEvent, TokenCounts,
-    ToolChoice, ToolDefinition,
+    AudioContent, CacheHint, ContentPart, DocumentContent, Error, ErrorKind, FinishReason,
+    ImageContent, MediaSource, Message, ReasoningEffort, Request, RequestBuildError, Response,
+    ResponseFormat, ResponseStream, RetryClassification, Role, Speed, StreamEvent, TokenCounts,
+    ToolCall, ToolChoice, ToolDefinition, Warning,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -73,6 +76,14 @@ async fn run() -> Result<(), Box<dyn StdError>> {
         "catalog" => {
             let exercise = read_json(required_argument(&mut arguments, "catalog exercise path")?)?;
             exercise_catalog(exercise)
+        }
+        "catalog-errors" => {
+            let cases = read_json(required_argument(&mut arguments, "catalog cases path")?)?;
+            exercise_catalog_errors(cases)
+        }
+        "values" => {
+            let exercise = read_json(required_argument(&mut arguments, "values path")?)?;
+            exercise_values(exercise)
         }
         "credentials" => {
             let exercise = read_json(required_argument(
@@ -419,6 +430,232 @@ fn exercise_catalog(exercise: CatalogExercise) -> Value {
         "provider_lookups": provider_lookups,
         "model_lookups": model_lookups,
         "canonical_lookup": catalog.provider_by_id(&ProviderId::new("fixture")).is_some(),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct CatalogErrorCase {
+    name: String,
+    path: String,
+}
+
+fn exercise_catalog_errors(cases: Vec<CatalogErrorCase>) -> Value {
+    let results = cases
+        .into_iter()
+        .map(|case| {
+            let source = match fs::read_to_string(&case.path) {
+                Ok(source) => source,
+                Err(error) => {
+                    return json!({ "name": case.name, "error": error.to_string() });
+                }
+            };
+            let result = Catalog::builder()
+                .toml_layer(case.path, &source)
+                .and_then(CatalogBuilder::build);
+            match result {
+                Ok(catalog) => json!({
+                    "name": case.name,
+                    "result": "ok",
+                    "providers": catalog.providers().len(),
+                }),
+                Err(error) => {
+                    let mut causes = Vec::new();
+                    let mut source = StdError::source(&error);
+                    while let Some(cause) = source {
+                        causes.push(cause.to_string());
+                        source = cause.source();
+                    }
+                    json!({
+                        "name": case.name,
+                        "error": error.to_string(),
+                        "causes": causes,
+                    })
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    json!({ "kind": "catalog_errors", "cases": results })
+}
+
+#[derive(Debug, Deserialize)]
+struct ValuesExercise {
+    #[serde(default)]
+    messages:         Vec<MessageConstruction>,
+    #[serde(default)]
+    media:            Vec<MediaConstruction>,
+    #[serde(default)]
+    custom_tools:     Vec<CustomToolConstruction>,
+    #[serde(default)]
+    custom_calls:     Vec<CustomCallConstruction>,
+    #[serde(default)]
+    finish_reasons:   Vec<Value>,
+    #[serde(default)]
+    warnings:         Vec<Value>,
+    #[serde(default)]
+    inclusive_tokens: Vec<[u64; 5]>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MessageConstruction {
+    role:         Role,
+    #[serde(default)]
+    content:      Vec<ContentPart>,
+    name:         Option<String>,
+    tool_call_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MediaConstruction {
+    source: MediaConstructionSource,
+    wrap:   MediaWrapper,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum MediaConstructionSource {
+    Url {
+        value: String,
+    },
+    UrlWithMediaType {
+        value:      String,
+        media_type: String,
+    },
+    Base64 {
+        value:      String,
+        media_type: String,
+    },
+    Parse {
+        value: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum MediaWrapper {
+    Image,
+    Audio,
+    Document,
+}
+
+#[derive(Debug, Deserialize)]
+struct CustomToolConstruction {
+    name:        String,
+    description: String,
+    format:      Value,
+}
+
+#[derive(Debug, Deserialize)]
+struct CustomCallConstruction {
+    id:    String,
+    name:  String,
+    input: String,
+}
+
+fn exercise_values(exercise: ValuesExercise) -> Value {
+    let messages = exercise
+        .messages
+        .into_iter()
+        .map(|spec| {
+            let mut message = Message::new(spec.role, spec.content);
+            if let Some(name) = spec.name {
+                message = message.with_name(name);
+            }
+            if let Some(tool_call_id) = spec.tool_call_id {
+                message = message.with_tool_call_id(tool_call_id);
+            }
+            json!({
+                "role": message.role(),
+                "content": message.content(),
+                "name": message.name(),
+                "tool_call_id": message.tool_call_id(),
+                "serialized": message,
+            })
+        })
+        .collect::<Vec<_>>();
+    let media = exercise
+        .media
+        .into_iter()
+        .map(|spec| {
+            let source = match spec.source {
+                MediaConstructionSource::Url { value } => MediaSource::url(value),
+                MediaConstructionSource::UrlWithMediaType { value, media_type } => {
+                    MediaSource::url_with_media_type(value, media_type)
+                }
+                MediaConstructionSource::Base64 { value, media_type } => {
+                    MediaSource::base64(value, media_type)
+                }
+                MediaConstructionSource::Parse { value } => MediaSource::parse(&value),
+            };
+            let media_type = source.media_type().map(ToOwned::to_owned);
+            let base64_data = source.base64_data().map(ToOwned::to_owned);
+            let part = match spec.wrap {
+                MediaWrapper::Image => ContentPart::Image(ImageContent::new(source)),
+                MediaWrapper::Audio => ContentPart::Audio(AudioContent::new(source)),
+                MediaWrapper::Document => ContentPart::Document(DocumentContent::new(source)),
+            };
+            json!({
+                "media_type": media_type,
+                "base64_data": base64_data,
+                "part": part,
+                "opaque_namespace": part.opaque_namespace(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let custom_tools = exercise
+        .custom_tools
+        .into_iter()
+        .map(|spec| {
+            let tool = ToolDefinition::custom(spec.name, spec.description, spec.format);
+            json!({ "custom": tool.is_custom(), "tool": tool })
+        })
+        .collect::<Vec<_>>();
+    let custom_calls = exercise
+        .custom_calls
+        .into_iter()
+        .map(|spec| ToolCall::custom(spec.id, spec.name, spec.input))
+        .collect::<Vec<_>>();
+    let finish_reasons = exercise
+        .finish_reasons
+        .into_iter()
+        .map(
+            |input| match serde_json::from_value::<FinishReason>(input.clone()) {
+                Ok(reason) => json!({ "input": input, "result": reason }),
+                Err(error) => json!({ "input": input, "error": error.to_string() }),
+            },
+        )
+        .collect::<Vec<_>>();
+    let warnings = exercise
+        .warnings
+        .into_iter()
+        .map(
+            |input| match serde_json::from_value::<Warning>(input.clone()) {
+                Ok(warning) => json!({ "input": input, "result": warning }),
+                Err(error) => json!({ "input": input, "error": error.to_string() }),
+            },
+        )
+        .collect::<Vec<_>>();
+    let inclusive_tokens = exercise
+        .inclusive_tokens
+        .into_iter()
+        .map(|[input, output, reasoning, cache_read, cache_write]| {
+            let tokens =
+                TokenCounts::from_inclusive(input, output, reasoning, cache_read, cache_write);
+            json!({
+                "tokens": tokens,
+                "total": tokens.total(),
+                "billable_output": tokens.billable_output(),
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "kind": "values",
+        "messages": messages,
+        "media": media,
+        "custom_tools": custom_tools,
+        "custom_calls": custom_calls,
+        "finish_reasons": finish_reasons,
+        "warnings": warnings,
+        "inclusive_tokens": inclusive_tokens,
     })
 }
 

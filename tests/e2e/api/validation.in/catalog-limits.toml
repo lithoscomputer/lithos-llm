@@ -1,0 +1,13 @@
+schema_version = 1
+
+[providers.test]
+display_name = "Test"
+adapter = "custom"
+codec = "custom"
+base_url = "https://example.com"
+auth = { type = "none" }
+
+[providers.test.models.model]
+display_name = "Model"
+api_model = "model"
+limits = { context_tokens = 10, max_output_tokens = 11 }

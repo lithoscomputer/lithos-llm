@@ -1,0 +1,17 @@
+[
+  { "name": "parse", "path": "catalog-parse.toml" },
+  { "name": "schema", "path": "catalog-schema.toml" },
+  { "name": "empty", "path": "catalog-empty.toml" },
+  { "name": "provider_id", "path": "catalog-provider-id.toml" },
+  { "name": "provider_display", "path": "catalog-provider-display.toml" },
+  { "name": "base_url", "path": "catalog-base-url.toml" },
+  { "name": "provider_alias", "path": "catalog-provider-alias.toml" },
+  { "name": "duplicate_provider_alias", "path": "catalog-duplicate-provider-alias.toml" },
+  { "name": "model_id", "path": "catalog-model-id.toml" },
+  { "name": "model_display", "path": "catalog-model-display.toml" },
+  { "name": "duplicate_model_selector", "path": "catalog-duplicate-model-selector.toml" },
+  { "name": "default_model", "path": "catalog-default-model.toml" },
+  { "name": "limits", "path": "catalog-limits.toml" },
+  { "name": "header_name", "path": "catalog-header-name.toml" },
+  { "name": "header_value", "path": "catalog-header-value.toml" }
+]

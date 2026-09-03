@@ -1,0 +1,81 @@
+schema_version = 1
+
+[providers.openai]
+base_url = "http://127.0.0.1:3932/v1"
+
+[providers.openai.models.no-tools]
+display_name = "No tools"
+api_model = "no-tools"
+capabilities = { text = true }
+
+[providers.openai.models.no-force]
+display_name = "No forced choice"
+api_model = "no-force"
+capabilities = { text = true, tools = true, forced_tool_choice = false }
+
+[providers.openai.models.no-structured]
+display_name = "No structured output"
+api_model = "no-structured"
+capabilities = { text = true }
+
+[providers.openai.models.no-reasoning]
+display_name = "No reasoning"
+api_model = "no-reasoning"
+capabilities = { text = true }
+
+[providers.openai.models.no-sampling]
+display_name = "No sampling"
+api_model = "no-sampling"
+capabilities = { text = true }
+
+[providers.openai.models.no-cache]
+display_name = "No cache routing"
+api_model = "no-cache"
+capabilities = { text = true }
+
+[providers.openai.models.no-speed]
+display_name = "No speed tiers"
+api_model = "no-speed"
+capabilities = { text = true }
+pricing = { input_usd_micros_per_million = 1, speed = { balanced = {} } }
+
+[providers.openai.models.limited]
+display_name = "Limited"
+api_model = "limited"
+limits = { context_tokens = 100, max_output_tokens = 10 }
+capabilities = { text = true }
+
+[providers.openai.models.no-text]
+display_name = "No text"
+api_model = "no-text"
+capabilities = {}
+
+[providers.openai.models.no-images]
+display_name = "No images"
+api_model = "no-images"
+capabilities = { text = true }
+
+[providers.openai.models.no-audio]
+display_name = "No audio"
+api_model = "no-audio"
+capabilities = { text = true }
+
+[providers.openai.models.no-documents]
+display_name = "No documents"
+api_model = "no-documents"
+capabilities = { text = true }
+
+[providers.openai.models.no-reasoning-part]
+display_name = "No reasoning parts"
+api_model = "no-reasoning-part"
+capabilities = { text = true }
+
+[providers.openai.models.no-tool-call]
+display_name = "No tool calls"
+api_model = "no-tool-call"
+capabilities = { text = true }
+
+[providers.openai.models.no-tool-result]
+display_name = "No tool results"
+api_model = "no-tool-result"
+capabilities = { text = true }

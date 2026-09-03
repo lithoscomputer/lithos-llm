@@ -1,0 +1,8 @@
+schema_version = 1
+
+[providers.test]
+display_name = "Test"
+adapter = "custom"
+codec = "custom"
+base_url = " "
+auth = { type = "none" }

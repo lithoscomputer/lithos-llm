@@ -1,0 +1,834 @@
+# Public value constructors and compatibility deserializers are driven by JSON.
+
+```console
+$ lithos-llm-e2e values values.json
+{
+  "kind": "values",
+  "messages": [
+    {
+      "role": "tool",
+      "content": [
+        {
+          "type": "text",
+          "text": "done"
+        }
+      ],
+      "name": "worker",
+      "tool_call_id": "call-7",
+      "serialized": {
+        "role": "tool",
+        "content": [
+          {
+            "type": "text",
+            "text": "done"
+          }
+        ],
+        "name": "worker",
+        "tool_call_id": "call-7"
+      }
+    }
+  ],
+  "media": [
+    {
+      "media_type": null,
+      "base64_data": null,
+      "part": {
+        "type": "image",
+        "source": {
+          "type": "url",
+          "url": "https://example.com/image.png"
+        }
+      },
+      "opaque_namespace": null
+    },
+    {
+      "media_type": "audio/wav",
+      "base64_data": null,
+      "part": {
+        "type": "audio",
+        "source": {
+          "type": "url",
+          "url": "https://example.com/audio",
+          "media_type": "audio/wav"
+        }
+      },
+      "opaque_namespace": null
+    },
+    {
+      "media_type": "application/pdf",
+      "base64_data": "cGRm",
+      "part": {
+        "type": "document",
+        "source": {
+          "type": "base64",
+          "data": "cGRm",
+          "media_type": "application/pdf"
+        }
+      },
+      "opaque_namespace": null
+    },
+    {
+      "media_type": "image/gif",
+      "base64_data": "R0lG",
+      "part": {
+        "type": "image",
+        "source": {
+          "type": "base64",
+          "data": "R0lG",
+          "media_type": "image/gif"
+        }
+      },
+      "opaque_namespace": null
+    },
+    {
+      "media_type": null,
+      "base64_data": null,
+      "part": {
+        "type": "document",
+        "source": {
+          "type": "url",
+          "url": "not-a-data-uri"
+        }
+      },
+      "opaque_namespace": null
+    }
+  ],
+  "custom_tools": [
+    {
+      "custom": true,
+      "tool": {
+        "name": "shell",
+        "description": "Run input",
+        "kind": {
+          "type": "custom",
+          "format": {
+            "type": "grammar",
+            "syntax": "cmd"
+          }
+        }
+      }
+    }
+  ],
+  "custom_calls": [
+    {
+      "id": "custom-1",
+      "name": "shell",
+      "arguments": "echo hello",
+      "kind": "custom",
+      "raw_arguments": "echo hello"
+    }
+  ],
+  "finish_reasons": [
+    {
+      "input": "stop",
+      "result": "stop"
+    },
+    {
+      "input": "length",
+      "result": "length"
+    },
+    {
+      "input": "tool_call",
+      "result": "tool_call"
+    },
+    {
+      "input": "tool_calls",
+      "result": "tool_call"
+    },
+    {
+      "input": "content_filter",
+      "result": "content_filter"
+    },
+    {
+      "input": "error",
+      "result": "error"
+    },
+    {
+      "input": "incomplete",
+      "result": "incomplete"
+    },
+    {
+      "input": "provider_reason",
+      "result": "provider_reason"
+    },
+    {
+      "input": {
+        "other": "legacy_reason"
+      },
+      "result": "legacy_reason"
+    },
+    {
+      "input": {},
+      "error": "missing field `other`"
+    },
+    {
+      "input": {
+        "wrong": "value"
+      },
+      "error": "unknown field `wrong`, expected `other`"
+    },
+    {
+      "input": 7,
+      "error": "invalid type: integer `7`, expected a finish reason string"
+    }
+  ],
+  "warnings": [
+    {
+      "input": {
+        "code": null,
+        "message": "legacy"
+      },
+      "result": {
+        "code": "",
+        "message": "legacy"
+      }
+    },
+    {
+      "input": {
+        "code": "notice",
+        "message": "current"
+      },
+      "result": {
+        "code": "notice",
+        "message": "current"
+      }
+    }
+  ],
+  "inclusive_tokens": [
+    {
+      "tokens": {
+        "input": 60,
+        "output": 15,
+        "reasoning": 5,
+        "cache_read": 30,
+        "cache_write": 10
+      },
+      "total": 120,
+      "billable_output": 20
+    },
+    {
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "reasoning": 3,
+        "cache_read": 2,
+        "cache_write": 0
+      },
+      "total": 5,
+      "billable_output": 3
+    }
+  ]
+}
+
+```
+
+# Catalog validation failures are one declarative matrix.
+
+```console
+$ lithos-llm-e2e catalog-errors catalog-errors.json
+{
+  "kind": "catalog_errors",
+  "cases": [
+    {
+      "name": "parse",
+      "error": "catalog layer `catalog-parse.toml` is invalid TOML",
+      "causes": [
+        "TOML parse error at line 1, column 6/n  |/n1 | this is not valid TOML/n  |      ^/nexpected `.`, `=`/n"
+      ]
+    },
+    {
+      "name": "schema",
+      "error": "catalog schema version 2 is not supported",
+      "causes": []
+    },
+    {
+      "name": "empty",
+      "error": "the catalog has no providers",
+      "causes": []
+    },
+    {
+      "name": "provider_id",
+      "error": "catalog layer `catalog-provider-id.toml` produced an invalid catalog",
+      "causes": [
+        "provider identifier `bad provider` is invalid"
+      ]
+    },
+    {
+      "name": "provider_display",
+      "error": "catalog layer `catalog-provider-display.toml` produced an invalid catalog",
+      "causes": [
+        "test has an empty display name"
+      ]
+    },
+    {
+      "name": "base_url",
+      "error": "catalog layer `catalog-base-url.toml` produced an invalid catalog",
+      "causes": [
+        "provider test has an empty base URL"
+      ]
+    },
+    {
+      "name": "provider_alias",
+      "error": "catalog layer `catalog-provider-alias.toml` produced an invalid catalog",
+      "causes": [
+        "provider alias identifier `bad alias` is invalid"
+      ]
+    },
+    {
+      "name": "duplicate_provider_alias",
+      "error": "catalog layer `catalog-duplicate-provider-alias.toml` produced an invalid catalog",
+      "causes": [
+        "provider alias `shared` is defined more than once"
+      ]
+    },
+    {
+      "name": "model_id",
+      "error": "catalog layer `catalog-model-id.toml` produced an invalid catalog",
+      "causes": [
+        "model identifier `bad model` is invalid"
+      ]
+    },
+    {
+      "name": "model_display",
+      "error": "catalog layer `catalog-model-display.toml` produced an invalid catalog",
+      "causes": [
+        "test/model has an empty display name"
+      ]
+    },
+    {
+      "name": "duplicate_model_selector",
+      "error": "catalog layer `catalog-duplicate-model-selector.toml` produced an invalid catalog",
+      "causes": [
+        "model selector `second` is defined more than once for provider test"
+      ]
+    },
+    {
+      "name": "default_model",
+      "error": "catalog layer `catalog-default-model.toml` produced an invalid catalog",
+      "causes": [
+        "provider test names unknown default model `missing`"
+      ]
+    },
+    {
+      "name": "limits",
+      "error": "catalog layer `catalog-limits.toml` produced an invalid catalog",
+      "causes": [
+        "model test/model has an output limit above its context limit"
+      ]
+    },
+    {
+      "name": "header_name",
+      "error": "catalog layer `catalog-header-name.toml` produced an invalid catalog",
+      "causes": [
+        "provider test declares invalid default header name `bad header`"
+      ]
+    },
+    {
+      "name": "header_value",
+      "error": "catalog layer `catalog-header-value.toml` produced an invalid catalog",
+      "causes": [
+        "provider test declares an invalid value for default header `x-test`"
+      ]
+    }
+  ]
+}
+
+```
+
+# Client capability validation runs before any provider request.
+
+```console
+$ OPENAI_API_KEY=validation lithos-llm-e2e calls client-catalog.toml client-requests.json
+{
+  "kind": "calls",
+  "results": [
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-tools does not support tools",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-tools does not support tools",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-tools does not support tools",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-force does not support forced tool choice",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-force does not support forced tool choice",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-force does not support forced tool choice",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-structured does not support structured output",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-structured does not support structured output",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-structured does not support structured output",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-reasoning does not support reasoning",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-reasoning does not support reasoning",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-reasoning does not support reasoning",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-sampling does not support sampling",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-sampling does not support sampling",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-sampling does not support sampling",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-sampling does not support sampling",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-sampling does not support sampling",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-sampling does not support sampling",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-cache does not support cache routing",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-cache does not support cache routing",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-cache does not support cache routing",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-cache does not support cache routing",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-cache does not support cache routing",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-cache does not support cache routing",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-speed does not support speed 'fast'",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-speed does not support speed 'fast'",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-speed does not support speed 'fast'",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-speed does not support speed 'economical'",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-speed does not support speed 'economical'",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-speed does not support speed 'economical'",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/limited allows at most 10 output tokens",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "max_output_tokens",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/limited allows at most 10 output tokens",
+        "provider": "openai",
+        "provider_code": "max_output_tokens",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"max_output_tokens/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/limited allows at most 10 output tokens",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-text does not support text",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-text does not support text",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-text does not support text",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-images does not support images",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-images does not support images",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-images does not support images",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-audio does not support audio",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-audio does not support audio",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-audio does not support audio",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-documents does not support documents",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-documents does not support documents",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-documents does not support documents",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-reasoning-part does not support reasoning",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-reasoning-part does not support reasoning",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-reasoning-part does not support reasoning",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-tool-call does not support tools",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-tool-call does not support tools",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-tool-call does not support tools",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    },
+    {
+      "kind": "error",
+      "error": {
+        "kind": "error",
+        "error_kind": "InvalidRequest",
+        "message": "model openai/no-tool-result does not support tools",
+        "provider": "openai",
+        "status": null,
+        "provider_code": "unsupported_capability",
+        "retry": "Never"
+      },
+      "data": {
+        "kind": "invalid_request",
+        "message": "model openai/no-tool-result does not support tools",
+        "provider": "openai",
+        "provider_code": "unsupported_capability",
+        "retry": {
+          "type": "never"
+        }
+      },
+      "debug": "Error { kind: InvalidRequest, provider: Some(ProviderId(/"openai/")), status: None, provider_code: Some(/"unsupported_capability/"), retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+      "display": "model openai/no-tool-result does not support tools",
+      "retry_after_ms": null,
+      "provider_retry_after_ms": null,
+      "raw_data": null,
+      "source": null
+    }
+  ]
+}
+
+```

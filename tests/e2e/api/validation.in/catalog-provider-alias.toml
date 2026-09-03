@@ -1,0 +1,9 @@
+schema_version = 1
+
+[providers.test]
+display_name = "Test"
+aliases = ["bad alias"]
+adapter = "custom"
+codec = "custom"
+base_url = "https://example.com"
+auth = { type = "none" }

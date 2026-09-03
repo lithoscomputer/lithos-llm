@@ -1,0 +1,45 @@
+{
+  "messages": [
+    {
+      "role": "tool",
+      "content": [{ "type": "text", "text": "done" }],
+      "name": "worker",
+      "tool_call_id": "call-7"
+    }
+  ],
+  "media": [
+    { "source": { "type": "url", "value": "https://example.com/image.png" }, "wrap": "image" },
+    { "source": { "type": "url_with_media_type", "value": "https://example.com/audio", "media_type": "audio/wav" }, "wrap": "audio" },
+    { "source": { "type": "base64", "value": "cGRm", "media_type": "application/pdf" }, "wrap": "document" },
+    { "source": { "type": "parse", "value": "data:image/gif;base64,R0lG" }, "wrap": "image" },
+    { "source": { "type": "parse", "value": "not-a-data-uri" }, "wrap": "document" }
+  ],
+  "custom_tools": [
+    { "name": "shell", "description": "Run input", "format": { "type": "grammar", "syntax": "cmd" } }
+  ],
+  "custom_calls": [
+    { "id": "custom-1", "name": "shell", "input": "echo hello" }
+  ],
+  "finish_reasons": [
+    "stop",
+    "length",
+    "tool_call",
+    "tool_calls",
+    "content_filter",
+    "error",
+    "incomplete",
+    "provider_reason",
+    { "other": "legacy_reason" },
+    {},
+    { "wrong": "value" },
+    7
+  ],
+  "warnings": [
+    { "code": null, "message": "legacy" },
+    { "code": "notice", "message": "current" }
+  ],
+  "inclusive_tokens": [
+    [100, 20, 5, 30, 10],
+    [2, 3, 9, 7, 8]
+  ]
+}
