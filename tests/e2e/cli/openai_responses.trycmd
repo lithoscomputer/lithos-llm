@@ -39,6 +39,20 @@ error: network: reading the provider response stream failed route=openai/fixture
   caused by: error reading a body from connection
   caused by: unexpected EOF during chunk size line
 
+$ OPENAI_API_KEY=oai-json-body-timeout lllm --catalog catalog.toml -m openai/fixture --no-stream --timeout 10ms 'OpenAI JSON body timeout'
+? 1
+error: timeout: provider openai returned invalid JSON route=openai/fixture provider=openai
+  caused by: error decoding response body for url (http://127.0.0.1:3931/v1/responses)
+  caused by: request or response body error
+  caused by: operation timed out
+
+$ OPENAI_API_KEY=oai-stream-body-timeout lllm --catalog catalog.toml -m openai/fixture --timeout 10ms 'OpenAI stream body timeout'
+? 1
+error: timeout: reading the provider response stream failed route=openai/fixture provider=openai
+  caused by: error decoding response body
+  caused by: request or response body error
+  caused by: operation timed out
+
 $ OPENAI_API_KEY=oai-audio lllm --catalog catalog.toml -m openai/fixture --no-stream --attachment-type audio.wav audio/wav 'OpenAI audio input'
 ? 2
 error: invalid_request: provider openai does not support audio content route=openai/fixture provider=openai code=unsupported_capability

@@ -544,6 +544,51 @@
           }
         ]
       }
+    },
+    {
+      "scenario_id": "oai-json-body-timeout",
+      "namespace": "oai-json-body-timeout",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": false,
+        "input_contains": "OpenAI JSON body timeout"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "application/json",
+        "chunks": [
+          { "kind": "text", "text": "{\"id\":\"partial\"" },
+          { "kind": "text", "text": "}", "delay_ms": 50 }
+        ]
+      }
+    },
+    {
+      "scenario_id": "oai-stream-body-timeout",
+      "namespace": "oai-stream-body-timeout",
+      "matcher": {
+        "endpoint": "responses",
+        "model": "responses-v1",
+        "stream": true,
+        "input_contains": "OpenAI stream body timeout"
+      },
+      "script": {
+        "kind": "raw",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "chunks": [
+          {
+            "kind": "text",
+            "text": "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_timeout\"}}\n\n"
+          },
+          {
+            "kind": "text",
+            "text": "event: response.completed\ndata: {}\n\n",
+            "delay_ms": 50
+          }
+        ]
+      }
     }
   ]
 }
