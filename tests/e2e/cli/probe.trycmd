@@ -1,0 +1,43 @@
+# Probes use the real client path and return a script-friendly status.
+
+```console
+$ OPENROUTER_API_KEY=trycmd-probe-basic lllm --catalog catalog.toml probe --model openrouter/fixture
+passed openrouter/fixture · 7 input · 2 output · [..]
+
+$ LLLM_MODEL=openrouter/fixture OPENROUTER_API_KEY=trycmd-probe-json lllm --catalog catalog.toml probe --reasoning-effort low --timeout 2s --json
+{
+  "version": 1,
+  "route": "openrouter/fixture",
+  "outcome": {
+    "status": "passed"
+  },
+  "latency_ms": [..],
+  "usage": {
+    "input": 11,
+    "output": 3,
+    "reasoning": 0,
+    "cache_read": 0,
+    "cache_write": 0
+  }
+}
+
+$ OPENROUTER_API_KEY=trycmd-probe-tools lllm --catalog catalog.toml probe --model-query fixture --tools
+passed openrouter/fixture · 60 input · 6 output · [..]
+
+$ OPENROUTER_API_KEY=trycmd-probe-incorrect lllm --catalog catalog.toml probe -m openrouter/fixture --tools
+? 1
+incorrect openrouter/fixture · the model answered without calling the tool · 9 input · 1 output · [..]
+
+$ OPENROUTER_API_KEY=trycmd-probe-failure lllm --catalog catalog.toml probe -m openrouter/fixture
+? 1
+failed openrouter/fixture · authentication · provider openrouter probe key rejected · status=401 · code=invalid_api_key · 0 input · 0 output · [..]
+
+$ OPENROUTER_API_KEY=trycmd-probe-timeout lllm --catalog catalog.toml probe -m openrouter/fixture --timeout 5ms
+? 1
+failed openrouter/fixture · timeout · [..] · 0 input · 0 output · [..]
+
+$ lllm --catalog catalog.toml probe -m missing/not-real
+? 1
+failed missing/not-real · model_selection · provider `missing` was not found · 0 input · 0 output · [..]
+
+```

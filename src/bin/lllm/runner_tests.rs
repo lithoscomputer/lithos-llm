@@ -894,6 +894,87 @@ async fn model_selection_uses_the_documented_precedence() {
 }
 
 #[tokio::test]
+async fn probe_uses_model_selection_and_emits_a_json_report() {
+    let adapter = RecordingAdapter::default();
+    let build = client(adapter.clone());
+    let environment = test_environment(Some("beta/two"));
+    let (status, stdout, stderr) = invoke_with_environment(
+        &build.client,
+        &[
+            "lllm",
+            "probe",
+            "--model-query",
+            "one",
+            "--reasoning-effort",
+            "high",
+            "--timeout",
+            "2s",
+            "--json",
+        ],
+        Vec::new(),
+        true,
+        &environment,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Success);
+    assert!(stderr.is_empty());
+    let report: serde_json::Value =
+        serde_json::from_slice(&stdout).expect("probe output should be JSON");
+    assert_eq!(report["version"], 1);
+    assert_eq!(report["route"], "alpha/one");
+    assert_eq!(report["outcome"]["status"], "passed");
+    assert_eq!(report["usage"]["input"], 1_000);
+    let requests = adapter.requests.lock().expect("request lock should work");
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].model(), "alpha/one");
+    assert_eq!(requests[0].max_output_tokens(), Some(1_024));
+    assert_eq!(requests[0].reasoning_effort(), Some(ReasoningEffort::High));
+}
+
+#[tokio::test]
+async fn a_failed_probe_prints_the_finding_and_returns_status_one() {
+    let build = client(FailingAdapter);
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "probe", "--model", "alpha/one"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Failure);
+    assert!(stderr.is_empty());
+    let output = String::from_utf8(stdout).expect("probe output should be UTF-8");
+    assert!(output.starts_with(
+        "failed alpha/one · rate_limit · request was limited · status=429 · code=rate_limit"
+    ));
+    assert!(output.ends_with(" · 0 input · 0 output · 0ms\n"));
+}
+
+#[tokio::test]
+async fn an_incorrect_tool_probe_prints_the_finding_and_returns_status_one() {
+    let build = client(RecordingAdapter::default());
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "probe", "--model", "alpha/one", "--tools"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Failure);
+    assert!(stderr.is_empty());
+    let output = String::from_utf8(stdout).expect("probe output should be UTF-8");
+    assert!(
+        output.starts_with("incorrect alpha/one · the model answered without calling the tool")
+    );
+}
+
+#[tokio::test]
 async fn environment_model_is_used_for_prompts_and_marked_in_models() {
     let adapter = RecordingAdapter::default();
     let build = client(adapter.clone());

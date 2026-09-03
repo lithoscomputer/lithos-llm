@@ -17,6 +17,7 @@ mod attachment;
 mod input;
 mod models;
 mod output;
+mod probe;
 mod prompt;
 mod usage;
 
@@ -169,27 +170,38 @@ where
     let result = match parsed.cli.command {
         Command::Models(arguments) => {
             models::render(client, &arguments, environment, &mut io.stdout)
+                .map(|_| ExitStatus::Success)
         }
-        Command::Resolve(arguments) => {
-            models::render_resolution(client, &arguments, environment, &mut io.stdout)
-        }
-        Command::Prompt(arguments) => {
-            prompt::run(
+        Command::Probe(arguments) => {
+            probe::run(
                 client,
                 &arguments,
-                &parsed.attachments,
-                terminal,
-                &mut io.stdin,
-                &mut io.stdout,
-                &mut io.stderr,
                 environment,
+                &mut io.stdout,
                 &cancellation,
             )
             .await
         }
+        Command::Resolve(arguments) => {
+            models::render_resolution(client, &arguments, environment, &mut io.stdout)
+                .map(|_| ExitStatus::Success)
+        }
+        Command::Prompt(arguments) => prompt::run(
+            client,
+            &arguments,
+            &parsed.attachments,
+            terminal,
+            &mut io.stdin,
+            &mut io.stdout,
+            &mut io.stderr,
+            environment,
+            &cancellation,
+        )
+        .await
+        .map(|_| ExitStatus::Success),
     };
     match result {
-        Ok(OutputState::Written | OutputState::Closed) => ExitStatus::Success,
+        Ok(status) => status,
         Err(error) => {
             let status = status_for(&error);
             let diagnostic = render_error(&error);
@@ -265,7 +277,7 @@ fn append_sources(rendered: &mut String, error: &(dyn StdError + 'static)) {
     }
 }
 
-const fn error_kind(kind: ErrorKind) -> &'static str {
+pub(crate) const fn error_kind(kind: ErrorKind) -> &'static str {
     match kind {
         ErrorKind::Configuration => "configuration",
         ErrorKind::ModelSelection => "model_selection",

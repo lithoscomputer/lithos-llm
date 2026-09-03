@@ -9,6 +9,7 @@ Usage: lllm [OPTIONS] [PROMPT]...
 
 Commands:
   prompt   Send one stateless prompt
+  probe    Test whether a model can serve requests now
   resolve  Print the canonical route without making a request
   models   List and search the built-in model catalog
 
@@ -21,6 +22,7 @@ Options:
 Examples:
   lllm "Explain this code"
   lllm -m anthropic/claude-sonnet-5 "Hello"
+  lllm probe --model-query sonnet
   lllm resolve --model-query sonnet
   lllm models --adapter-compiled
 
@@ -41,12 +43,12 @@ Options:
           Use this model selector unchanged
   -q, --model-query <MODEL_QUERY>
           Search compiled models. Every repeated term must match
+  -s, --system <SYSTEM>
+          Add a system message
       --verbose
           Log library diagnostics to standard error. RUST_LOG overrides this
       --catalog <PATH>
           Add a local TOML catalog overlay for this process. Can be repeated
-  -s, --system <SYSTEM>
-          Add a system message
   -f, --fragment <PATH>
           Add a local UTF-8 file as user context. Can be repeated
       --system-fragment <PATH>
@@ -106,6 +108,31 @@ Options:
       --catalog <PATH>             Add a local TOML catalog overlay for this process. Can be repeated
   -h, --help                       Print help
 
+$ lllm probe --help
+Test whether a model can serve requests now
+
+Usage: lllm probe [OPTIONS]
+
+Options:
+  -m, --model <MODEL>
+          Use this model selector unchanged
+  -q, --model-query <MODEL_QUERY>
+          Search compiled models. Every repeated term must match
+      --tools
+          Exercise a fixed add-tool exchange instead of one short prompt
+      --reasoning-effort <REASONING_EFFORT>
+          Set the model reasoning effort [possible values: minimal, low, medium, high, xhigh, max]
+      --timeout <TIMEOUT>
+          Bound the whole probe. Defaults to 30s, or 90s with --tools
+      --verbose
+          Log library diagnostics to standard error. RUST_LOG overrides this
+      --catalog <PATH>
+          Add a local TOML catalog overlay for this process. Can be repeated
+      --json
+          Emit a versioned JSON probe report
+  -h, --help
+          Print help
+
 $ lllm models --help
 List and search the built-in model catalog
 
@@ -119,9 +146,9 @@ Options:
       --adapter-compiled         Show only models whose provider adapter is compiled into this CLI
       --provider <PROVIDER>      Show only models from this provider ID or alias
       --capability <CAPABILITY>  Show only models with this capability [possible values: text, images, audio, documents, tools, structured-output, reasoning, caching, sampling]
+      --configured               Show only models whose credentials are configured
       --verbose                  Log library diagnostics to standard error. RUST_LOG overrides this
       --catalog <PATH>           Add a local TOML catalog overlay for this process. Can be repeated
-      --configured               Show only models whose credentials are configured
       --default                  Show only the effective default model
   -h, --help                     Print help
 

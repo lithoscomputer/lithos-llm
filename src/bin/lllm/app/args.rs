@@ -17,7 +17,7 @@ use crate::app::{CliError, CliResult};
     version,
     about = "Send stateless prompts through lithos-llm",
     override_usage = "lllm [OPTIONS] [PROMPT]...\n       lllm [OPTIONS] <COMMAND>",
-    after_help = "Examples:\n  lllm \"Explain this code\"\n  lllm -m anthropic/claude-sonnet-5 \"Hello\"\n  lllm resolve --model-query sonnet\n  lllm models --adapter-compiled",
+    after_help = "Examples:\n  lllm \"Explain this code\"\n  lllm -m anthropic/claude-sonnet-5 \"Hello\"\n  lllm probe --model-query sonnet\n  lllm resolve --model-query sonnet\n  lllm models --adapter-compiled",
     disable_help_subcommand = true
 )]
 pub(crate) struct Cli {
@@ -37,10 +37,39 @@ pub(crate) struct Cli {
 pub(crate) enum Command {
     /// Send one stateless prompt.
     Prompt(Box<PromptArgs>),
+    /// Test whether a model can serve requests now.
+    Probe(ProbeArgs),
     /// Print the canonical route without making a request.
     Resolve(ResolveArgs),
     /// List and search the built-in model catalog.
     Models(ModelsArgs),
+}
+
+#[derive(Clone, Debug, Parser)]
+pub(crate) struct ProbeArgs {
+    /// Use this model selector unchanged.
+    #[arg(short = 'm', long)]
+    pub(crate) model: Option<String>,
+
+    /// Search compiled models. Every repeated term must match.
+    #[arg(short = 'q', long = "model-query", action = ArgAction::Append)]
+    pub(crate) model_query: Vec<String>,
+
+    /// Exercise a fixed add-tool exchange instead of one short prompt.
+    #[arg(long)]
+    pub(crate) tools: bool,
+
+    /// Set the model reasoning effort.
+    #[arg(long, value_enum)]
+    pub(crate) reasoning_effort: Option<ReasoningEffortArg>,
+
+    /// Bound the whole probe. Defaults to 30s, or 90s with --tools.
+    #[arg(long, value_parser = parse_duration)]
+    pub(crate) timeout: Option<Duration>,
+
+    /// Emit a versioned JSON probe report.
+    #[arg(long)]
+    pub(crate) json: bool,
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -291,7 +320,7 @@ fn has_explicit_command(args: &[OsString]) -> bool {
     let mut index = 1;
     while let Some(argument) = args.get(index).and_then(|value| value.to_str()) {
         match argument {
-            "prompt" | "resolve" | "models" | "-h" | "--help" | "-V" | "--version" => {
+            "prompt" | "probe" | "resolve" | "models" | "-h" | "--help" | "-V" | "--version" => {
                 return true;
             }
             "--verbose" => index += 1,
@@ -462,6 +491,7 @@ fn concise_schema(raw: &str) -> CliResult<serde_json::Value> {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::time::Duration;
     use std::{env, fs, process};
 
     use super::{Command, parse_from, read_multi_schema, read_schema};
@@ -525,6 +555,34 @@ mod tests {
             .expect("arguments should parse");
         assert!(matches!(parsed.cli.command, Command::Models(_)));
         assert_eq!(parsed.cli.catalog, [PathBuf::from("local.toml")]);
+    }
+
+    #[test]
+    fn parses_probe_options_as_an_explicit_command() {
+        let parsed = parse_from([
+            "lllm",
+            "probe",
+            "--model-query",
+            "one",
+            "--tools",
+            "--reasoning-effort",
+            "high",
+            "--timeout",
+            "2s",
+            "--json",
+        ])
+        .expect("probe arguments should parse");
+        let Command::Probe(args) = parsed.cli.command else {
+            panic!("command should be probe");
+        };
+        assert_eq!(args.model_query, ["one"]);
+        assert!(args.tools);
+        assert!(matches!(
+            args.reasoning_effort,
+            Some(super::ReasoningEffortArg::High)
+        ));
+        assert_eq!(args.timeout, Some(Duration::from_secs(2)));
+        assert!(args.json);
     }
 
     #[test]

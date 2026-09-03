@@ -251,6 +251,13 @@ and `DocumentContent` use the same source type. Provider URL rules differ.
 `Client::probe` answers "can this client serve this model right now" with a
 report instead of an error:
 
+The optional CLI exposes the same diagnostic:
+
+```sh
+lllm probe --model anthropic/claude-sonnet-5
+lllm probe --model-query sonnet --tools --json
+```
+
 ```rust
 use lithos_llm::Client;
 use lithos_llm::client::{ProbeOptions, ProbeOutcome};

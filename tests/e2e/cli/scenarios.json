@@ -175,6 +175,128 @@
         "response_text": "Hello from twin",
         "usage": { "input_tokens": 1240, "output_tokens": 183 }
       }
+    },
+    {
+      "scenario_id": "probe-basic",
+      "namespace": "trycmd-probe-basic",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Say OK"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "OK",
+        "usage": { "input_tokens": 7, "output_tokens": 2 }
+      }
+    },
+    {
+      "scenario_id": "probe-json",
+      "namespace": "trycmd-probe-json",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Say OK"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "OK",
+        "usage": { "input_tokens": 11, "output_tokens": 3 }
+      }
+    },
+    {
+      "scenario_id": "probe-tool-first",
+      "namespace": "trycmd-probe-tools",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Use the add tool twice"
+      },
+      "script": {
+        "kind": "success",
+        "tool_calls": [
+          { "id": "call_first", "name": "add", "arguments": { "a": 15, "b": 27 } }
+        ],
+        "usage": { "input_tokens": 10, "output_tokens": 1 }
+      }
+    },
+    {
+      "scenario_id": "probe-tool-second",
+      "namespace": "trycmd-probe-tools",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Use the add tool twice"
+      },
+      "script": {
+        "kind": "success",
+        "tool_calls": [
+          { "id": "call_second", "name": "add", "arguments": { "a": 42, "b": 42 } }
+        ],
+        "usage": { "input_tokens": 20, "output_tokens": 2 }
+      }
+    },
+    {
+      "scenario_id": "probe-tool-final",
+      "namespace": "trycmd-probe-tools",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Use the add tool twice"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "84 is even because it is divisible by two.",
+        "usage": { "input_tokens": 30, "output_tokens": 3 }
+      }
+    },
+    {
+      "scenario_id": "probe-incorrect",
+      "namespace": "trycmd-probe-incorrect",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Use the add tool twice"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "I will not use a tool.",
+        "usage": { "input_tokens": 9, "output_tokens": 1 }
+      }
+    },
+    {
+      "scenario_id": "probe-failure",
+      "namespace": "trycmd-probe-failure",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Say OK"
+      },
+      "script": {
+        "kind": "error",
+        "status": 401,
+        "message": "probe key rejected",
+        "error_type": "authentication_error",
+        "code": "invalid_api_key"
+      }
+    },
+    {
+      "scenario_id": "probe-timeout",
+      "namespace": "trycmd-probe-timeout",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Say OK"
+      },
+      "script": { "kind": "hang", "delay_before_headers_ms": 5000 }
     }
   ]
 }

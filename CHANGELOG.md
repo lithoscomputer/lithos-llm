@@ -88,6 +88,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   but skipped the tool or got the total wrong. The probe honors an outer
   cancellation or deadline through `CallContext`.
 
+- The optional `lllm` CLI exposes that diagnostic as `lllm probe`. It follows
+  the normal model-selection precedence and supports basic and fixed add-tool
+  probes, reasoning effort, a whole-probe timeout, compact text output, and a
+  versioned JSON report. Passed probes return status 0. Failed and incorrect
+  probes return status 1, so scripts can use the command as a health check.
+
 - A local token estimator, `lithos_llm::estimate`, sizes text, messages,
   content parts, tool definitions, request controls, and whole requests
   synchronously and deterministically, with no provider call and no feature

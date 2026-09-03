@@ -27,7 +27,7 @@ pub(crate) fn write(
     write_text(output, &rendered)
 }
 
-fn grouped(value: u64) -> String {
+pub(crate) fn grouped(value: u64) -> String {
     let digits = value.to_string();
     let mut rendered = String::with_capacity(digits.len() + digits.len() / 3);
     for (index, character) in digits.chars().enumerate() {
@@ -53,7 +53,7 @@ fn cost(cost: Option<Cost>) -> String {
     }
 }
 
-fn duration(elapsed: Duration) -> String {
+pub(crate) fn duration(elapsed: Duration) -> String {
     if elapsed < Duration::from_secs(1) {
         return format!("{}ms", elapsed.as_millis());
     }

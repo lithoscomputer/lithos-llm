@@ -1,0 +1,10 @@
+schema_version = 1
+
+[providers.openrouter]
+base_url = "http://127.0.0.1:3931/v1"
+
+[providers.openrouter.models.fixture]
+display_name = "Fixture model"
+aliases = ["fixture-alias"]
+api_model = "fixture-v1"
+capabilities = { text = true, tools = true, reasoning = true, reasoning_effort_levels = true }

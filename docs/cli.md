@@ -45,6 +45,32 @@ lllm resolve --model claude-sonnet
 lllm resolve --model-query sonnet
 ```
 
+Test whether the selected model can serve a real request now:
+
+```sh
+lllm probe
+lllm probe --model openai/gpt-5
+lllm probe --model-query sonnet --timeout 10s
+lllm probe --model anthropic/claude-sonnet-5 --tools
+lllm probe --json
+```
+
+The basic probe asks for one short answer. `--tools` runs a fixed add-tool
+exchange and checks the final answer. `--reasoning-effort` applies one of the
+same effort levels as the prompt command. The probe uses the normal model
+selection precedence, credentials, transport, and middleware.
+
+The text report goes to standard output and includes the canonical route,
+outcome, token usage, and latency:
+
+```text
+passed anthropic/claude-sonnet-5 · 18 input · 2 output · 412ms
+```
+
+`--json` emits a versioned report with `route`, `outcome`, `latency_ms`, and
+`usage`. Exit status `0` means the probe passed. Status `1` means it failed or
+the model answered incorrectly. Invalid CLI input still returns status `2`.
+
 Use `--option KEY=VALUE` and `--metadata KEY=VALUE` for raw request values.
 Use `--xl` as the short form of `--extract-last`.
 
@@ -145,5 +171,6 @@ means invalid arguments or input. Status `130` means the user interrupted the
 call.
 
 The CLI does not store configuration, credentials, aliases, templates,
-conversation history, logs, or other state. It does not run tools or an agent
-loop.
+conversation history, logs, or other state. The prompt command does not run
+tools or an agent loop. A `probe --tools` diagnostic runs only its fixed add
+tool.
