@@ -1,7 +1,7 @@
 #![cfg(feature = "cli")]
 
-use std::fs;
 use std::process::{self, Command};
+use std::{env, fs};
 
 #[test]
 fn help_runs_without_credentials() {
@@ -38,7 +38,7 @@ fn models_runs_without_credentials_or_network() {
 
 #[test]
 fn a_catalog_overlay_is_available_to_resolution() {
-    let path = std::env::temp_dir().join(format!("lllm-catalog-{}.toml", process::id()));
+    let path = env::temp_dir().join(format!("lllm-catalog-{}.toml", process::id()));
     fs::write(
         &path,
         r#"
