@@ -1,0 +1,13 @@
+# Model mistakes include a canonical suggestion.
+
+```console
+$ lllm --catalog catalog.toml resolve --model local/fixtur
+? 2
+error: model selector `local/fixtur` was not found. Did you mean `local/fixture`?
+  caused by: model selector `local/fixtur` was not found
+
+$ lllm resolve --model-query definitely-missing
+? 2
+error: no model with a compiled adapter matches query: definitely-missing
+
+```

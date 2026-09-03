@@ -1,0 +1,22 @@
+schema_version = 1
+
+[providers.local]
+display_name = "Local fixture"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "http://127.0.0.1:3931/v1"
+priority = 200
+default_model = "fixture"
+auth = { type = "none" }
+
+[providers.local.models.fixture]
+display_name = "Fixture model"
+aliases = ["fixture-alias"]
+api_model = "fixture-v1"
+capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, caching = true, sampling = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000 }
+
+[providers.local.models.text-only]
+display_name = "Text only"
+api_model = "text-only-v1"
+capabilities = { text = true }

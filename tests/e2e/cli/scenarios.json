@@ -1,0 +1,180 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "complete",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Complete prompt"
+      },
+      "script": { "kind": "success", "response_text": "Hello from twin" }
+    },
+    {
+      "scenario_id": "explicit-prompt",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Explicit prompt"
+      },
+      "script": { "kind": "success", "response_text": "Hello from twin" }
+    },
+    {
+      "scenario_id": "streaming",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": true,
+        "input_contains": "Streaming prompt"
+      },
+      "script": { "kind": "success", "response_text": "Hello from twin" }
+    },
+    {
+      "scenario_id": "schema-object",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Invent a person"
+      },
+      "script": {
+        "kind": "success",
+        "structured_output": { "name": "Ada", "age": 37 }
+      }
+    },
+    {
+      "scenario_id": "schema-array",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Invent people"
+      },
+      "script": {
+        "kind": "success",
+        "structured_output": [{ "name": "Ada", "age": 37 }]
+      }
+    },
+    {
+      "scenario_id": "json-object",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Return an object"
+      },
+      "script": {
+        "kind": "success",
+        "structured_output": { "answer": "fixture" }
+      }
+    },
+    {
+      "scenario_id": "fragments",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Project context from a file."
+      },
+      "script": { "kind": "success", "response_text": "Context received" }
+    },
+    {
+      "scenario_id": "schema-file",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Use a schema file"
+      },
+      "script": {
+        "kind": "success",
+        "structured_output": { "name": "Ada", "age": 37 }
+      }
+    },
+    {
+      "scenario_id": "local-attachment",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Read the attachment"
+      },
+      "script": { "kind": "success", "response_text": "Attachment received" }
+    },
+    {
+      "scenario_id": "url-attachment",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Describe the image"
+      },
+      "script": { "kind": "success", "response_text": "Attachment received" }
+    },
+    {
+      "scenario_id": "extract-first",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Return first fenced code"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "Before\n```rust\nfn main() {}\n```\nAfter"
+      }
+    },
+    {
+      "scenario_id": "extract-last",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Return last fenced code"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "Before\n```text\nfirst\n```\n```rust\nfn main() {}\n```\nAfter"
+      }
+    },
+    {
+      "scenario_id": "json-envelope",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "JSON controls"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "Hello from twin",
+        "usage": { "input_tokens": 1240, "output_tokens": 183 }
+      }
+    },
+    {
+      "scenario_id": "stdin",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Prompt from standard input."
+      },
+      "script": { "kind": "success", "response_text": "Hello from twin" }
+    },
+    {
+      "scenario_id": "usage",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "model": "fixture-v1",
+        "stream": false,
+        "input_contains": "Usage prompt"
+      },
+      "script": {
+        "kind": "success",
+        "response_text": "Hello from twin",
+        "usage": { "input_tokens": 1240, "output_tokens": 183 }
+      }
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+# Model status, filters, aliases, defaults, and JSON are CLI contracts.
+
+```console
+$ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local
+DEFAULT  SELECTOR         NAME           ADAPTER   CREDENTIALS  ALIASES               CAPABILITIES
+yes      local/fixture    Fixture model  yes       yes          fixture-alias         text,images,documents,tools,structured-output,caching,sampling
+         local/text-only  Text only      yes       yes                                text
+
+$ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local --capability tools
+DEFAULT  SELECTOR       NAME           ADAPTER   CREDENTIALS  ALIASES               CAPABILITIES
+yes      local/fixture  Fixture model  yes       yes          fixture-alias         text,images,documents,tools,structured-output,caching,sampling
+
+$ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local --capability structured-output
+DEFAULT  SELECTOR       NAME           ADAPTER   CREDENTIALS  ALIASES               CAPABILITIES
+yes      local/fixture  Fixture model  yes       yes          fixture-alias         text,images,documents,tools,structured-output,caching,sampling
+
+$ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models fixture
+DEFAULT  SELECTOR       NAME           ADAPTER   CREDENTIALS  ALIASES               CAPABILITIES
+yes      local/fixture  Fixture model  yes       yes          fixture-alias         text,images,documents,tools,structured-output,caching,sampling
+
+$ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local --configured --adapter-compiled
+DEFAULT  SELECTOR         NAME           ADAPTER   CREDENTIALS  ALIASES               CAPABILITIES
+yes      local/fixture    Fixture model  yes       yes          fixture-alias         text,images,documents,tools,structured-output,caching,sampling
+         local/text-only  Text only      yes       yes                                text
+
+$ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --default
+DEFAULT  SELECTOR       NAME           ADAPTER   CREDENTIALS  ALIASES               CAPABILITIES
+yes      local/fixture  Fixture model  yes       yes          fixture-alias         text,images,documents,tools,structured-output,caching,sampling
+
+$ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local --json
+{
+  "version": 2,
+  "effective_default": "local/fixture",
+  "models": [
+    {
+      "selector": "local/fixture",
+      "display_name": "Fixture model",
+      "aliases": [
+        "fixture-alias"
+      ],
+      "capabilities": {
+        "text": true,
+        "images": true,
+        "audio": false,
+        "documents": true,
+        "tools": true,
+        "forced_tool_choice": true,
+        "structured_output": true,
+        "reasoning": false,
+        "reasoning_effort_levels": false,
+        "caching": true,
+        "cache_breakpoints": false,
+        "cache_routing": false,
+        "sampling": true,
+        "system_turns": false
+      },
+      "adapter_compiled": true,
+      "credentials_configured": true,
+      "effective_default": true
+    },
+    {
+      "selector": "local/text-only",
+      "display_name": "Text only",
+      "aliases": [],
+      "capabilities": {
+        "text": true,
+        "images": false,
+        "audio": false,
+        "documents": false,
+        "tools": false,
+        "forced_tool_choice": true,
+        "structured_output": false,
+        "reasoning": false,
+        "reasoning_effort_levels": false,
+        "caching": false,
+        "cache_breakpoints": false,
+        "cache_routing": false,
+        "sampling": false,
+        "system_turns": false
+      },
+      "adapter_compiled": true,
+      "credentials_configured": true,
+      "effective_default": false
+    }
+  ]
+}
+
+```

@@ -1,0 +1,9 @@
+bin.name = "lllm"
+args = ["resolve"]
+stdout = """
+anthropic/claude-sonnet-5
+"""
+stderr = ""
+
+[env]
+inherit = false

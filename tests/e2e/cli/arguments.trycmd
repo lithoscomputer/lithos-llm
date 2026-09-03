@@ -1,0 +1,86 @@
+# Invalid input fails before any provider request.
+
+```console
+$ lllm
+? 2
+error: provide prompt text, a fragment, or at least one attachment
+
+$ lllm Hello --timeout 10
+? 2
+error: invalid value '10' for '--timeout <TIMEOUT>': duration requires a unit such as ms, s, m, or h
+
+For more information, try '--help'.
+
+$ lllm Hello --metadata missing-value
+? 2
+error: invalid value 'missing-value' for '--metadata <KEY=VALUE>': expected KEY=VALUE
+
+For more information, try '--help'.
+
+$ lllm Hello --option missing-value
+? 2
+error: invalid value 'missing-value' for '--option <KEY=VALUE>': expected KEY=VALUE
+
+For more information, try '--help'.
+
+$ lllm Hello --cache-key shared --no-cache
+? 2
+error: the argument '--cache-key <CACHE_KEY>' cannot be used with '--no-cache'
+
+Usage: lllm prompt --cache-key <CACHE_KEY> [PROMPT]...
+
+For more information, try '--help'.
+
+$ lllm Hello --json --extract
+? 2
+error: the argument '--json' cannot be used with '--extract'
+
+Usage: lllm prompt --json [PROMPT]...
+
+For more information, try '--help'.
+
+$ lllm Hello --schema 'identifier uuid'
+? 2
+error: unknown schema type `uuid` for field `identifier`; use string, int, float, or bool
+
+$ lllm Hello --schema name --schema-multi name
+? 2
+error: the argument '--schema <SCHEMA>' cannot be used with '--schema-multi <SCHEMA_MULTI>'
+
+Usage: lllm prompt --schema <SCHEMA> [PROMPT]...
+
+For more information, try '--help'.
+
+$ lllm Hello --schema-name person
+? 2
+error: the following required arguments were not provided:
+  <--schema <SCHEMA>|--schema-multi <SCHEMA_MULTI>>
+
+Usage: lllm prompt --schema-name <SCHEMA_NAME> <--schema <SCHEMA>|--schema-multi <SCHEMA_MULTI>> [PROMPT]...
+
+For more information, try '--help'.
+
+$ lllm Hello --fragment https://example.com/context.txt
+? 2
+error: fragment `https://example.com/context.txt` must be a local file; URLs are not supported
+
+$ lllm Hello --fragment -
+? 2
+error: fragment `-` must be a local file, not standard input
+
+$ lllm Hello --schema @missing-schema.json
+? 2
+error: could not read schema file `missing-schema.json`
+  caused by: No such file or directory (os error 2)
+
+$ lllm Hello --attachment missing.png
+? 2
+error: could not read attachment `missing.png`
+  caused by: No such file or directory (os error 2)
+
+$ lllm Hello --attachment-type attachment.bin not-a-media-type
+? 2
+error: media type `not-a-media-type` is invalid
+  caused by: mime parse error: a slash (/) was missing between the type and subtype
+
+```

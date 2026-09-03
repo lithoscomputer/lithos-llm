@@ -1,0 +1,15 @@
+bin.name = "lllm"
+args = ["--catalog", "catalog.toml", "--model", "openrouter/fixture", "--no-stream", "--usage", "Usage prompt"]
+stdout = """
+Hello from twin
+"""
+stderr = """
+openrouter/fixture · 1,240 input · 183 output · $0.00431 · [..]
+"""
+fs.cwd = "prompt.in"
+
+[env]
+inherit = false
+
+[env.add]
+OPENROUTER_API_KEY = "trycmd-usage"

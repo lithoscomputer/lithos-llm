@@ -1,0 +1,16 @@
+# Resolution is offline and follows the documented precedence.
+
+```console
+$ LLLM_MODEL=openai/gpt-5 lllm resolve
+openai/gpt-5
+
+$ LLLM_MODEL=openai/gpt-5 lllm resolve --model-query sonnet
+anthropic/claude-sonnet-5
+
+$ LLLM_MODEL=openai/gpt-5 lllm resolve --model anthropic/claude-sonnet --model-query missing
+anthropic/claude-sonnet-5
+
+$ lllm resolve --model claude-sonnet
+anthropic/claude-sonnet-5
+
+```

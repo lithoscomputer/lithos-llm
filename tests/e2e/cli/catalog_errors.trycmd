@@ -1,0 +1,20 @@
+# Catalog file failures name the affected file and preserve their source chain.
+
+```console
+$ lllm --catalog broken.toml resolve
+? 1
+error: configuration: could not build the catalog
+  caused by: catalog layer `broken.toml` is invalid TOML
+  caused by: TOML parse error at line 1, column 6
+  |
+1 | this is not valid = = TOML
+  |      ^
+expected `.`, `=`
+
+
+$ lllm --catalog missing.toml resolve
+? 1
+error: configuration: could not read catalog overlay `missing.toml` as UTF-8
+  caused by: No such file or directory (os error 2)
+
+```

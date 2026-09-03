@@ -117,6 +117,7 @@ reqwest = { version = "0.13.4", default-features = false, features = ["json", "r
 serde_json = "1.0.145"
 tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.20", default-features = false, features = ["registry", "fmt", "env-filter"] }
+trycmd = "1.2.1"
 # The record-and-replay proxy for the live E2E suite, pinned to the
 # codex-passthrough revision plus input_file support
 # (branch codex-passthrough-input-file; twins#7 carries the same fix to

@@ -1,0 +1,13 @@
+bin.name = "lllm"
+args = ["--catalog", "catalog.toml", "--model", "openrouter/fixture", "--no-stream"]
+stdout = """
+Hello from twin
+"""
+stderr = ""
+fs.cwd = "prompt.in"
+
+[env]
+inherit = false
+
+[env.add]
+OPENROUTER_API_KEY = "trycmd-stdin"

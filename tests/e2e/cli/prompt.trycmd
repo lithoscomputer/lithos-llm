@@ -1,0 +1,133 @@
+# Prompt calls run through the real binary and the deterministic twin.
+
+```console
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --no-stream 'Complete prompt'
+Hello from twin
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml prompt --model openrouter/fixture --no-stream --no-cache --timeout 2s 'Explicit prompt'
+Hello from twin
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture 'Streaming prompt'
+Hello from twin
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --schema 'name, age int' --no-stream 'Invent a person'
+{"name":"Ada","age":37}
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --schema-multi 'name, age int' --no-stream 'Invent people'
+? 2
+error: invalid_request: provider openrouter unsupported json_schema root type route=openrouter/fixture provider=openrouter status=400 code=invalid_request
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --json-object --no-stream 'Return an object'
+{"answer":"fixture"}
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --no-stream --system 'Base policy' -f context.txt --system-fragment system.txt Review
+Context received
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --no-stream --schema @schema.json 'Use a schema file'
+{"name":"Ada","age":37}
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --no-stream --attachment-type attachment.txt image/png 'Read the attachment'
+Attachment received
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --no-stream --attachment https://example.com/pixel.png 'Describe the image'
+Attachment received
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --extract 'Return first fenced code'
+fn main() {}
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --xl 'Return last fenced code'
+fn main() {}
+
+$ OPENROUTER_API_KEY=trycmd-prompts lllm --catalog catalog.toml --model openrouter/fixture --json --no-stream --max-output-tokens 42 --temperature 0.5 --top-p 0.8 --reasoning-effort high --stop END --cache-key cache-one --metadata trace=yes --option custom=3 'JSON controls'
+{
+  "version": 1,
+  "request": {
+    "model": "openrouter/fixture",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "JSON controls"
+          }
+        ]
+      }
+    ],
+    "max_output_tokens": 42,
+    "temperature": 0.5,
+    "top_p": 0.8,
+    "reasoning_effort": "high",
+    "cache_hint": {
+      "type": "key",
+      "key": "cache-one"
+    },
+    "stop_sequences": [
+      "END"
+    ],
+    "metadata": {
+      "trace": "yes"
+    },
+    "provider_options": {
+      "openrouter": {
+        "custom": 3
+      }
+    }
+  },
+  "response": {
+    "id": "chatcmpl_resp_000012",
+    "model": {
+      "provider": "openrouter",
+      "model": "fixture"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "Hello from twin"
+      }
+    ],
+    "finish_reason": "stop",
+    "usage": {
+      "input": 1240,
+      "output": 183,
+      "reasoning": 0,
+      "cache_read": 0,
+      "cache_write": 0
+    },
+    "cost": {
+      "usd_micros": 4310,
+      "source": "catalog"
+    },
+    "warnings": [
+      {
+        "code": "unsupported_control",
+        "message": "this provider protocol does not support request metadata"
+      }
+    ],
+    "raw": {
+      "id": "chatcmpl_resp_000012",
+      "object": "chat.completion",
+      "created": 12,
+      "model": "fixture-v1",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": "stop",
+          "message": {
+            "role": "assistant",
+            "content": "Hello from twin",
+            "reasoning": [],
+            "tool_calls": []
+          }
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1240,
+        "completion_tokens": 183,
+        "total_tokens": 1423
+      }
+    }
+  }
+}
+
+```
