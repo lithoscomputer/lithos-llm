@@ -450,6 +450,38 @@ async fn schema_flags_map_to_a_named_json_schema() {
 }
 
 #[tokio::test]
+async fn schema_multi_maps_the_shorthand_to_an_array_schema() {
+    let adapter = RecordingAdapter::default();
+    let build = client(adapter.clone());
+    let (status, _, stderr) = invoke(
+        &build.client,
+        &[
+            "lllm",
+            "hello",
+            "--model",
+            "alpha/one",
+            "--no-stream",
+            "--schema-multi",
+            "name, age int",
+        ],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Success);
+    assert!(stderr.is_empty());
+    let requests = adapter.requests.lock().expect("request lock should work");
+    assert!(matches!(
+        requests.last().and_then(Request::response_format),
+        Some(ResponseFormat::JsonSchema { schema, .. })
+            if schema["type"] == "array"
+                && schema["items"]["properties"]["age"]["type"] == "integer"
+    ));
+}
+
+#[tokio::test]
 async fn reports_safe_provider_error_fields_on_standard_error() {
     let build = client(FailingAdapter);
     let (status, stdout, stderr) = invoke(

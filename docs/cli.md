@@ -102,6 +102,18 @@ to print a versioned envelope that contains the normalized request and
 response. Use `--extract` or `--extract-last` to print a complete Markdown code
 block from a buffered response.
 
+For interactive schemas, list comma-separated fields as
+`NAME [TYPE] [: DESCRIPTION]`. The supported types are `string`, `int`,
+`float`, and `bool`. A missing type means `string`. All fields are required.
+`--schema-multi` requests an array of matching objects:
+
+```sh
+lllm --schema 'name, age int, bio' 'Invent a person'
+lllm --schema-multi 'name, age int' 'Invent three people'
+```
+
+Full JSON Schema objects and `@PATH` files continue to work with both flags.
+
 Pass `--verbose` to see the library's debug diagnostics on standard error.
 `RUST_LOG` selects a custom filter and overrides `--verbose`, for example
 `RUST_LOG=lithos_llm=trace`. Without either, the CLI prints no telemetry.

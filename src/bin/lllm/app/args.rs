@@ -5,7 +5,8 @@ use std::str::FromStr as _;
 use std::time::Duration;
 
 use clap::{
-    ArgAction, ArgMatches, CommandFactory as _, FromArgMatches as _, Parser, Subcommand, ValueEnum,
+    ArgAction, ArgGroup, ArgMatches, CommandFactory as _, FromArgMatches as _, Parser, Subcommand,
+    ValueEnum,
 };
 
 use crate::app::{CliError, CliResult};
@@ -62,6 +63,11 @@ pub(crate) struct ParsedCli {
 }
 
 #[derive(Clone, Debug, Parser)]
+#[command(group(
+    ArgGroup::new("structured_schema")
+        .args(["schema", "schema_multi"])
+        .multiple(false)
+))]
 pub(crate) struct PromptArgs {
     /// Prompt text. Multiple values are joined with one space.
     #[arg(value_name = "PROMPT", num_args = 0..)]
@@ -150,15 +156,19 @@ pub(crate) struct PromptArgs {
     pub(crate) json: bool,
 
     /// Ask the provider for a JSON object.
-    #[arg(long, conflicts_with = "schema")]
+    #[arg(long, conflicts_with_all = ["schema", "schema_multi"])]
     pub(crate) json_object: bool,
 
-    /// Ask for a JSON Schema response. Use JSON or @PATH.
-    #[arg(long, conflicts_with = "json_object")]
+    /// Ask for one structured object. Use shorthand, JSON, or @PATH.
+    #[arg(long, conflicts_with_all = ["json_object", "schema_multi"])]
     pub(crate) schema: Option<String>,
 
-    /// Name used for --schema. Defaults to response.
-    #[arg(long, requires = "schema")]
+    /// Ask for an array of structured objects. Use shorthand, JSON, or @PATH.
+    #[arg(long, conflicts_with_all = ["json_object", "schema"])]
+    pub(crate) schema_multi: Option<String>,
+
+    /// Name used for --schema or --schema-multi. Defaults to response.
+    #[arg(long, requires = "structured_schema")]
     pub(crate) schema_name: Option<String>,
 
     /// Print the first complete fenced code block.
@@ -337,8 +347,13 @@ pub(crate) fn read_schema(raw: &str) -> CliResult<serde_json::Value> {
     } else {
         raw.to_owned()
     };
-    let schema: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|source| CliError::input_source("schema is not valid JSON", source))?;
+    let schema =
+        if raw.starts_with('@') || matches!(text.trim_start().chars().next(), Some('{' | '[')) {
+            serde_json::from_str(&text)
+                .map_err(|source| CliError::input_source("schema is not valid JSON", source))?
+        } else {
+            concise_schema(&text)?
+        };
     if !schema.is_object() {
         return Err(CliError::Input {
             message: "schema must be a JSON object".to_owned(),
@@ -347,11 +362,82 @@ pub(crate) fn read_schema(raw: &str) -> CliResult<serde_json::Value> {
     Ok(schema)
 }
 
+pub(crate) fn read_multi_schema(raw: &str) -> CliResult<serde_json::Value> {
+    Ok(serde_json::json!({
+        "type": "array",
+        "items": read_schema(raw)?,
+    }))
+}
+
+fn concise_schema(raw: &str) -> CliResult<serde_json::Value> {
+    let mut properties = serde_json::Map::new();
+    let mut required = Vec::new();
+    for raw_field in raw.split(',') {
+        let (declaration, description) = raw_field
+            .split_once(':')
+            .map_or((raw_field, None), |(declaration, description)| {
+                (declaration, Some(description.trim()))
+            });
+        let words: Vec<_> = declaration.split_whitespace().collect();
+        let ([name] | [name, _]) = words.as_slice() else {
+            return Err(CliError::Input {
+                message: format!(
+                    "invalid schema field `{}`; expected NAME [TYPE] [: DESCRIPTION]",
+                    raw_field.trim()
+                ),
+            });
+        };
+        if properties.contains_key(*name) {
+            return Err(CliError::Input {
+                message: format!("schema field `{name}` is repeated"),
+            });
+        }
+        let kind = words.get(1).copied().unwrap_or("string");
+        let json_type = match kind {
+            "str" | "string" => "string",
+            "int" | "integer" => "integer",
+            "float" | "number" => "number",
+            "bool" | "boolean" => "boolean",
+            _ => {
+                return Err(CliError::Input {
+                    message: format!(
+                        "unknown schema type `{kind}` for field `{name}`; use string, int, float, or bool"
+                    ),
+                });
+            }
+        };
+        let mut field = serde_json::Map::new();
+        field.insert(
+            "type".to_owned(),
+            serde_json::Value::String(json_type.to_owned()),
+        );
+        if let Some(description) = description.filter(|description| !description.is_empty()) {
+            field.insert(
+                "description".to_owned(),
+                serde_json::Value::String(description.to_owned()),
+            );
+        }
+        properties.insert((*name).to_owned(), serde_json::Value::Object(field));
+        required.push(serde_json::Value::String((*name).to_owned()));
+    }
+    if properties.is_empty() {
+        return Err(CliError::Input {
+            message: "schema shorthand must define at least one field".to_owned(),
+        });
+    }
+    Ok(serde_json::json!({
+        "type": "object",
+        "properties": properties,
+        "required": required,
+        "additionalProperties": false,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use std::{env, fs, process};
 
-    use super::{Command, parse_from, read_schema};
+    use super::{Command, parse_from, read_multi_schema, read_schema};
 
     #[test]
     fn inserts_the_prompt_command() {
@@ -452,5 +538,21 @@ mod tests {
     fn rejects_a_schema_that_is_not_an_object() {
         let error = read_schema("[]").expect_err("schema should fail");
         assert!(error.to_string().contains("JSON object"));
+    }
+
+    #[test]
+    fn compiles_concise_object_and_multi_schemas() {
+        let schema = read_schema("name, age int, score float, active bool, bio: Short bio")
+            .expect("schema should compile");
+        assert_eq!(schema["properties"]["name"]["type"], "string");
+        assert_eq!(schema["properties"]["age"]["type"], "integer");
+        assert_eq!(schema["properties"]["score"]["type"], "number");
+        assert_eq!(schema["properties"]["active"]["type"], "boolean");
+        assert_eq!(schema["properties"]["bio"]["description"], "Short bio");
+        assert_eq!(schema["additionalProperties"], false);
+
+        let multi = read_multi_schema("name, age int").expect("schema should compile");
+        assert_eq!(multi["type"], "array");
+        assert_eq!(multi["items"]["properties"]["age"]["type"], "integer");
     }
 }

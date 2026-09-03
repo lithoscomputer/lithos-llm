@@ -11,7 +11,9 @@ use lithos_llm::types::{
 };
 use serde_json::Value;
 
-use crate::app::args::{AttachmentArg, PromptArgs, ReasoningEffortArg, SpeedArg, read_schema};
+use crate::app::args::{
+    AttachmentArg, PromptArgs, ReasoningEffortArg, SpeedArg, read_multi_schema, read_schema,
+};
 use crate::app::output::{self, write_delta, write_text};
 use crate::app::{CliEnvironment, CliError, CliResult, OutputState, TerminalState, input, models};
 
@@ -55,13 +57,22 @@ pub(crate) async fn run(
 fn response_format(args: &PromptArgs) -> CliResult<Option<ResponseFormat>> {
     if args.json_object {
         Ok(Some(ResponseFormat::JsonObject))
-    } else if let Some(schema) = &args.schema {
+    } else if let Some((schema, multiple)) = args
+        .schema
+        .as_ref()
+        .map(|schema| (schema, false))
+        .or_else(|| args.schema_multi.as_ref().map(|schema| (schema, true)))
+    {
         Ok(Some(ResponseFormat::JsonSchema {
             name:   args
                 .schema_name
                 .clone()
                 .unwrap_or_else(|| "response".to_owned()),
-            schema: read_schema(schema)?,
+            schema: if multiple {
+                read_multi_schema(schema)?
+            } else {
+                read_schema(schema)?
+            },
         }))
     } else {
         Ok(None)
