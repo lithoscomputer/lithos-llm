@@ -1126,6 +1126,85 @@ struct PendingAdapter {
 
 struct PendingMiddleware;
 
+struct OutcomeObserver(Arc<Mutex<Vec<&'static str>>>);
+
+impl Observer for OutcomeObserver {
+    fn on_finish(&self, _call: &Call, outcome: lithos_llm::middleware::CallOutcome<'_>) {
+        use lithos_llm::middleware::CallOutcome;
+        self.0.lock().expect("outcomes").push(match outcome {
+            CallOutcome::Response(_) => "response",
+            CallOutcome::InputTokenCount(_) => "count",
+            CallOutcome::Failed(_) => "failed",
+            CallOutcome::Cancelled => "cancelled",
+            CallOutcome::Dropped => "dropped",
+            _ => "other",
+        });
+    }
+}
+
+#[tokio::test]
+async fn observer_finishes_complete_stream_and_count_once() -> Result<(), Box<dyn StdError>> {
+    let outcomes = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", FakeAdapter::successful())
+        .middleware(lithos_llm::middleware::ObserverMiddleware::new(
+            OutcomeObserver(outcomes.clone()),
+        ))
+        .build()?
+        .client;
+    client.complete(request()?).await?;
+    let mut stream = client.stream(request()?).await?;
+    while stream.next().await.is_some() {}
+    assert_eq!(*outcomes.lock().expect("outcomes"), [
+        "response", "response"
+    ]);
+    drop(stream);
+    assert!(client.count_input_tokens(request()?).await?.is_none());
+    assert_eq!(*outcomes.lock().expect("outcomes"), [
+        "response", "response", "count"
+    ]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn observer_finishes_dropped_and_cancelled_calls_once() -> Result<(), Box<dyn StdError>> {
+    let outcomes = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", PendingAdapter {
+            id: AdapterId::new("test-adapter"),
+        })
+        .middleware(lithos_llm::middleware::ObserverMiddleware::new(
+            OutcomeObserver(outcomes.clone()),
+        ))
+        .build()?
+        .client;
+    let mut future = Box::pin(client.complete(request()?));
+    assert!(futures_util::poll!(&mut future).is_pending());
+    drop(future);
+    let stream = client.stream(request()?).await?;
+    drop(stream);
+    let context = CallContext::new();
+    let cancel = context.cancellation().clone();
+    let mut stream = client.stream_with_context(request()?, context).await?;
+    cancel.cancel();
+    assert!(stream.next().await.expect("cancelled").is_err());
+    drop(stream);
+    let timed = request()?
+        .into_builder()
+        .timeout(Duration::from_millis(5))
+        .build()?;
+    assert!(client.complete(timed).await.is_err());
+    assert_eq!(*outcomes.lock().expect("outcomes"), [
+        "dropped",
+        "dropped",
+        "cancelled",
+        "failed"
+    ]);
+    Ok(())
+}
+
 struct CountingTokensAdapter {
     id:    AdapterId,
     calls: Arc<AtomicUsize>,

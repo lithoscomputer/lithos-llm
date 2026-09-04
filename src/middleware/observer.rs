@@ -1,11 +1,23 @@
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 
 use super::{Call, Middleware, Next, Output};
-use crate::types::{Error, Response, ResponseStream, StreamEvent};
+use crate::adapter::InputTokenCount;
+use crate::types::{Error, ErrorKind, Response, ResponseStream, StreamEvent};
+
+/// The final outcome of one observed middleware invocation.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum CallOutcome<'a> {
+    Response(&'a Response),
+    InputTokenCount(Option<&'a InputTokenCount>),
+    Failed(&'a Error),
+    Cancelled,
+    Dropped,
+}
 
 /// Where in a call's life a retry was decided.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -26,7 +38,9 @@ pub enum RetryStage {
 pub trait Observer: Send + Sync + 'static {
     fn on_start(&self, _call: &Call) {}
 
-    fn on_complete(&self, _call: &Call, _result: Result<&Response, &Error>) {}
+    /// Called once when an observed invocation finishes or is abandoned.
+    /// Install outside retry to observe one logical call.
+    fn on_finish(&self, _call: &Call, _outcome: CallOutcome<'_>) {}
 
     fn on_stream_event(&self, _call: &Call, _event: Result<&StreamEvent, &Error>) {}
 
@@ -76,12 +90,19 @@ impl ObserverMiddleware {
 #[async_trait]
 impl Middleware for ObserverMiddleware {
     async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
+        let mut finish = FinishGuard {
+            observer: self.observer.clone(),
+            call:     call.clone(),
+            finished: false,
+        };
         self.observer.on_start(&call);
-        let result = next.run(call.clone()).await;
-        match result {
-            Ok(Output::InputTokenCount(count)) => Ok(Output::InputTokenCount(count)),
+        match next.run(call.clone()).await {
+            Ok(Output::InputTokenCount(count)) => {
+                finish.finish(CallOutcome::InputTokenCount(count.as_ref()));
+                Ok(Output::InputTokenCount(count))
+            }
             Ok(Output::Complete(response)) => {
-                self.observer.on_complete(&call, Ok(&response));
+                finish.finish(CallOutcome::Response(&response));
                 Ok(Output::Complete(response))
             }
             Ok(Output::Stream(stream)) => {
@@ -89,13 +110,63 @@ impl Middleware for ObserverMiddleware {
                 Ok(Output::Stream(ResponseStream::new(stream.inspect(
                     move |event| {
                         observer.on_stream_event(&call, event.as_ref());
+                        match event {
+                            Ok(StreamEvent::Completed { response }) => {
+                                finish.finish(CallOutcome::Response(response))
+                            }
+                            Err(error) => finish.error(error),
+                            _ => {}
+                        }
                     },
                 ))))
             }
             Err(error) => {
-                self.observer.on_complete(&call, Err(&error));
+                finish.error(&error);
                 Err(error)
             }
+        }
+    }
+}
+
+struct FinishGuard {
+    observer: Arc<dyn Observer>,
+    call:     Call,
+    finished: bool,
+}
+
+impl FinishGuard {
+    fn finish(&mut self, outcome: CallOutcome<'_>) {
+        if !self.finished {
+            self.finished = true;
+            self.observer.on_finish(&self.call, outcome);
+        }
+    }
+
+    fn error(&mut self, error: &Error) {
+        self.finish(if error.kind() == ErrorKind::Cancelled {
+            CallOutcome::Cancelled
+        } else {
+            CallOutcome::Failed(error)
+        });
+    }
+}
+
+impl Drop for FinishGuard {
+    fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
+        if self.call.context().cancellation().is_cancelled() {
+            self.finish(CallOutcome::Cancelled);
+        } else if self
+            .call
+            .context()
+            .deadline()
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            self.error(&Error::new(ErrorKind::Timeout, "the call deadline expired"));
+        } else {
+            self.finish(CallOutcome::Dropped);
         }
     }
 }

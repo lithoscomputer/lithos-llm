@@ -1423,18 +1423,19 @@ impl Observer for RecordingObserver {
         self.starts.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn on_complete(&self, _call: &Call, result: Result<&Response, &Error>) {
+    fn on_finish(&self, _call: &Call, result: lithos_llm::middleware::CallOutcome<'_>) {
         self.completes.fetch_add(1, Ordering::Relaxed);
-        if result.is_err() {
+        if matches!(
+            result,
+            lithos_llm::middleware::CallOutcome::Failed(_)
+                | lithos_llm::middleware::CallOutcome::Cancelled
+        ) {
             self.errors.fetch_add(1, Ordering::Relaxed);
         }
     }
 
-    fn on_stream_event(&self, _call: &Call, event: Result<&StreamEvent, &Error>) {
+    fn on_stream_event(&self, _call: &Call, _event: Result<&StreamEvent, &Error>) {
         self.events.fetch_add(1, Ordering::Relaxed);
-        if event.is_err() {
-            self.errors.fetch_add(1, Ordering::Relaxed);
-        }
     }
 
     fn on_retry(

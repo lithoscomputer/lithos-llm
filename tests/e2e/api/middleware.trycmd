@@ -73,9 +73,9 @@ $ lithos-llm-e2e simulate timeout_complete.json
   "extension_exercised": false,
   "observer": {
     "starts": 1,
-    "completes": 0,
+    "completes": 1,
     "events": 0,
-    "errors": 0,
+    "errors": 1,
     "retries": 0,
     "request_retries": 0,
     "stream_retries": 0
@@ -219,7 +219,7 @@ $ lithos-llm-e2e simulate stream_item_retry.json
   "extension_exercised": false,
   "observer": {
     "starts": 2,
-    "completes": 0,
+    "completes": 2,
     "events": 12,
     "errors": 1,
     "retries": 1,
@@ -275,9 +275,9 @@ $ lithos-llm-e2e simulate timeout_stream.json
   "extension_exercised": false,
   "observer": {
     "starts": 1,
-    "completes": 0,
+    "completes": 1,
     "events": 0,
-    "errors": 0,
+    "errors": 1,
     "retries": 0,
     "request_retries": 0,
     "stream_retries": 0
