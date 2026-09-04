@@ -467,11 +467,7 @@ fn encode_reasoning(reasoning: &ReasoningContent) -> Value {
 /// missing, and the signature is a sibling of `functionCall` inside the same
 /// part rather than a field of the call itself.
 ///
-/// The signature is read from the `gemini` metadata namespace first, then
-/// from the metadata's top level, where the predecessor library stored it.
-/// Without the fallback, a history persisted before the namespacing would
-/// silently replay unsigned and draw the rejection this field exists to
-/// prevent.
+/// The signature is read only from the `gemini` metadata namespace.
 fn encode_tool_call(call: &ToolCall) -> Value {
     let mut part = Map::new();
     part.insert(
@@ -481,8 +477,7 @@ fn encode_tool_call(call: &ToolCall) -> Value {
     let signature = call
         .provider_metadata
         .get(NAMESPACE)
-        .and_then(|metadata| metadata.get("thoughtSignature"))
-        .or_else(|| call.provider_metadata.get("thoughtSignature"));
+        .and_then(|metadata| metadata.get("thoughtSignature"));
     if let Some(signature) = signature {
         part.insert("thoughtSignature".to_owned(), signature.clone());
     }
@@ -1790,10 +1785,7 @@ mod tests {
     }
 
     #[test]
-    fn a_legacy_top_level_thought_signature_still_replays() -> Result<(), Box<dyn StdError>> {
-        // The predecessor library stored the signature at the metadata's top
-        // level rather than under the `gemini` namespace. A migrated history
-        // must keep replaying it, or Gemini 3 rejects the unsigned call.
+    fn noncanonical_top_level_thought_signatures_are_ignored() -> Result<(), Box<dyn StdError>> {
         let mut replayed = ToolCall::function("call-1", "search", json!({ "q": "rust" }));
         replayed
             .provider_metadata
@@ -1820,9 +1812,10 @@ mod tests {
 
         let encoded = GeminiGenerateCodec.encode(&call, false)?;
 
-        assert_eq!(
-            encoded.body["contents"][1]["parts"][0]["thoughtSignature"],
-            "sig-legacy"
+        assert!(
+            encoded.body["contents"][1]["parts"][0]
+                .get("thoughtSignature")
+                .is_none()
         );
         Ok(())
     }

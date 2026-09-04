@@ -1673,7 +1673,7 @@ mod tests {
         let legacy = ReasoningContent {
             text:             "older thought".to_owned(),
             signature:        Some("sig".to_owned()),
-            signature_origin: None,
+            signature_origin: Some("anthropic".to_owned()),
             redacted:         false,
         };
         let call = resolved(

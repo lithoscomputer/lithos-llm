@@ -55,15 +55,28 @@ pub(crate) const GEMINI_SIGNATURES: &str = "gemini";
 ///
 /// A foreign signature cannot verify at this provider, and replaying it can
 /// fail the whole request, so the encoder skips the part and reports the
-/// skip. A signed part whose origin is unknown — persisted before origins
-/// were recorded — replays as it always did.
+/// skip. A signature with no recorded origin is also skipped.
 #[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
 pub(crate) fn foreign_signature(reasoning: &ReasoningContent, family: &str) -> bool {
-    reasoning.signature.is_some()
-        && reasoning
-            .signature_origin
-            .as_deref()
-            .is_some_and(|origin| origin != family)
+    reasoning.signature.is_some() && reasoning.signature_origin.as_deref() != Some(family)
+}
+
+#[cfg(all(
+    test,
+    any(feature = "anthropic", feature = "bedrock", feature = "gemini")
+))]
+#[test]
+fn signatures_require_an_explicit_matching_origin() {
+    let mut reasoning = ReasoningContent {
+        text:             String::new(),
+        signature:        Some("signature".to_owned()),
+        signature_origin: None,
+        redacted:         false,
+    };
+    assert!(foreign_signature(&reasoning, "anthropic"));
+    reasoning.signature_origin = Some("anthropic".to_owned());
+    assert!(!foreign_signature(&reasoning, "anthropic"));
+    assert!(foreign_signature(&reasoning, "gemini"));
 }
 
 /// Whether any reasoning part of the request carries a foreign signature.

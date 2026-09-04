@@ -291,9 +291,7 @@ pub struct ReasoningContent {
     /// covers thought signatures. Codecs record the family at decode time and
     /// skip a foreign signature at encode time, so a conversation that failed
     /// over between providers does not replay a signature the target rejects.
-    /// `None` on a signed part means the origin is unknown — a history
-    /// persisted before this field existed — and the signature replays as
-    /// before.
+    /// A signature with no recorded origin is not replayed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature_origin: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]

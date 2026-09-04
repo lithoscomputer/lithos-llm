@@ -50,9 +50,6 @@ const OPAQUE_PREFIX: &str = "openai_compatible.";
 /// [`encode_chat_message`] replays it into the same place.
 const REASONING_DETAILS: &str = "reasoning_details";
 
-/// The kind the reference implementation persisted the channel under.
-const LEGACY_DETAILS_KIND: &str = "openai_compat_reasoning_details";
-
 /// The id of the single streamed text block.
 ///
 /// The protocol carries no block ids at all, so every text fragment of one
@@ -835,16 +832,12 @@ fn encode_chat_message(message: &Message) -> Value {
 
     // An opaque part of this dialect names the message field it came from, so
     // `openai_compatible.reasoning_details` replays as `reasoning_details`.
-    // The reference implementation persisted the same payload under
-    // `openai_compat_reasoning_details`; a migrated history replays alike.
     // Parts of another namespace are skipped, which keeps failover working.
     for part in message.content() {
-        if let ContentPart::Opaque { kind, data } = part {
-            if let Some(field) = kind.strip_prefix(OPAQUE_PREFIX) {
-                value[field] = data.clone();
-            } else if kind == LEGACY_DETAILS_KIND {
-                value[REASONING_DETAILS] = data.clone();
-            }
+        if let ContentPart::Opaque { kind, data } = part
+            && let Some(field) = kind.strip_prefix(OPAQUE_PREFIX)
+        {
+            value[field] = data.clone();
         }
     }
 
@@ -1689,10 +1682,7 @@ mod tests {
     }
 
     #[test]
-    fn a_legacy_reasoning_details_kind_replays_into_the_field() -> Result<(), Box<dyn StdError>> {
-        // The reference implementation persisted the channel as
-        // `openai_compat_reasoning_details`; a migrated history must keep its
-        // signed reasoning on replay, or the aggregator sees an unsigned turn.
+    fn noncanonical_reasoning_details_are_ignored() -> Result<(), Box<dyn StdError>> {
         let details = json!([{ "type": "reasoning.encrypted", "id": "rs-1", "data": "AQ==" }]);
         let call = resolved(
             Request::builder()
@@ -1710,7 +1700,11 @@ mod tests {
 
         let encoded = OpenAiChatCodec.encode(&call, false)?;
 
-        assert_eq!(encoded.body["messages"][1]["reasoning_details"], details);
+        assert!(
+            encoded.body["messages"][1]
+                .get("reasoning_details")
+                .is_none()
+        );
         Ok(())
     }
 

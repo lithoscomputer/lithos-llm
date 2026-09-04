@@ -46,12 +46,6 @@ const REASONING_KIND: &str = "openai.reasoning";
 /// way to send back the one the provider issued.
 const MESSAGE_KIND: &str = "openai.message";
 
-/// The kind the reference implementation persisted a `reasoning` item under.
-const LEGACY_REASONING_KIND: &str = "openai_reasoning";
-
-/// The kind the reference implementation persisted a `message` item under.
-const LEGACY_MESSAGE_KIND: &str = "openai_message";
-
 /// The fields `POST /v1/responses/input_tokens` accepts.
 ///
 /// The projection runs after raw provider options are merged, so a stray
@@ -589,18 +583,9 @@ fn opaque_items(message: &Message) -> impl Iterator<Item = &Value> {
     })
 }
 
-/// Whether an opaque part carries one of this protocol's output items.
-///
-/// The dotted kinds are this crate's own. The underscore spellings are what
-/// the reference implementation persisted; both hold the provider's output
-/// item verbatim, so a migrated history replays through the same path.
+/// Whether an opaque part belongs to this protocol's namespace.
 fn claims_opaque(part: &ContentPart) -> bool {
     part.opaque_namespace() == Some(NAMESPACE)
-        || matches!(
-            part,
-            ContentPart::Opaque { kind, .. }
-                if kind == LEGACY_REASONING_KIND || kind == LEGACY_MESSAGE_KIND
-        )
 }
 
 /// Encodes the content parts that belong inside a message item.
@@ -712,9 +697,6 @@ fn tool_call_item(call: &ToolCall) -> Value {
         .provider_metadata
         .get(NAMESPACE)
         .and_then(|metadata| metadata.get("item_id"))
-        // The reference implementation stored the `fc_` item id at the
-        // metadata top level; a migrated call keeps its item identity.
-        .or_else(|| call.provider_metadata.get("id"))
         .and_then(Value::as_str);
     if let (Some(object), Some(item_id)) = (item.as_object_mut(), item_id) {
         object.insert("id".to_owned(), Value::String(item_id.to_owned()));
@@ -2152,55 +2134,25 @@ mod tests {
     }
 
     #[test]
-    fn legacy_persisted_replay_data_still_replays() -> Result<(), Box<dyn StdError>> {
-        // The reference implementation persisted whole output items under the
-        // underscore kinds and the `fc_` item id at the metadata top level. A
-        // migrated history must keep its reasoning chain and item identity —
-        // dropping the reasoning item draws the provider's 400 about a
-        // function_call without its required reasoning item.
-        let reasoning = json!({
-            "type": "reasoning",
-            "id": "rs_1",
-            "summary": [],
-            "encrypted_content": "gAAAA",
-        });
-        let message = json!({
-            "type": "message",
-            "id": "msg_1",
-            "status": "completed",
-            "role": "assistant",
-            "content": [{ "type": "output_text", "text": "checking" }],
-        });
-        let mut tool_call = ToolCall::function("call_abc", "search", json!({ "query": "rust" }));
-        tool_call
-            .provider_metadata
-            .insert("id".to_owned(), json!("fc_123"));
+    fn noncanonical_replay_kinds_and_metadata_are_ignored() -> Result<(), Box<dyn StdError>> {
+        let mut tool = ToolCall::function("call_1", "search", json!({}));
+        tool.provider_metadata
+            .insert("id".to_owned(), json!("fc_old"));
         let request = Request::builder()
             .model(MODEL)
-            .user("Hello")
+            .user("hi")
             .message(Message::new(Role::Assistant, [
-                ContentPart::opaque("openai_reasoning", reasoning.clone()),
-                ContentPart::opaque("openai_message", message.clone()),
-                ContentPart::Text {
-                    text: "checking".to_owned(),
-                },
-                ContentPart::ToolCall(tool_call),
+                ContentPart::opaque(
+                    "openai_reasoning",
+                    json!({"type":"reasoning","id":"rs_old"}),
+                ),
+                ContentPart::opaque("openai_message", json!({"type":"message","id":"msg_old"})),
+                ContentPart::ToolCall(tool),
             ]))
             .build()?;
-
         let encoded = codec().encode(&call(request)?, false)?;
-
-        assert_eq!(encoded.body["input"][1], reasoning);
-        assert_eq!(encoded.body["input"][2], message);
-        assert_eq!(
-            encoded.body["input"][3]["id"], "fc_123",
-            "the un-namespaced item id must ride the replayed call"
-        );
-        assert_eq!(
-            encoded.body["input"].as_array().map(Vec::len),
-            Some(4),
-            "the preserved message item already carries the text",
-        );
+        assert_eq!(encoded.body["input"].as_array().map(Vec::len), Some(2));
+        assert!(encoded.body["input"][1].get("id").is_none());
         Ok(())
     }
 

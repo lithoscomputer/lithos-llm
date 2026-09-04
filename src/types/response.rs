@@ -1,6 +1,6 @@
 use std::fmt;
 
-use serde::de::{Error as DeError, MapAccess, Visitor};
+use serde::de::{Error as DeError, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
@@ -44,15 +44,11 @@ impl FinishReason {
 
 impl From<&str> for FinishReason {
     /// Names the matching variant, keeping any other spelling verbatim.
-    ///
-    /// `tool_calls` is the spelling the predecessor library persisted, so it
-    /// keeps loading as [`FinishReason::ToolCall`]; a stored tool-call
-    /// response must not silently stop matching after migration.
     fn from(value: &str) -> Self {
         match value {
             "stop" => Self::Stop,
             "length" => Self::Length,
-            "tool_call" | "tool_calls" => Self::ToolCall,
+            "tool_call" => Self::ToolCall,
             "content_filter" => Self::ContentFilter,
             "error" => Self::Error,
             "incomplete" => Self::Incomplete,
@@ -69,16 +65,14 @@ impl Serialize for FinishReason {
 
 impl<'de> Deserialize<'de> for FinishReason {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_any(FinishReasonVisitor)
+        deserializer.deserialize_str(FinishReasonVisitor)
     }
 }
 
-/// Reads a finish reason from the bare string this crate writes, or from the
-/// `{"other": "..."}` object an earlier version wrote for
-/// [`FinishReason::Other`].
+/// Reads the canonical finish reason string.
 struct FinishReasonVisitor;
 
-impl<'de> Visitor<'de> for FinishReasonVisitor {
+impl Visitor<'_> for FinishReasonVisitor {
     type Value = FinishReason;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -87,19 +81,6 @@ impl<'de> Visitor<'de> for FinishReasonVisitor {
 
     fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
         Ok(FinishReason::from(value))
-    }
-
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-        let mut reason: Option<String> = None;
-        while let Some(key) = map.next_key::<String>()? {
-            if key != "other" {
-                return Err(DeError::unknown_field(&key, &["other"]));
-            }
-            reason = Some(map.next_value()?);
-        }
-        reason
-            .map(|reason| FinishReason::from(reason.as_str()))
-            .ok_or_else(|| DeError::missing_field("other"))
     }
 }
 
@@ -114,25 +95,22 @@ impl<'de> Visitor<'de> for FinishReasonVisitor {
 /// an inconsistent provider payload can never underflow.
 /// [`TokenCounts::from_inclusive`] does exactly that for the common shape.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct TokenCounts {
     /// Prompt tokens that were neither read from nor written to a cache.
-    ///
-    /// The aliases load usage the reference implementation persisted under
-    /// its `*_tokens` field names; without them an old document deserializes
-    /// without error into all-zero buckets.
-    #[serde(default, alias = "input_tokens")]
+    #[serde(default)]
     pub input:       u64,
     /// Completion tokens that are not reasoning tokens.
-    #[serde(default, alias = "output_tokens")]
+    #[serde(default)]
     pub output:      u64,
     /// Completion tokens spent on reasoning, billed at the output rate.
-    #[serde(default, alias = "reasoning_tokens")]
+    #[serde(default)]
     pub reasoning:   u64,
     /// Prompt tokens served from a provider cache.
-    #[serde(default, alias = "cache_read_tokens")]
+    #[serde(default)]
     pub cache_read:  u64,
     /// Prompt tokens written into a provider cache.
-    #[serde(default, alias = "cache_write_tokens")]
+    #[serde(default)]
     pub cache_write: u64,
 }
 
@@ -220,19 +198,10 @@ pub struct RateLimits {
 }
 
 /// A non-fatal provider or normalization warning.
-///
-/// The predecessor library serialized an absent code as `"code": null`, so
-/// deserialization folds a null into the empty string rather than refusing
-/// the stored warning.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Warning {
-    #[serde(deserialize_with = "null_as_empty")]
     pub code:    String,
     pub message: String,
-}
-
-fn null_as_empty<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
-    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 /// A normalized complete model response.
@@ -353,38 +322,26 @@ mod tests {
     }
 
     #[test]
-    fn the_predecessors_tool_calls_spelling_still_deserializes() -> Result<(), Box<dyn StdError>> {
-        // The old library persisted "tool_calls"; a stored tool-call response
-        // must keep matching `ToolCall` after migration.
-        let reason = serde_json::from_value::<FinishReason>(json!("tool_calls"))?;
-
-        assert_eq!(reason, FinishReason::ToolCall);
-        Ok(())
-    }
-
-    #[test]
-    fn a_stored_warning_with_a_null_code_still_deserializes() -> Result<(), Box<dyn StdError>> {
-        let warning =
-            serde_json::from_value::<Warning>(json!({ "code": null, "message": "dropped" }))?;
-
-        assert_eq!(warning.code, "");
-        assert_eq!(warning.message, "dropped");
-        Ok(())
-    }
-
-    #[test]
-    fn the_earlier_other_object_still_deserializes() -> Result<(), Box<dyn StdError>> {
-        let reason = serde_json::from_value::<FinishReason>(json!({ "other": "incomplete" }))?;
-
-        assert_eq!(reason, FinishReason::Incomplete);
-        Ok(())
+    fn noncanonical_finish_reasons_and_warnings_are_not_converted() {
+        assert_eq!(
+            FinishReason::from("tool_calls"),
+            FinishReason::Other("tool_calls".into())
+        );
+        assert!(serde_json::from_value::<FinishReason>(json!({ "other": "incomplete" })).is_err());
+        assert!(
+            serde_json::from_value::<Warning>(json!({ "code": null, "message": "dropped" }))
+                .is_err()
+        );
     }
 
     #[test]
     fn a_finish_reason_object_naming_another_field_is_rejected() {
         let error = serde_json::from_value::<FinishReason>(json!({ "stop": "yes" })).unwrap_err();
 
-        assert!(error.to_string().contains("stop"), "{error}");
+        assert!(
+            error.to_string().contains("finish reason string"),
+            "{error}"
+        );
     }
 
     #[test]
@@ -431,27 +388,8 @@ mod tests {
     }
 
     #[test]
-    fn usage_persisted_under_the_legacy_field_names_still_loads() {
-        // The reference implementation serialized `input_tokens`-style names.
-        // Every field defaults, so without the aliases an old document loads
-        // without error into all-zero buckets — silent wrong usage and cost.
-        let stored = serde_json::json!({
-            "input_tokens": 100,
-            "output_tokens": 40,
-            "reasoning_tokens": 25,
-            "cache_read_tokens": 30,
-            "cache_write_tokens": 10,
-        });
-
-        let usage: TokenCounts = serde_json::from_value(stored).expect("legacy usage loads");
-
-        assert_eq!(usage, TokenCounts {
-            input:       100,
-            output:      40,
-            reasoning:   25,
-            cache_read:  30,
-            cache_write: 10,
-        });
+    fn token_counts_reject_noncanonical_fields() {
+        assert!(serde_json::from_value::<TokenCounts>(json!({ "input_tokens": 100 })).is_err());
     }
 
     #[test]

@@ -879,7 +879,14 @@ pub(crate) fn reasoning_round_trip_request(model: &str) -> Request {
             ContentPart::Reasoning(ReasoningContent {
                 text:             "91 is 7 times 13.".to_owned(),
                 signature:        Some("sig-abc".to_owned()),
-                signature_origin: None,
+                signature_origin: Some(
+                    if model.starts_with("gemini/") {
+                        "gemini"
+                    } else {
+                        "anthropic"
+                    }
+                    .to_owned(),
+                ),
                 redacted:         false,
             }),
             ContentPart::Reasoning(ReasoningContent {

@@ -134,7 +134,7 @@ $ lithos-llm-e2e values values.json
     },
     {
       "input": "tool_calls",
-      "result": "tool_call"
+      "result": "tool_calls"
     },
     {
       "input": "content_filter",
@@ -156,17 +156,17 @@ $ lithos-llm-e2e values values.json
       "input": {
         "other": "legacy_reason"
       },
-      "result": "legacy_reason"
+      "error": "invalid type: map, expected a finish reason string"
     },
     {
       "input": {},
-      "error": "missing field `other`"
+      "error": "invalid type: map, expected a finish reason string"
     },
     {
       "input": {
         "wrong": "value"
       },
-      "error": "unknown field `wrong`, expected `other`"
+      "error": "invalid type: map, expected a finish reason string"
     },
     {
       "input": 7,
@@ -179,10 +179,7 @@ $ lithos-llm-e2e values values.json
         "code": null,
         "message": "legacy"
       },
-      "result": {
-        "code": "",
-        "message": "legacy"
-      }
+      "error": "invalid type: null, expected a string"
     },
     {
       "input": {
