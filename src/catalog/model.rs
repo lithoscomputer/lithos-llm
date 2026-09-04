@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Metadata, ModelCapabilities, ModelId, ModelProtocolOptions, ProviderId};
+use super::{
+    CatalogError, Metadata, ModelCapabilities, ModelHandle, ModelId, ModelProtocolOptions,
+    ProviderId,
+};
 use crate::types::Speed;
 
 /// Context and output token limits.
@@ -147,8 +150,28 @@ impl Pricing {
     }
 }
 
-/// Model-level catalog facts.
+/// Parsing record without catalog identity. Never exposed as a validated model.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct ModelRecord {
+    display_name:     String,
+    #[serde(default)]
+    aliases:          Vec<String>,
+    api_model:        String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    limits:           Option<ModelLimits>,
+    #[serde(default)]
+    capabilities:     ModelCapabilities,
+    #[serde(default)]
+    protocol_options: ModelProtocolOptions,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pricing:          Option<Pricing>,
+    #[serde(default, skip_serializing_if = "Metadata::is_empty")]
+    metadata:         Metadata,
+}
+
+/// Model-level catalog facts.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CatalogModel {
     #[serde(skip)]
@@ -223,9 +246,41 @@ impl CatalogModel {
         self.passthrough
     }
 
-    pub(crate) fn set_identity(&mut self, provider: ProviderId, id: ModelId) {
-        self.provider = provider;
-        self.id = id;
+    pub(super) fn try_from_record(
+        provider: ProviderId,
+        id: ModelId,
+        record: ModelRecord,
+    ) -> Result<Self, CatalogError> {
+        super::validate_identifier("model", id.as_str(), true)?;
+        if record.display_name.trim().is_empty() {
+            return Err(CatalogError::EmptyDisplayName {
+                item: format!("{provider}/{id}"),
+            });
+        }
+        for alias in &record.aliases {
+            super::validate_identifier("model alias", alias, false)?;
+        }
+        if record
+            .limits
+            .is_some_and(|limits| limits.max_output_tokens > limits.context_tokens)
+        {
+            return Err(CatalogError::InvalidModelLimits {
+                model: ModelHandle::new(provider, id),
+            });
+        }
+        Ok(Self {
+            provider,
+            id,
+            passthrough: false,
+            display_name: record.display_name,
+            aliases: record.aliases,
+            api_model: record.api_model,
+            limits: record.limits,
+            capabilities: record.capabilities,
+            protocol_options: record.protocol_options,
+            pricing: record.pricing,
+            metadata: record.metadata,
+        })
     }
 
     pub(crate) fn passthrough(provider: ProviderId, model: ModelId) -> Self {

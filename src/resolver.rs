@@ -42,8 +42,22 @@ pub struct ResolvedRoute {
 }
 
 impl ResolvedRoute {
-    pub fn new(provider: CatalogProvider, model: CatalogModel) -> Self {
-        Self { provider, model }
+    /// Builds a route whose model belongs to the selected provider.
+    ///
+    /// # Errors
+    ///
+    /// Returns a provider mismatch when the model belongs to another provider.
+    pub fn try_new(
+        provider: CatalogProvider,
+        model: CatalogModel,
+    ) -> Result<Self, ModelSelectionError> {
+        if provider.id() != model.provider_id() {
+            return Err(ModelSelectionError::ModelProviderMismatch {
+                provider: provider.id().clone(),
+                model:    ModelHandle::new(model.provider_id().clone(), model.id().clone()),
+            });
+        }
+        Ok(Self { provider, model })
     }
 
     pub fn provider(&self) -> &CatalogProvider {
@@ -146,7 +160,7 @@ impl ModelResolver for CatalogResolver {
             .ok_or_else(|| ModelSelectionError::ProviderNotFound {
                 provider: model.provider_id().to_string(),
             })?;
-        Ok(ResolvedRoute::new(provider.clone(), model.clone()))
+        ResolvedRoute::try_new(provider.clone(), model.clone())
     }
 }
 
@@ -171,7 +185,7 @@ fn resolve_explicit(
             selector: format!("{provider_selector}/{model_selector}"),
         });
     };
-    Ok(ResolvedRoute::new(provider.clone(), model))
+    ResolvedRoute::try_new(provider.clone(), model)
 }
 
 fn resolve_default(
@@ -212,7 +226,7 @@ fn resolve_provider_default(
             .ok_or_else(|| ModelSelectionError::ModelNotFound {
                 selector: format!("{}/{default_model}", provider.id()),
             })?;
-    Ok(ResolvedRoute::new(provider.clone(), model.clone()))
+    ResolvedRoute::try_new(provider.clone(), model.clone())
 }
 
 fn require_available(
@@ -232,6 +246,11 @@ fn require_available(
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 #[non_exhaustive]
 pub enum ModelSelectionError {
+    #[error("model {model} does not belong to provider {provider}")]
+    ModelProviderMismatch {
+        provider: ProviderId,
+        model:    ModelHandle,
+    },
     #[error("provider `{provider}` was not found")]
     ProviderNotFound { provider: String },
     #[error("provider {provider} has no registered adapter")]
@@ -277,6 +296,29 @@ mod tests {
         capabilities = { text = true }
         pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 2000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 500000 }
     "#;
+
+    #[test]
+    fn route_construction_rejects_a_model_from_another_provider() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().overlay_toml(TEST_CATALOG)?.build()?;
+        let other = Catalog::builder()
+            .overlay_toml(&TEST_CATALOG.replace("providers.alpha", "providers.beta"))?
+            .build()?;
+        let error = super::ResolvedRoute::try_new(
+            catalog.provider("alpha")?.clone(),
+            other.model("beta", "one")?.clone(),
+        )
+        .expect_err("provider mismatch");
+        assert!(
+            matches!(error, super::ModelSelectionError::ModelProviderMismatch { provider, model }
+            if provider.as_str() == "alpha" && model.provider().as_str() == "beta")
+        );
+        let route = super::ResolvedRoute::try_new(
+            catalog.provider("alpha")?.clone(),
+            catalog.model("alpha", "one")?.clone(),
+        )?;
+        assert_eq!(route.model().provider_id(), route.provider().id());
+        Ok(())
+    }
 
     #[test]
     fn a_resolved_route_estimates_catalog_cost() -> Result<(), Box<dyn StdError>> {

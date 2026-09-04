@@ -21,6 +21,17 @@ This is an intentional breaking refresh for coordinated callers.
 | Unbounded response collection | ResponseLimits and non-retryable limit errors |
 | Always retain raw success bodies | ClientBuilder::retain_raw_response(bool) |
 
+## Validated catalog objects and routes
+
+Build catalog objects through Catalog::builder(). CatalogProvider and
+CatalogModel no longer implement Deserialize. Their parsing records are private;
+successful catalog construction assigns identity and validates their fields.
+Their serialized catalog shape is unchanged.
+
+Replace ResolvedRoute::new(provider, model) with
+ResolvedRoute::try_new(provider, model)?.
+A model from a different provider returns ModelSelectionError::ModelProviderMismatch.
+
 ## Catalog data
 
 Basic capabilities accept true, false, or "unknown".

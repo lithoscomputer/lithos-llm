@@ -941,7 +941,7 @@ mod tests {
                     .ok_or_else(|| ModelSelectionError::ModelNotFound {
                         selector: "gamma/three".to_owned(),
                     })?;
-            Ok(ResolvedRoute::new(provider.clone(), model.clone()))
+            ResolvedRoute::try_new(provider.clone(), model.clone())
         }
     }
 

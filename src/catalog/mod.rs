@@ -31,9 +31,15 @@ pub(crate) type LayerOrigins = BTreeMap<ProviderId, String>;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct CatalogDocument {
-    pub schema_version: u32,
-    pub providers:      BTreeMap<ProviderId, CatalogProvider>,
+struct ParsedCatalogDocument {
+    schema_version: u32,
+    providers:      BTreeMap<ProviderId, provider::ProviderRecord>,
+}
+
+#[derive(Clone, Debug)]
+struct CatalogDocument {
+    schema_version: u32,
+    providers:      BTreeMap<ProviderId, CatalogProvider>,
 }
 
 /// A validated immutable provider and model catalog.
@@ -47,8 +53,8 @@ impl Catalog {
         CatalogBuilder::new()
     }
 
-    pub(crate) fn from_document(
-        mut document: CatalogDocument,
+    fn from_document(
+        document: ParsedCatalogDocument,
         origins: &LayerOrigins,
     ) -> Result<Self, CatalogError> {
         if document.schema_version != CATALOG_SCHEMA_VERSION {
@@ -65,13 +71,29 @@ impl Catalog {
             .keys()
             .map(ToString::to_string)
             .collect::<BTreeSet<_>>();
-        for (provider_id, provider) in &mut document.providers {
-            validate_provider(provider_id, provider, &mut provider_selectors)
-                .map_err(|source| in_layer(origins, provider_id, source))?;
+        let mut providers = BTreeMap::new();
+        for (provider_id, record) in document.providers {
+            let provider = CatalogProvider::try_from_record(provider_id.clone(), record)
+                .map_err(|source| in_layer(origins, &provider_id, source))?;
+            for alias in provider.aliases() {
+                if !provider_selectors.insert(alias.clone()) {
+                    return Err(in_layer(
+                        origins,
+                        &provider_id,
+                        CatalogError::DuplicateProviderAlias {
+                            alias: alias.clone(),
+                        },
+                    ));
+                }
+            }
+            providers.insert(provider_id, provider);
         }
 
         Ok(Self {
-            inner: Arc::new(document),
+            inner: Arc::new(CatalogDocument {
+                schema_version: document.schema_version,
+                providers,
+            }),
         })
     }
 
@@ -130,76 +152,6 @@ impl Catalog {
             })
             .collect()
     }
-}
-
-fn validate_provider(
-    provider_id: &ProviderId,
-    provider: &mut CatalogProvider,
-    provider_selectors: &mut BTreeSet<String>,
-) -> Result<(), CatalogError> {
-    validate_identifier("provider", provider_id.as_str(), false)?;
-    provider.set_id(provider_id.clone());
-    if provider.display_name().trim().is_empty() {
-        return Err(CatalogError::EmptyDisplayName {
-            item: provider_id.to_string(),
-        });
-    }
-    if provider.base_url().trim().is_empty() {
-        return Err(CatalogError::EmptyBaseUrl {
-            provider: provider_id.clone(),
-        });
-    }
-    for alias in provider.aliases() {
-        validate_identifier("provider alias", alias, false)?;
-        if !provider_selectors.insert(alias.clone()) {
-            return Err(CatalogError::DuplicateProviderAlias {
-                alias: alias.clone(),
-            });
-        }
-    }
-    validate_default_headers(provider_id, provider.default_headers())?;
-
-    let mut model_selectors = provider
-        .models_mut()
-        .map(|(model_id, _)| model_id.to_string())
-        .collect::<BTreeSet<_>>();
-    for (model_id, model) in provider.models_mut() {
-        validate_identifier("model", model_id.as_str(), true)?;
-        model.set_identity(provider_id.clone(), model_id.clone());
-        if model.display_name().trim().is_empty() {
-            return Err(CatalogError::EmptyDisplayName {
-                item: format!("{provider_id}/{model_id}"),
-            });
-        }
-        for alias in model.aliases() {
-            validate_identifier("model alias", alias, false)?;
-            if !model_selectors.insert(alias.clone()) {
-                return Err(CatalogError::DuplicateModelSelector {
-                    provider: provider_id.clone(),
-                    selector: alias.clone(),
-                });
-            }
-        }
-        if let Some(limits) = model.limits()
-            && limits.max_output_tokens > limits.context_tokens
-        {
-            return Err(CatalogError::InvalidModelLimits {
-                model: ModelHandle::new(provider_id.clone(), model_id.clone()),
-            });
-        }
-    }
-
-    if let Some(default_model) = provider.default_model()
-        && !provider
-            .models()
-            .any(|model| model.id().as_str() == default_model)
-    {
-        return Err(CatalogError::UnknownDefaultModel {
-            provider: provider_id.clone(),
-            model:    default_model.to_owned(),
-        });
-    }
-    Ok(())
 }
 
 fn in_layer(origins: &LayerOrigins, provider: &ProviderId, source: CatalogError) -> CatalogError {

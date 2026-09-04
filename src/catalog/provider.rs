@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use serde::de::DeserializeOwned;
@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
-use super::CatalogModel;
+use super::model::ModelRecord;
+use super::{CatalogError, CatalogModel};
 
 macro_rules! string_id {
     ($name:ident) => {
@@ -172,8 +173,37 @@ fn bearer_prefix() -> String {
     "Bearer ".to_owned()
 }
 
-/// Provider-level catalog facts.
+/// Parsing record whose models and provider identity are not yet validated.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct ProviderRecord {
+    display_name:      String,
+    #[serde(default)]
+    aliases:           Vec<String>,
+    adapter:           AdapterId,
+    codec:             CodecId,
+    base_url:          String,
+    auth:              AuthScheme,
+    #[serde(default)]
+    priority:          i32,
+    #[serde(default)]
+    allow_passthrough: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    default_model:     Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    default_headers:   BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    adapter_options:   Value,
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    default_options:   serde_json::Map<String, Value>,
+    #[serde(default, skip_serializing_if = "Metadata::is_empty")]
+    metadata:          Metadata,
+    #[serde(default)]
+    models:            BTreeMap<ModelId, ModelRecord>,
+}
+
+/// Provider-level catalog facts.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CatalogProvider {
     #[serde(skip)]
@@ -313,13 +343,67 @@ impl CatalogProvider {
             })
     }
 
-    pub(crate) fn set_id(&mut self, id: ProviderId) {
-        self.id = id;
-    }
-
-    pub(crate) fn models_mut(
-        &mut self,
-    ) -> impl ExactSizeIterator<Item = (&ModelId, &mut CatalogModel)> {
-        self.models.iter_mut()
+    pub(super) fn try_from_record(
+        id: ProviderId,
+        record: ProviderRecord,
+    ) -> Result<Self, CatalogError> {
+        super::validate_identifier("provider", id.as_str(), false)?;
+        if record.display_name.trim().is_empty() {
+            return Err(CatalogError::EmptyDisplayName {
+                item: id.to_string(),
+            });
+        }
+        if record.base_url.trim().is_empty() {
+            return Err(CatalogError::EmptyBaseUrl {
+                provider: id.clone(),
+            });
+        }
+        for alias in &record.aliases {
+            super::validate_identifier("provider alias", alias, false)?;
+        }
+        super::validate_default_headers(&id, &record.default_headers)?;
+        let mut selectors = record
+            .models
+            .keys()
+            .map(ToString::to_string)
+            .collect::<BTreeSet<_>>();
+        let mut models = BTreeMap::new();
+        for (model_id, raw) in record.models {
+            let model = CatalogModel::try_from_record(id.clone(), model_id.clone(), raw)?;
+            for alias in model.aliases() {
+                if !selectors.insert(alias.clone()) {
+                    return Err(CatalogError::DuplicateModelSelector {
+                        provider: id.clone(),
+                        selector: alias.clone(),
+                    });
+                }
+            }
+            models.insert(model_id, model);
+        }
+        if let Some(default_model) = &record.default_model
+            && !models.contains_key(default_model.as_str())
+        {
+            return Err(CatalogError::UnknownDefaultModel {
+                provider: id.clone(),
+                model:    default_model.clone(),
+            });
+        }
+        Ok(Self {
+            id,
+            models,
+            display_name: record.display_name,
+            aliases: record.aliases,
+            adapter: record.adapter,
+            codec: record.codec,
+            base_url: record.base_url,
+            auth: record.auth,
+            priority: record.priority,
+            allow_passthrough: record.allow_passthrough,
+            default_model: record.default_model,
+            default_headers: record.default_headers,
+            adapter_options: record.adapter_options,
+            default_options: record.default_options,
+            metadata: record.metadata,
+        })
     }
 }
