@@ -74,6 +74,7 @@ pub enum CacheHint {
 
 /// A provider-neutral inference request.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(try_from = "RequestBuilder")]
 pub struct Request {
     model:             String,
     messages:          Vec<Message>,
@@ -110,6 +111,27 @@ pub struct Request {
 }
 
 impl Request {
+    /// Returns a builder that preserves every setting in this request.
+    pub fn into_builder(self) -> RequestBuilder {
+        RequestBuilder {
+            model:             Some(self.model),
+            messages:          self.messages,
+            tools:             self.tools,
+            tool_choice:       self.tool_choice,
+            response_format:   self.response_format,
+            max_output_tokens: self.max_output_tokens,
+            temperature:       self.temperature,
+            top_p:             self.top_p,
+            reasoning_effort:  self.reasoning_effort,
+            cache_hint:        self.cache_hint,
+            speed:             self.speed,
+            timeout:           self.timeout,
+            stop_sequences:    self.stop_sequences,
+            metadata:          self.metadata,
+            provider_options:  self.provider_options,
+        }
+    }
+
     pub fn builder() -> RequestBuilder {
         RequestBuilder::default()
     }
@@ -189,7 +211,8 @@ impl Request {
 }
 
 /// Builds and validates an inference request.
-#[derive(Default)]
+#[derive(Default, Deserialize)]
+#[serde(default)]
 #[must_use]
 pub struct RequestBuilder {
     model:             Option<String>,
@@ -203,10 +226,19 @@ pub struct RequestBuilder {
     reasoning_effort:  Option<ReasoningEffort>,
     cache_hint:        Option<CacheHint>,
     speed:             Option<Speed>,
+    #[serde(with = "duration_millis")]
     timeout:           Option<Duration>,
     stop_sequences:    Vec<String>,
     metadata:          BTreeMap<String, String>,
     provider_options:  BTreeMap<ProviderId, Map<String, Value>>,
+}
+
+impl TryFrom<RequestBuilder> for Request {
+    type Error = RequestBuildError;
+
+    fn try_from(builder: RequestBuilder) -> Result<Self, Self::Error> {
+        builder.build()
+    }
 }
 
 impl RequestBuilder {
