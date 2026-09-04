@@ -154,6 +154,12 @@ impl AdapterContext {
         self.policy.retain_raw
     }
 
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible"
+    ))]
     pub(crate) fn response_policy(&self) -> ResponsePolicy {
         self.policy
     }

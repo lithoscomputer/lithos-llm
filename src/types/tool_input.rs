@@ -40,6 +40,13 @@ impl ToolInput {
         }
     }
 
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible",
+        feature = "bedrock"
+    ))]
     pub(crate) fn from_wire(kind: ToolCallKind, raw: String) -> Self {
         match kind {
             ToolCallKind::Function if raw.is_empty() => {
@@ -51,6 +58,12 @@ impl ToolInput {
     }
 
     /// JSON protocols retain malformed argument text as a string on replay.
+    #[cfg(any(
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "bedrock",
+        all(test, any(feature = "openai", feature = "openai-compatible"))
+    ))]
     pub(crate) fn wire_value(&self) -> Value {
         self.to_value()
             .unwrap_or_else(|_| Value::String(self.raw().to_owned()))

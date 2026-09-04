@@ -5,7 +5,10 @@ use futures_core::Stream;
 use futures_core::stream::FusedStream;
 use serde::{Deserialize, Serialize};
 
-use super::{ContentPart, Error, ErrorKind, RateLimits, Response, TokenCounts, ToolCallKind};
+use super::{
+    ContentPart, Error, ErrorKind, RateLimits, Response, RetryClassification, TokenCounts,
+    ToolCallKind,
+};
 
 /// A stable identifier for one content block within one response stream.
 ///
@@ -187,7 +190,8 @@ impl Stream for ResponseStream {
                 Poll::Ready(Some(Err(Error::new(
                     ErrorKind::StreamDecode,
                     "the response stream ended without completion",
-                ))))
+                )
+                .with_retry(RetryClassification::Safe))))
             }
             _ => result,
         }
@@ -244,14 +248,15 @@ mod tests {
     #[tokio::test]
     async fn premature_eof_and_mapping_errors_are_terminal() {
         let mut stream = ResponseStream::new(iter([]));
+        let error = stream
+            .next()
+            .await
+            .expect("error")
+            .expect_err("missing completion");
+        assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(
-            stream
-                .next()
-                .await
-                .expect("error")
-                .expect_err("missing completion")
-                .kind(),
-            ErrorKind::StreamDecode
+            error.retry_classification(),
+            super::RetryClassification::Safe
         );
         assert!(stream.next().await.is_none());
         let mut mapped = map_stream(

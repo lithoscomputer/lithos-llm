@@ -1,6 +1,8 @@
 //! Helpers shared by every provider codec.
 
-use serde_json::{Map, Number, Value, json};
+#[cfg(any(feature = "openai", feature = "openai-compatible"))]
+use serde_json::json;
+use serde_json::{Map, Number, Value};
 
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;

@@ -19,7 +19,15 @@ pub use error::{Error, ErrorData, ErrorKind, RetryClassification};
 #[cfg(feature = "runtime")]
 pub use limits::ResponseLimits;
 #[cfg(feature = "runtime")]
-pub(crate) use limits::{ResponsePolicy, limit_error};
+pub(crate) use limits::ResponsePolicy;
+#[cfg(any(
+    feature = "openai",
+    feature = "anthropic",
+    feature = "gemini",
+    feature = "openai-compatible",
+    feature = "bedrock"
+))]
+pub(crate) use limits::limit_error;
 pub use request::{
     CacheHint, ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
 };
