@@ -129,6 +129,7 @@ trycmd = "1.2.1"
 # The OpenAI-compatible twin for declarative fixtures and live E2E replay,
 # pinned to the revision with raw transport and Codex route support.
 twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "4544abda35a6063d02a6feae85f49d98a776b06b" }
+twin-anthropic = { path = "../twins/crates/twin-anthropic" }
 
 [lints]
 workspace = true

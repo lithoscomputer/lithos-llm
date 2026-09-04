@@ -58,6 +58,16 @@ description = "Run the tests with the default feature set"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
 run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --workspace --all-targets --no-tests=pass"
 
+[tasks."test:anthropic"]
+quiet = true
+description = "Run offline Anthropic client contracts and fault tests against the twin"
+run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --test twin_anthropic --test-threads 4"
+
+[tasks."test:anthropic:stress"]
+quiet = true
+description = "Run 10,000 offline Anthropic requests across 32 isolated namespaces"
+run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --test twin_anthropic --run-ignored ignored-only --test-threads 1"
+
 # The E2E suite runs against one of three backends. `test:e2e` (the
 # default) replays the committed recording offline through a twin-openai
 # proxy: no keys, no network, deterministic. `test:e2e:record` runs live
@@ -256,7 +266,7 @@ depends = ["fmt:check", "lint", "test", "test:default-features", "test:e2e", "ch
 [tasks."check:nightly"]
 quiet = true
 description = "Run the extended nightly verification gate"
-depends = ["check", "check:msrv", "test:release"]
+depends = ["check", "check:msrv", "test:release", "test:anthropic:stress"]
 
 [tasks.release]
 quiet = true

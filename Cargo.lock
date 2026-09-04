@@ -1636,6 +1636,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "trycmd",
+ "twin-anthropic",
  "twin-openai",
  "url",
  "uuid",
@@ -2933,6 +2934,22 @@ dependencies = [
  "shlex 1.3.0",
  "snapbox",
  "toml_edit 0.25.13+spec-1.1.0",
+]
+
+[[package]]
+name = "twin-anthropic"
+version = "0.1.5"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "axum",
+ "futures-util",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
