@@ -229,6 +229,52 @@ pub struct Response {
 }
 
 impl Response {
+    #[cfg(any(
+        feature = "openai",
+        feature = "anthropic",
+        feature = "gemini",
+        feature = "openai-compatible",
+        feature = "bedrock",
+        test
+    ))]
+    /// Removes the tool calls from a response the output limit cut short.
+    ///
+    /// A call the model never finished is not a call: its arguments are
+    /// whatever prefix survived — a truncated JSON string on OpenAI, an
+    /// empty object on Anthropic — and running it would act on a guess.
+    /// Every provider reports the cut as a length finish, so a consumer
+    /// branches on
+    /// [`FinishReason::Length`](crate::types::FinishReason::Length) alone and
+    /// never sees the half-call. Each dropped call leaves a
+    /// [`TRUNCATED_TOOL_CALL`] warning naming its tool; the provider's own item
+    /// stays in [`Response::raw`] for anyone who wants the partial arguments.
+    ///
+    /// Every codec applies this at the end of its blocking decode, and the
+    /// stream assembler applies it to the response it completes, so both
+    /// paths agree by construction. Only a length finish is touched: a
+    /// malformed argument string on any other finish is a provider bug, not
+    /// a cut, and keeps its call.
+    pub(crate) fn drop_truncated_tool_calls(&mut self) {
+        if self.finish_reason != FinishReason::Length {
+            return;
+        }
+        let mut dropped = Vec::new();
+        self.content.retain(|part| match part {
+            ContentPart::ToolCall(call) => {
+                dropped.push(call.name.clone());
+                false
+            }
+            _ => true,
+        });
+        self.warnings
+            .extend(dropped.into_iter().map(|name| Warning {
+                code:    "truncated_tool_call".to_owned(),
+                message: format!(
+                    "the output limit cut off a call to {name} before its arguments were complete"
+                ),
+            }));
+    }
+
     /// Visits the final response's tool calls in content order.
     pub fn tool_calls(&self) -> impl Iterator<Item = &ToolCall> {
         self.content.iter().filter_map(|part| match part {
@@ -282,7 +328,50 @@ mod tests {
 
     use super::{FinishReason, RateLimits, Response, TokenCounts, Warning};
     use crate::catalog::{ModelId, ProviderId};
-    use crate::types::ContentPart;
+    use crate::types::{ContentPart, ToolCall};
+
+    const TRUNCATED_TOOL_CALL: &str = "truncated_tool_call";
+    fn response_with_a_call(finish_reason: FinishReason) -> Response {
+        let mut response = Response::new(ProviderId::new("alpha"), ModelId::new("one"), vec![
+            ContentPart::Text {
+                text: "Calling".to_owned(),
+            },
+            ContentPart::ToolCall(ToolCall::function("call_1", "search", json!({}))),
+        ]);
+        response.finish_reason = finish_reason;
+        response
+    }
+
+    #[test]
+    fn a_length_finish_drops_its_tool_calls_and_warns() {
+        let mut response = response_with_a_call(FinishReason::Length);
+
+        response.drop_truncated_tool_calls();
+
+        assert_eq!(response.content, vec![ContentPart::Text {
+            text: "Calling".to_owned(),
+        }]);
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, TRUNCATED_TOOL_CALL);
+        assert!(response.warnings[0].message.contains("search"));
+    }
+
+    #[test]
+    fn every_other_finish_keeps_its_tool_calls() {
+        for finish_reason in [
+            FinishReason::Stop,
+            FinishReason::ToolCall,
+            FinishReason::ContentFilter,
+            FinishReason::Incomplete,
+            FinishReason::Other("cancelled".to_owned()),
+        ] {
+            let mut response = response_with_a_call(finish_reason.clone());
+            response.drop_truncated_tool_calls();
+            assert_eq!(response.content.len(), 2, "{finish_reason:?}");
+            assert!(response.warnings.is_empty(), "{finish_reason:?}");
+        }
+    }
 
     fn sample_response() -> Response {
         Response::new(ProviderId::new("openai"), ModelId::new("gpt-5"), vec![

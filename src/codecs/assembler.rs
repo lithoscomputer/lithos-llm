@@ -12,7 +12,6 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use super::common::drop_truncated_tool_calls;
 use crate::catalog::{ModelId, ProviderId, codec_ids};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
@@ -581,7 +580,7 @@ impl StreamAssembler {
         response.raw.clone_from(&self.raw);
         // The block events already delivered the cut call as it streamed; the
         // completed response is the contract a consumer acts on.
-        drop_truncated_tool_calls(&mut response);
+        response.drop_truncated_tool_calls();
 
         events.push(StreamEvent::Completed { response });
         events

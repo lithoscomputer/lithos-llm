@@ -36,6 +36,18 @@ pub enum Speed {
     Economical,
 }
 
+impl Speed {
+    /// The canonical catalog spelling, matching serialization.
+    #[cfg(feature = "runtime")]
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Fast => "fast",
+            Self::Balanced => "balanced",
+            Self::Economical => "economical",
+        }
+    }
+}
+
 /// Requested response shape.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -111,6 +123,13 @@ pub struct Request {
 }
 
 impl Request {
+    #[cfg(any(feature = "anthropic", feature = "gemini", feature = "bedrock", test))]
+    pub(crate) fn carries_foreign_signature(&self, family: &str) -> bool {
+        self.messages.iter().flat_map(Message::content).any(|part| {
+            matches!(part, super::ContentPart::Reasoning(reasoning) if reasoning.has_foreign_signature(family))
+        })
+    }
+
     /// Returns a builder that preserves every setting in this request.
     pub fn into_builder(self) -> RequestBuilder {
         RequestBuilder {
@@ -542,7 +561,27 @@ mod tests {
 
     use super::{ReasoningEffort, Request, RequestBuildError, RequestBuilder};
     use crate::catalog::ProviderId;
-    use crate::types::{ToolChoice, ToolDefinition};
+    use crate::types::{ContentPart, ReasoningContent, ToolChoice, ToolDefinition};
+
+    #[test]
+    fn signatures_are_checked_across_request_messages() -> Result<(), Box<dyn StdError>> {
+        let request = base().build()?;
+        assert!(!request.carries_foreign_signature("anthropic"));
+        let request = Request::builder()
+            .model("test-model")
+            .message(super::Message::new(super::Role::Assistant, [
+                ContentPart::Reasoning(ReasoningContent {
+                    text:             String::new(),
+                    signature:        Some("signed".into()),
+                    signature_origin: Some("anthropic".into()),
+                    redacted:         false,
+                }),
+            ]))
+            .build()?;
+        assert!(!request.carries_foreign_signature("anthropic"));
+        assert!(request.carries_foreign_signature("gemini"));
+        Ok(())
+    }
 
     fn base() -> RequestBuilder {
         Request::builder().model("test-model").user("hello")

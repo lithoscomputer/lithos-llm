@@ -298,6 +298,15 @@ pub struct ReasoningContent {
     pub redacted:         bool,
 }
 
+impl ReasoningContent {
+    /// Whether this signature cannot be replayed in the requested family.
+    /// A missing recorded origin is also a mismatch.
+    #[cfg(any(feature = "anthropic", feature = "gemini", feature = "bedrock", test))]
+    pub(crate) fn has_foreign_signature(&self, family: &str) -> bool {
+        self.signature.is_some() && self.signature_origin.as_deref() != Some(family)
+    }
+}
+
 /// A tool exposed to the model.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ToolDefinition {
@@ -462,6 +471,20 @@ mod tests {
     {
         let encoded = serde_json::to_string(value)?;
         Ok(serde_json::from_str(&encoded)?)
+    }
+
+    #[test]
+    fn signatures_require_an_explicit_matching_origin() {
+        let mut reasoning = ReasoningContent {
+            text:             String::new(),
+            signature:        Some("signature".to_owned()),
+            signature_origin: None,
+            redacted:         false,
+        };
+        assert!(reasoning.has_foreign_signature("anthropic"));
+        reasoning.signature_origin = Some("anthropic".to_owned());
+        assert!(!reasoning.has_foreign_signature("anthropic"));
+        assert!(reasoning.has_foreign_signature("gemini"));
     }
 
     fn every_variant() -> Vec<ContentPart> {

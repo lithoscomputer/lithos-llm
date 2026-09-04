@@ -26,7 +26,6 @@ pub use tracing_layer::TracingMiddleware;
 
 use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
 use crate::catalog::ProviderId;
-use crate::client::validate_request;
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     Error, ErrorKind, Request, RequestBuildError, Response, ResponsePolicy, ResponseStream,
@@ -292,7 +291,7 @@ impl Next {
                 .await;
         }
 
-        validate_request(&call.request, &call.route)?;
+        call.route.validate_request(&call.request)?;
         let adapter = self
             .pipeline
             .adapters

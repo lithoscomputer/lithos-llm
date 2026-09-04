@@ -12,9 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    cache_routing_key, drop_truncated_tool_calls, endpoint, flattens_system_content,
-    flattens_tool_result_content, merge_options, plain_text, refusal, reject_unencodable, sampling,
-    wire_options,
+    cache_routing_key, endpoint, flattens_system_content, flattens_tool_result_content,
+    merge_options, plain_text, refusal, reject_unencodable, sampling, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -377,7 +376,7 @@ fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Response, Erro
     // the catalog instead.
     response.cost = None;
     response.raw = Some(value);
-    drop_truncated_tool_calls(&mut response);
+    response.drop_truncated_tool_calls();
     Ok(response)
 }
 

@@ -17,10 +17,9 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    ANTHROPIC_SIGNATURES, carries_foreign_signature, drop_truncated_tool_calls, endpoint,
-    finish_reason, flattens_system_content, flattens_tool_result_content, foreign_signature,
-    merge_options, plain_text, refusal, reject_unencodable, sampling, system_text,
-    unsupported_capability, wire_options,
+    ANTHROPIC_SIGNATURES, endpoint, finish_reason, flattens_system_content,
+    flattens_tool_result_content, merge_options, plain_text, refusal, reject_unencodable, sampling,
+    system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -167,8 +166,8 @@ impl Codec for BedrockConverseCodec {
                 encoded.unsupported_control("tool_choice none alongside historical tool blocks");
         }
         // A skipped foreign-signed reasoning part never reaches the model,
-        // so the skip is reported; see `foreign_signature`.
-        if carries_foreign_signature(request, ANTHROPIC_SIGNATURES) {
+        // so the skip is reported; see `ReasoningContent::has_foreign_signature`.
+        if request.carries_foreign_signature(ANTHROPIC_SIGNATURES) {
             encoded = encoded.unsupported_control("reasoning signed by another provider");
         }
         // Converse has no portable structured-output field. A caller who asked
@@ -241,7 +240,7 @@ impl Codec for BedrockConverseCodec {
         response.finish_reason = stop_reason(value.get("stopReason").and_then(Value::as_str));
         response.usage = token_counts(value.get("usage"));
         response.raw = Some(value);
-        drop_truncated_tool_calls(&mut response);
+        response.drop_truncated_tool_calls();
         Ok(response)
     }
 
@@ -513,7 +512,9 @@ fn encode_content_part(part: &ContentPart, route: &ResolvedRoute) -> Result<Opti
         }
         // A signature another provider family minted cannot verify here and
         // fails the request, so the part is skipped; the encoder reports it.
-        ContentPart::Reasoning(reasoning) if foreign_signature(reasoning, ANTHROPIC_SIGNATURES) => {
+        ContentPart::Reasoning(reasoning)
+            if reasoning.has_foreign_signature(ANTHROPIC_SIGNATURES) =>
+        {
             None
         }
         ContentPart::Reasoning(reasoning) => Some(encode_reasoning(reasoning)),

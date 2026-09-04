@@ -21,9 +21,8 @@ use serde_json::{Map, Value, json, to_string};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    cache_routing_key, drop_truncated_tool_calls, endpoint, finish_reason,
-    flattens_tool_result_content, merge_options, plain_text, refusal, reject_unencodable, sampling,
-    unsupported_capability, wire_options,
+    cache_routing_key, endpoint, finish_reason, flattens_tool_result_content, merge_options,
+    plain_text, refusal, reject_unencodable, sampling, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -291,7 +290,7 @@ impl Codec for OpenAiChatCodec {
         response.usage = value.get("usage").map(token_counts).unwrap_or_default();
         response.cost = provider_cost(&value);
         response.raw = Some(value);
-        drop_truncated_tool_calls(&mut response);
+        response.drop_truncated_tool_calls();
         Ok(response)
     }
 

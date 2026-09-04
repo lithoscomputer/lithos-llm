@@ -9,9 +9,9 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    GEMINI_SIGNATURES, carries_foreign_signature, drop_truncated_tool_calls, endpoint,
-    finish_reason, flattens_system_content, flattens_tool_result_content, foreign_signature,
-    merge_options, plain_text, sampling, system_text, unsupported_capability, wire_options,
+    GEMINI_SIGNATURES, endpoint, finish_reason, flattens_system_content,
+    flattens_tool_result_content, merge_options, plain_text, sampling, system_text,
+    unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -91,8 +91,8 @@ impl Codec for GeminiGenerateCodec {
             encoded = encoded.unsupported_control("the reasoning effort control");
         }
         // A skipped foreign-signed reasoning part never reaches the model,
-        // so the skip is reported; see `foreign_signature`.
-        if carries_foreign_signature(call.request(), GEMINI_SIGNATURES) {
+        // so the skip is reported; see `ReasoningContent::has_foreign_signature`.
+        if call.request().carries_foreign_signature(GEMINI_SIGNATURES) {
             encoded = encoded.unsupported_control("reasoning signed by another provider");
         }
         Ok(encoded)
@@ -127,7 +127,7 @@ impl Codec for GeminiGenerateCodec {
         response.finish_reason = finished;
         response.usage = usage;
         response.raw = Some(value);
-        drop_truncated_tool_calls(&mut response);
+        response.drop_truncated_tool_calls();
         Ok(response)
     }
 
@@ -401,7 +401,7 @@ fn encode_part(part: &ContentPart, names: &HashMap<&str, &str>) -> Option<Value>
         ContentPart::Document(document) => Some(encode_media(&document.source, "application/pdf")),
         // A signature another provider family minted cannot verify here and
         // fails the request, so the part is skipped; the encoder reports it.
-        ContentPart::Reasoning(reasoning) if foreign_signature(reasoning, GEMINI_SIGNATURES) => {
+        ContentPart::Reasoning(reasoning) if reasoning.has_foreign_signature(GEMINI_SIGNATURES) => {
             None
         }
         ContentPart::Reasoning(reasoning) => Some(encode_reasoning(reasoning)),

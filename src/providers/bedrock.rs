@@ -105,7 +105,7 @@ impl ProviderAdapter for BedrockAdapter {
         let mut response = self.codec.decode_response(call.route(), result.body)?;
         response.rate_limits = result.rate_limits;
         response.warnings.extend(warnings);
-        super::apply_catalog_cost(&mut response, call.route(), speed);
+        call.route().apply_catalog_cost(&mut response, speed);
         Ok(response)
     }
 
@@ -120,7 +120,7 @@ impl ProviderAdapter for BedrockAdapter {
         let finished = decoded.map(move |event| match event {
             Ok(StreamEvent::Completed { mut response }) => {
                 response.warnings.extend(warnings.clone());
-                super::apply_catalog_cost(&mut response, &route, speed);
+                route.apply_catalog_cost(&mut response, speed);
                 Ok(StreamEvent::Completed { response })
             }
             other => other,

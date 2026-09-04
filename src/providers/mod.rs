@@ -20,22 +20,6 @@ use crate::adapter::AdapterRegistry;
     feature = "bedrock"
 ))]
 use crate::catalog::adapter_ids;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
-use crate::resolver::ResolvedRoute;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
-use crate::types::{Response, Speed};
 
 pub(crate) fn register_builtin(registry: &mut AdapterRegistry) {
     #[cfg(not(any(
@@ -79,7 +63,6 @@ pub(super) mod http {
     #[cfg(feature = "openai")]
     use serde::de::DeserializeOwned;
 
-    use super::apply_catalog_cost;
     use crate::adapter::{
         AdapterBuildError, AdapterContext, InputTokenCount, ProviderAdapter, ResolvedCall,
     };
@@ -247,7 +230,7 @@ pub(super) mod http {
             let mut response = self.codec.decode_response(call.route(), result.body)?;
             response.rate_limits = result.rate_limits;
             response.warnings.extend(warnings);
-            apply_catalog_cost(&mut response, call.route(), speed);
+            call.route().apply_catalog_cost(&mut response, speed);
             Ok(response)
         }
 
@@ -272,7 +255,7 @@ pub(super) mod http {
                 event.map(|mut event| {
                     if let StreamEvent::Completed { response } = &mut event {
                         response.warnings.extend(warnings.iter().cloned());
-                        apply_catalog_cost(response, &route, speed);
+                        route.apply_catalog_cost(response, speed);
                     }
                     event
                 })
@@ -818,27 +801,5 @@ pub(super) mod http {
             assert_eq!(completions, 1);
             Ok(())
         }
-    }
-}
-
-/// Applies the catalog cost estimate when the provider reported no cost.
-///
-/// A provider-reported cost is authoritative and is never overwritten. The
-/// request's `speed` selects the rates, because a provider can charge more for
-/// a faster tier.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
-pub(crate) fn apply_catalog_cost(
-    response: &mut Response,
-    route: &ResolvedRoute,
-    speed: Option<Speed>,
-) {
-    if response.cost.is_none() {
-        response.cost = route.estimate_cost(response.usage, speed);
     }
 }
