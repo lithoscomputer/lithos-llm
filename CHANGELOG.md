@@ -16,7 +16,8 @@ This project follows [Semantic Versioning](https://semver.org/).
   2026-09-03. API access was still rolling out: an authenticated model listing
   omitted Astra, and a live lithos-llm request returned 404 `model_not_found`.
   GPT-5.6 Sol therefore remains the provider default, and Astra is not yet in
-  the recorded per-model E2E cells.
+  the recorded per-model E2E cells. The Astra row selects Pebble's `gpt6`
+  agent profile.
 
 - The built-in Anthropic, OpenRouter, and Venice catalogs carry Claude
   Fable 5.1 (`claude-fable-5.1`, wire ids `claude-fable-5-1` on Anthropic
