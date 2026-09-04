@@ -3,14 +3,14 @@ use std::collections::hash_map::RandomState;
 use std::fmt;
 use std::hash::{BuildHasher as _, Hasher as _};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 use futures_util::stream::{empty, unfold};
 use tokio::time::sleep;
 
-use super::{Call, Middleware, Next, Observer, Operation, Output, RetryStage};
+use super::{Call, CallGuard, Middleware, Next, Observer, Operation, Output, RetryStage};
 use crate::types::{Error, ErrorKind, ResponseStream, RetryClassification, StreamEvent};
 
 /// The longest `Retry-After` this policy honors by default.
@@ -217,7 +217,7 @@ impl Middleware for RetryMiddleware {
                     let Some(delay) = self.policy.next_delay(attempt, &error) else {
                         return Err(error);
                     };
-                    if deadline_prevents_retry(&current, delay) {
+                    if !CallGuard::new(current.context()).permits_retry_after(delay) {
                         return Err(error);
                     }
                     report_retry(
@@ -311,7 +311,7 @@ fn retry_stream(
                     // re-enters that layer to acquire the same resource.
                     state.stream = ResponseStream::new(empty());
                     while let Some(delay) = state.policy.next_delay(state.attempt, &error) {
-                        if deadline_prevents_retry(&state.call, delay) {
+                        if !CallGuard::new(state.call.context()).permits_retry_after(delay) {
                             break;
                         }
                         report_retry(
@@ -358,14 +358,6 @@ fn retry_stream(
             }
         }
     }))
-}
-
-fn deadline_prevents_retry(call: &Call, delay: Duration) -> bool {
-    call.context.deadline().is_some_and(|deadline| {
-        Instant::now()
-            .checked_add(delay)
-            .is_none_or(|next| next >= deadline)
-    })
 }
 
 #[cfg(test)]

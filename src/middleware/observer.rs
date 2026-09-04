@@ -1,10 +1,10 @@
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 
-use super::{Call, Middleware, Next, Output};
+use super::{Call, CallGuard, Middleware, Next, Output};
 use crate::adapter::InputTokenCount;
 use crate::types::{Error, ErrorKind, Response, ResponseStream, StreamEvent};
 
@@ -156,17 +156,9 @@ impl Drop for FinishGuard {
         if self.finished {
             return;
         }
-        if self.call.context().cancellation().is_cancelled() {
-            self.finish(CallOutcome::Cancelled);
-        } else if self
-            .call
-            .context()
-            .deadline()
-            .is_some_and(|deadline| Instant::now() >= deadline)
-        {
-            self.error(&Error::new(ErrorKind::Timeout, "the call deadline expired"));
-        } else {
-            self.finish(CallOutcome::Dropped);
+        match CallGuard::new(self.call.context()).check() {
+            Err(error) => self.error(&error),
+            Ok(()) => self.finish(CallOutcome::Dropped),
         }
     }
 }

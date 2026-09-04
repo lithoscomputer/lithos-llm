@@ -5,13 +5,10 @@ mod probe;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use futures_util::StreamExt as _;
-use futures_util::stream::unfold;
 pub use probe::{ProbeOptions, ProbeOutcome, ProbeReport};
 use thiserror::Error;
-use tokio::time::{Instant as TokioInstant, sleep_until};
 
 use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, AdapterRegistry,
@@ -31,9 +28,7 @@ use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
 ))]
 use crate::credentials::EnvironmentCredentials;
 use crate::credentials::{CredentialProvider, NoCredentials};
-use crate::middleware::{
-    Call, CallContext, CancellationToken, Middleware, Operation, Output, Pipeline,
-};
+use crate::middleware::{Call, CallContext, CallGuard, Middleware, Operation, Output, Pipeline};
 use crate::providers::register_builtin;
 use crate::resolver::{
     AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
@@ -172,13 +167,12 @@ impl Client {
         context: CallContext,
     ) -> Result<ResponseStream, Error> {
         let context = self.prepare_context(&request, context)?;
-        let cancellation = context.cancellation().clone();
-        let deadline = context.deadline();
+        let guard = CallGuard::new(&context);
         match self
             .call_guarded(request, context, Operation::Stream)
             .await?
         {
-            Output::Stream(stream) => Ok(guard_stream(stream, cancellation, deadline)),
+            Output::Stream(stream) => Ok(guard.stream(stream)),
             _ => Err(Error::new(
                 ErrorKind::Middleware,
                 "stream middleware returned an incompatible output",
@@ -220,17 +214,10 @@ impl Client {
         mut context: CallContext,
     ) -> Result<CallContext, Error> {
         if let Some(timeout) = request.timeout().or(self.default_timeout) {
-            let deadline = Instant::now().checked_add(timeout).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::InvalidRequest,
-                    "the requested timeout is too large for this platform",
-                )
-            })?;
-            context.set_deadline(
-                context
-                    .deadline()
-                    .map_or(deadline, |current| current.min(deadline)),
-            );
+            let guard = CallGuard::new(&context).with_timeout(timeout)?;
+            if let Some(deadline) = guard.deadline() {
+                context.set_deadline(deadline);
+            }
         }
         Ok(context)
     }
@@ -273,19 +260,9 @@ impl Client {
         context: CallContext,
         mode: Operation,
     ) -> Result<Output, Error> {
-        let cancellation = context.cancellation().clone();
-        if let Some(deadline) = context.deadline() {
-            tokio::select! {
-                () = cancellation.cancelled() => Err(cancelled_error()),
-                () = sleep_until(TokioInstant::from_std(deadline)) => Err(deadline_error()),
-                result = self.call(request, context, mode) => result,
-            }
-        } else {
-            tokio::select! {
-                () = cancellation.cancelled() => Err(cancelled_error()),
-                result = self.call(request, context, mode) => result,
-            }
-        }
+        CallGuard::new(&context)
+            .run(Box::pin(self.call(request, context, mode)))
+            .await
     }
 }
 
@@ -391,63 +368,6 @@ fn unsupported_capability(route: &ResolvedRoute, capability: &str) -> Error {
     )
     .with_provider(route.provider().id().clone())
     .with_provider_code("unsupported_capability")
-}
-
-fn guard_stream(
-    stream: ResponseStream,
-    cancellation: CancellationToken,
-    deadline: Option<Instant>,
-) -> ResponseStream {
-    let stream = cancellation_stream(stream, cancellation);
-    match deadline {
-        Some(deadline) => deadline_stream(stream, deadline),
-        None => stream,
-    }
-}
-
-fn cancellation_stream(stream: ResponseStream, cancellation: CancellationToken) -> ResponseStream {
-    ResponseStream::new(unfold(
-        (stream, cancellation, false),
-        |(mut stream, cancellation, finished)| async move {
-            if finished {
-                return None;
-            }
-            tokio::select! {
-                () = cancellation.cancelled() => {
-                    Some((Err(cancelled_error()), (stream, cancellation, true)))
-                }
-                item = stream.next() => {
-                    item.map(|item| (item, (stream, cancellation, false)))
-                }
-            }
-        },
-    ))
-}
-
-pub(crate) fn deadline_stream(stream: ResponseStream, deadline: Instant) -> ResponseStream {
-    ResponseStream::new(unfold(
-        (stream, false),
-        move |(mut stream, finished)| async move {
-            if finished {
-                return None;
-            }
-            tokio::select! {
-                biased;
-                () = sleep_until(TokioInstant::from_std(deadline)) => {
-                    Some((Err(deadline_error()), (stream, true)))
-                }
-                item = stream.next() => item.map(|item| (item, (stream, false))),
-            }
-        },
-    ))
-}
-
-fn cancelled_error() -> Error {
-    Error::new(ErrorKind::Cancelled, "the call was cancelled")
-}
-
-fn deadline_error() -> Error {
-    Error::new(ErrorKind::Timeout, "the call deadline expired")
 }
 
 /// Builds a client from immutable catalog data and runtime extensions.

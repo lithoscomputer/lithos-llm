@@ -1,6 +1,7 @@
 //! Runtime-installed middleware for one resolved logical call.
 
 mod concurrency;
+mod guard;
 mod observer;
 mod retry;
 mod tracing_layer;
@@ -17,15 +18,15 @@ use std::time::Instant;
 use async_trait::async_trait;
 pub use concurrency::ConcurrencyLimitMiddleware;
 use futures_core::Stream;
+pub(crate) use guard::CallGuard;
 pub use observer::{CallOutcome, Observer, ObserverMiddleware, RetryStage};
 pub use retry::{RetryMiddleware, RetryPolicy};
 use tokio::sync::Notify;
-use tokio::time::{Instant as TokioInstant, sleep_until};
 pub use tracing_layer::TracingMiddleware;
 
 use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
 use crate::catalog::ProviderId;
-use crate::client::{deadline_stream, validate_request};
+use crate::client::validate_request;
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     Error, ErrorKind, Request, RequestBuildError, Response, ResponsePolicy, ResponseStream,
@@ -273,37 +274,11 @@ pub struct Next {
 
 impl Next {
     pub async fn run(self, call: Call) -> Result<Output, Error> {
-        if call.context.cancellation().is_cancelled() {
-            return Err(Error::new(ErrorKind::Cancelled, "the call was cancelled"));
-        }
-        if call
-            .context
-            .deadline()
-            .is_some_and(|deadline| Instant::now() >= deadline)
-        {
-            return Err(Error::new(ErrorKind::Timeout, "the call deadline expired"));
-        }
-
-        // Each forwarded call can tighten its enclosing budget. Keep this
-        // guard alive through dispatch, then transfer it to the returned
-        // stream so a middleware deadline also bounds stream consumption.
-        let deadline = call.context.deadline();
-        let output = if let Some(deadline) = deadline {
-            tokio::select! {
-                biased;
-                () = sleep_until(TokioInstant::from_std(deadline)) => {
-                    return Err(Error::new(ErrorKind::Timeout, "the call deadline expired"));
-                }
-                output = self.dispatch(call) => output?,
-            }
-        } else {
-            self.dispatch(call).await?
-        };
-        Ok(match (deadline, output) {
-            (Some(deadline), Output::Stream(stream)) => {
-                Output::Stream(deadline_stream(stream, deadline))
-            }
-            (_, output) => output,
+        let guard = CallGuard::new(&call.context);
+        let output = guard.run(self.dispatch(call)).await?;
+        Ok(match output {
+            Output::Stream(stream) => Output::Stream(guard.stream(stream)),
+            output => output,
         })
     }
 

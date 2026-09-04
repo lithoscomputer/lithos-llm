@@ -1,13 +1,12 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::time::Instant;
 
 use async_trait::async_trait;
 use futures_core::Stream;
 use tracing::Instrument as _;
 use tracing::field::Empty;
 
-use super::{Call, CancellationToken, Middleware, Next, Operation, Output};
+use super::{Call, CallGuard, Middleware, Next, Operation, Output};
 use crate::types::{
     CostSource, Error, ErrorKind, FinishReason, Response, ResponseStream, StreamEvent, TokenCounts,
 };
@@ -67,10 +66,9 @@ impl Middleware for TracingMiddleware {
 }
 
 struct CallTrace {
-    span:         tracing::Span,
-    cancellation: CancellationToken,
-    deadline:     Option<Instant>,
-    finished:     bool,
+    span:     tracing::Span,
+    guard:    CallGuard,
+    finished: bool,
 }
 
 impl CallTrace {
@@ -96,8 +94,7 @@ impl CallTrace {
         );
         Self {
             span,
-            cancellation: call.context.cancellation().clone(),
-            deadline: call.context.deadline(),
+            guard: CallGuard::new(call.context()),
             finished: false,
         }
     }
@@ -184,31 +181,8 @@ impl CallTrace {
     }
 
     fn finish_dropped(&mut self) {
-        if self.cancellation.is_cancelled() {
-            let kind = error_kind_name(ErrorKind::Cancelled);
-            if self.record_terminal(OUTCOME_CANCELLED, Some(kind)) {
-                tracing::debug!(
-                    parent: &self.span,
-                    outcome = OUTCOME_CANCELLED,
-                    error_kind = kind,
-                    "LLM call finished"
-                );
-            }
-            return;
-        }
-        if self
-            .deadline
-            .is_some_and(|deadline| Instant::now() >= deadline)
-        {
-            let kind = error_kind_name(ErrorKind::Timeout);
-            if self.record_terminal(OUTCOME_FAILED, Some(kind)) {
-                tracing::error!(
-                    parent: &self.span,
-                    outcome = OUTCOME_FAILED,
-                    error_kind = kind,
-                    "LLM call finished"
-                );
-            }
+        if let Err(error) = self.guard.check() {
+            self.finish_error(&error);
             return;
         }
         if self.record_terminal(OUTCOME_DROPPED, None) {
