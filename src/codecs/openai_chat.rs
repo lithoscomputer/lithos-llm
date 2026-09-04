@@ -33,7 +33,7 @@ use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Cost, CostSource, Error, ErrorKind,
     FinishReason, ImageContent, MediaSource, Message, ReasoningContent, ReasoningEffort, Response,
     ResponseFormat, RetryClassification, Role, StreamEvent, TokenCounts, ToolCall, ToolCallKind,
-    ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
+    ToolChoice, ToolDefinition, ToolDefinitionKind, ToolInput, ToolResult,
 };
 
 /// The prefix of an opaque content kind this dialect claims.
@@ -1044,10 +1044,7 @@ fn decode_tool_call(call: &Value) -> Result<ContentPart, &'static str> {
     Ok(ContentPart::ToolCall(ToolCall {
         id:                id.to_owned(),
         name:              name.to_owned(),
-        input:             crate::types::ToolInput::from_wire(
-            ToolCallKind::Function,
-            raw.to_owned(),
-        ),
+        input:             ToolInput::from_wire(ToolCallKind::Function, raw.to_owned()),
         provider_metadata: BTreeMap::new(),
     }))
 }

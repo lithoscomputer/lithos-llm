@@ -315,8 +315,8 @@ mod tests {
     use crate::Request;
     use crate::types::{
         AudioContent, ContentPart, DocumentContent, ImageContent, MediaSource, Message,
-        ReasoningEffort, RequestBuildError, ResponseFormat, Role, ToolCall, ToolChoice,
-        ToolDefinition, ToolResult,
+        ReasoningEffort, RequestBuildError, ResponseFormat, Role, ToolArguments, ToolCall,
+        ToolChoice, ToolDefinition, ToolInput, ToolResult,
     };
 
     fn request(messages: Vec<Message>) -> Result<Request, RequestBuildError> {
@@ -484,9 +484,8 @@ mod tests {
     fn a_tool_call_counts_its_arguments_once() {
         let parsed = ToolCall::function("call_1", "lookup", json!({"query": "rust"}));
         let mut replayed = parsed.clone();
-        replayed.input = crate::types::ToolInput::Function(crate::types::ToolArguments::from_raw(
-            "{\"query\":\"rust\"}".to_owned(),
-        ));
+        replayed.input =
+            ToolInput::Function(ToolArguments::from_raw("{\"query\":\"rust\"}".to_owned()));
 
         assert_eq!(
             content_part_tokens(&ContentPart::ToolCall(parsed)).tokens(),

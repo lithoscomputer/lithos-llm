@@ -21,8 +21,8 @@ use lithos_llm::types::{
     AudioContent, CacheHint, ContentBlockId, ContentBlockKind, ContentPart, Cost, CostSource,
     DocumentContent, Error, ErrorData, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
     RateLimits, ReasoningContent, ReasoningEffort, Request, Response, ResponseFormat,
-    RetryClassification, Role, Speed, StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice,
-    ToolDefinition, ToolResult, Warning,
+    RetryClassification, Role, Speed, StreamEvent, TokenCounts, ToolArguments, ToolCall,
+    ToolCallKind, ToolChoice, ToolDefinition, ToolInput, ToolResult, Warning,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -44,9 +44,7 @@ fn round_trip<T: Serialize + DeserializeOwned>(value: &T) -> Result<T, serde_jso
 /// A request that sets every field and uses every content part kind.
 fn complete_request() -> Result<Request, Box<dyn StdError>> {
     let mut call = ToolCall::function("call_1", "lookup", json!({ "query": "rust" }));
-    call.input = lithos_llm::types::ToolInput::Function(
-        lithos_llm::types::ToolArguments::from_raw("{\"query\":\"rust\"}".to_owned()),
-    );
+    call.input = ToolInput::Function(ToolArguments::from_raw("{\"query\":\"rust\"}".to_owned()));
     call.provider_metadata
         .insert("openai".to_owned(), json!({ "id": "fc_1" }));
 

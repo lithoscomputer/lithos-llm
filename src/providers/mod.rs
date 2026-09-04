@@ -87,7 +87,9 @@ pub(super) mod http {
     use crate::codecs::{Codec, StreamDecoder};
     use crate::credentials::{CredentialProvider, Credentials};
     use crate::transport::{HttpTransport, SseEvent};
-    use crate::types::{Error, ErrorKind, RateLimits, Response, ResponseStream, StreamEvent};
+    use crate::types::{
+        Error, ErrorKind, RateLimits, Response, ResponsePolicy, ResponseStream, StreamEvent,
+    };
 
     /// Adapter behavior a factory selects from its typed catalog options.
     ///
@@ -160,7 +162,7 @@ pub(super) mod http {
     }
 
     struct HttpProviderAdapter {
-        policy:      crate::types::ResponsePolicy,
+        policy:      ResponsePolicy,
         id:          AdapterId,
         codec:       Arc<dyn Codec>,
         transport:   HttpTransport,

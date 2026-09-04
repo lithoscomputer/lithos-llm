@@ -112,7 +112,7 @@ impl Middleware for ObserverMiddleware {
                         observer.on_stream_event(&call, event.as_ref());
                         match event {
                             Ok(StreamEvent::Completed { response }) => {
-                                finish.finish(CallOutcome::Response(response))
+                                finish.finish(CallOutcome::Response(response));
                             }
                             Err(error) => finish.error(error),
                             _ => {}

@@ -26,8 +26,9 @@ use lithos_llm::credentials::{
 };
 use lithos_llm::estimate::{EstimateWarning, request_tokens};
 use lithos_llm::middleware::{
-    Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Observer, ObserverMiddleware,
-    Output, RetryMiddleware, RetryPolicy, RetryStage, finalize_stream, inspect_stream, map_stream,
+    Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
+    ObserverMiddleware, Output, RetryMiddleware, RetryPolicy, RetryStage, finalize_stream,
+    inspect_stream, map_stream,
 };
 use lithos_llm::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
 use lithos_llm::types::{
@@ -1423,13 +1424,9 @@ impl Observer for RecordingObserver {
         self.starts.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn on_finish(&self, _call: &Call, result: lithos_llm::middleware::CallOutcome<'_>) {
+    fn on_finish(&self, _call: &Call, result: CallOutcome<'_>) {
         self.completes.fetch_add(1, Ordering::Relaxed);
-        if matches!(
-            result,
-            lithos_llm::middleware::CallOutcome::Failed(_)
-                | lithos_llm::middleware::CallOutcome::Cancelled
-        ) {
+        if matches!(result, CallOutcome::Failed(_) | CallOutcome::Cancelled) {
             self.errors.fetch_add(1, Ordering::Relaxed);
         }
     }

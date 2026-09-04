@@ -196,6 +196,7 @@ mod tests {
     use crate::catalog::{AuthScheme, Metadata};
     #[cfg(feature = "builtin-catalog")]
     use crate::types::Speed;
+    use crate::types::{ResponseFormat, ToolChoice};
 
     /// The agent profiles a catalog row may name.
     ///
@@ -499,7 +500,7 @@ mod tests {
         assert!(
             !fable_51
                 .capabilities()
-                .tool_choice(&crate::types::ToolChoice::Required)
+                .tool_choice(&ToolChoice::Required)
                 .is_supported()
         );
         assert!(fable_51.capabilities().sampling().is_supported());
@@ -515,7 +516,7 @@ mod tests {
             catalog
                 .model("venice", "claude-fable-5")?
                 .capabilities()
-                .tool_choice(&crate::types::ToolChoice::Required)
+                .tool_choice(&ToolChoice::Required)
                 .is_supported()
         );
 
@@ -524,7 +525,7 @@ mod tests {
             !catalog
                 .model("venice", "qwen3.8-max")?
                 .capabilities()
-                .response_format(&crate::types::ResponseFormat::JsonObject)
+                .response_format(&ResponseFormat::JsonObject)
                 .is_supported()
         );
         assert!(
@@ -569,7 +570,7 @@ mod tests {
         assert!(
             fable
                 .capabilities()
-                .tool_choice(&crate::types::ToolChoice::Required)
+                .tool_choice(&ToolChoice::Required)
                 .is_supported()
         );
         let fable_51 = catalog.model("openrouter", "claude-fable-5.1")?;
@@ -577,7 +578,7 @@ mod tests {
         assert!(
             !fable_51
                 .capabilities()
-                .tool_choice(&crate::types::ToolChoice::Required)
+                .tool_choice(&ToolChoice::Required)
                 .is_supported()
         );
         assert!(fable_51.protocol_options().cache_breakpoints);
@@ -600,7 +601,7 @@ mod tests {
         assert!(
             flash
                 .capabilities()
-                .response_format(&crate::types::ResponseFormat::JsonSchema {
+                .response_format(&ResponseFormat::JsonSchema {
                     name:   String::new(),
                     schema: serde_json::Value::Null,
                 })
@@ -612,7 +613,7 @@ mod tests {
             !catalog
                 .model("openrouter", "qwen3.6-flash")?
                 .capabilities()
-                .response_format(&crate::types::ResponseFormat::JsonObject)
+                .response_format(&ResponseFormat::JsonObject)
                 .is_supported()
         );
 
@@ -683,7 +684,7 @@ mod tests {
         assert!(
             fable
                 .capabilities()
-                .tool_choice(&crate::types::ToolChoice::Required)
+                .tool_choice(&ToolChoice::Required)
                 .is_supported()
         );
 
@@ -697,7 +698,7 @@ mod tests {
         assert!(
             !fable_51
                 .capabilities()
-                .tool_choice(&crate::types::ToolChoice::Required)
+                .tool_choice(&ToolChoice::Required)
                 .is_supported()
         );
 

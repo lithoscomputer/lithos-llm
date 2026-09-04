@@ -454,6 +454,7 @@ mod tests {
         ReasoningContent, Role, ToolCall, ToolCallKind, ToolDefinition, ToolDefinitionKind,
         ToolResult,
     };
+    use crate::types::{ToolArguments, ToolInput};
 
     fn round_trip<T>(value: &T) -> Result<T, Box<dyn StdError>>
     where
@@ -611,9 +612,8 @@ mod tests {
     #[test]
     fn tool_calls_preserve_kind_arguments_and_metadata() -> Result<(), Box<dyn StdError>> {
         let mut call = ToolCall::function("call_1", "lookup", json!({ "query": "rust" }));
-        call.input = crate::types::ToolInput::Function(crate::types::ToolArguments::from_raw(
-            "{\"query\":\"rust\"}".to_owned(),
-        ));
+        call.input =
+            ToolInput::Function(ToolArguments::from_raw("{\"query\":\"rust\"}".to_owned()));
         call.provider_metadata
             .insert("openai".to_owned(), json!({ "id": "fc_1" }));
 

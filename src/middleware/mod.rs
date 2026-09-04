@@ -24,9 +24,11 @@ pub use tracing_layer::TracingMiddleware;
 
 use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
 use crate::catalog::ProviderId;
+use crate::client::validate_request;
 use crate::resolver::ResolvedRoute;
 use crate::types::{
-    Error, ErrorKind, Request, RequestBuildError, Response, ResponseStream, StreamEvent,
+    Error, ErrorKind, Request, RequestBuildError, Response, ResponsePolicy, ResponseStream,
+    StreamEvent,
 };
 
 /// The operation executed through the middleware pipeline.
@@ -287,7 +289,7 @@ impl Next {
                 .await;
         }
 
-        crate::client::validate_request(&call.request, &call.route)?;
+        validate_request(&call.request, &call.route)?;
         let adapter = self
             .pipeline
             .adapters
@@ -322,7 +324,7 @@ impl Next {
 }
 
 pub(crate) struct Pipeline {
-    pub policy:     crate::types::ResponsePolicy,
+    pub policy:     ResponsePolicy,
     pub middleware: Vec<Arc<dyn Middleware>>,
     pub adapters:   BTreeMap<ProviderId, Arc<dyn ProviderAdapter>>,
 }

@@ -84,7 +84,7 @@ fn assert_weather_call(arguments: &Value) {
 /// upstream rejection itself.
 fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
     (!anthropic::capabilities(model)
-        .tool_choice(&lithos_llm::types::ToolChoice::Required)
+        .tool_choice(&ToolChoice::Required)
         .is_supported())
     .then(|| support::skip("the catalog does not claim forced tool choice"))
 }

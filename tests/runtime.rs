@@ -10,12 +10,12 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 use futures_util::stream::{iter, pending as pending_stream};
-use lithos_llm::adapter::{ProviderAdapter, ResolvedCall};
+use lithos_llm::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
 use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId};
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
-    Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Observer, Output,
-    RetryMiddleware, RetryPolicy, RetryStage,
+    Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
+    ObserverMiddleware, Output, RetryMiddleware, RetryPolicy, RetryStage,
 };
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
@@ -1129,8 +1129,8 @@ struct PendingMiddleware;
 struct OutcomeObserver(Arc<Mutex<Vec<&'static str>>>);
 
 impl Observer for OutcomeObserver {
-    fn on_finish(&self, _call: &Call, outcome: lithos_llm::middleware::CallOutcome<'_>) {
-        use lithos_llm::middleware::CallOutcome;
+    fn on_finish(&self, _call: &Call, outcome: CallOutcome<'_>) {
+        use CallOutcome;
         self.0.lock().expect("outcomes").push(match outcome {
             CallOutcome::Response(_) => "response",
             CallOutcome::InputTokenCount(_) => "count",
@@ -1148,9 +1148,7 @@ async fn observer_finishes_complete_stream_and_count_once() -> Result<(), Box<dy
     let client = Client::builder()
         .catalog(catalog()?)
         .adapter("test", FakeAdapter::successful())
-        .middleware(lithos_llm::middleware::ObserverMiddleware::new(
-            OutcomeObserver(outcomes.clone()),
-        ))
+        .middleware(ObserverMiddleware::new(OutcomeObserver(outcomes.clone())))
         .build()?
         .client;
     client.complete(request()?).await?;
@@ -1175,9 +1173,7 @@ async fn observer_finishes_dropped_and_cancelled_calls_once() -> Result<(), Box<
         .adapter("test", PendingAdapter {
             id: AdapterId::new("test-adapter"),
         })
-        .middleware(lithos_llm::middleware::ObserverMiddleware::new(
-            OutcomeObserver(outcomes.clone()),
-        ))
+        .middleware(ObserverMiddleware::new(OutcomeObserver(outcomes.clone())))
         .build()?
         .client;
     let mut future = Box::pin(client.complete(request()?));
@@ -1224,16 +1220,13 @@ impl ProviderAdapter for CountingTokensAdapter {
     async fn count_input_tokens(
         &self,
         call: &ResolvedCall,
-    ) -> Result<Option<lithos_llm::adapter::InputTokenCount>, Error> {
+    ) -> Result<Option<InputTokenCount>, Error> {
         assert_eq!(call.context().extensions().get::<u32>(), Some(&42));
         assert!(call.context().deadline().is_some());
         if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
             return Err(retryable_error());
         }
-        Ok(Some(lithos_llm::adapter::InputTokenCount::new(
-            12,
-            call.route().handle(),
-        )))
+        Ok(Some(InputTokenCount::new(12, call.route().handle())))
     }
 }
 

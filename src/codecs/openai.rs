@@ -24,7 +24,7 @@ use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, MediaSource,
     Message, ReasoningContent, Request, Response, ResponseFormat, RetryClassification, Role, Speed,
     StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition,
-    ToolDefinitionKind, ToolResult,
+    ToolDefinitionKind, ToolInput, ToolResult,
 };
 
 /// The provider namespace this codec owns.
@@ -916,7 +916,7 @@ fn decode_tool_call(item: &Value, kind: ToolCallKind) -> ToolCall {
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_owned(),
-        input:             crate::types::ToolInput::from_wire(kind, raw.to_owned()),
+        input:             ToolInput::from_wire(kind, raw.to_owned()),
         provider_metadata: BTreeMap::new(),
     };
     if let (Some(call_id), Some(item_id)) = (call_id, item_id)
@@ -1506,7 +1506,7 @@ mod tests {
     use crate::types::{
         ContentBlockId, ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
         ReasoningContent, Request, Response, RetryClassification, Role, Speed, StreamEvent,
-        ToolCall, ToolCallKind, ToolDefinition, ToolResult,
+        ToolArguments, ToolCall, ToolCallKind, ToolDefinition, ToolInput, ToolResult,
     };
 
     const MODEL: &str = "openai/gpt-5.6-luna";
@@ -1607,9 +1607,8 @@ mod tests {
     #[test]
     fn tool_calls_and_results_keep_their_protocol_identity() -> Result<(), Box<dyn StdError>> {
         let mut call_part = ToolCall::function("call_abc", "search", json!({ "query": "rust" }));
-        call_part.input = crate::types::ToolInput::Function(crate::types::ToolArguments::from_raw(
-            "{\"query\":\"rust\"}".to_owned(),
-        ));
+        call_part.input =
+            ToolInput::Function(ToolArguments::from_raw("{\"query\":\"rust\"}".to_owned()));
         call_part
             .provider_metadata
             .insert("openai".to_owned(), json!({ "item_id": "fc_123" }));

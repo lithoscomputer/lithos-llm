@@ -70,6 +70,37 @@ available for inspection either way.
 without dispatching it, which is the same resolution `complete`, `stream`, and
 `count_input_tokens` perform.
 
+## Call controls
+
+`Request::into_builder()` preserves settings while changing a request.
+Deserialization runs the same validation as the builder.
+
+`ClientBuilder::default_timeout(Duration)` sets a total call budget, including
+middleware, credentials, retries, and stream consumption. A request timeout
+replaces the default; an earlier context deadline still wins. All three
+operations have a `*_with_context` method and pass through middleware.
+
+`ClientBuilder::response_limits(ResponseLimits)` controls HTTP body, stream
+frame, and output sizes. Defaults are 32 MiB, 4 MiB, and 32 MiB. Output limits
+also bound cumulative provider-event data before decoding. Exceeding a limit
+returns a non-retryable `ErrorKind::ResourceLimit`.
+`retain_raw_response(false)` drops raw success bodies. It does not redact
+normalized content, replay metadata, or errors.
+
+Middleware reads `Call::request()`, `route()`, `operation()`, and `context()`.
+Use `map_request` to change the payload without changing its resolved model.
+`Observer::on_finish` reports one final outcome per observed invocation,
+including cancellation and dropped futures or streams.
+
+Capability queries return `Support::Supported`, `Unsupported`, or `Unknown`.
+Use `tool_choice`, `response_format`, `reasoning_effort`, and `speed` to check
+a specific setting. Unknown support does not reject a request locally.
+Protocol flags live in `CatalogModel::protocol_options()`. Pricing does not
+determine capability support.
+
+See the [API migration notes](docs/api-migration.md) for breaking changes and
+canonical stored formats. Applications own conversion of historical records.
+
 ## Streaming
 
 Streaming uses the same request type and model resolution as `complete`. Add
@@ -111,7 +142,16 @@ the assembled `Response`. Streams can also carry reasoning, tool-call, usage,
 and rate-limit events. Dropping the stream cancels the operation as far as the
 provider and transport permit.
 
+Use `ResponseStream::new` for custom adapter streams. Completion or an error
+releases the inner stream immediately. Ending without a terminal event is an
+error. Block-end content is provisional; the final response is authoritative.
+
 ## Tool calling
+
+`ToolCall::input` is either `ToolInput::Function(ToolArguments)` or
+`ToolInput::Custom(String)`. Function arguments keep their raw text and parsed
+result together. `ToolArguments::json()` returns an error for malformed JSON;
+it does not replace malformed input with an empty object.
 
 Lithos carries tool definitions, calls, and results. The application executes
 each tool and decides whether to make another model request.
@@ -145,10 +185,7 @@ async fn answer_with_weather(client: &Client) -> Result<String, Box<dyn Error>> 
         .tool(tool.clone())
         .build()?;
     let response = client.complete(request).await?;
-    let Some(call) = response.content.iter().find_map(|part| match part {
-        ContentPart::ToolCall(call) => Some(call.clone()),
-        _ => None,
-    }) else {
+    let Some(call) = response.tool_calls().next() else {
         return Err("the model did not call get_weather".into());
     };
 
@@ -164,7 +201,7 @@ async fn answer_with_weather(client: &Client) -> Result<String, Box<dyn Error>> 
         .model(model)
         .user(prompt)
         .tool(tool)
-        .message(Message::new(Role::Assistant, response.content))
+        .message(response.into_message())
         .message(Message::new(Role::Tool, [ContentPart::ToolResult(result)]))
         .build()?;
 

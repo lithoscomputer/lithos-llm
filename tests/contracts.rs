@@ -1,4 +1,5 @@
 use std::error::Error as StdError;
+use std::time::Duration;
 
 use lithos_llm::Request;
 use lithos_llm::types::{RequestBuildError, ToolChoice, ToolDefinition};
@@ -23,7 +24,7 @@ fn rebuilding_preserves_every_request_setting() -> Result<(), Box<dyn StdError>>
         .tool(ToolDefinition::function("weather", "Weather", json!({})))
         .temperature(0.5)
         .top_p(0.8)
-        .timeout(std::time::Duration::from_secs(3))
+        .timeout(Duration::from_secs(3))
         .stop_sequence("END")
         .metadata_entry("tenant", "a")
         .provider_option("test", "seed", json!(42))

@@ -88,7 +88,7 @@ fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
         return Some(support::skip("the catalog does not claim tools"));
     }
     (!capabilities
-        .tool_choice(&lithos_llm::types::ToolChoice::Required)
+        .tool_choice(&ToolChoice::Required)
         .is_supported())
     .then(|| support::skip("the catalog does not claim forced tool choice"))
 }

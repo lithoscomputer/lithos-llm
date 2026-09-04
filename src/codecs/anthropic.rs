@@ -24,8 +24,8 @@ use crate::transport::{EncodedRequest, SseEvent, provider_error};
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, MediaSource, Message,
     ReasoningContent, ReasoningEffort, Response, ResponseFormat, RetryClassification, Role, Speed,
-    StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolChoice, ToolDefinition,
-    ToolDefinitionKind,
+    StreamEvent, TokenCounts, ToolArguments, ToolCall, ToolCallKind, ToolChoice, ToolDefinition,
+    ToolDefinitionKind, ToolInput,
 };
 
 /// The opaque-part namespace this codec owns.
@@ -938,9 +938,7 @@ fn decode_tool_use(block: &Value) -> ToolCall {
     ToolCall {
         id:                field(block, "id").to_owned(),
         name:              field(block, "name").to_owned(),
-        input:             crate::types::ToolInput::Function(
-            crate::types::ToolArguments::from_json(arguments),
-        ),
+        input:             ToolInput::Function(ToolArguments::from_json(arguments)),
         provider_metadata: BTreeMap::new(),
     }
 }

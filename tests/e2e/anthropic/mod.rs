@@ -7,7 +7,7 @@
 //! The twin does not proxy /v1/messages. Every network cell therefore skips
 //! under record and replay until twin-native Messages support exists.
 
-pub(crate) fn protocol_options(model: &str) -> lithos_llm::catalog::ModelProtocolOptions {
+pub(crate) fn protocol_options(model: &str) -> ModelProtocolOptions {
     catalog()
         .model(PROVIDER, model)
         .expect("roster model")
@@ -26,7 +26,7 @@ mod vision;
 
 use std::env;
 
-use lithos_llm::catalog::{Catalog, ModelCapabilities};
+use lithos_llm::catalog::{Catalog, ModelCapabilities, ModelProtocolOptions};
 use lithos_llm::credentials::{CredentialHeader, Credentials, SecretValue, StaticCredentials};
 use lithos_llm::middleware::{RetryMiddleware, RetryPolicy};
 use lithos_llm::types::RequestBuilder;

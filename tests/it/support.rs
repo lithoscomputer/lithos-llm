@@ -26,8 +26,8 @@ use lithos_llm::catalog::Catalog;
 use lithos_llm::credentials::{CredentialHeader, Credentials, SecretValue, StaticCredentials};
 use lithos_llm::types::{
     AudioContent, ContentPart, DocumentContent, ImageContent, MediaSource, Message,
-    ReasoningContent, ResponseFormat, ResponseStream, Role, ToolCall, ToolChoice, ToolDefinition,
-    ToolResult,
+    ReasoningContent, ResponseFormat, ResponseStream, Role, ToolArguments, ToolCall, ToolChoice,
+    ToolDefinition, ToolInput, ToolResult,
 };
 use lithos_llm::{Client, Request};
 use serde::Serialize;
@@ -1115,9 +1115,7 @@ pub(crate) fn replay_request(model: &str, namespace: &str) -> Request {
     // Key order and spacing differ from a re-serialization on purpose: a codec
     // that replays `arguments` instead of `raw_arguments` changes these bytes
     // and breaks the provider's prompt cache.
-    call.input = lithos_llm::types::ToolInput::Function(
-        lithos_llm::types::ToolArguments::from_raw("{\"city\": \"Paris\"}".to_owned()),
-    );
+    call.input = ToolInput::Function(ToolArguments::from_raw("{\"city\": \"Paris\"}".to_owned()));
     call.provider_metadata
         .insert(namespace.to_owned(), json!({ "item_id": "item_replay" }));
     call.provider_metadata

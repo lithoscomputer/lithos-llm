@@ -2,6 +2,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_core::Stream;
+use futures_core::stream::FusedStream;
 use serde::{Deserialize, Serialize};
 
 use super::{ContentPart, Error, ErrorKind, RateLimits, Response, TokenCounts, ToolCallKind};
@@ -155,8 +156,10 @@ impl StreamEvent {
 /// polls return `None`. An inner stream that ends without `Completed` produces
 /// a `StreamDecode` error, rather than silently appearing successful.
 pub struct ResponseStream {
-    inner: Option<Pin<Box<dyn Stream<Item = Result<StreamEvent, Error>> + Send + 'static>>>,
+    inner: Option<BoxedEvents>,
 }
+
+type BoxedEvents = Pin<Box<dyn Stream<Item = Result<StreamEvent, Error>> + Send + 'static>>;
 
 impl ResponseStream {
     pub fn new(stream: impl Stream<Item = Result<StreamEvent, Error>> + Send + 'static) -> Self {
@@ -191,7 +194,7 @@ impl Stream for ResponseStream {
     }
 }
 
-impl futures_core::stream::FusedStream for ResponseStream {
+impl FusedStream for ResponseStream {
     fn is_terminated(&self) -> bool {
         self.inner.is_none()
     }
@@ -209,6 +212,7 @@ mod tests {
 
     use super::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};
     use crate::catalog::{ModelId, ProviderId};
+    use crate::middleware::{finalize_stream, map_stream};
     use crate::types::{
         ContentPart, Error, ErrorKind, RateLimits, Response, TokenCounts, ToolCall, ToolCallKind,
     };
@@ -223,7 +227,7 @@ mod tests {
         ] {
             let drops = Arc::new(AtomicUsize::new(0));
             let counter = drops.clone();
-            let inner = crate::middleware::finalize_stream(
+            let inner = finalize_stream(
                 ResponseStream::new(iter([terminal, Ok(StreamEvent::Started { id: None })])),
                 move || {
                     counter.fetch_add(1, Ordering::SeqCst);
@@ -250,7 +254,7 @@ mod tests {
             ErrorKind::StreamDecode
         );
         assert!(stream.next().await.is_none());
-        let mut mapped = crate::middleware::map_stream(
+        let mut mapped = map_stream(
             ResponseStream::new(iter([
                 Ok(StreamEvent::Started { id: None }),
                 Ok(StreamEvent::Started { id: None }),

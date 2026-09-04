@@ -61,7 +61,7 @@ fn assert_city_report(payload: &Value) {
 
 async fn produces_parseable_json(model: &str) -> TestResult {
     if !gemini::capabilities(model)
-        .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+        .response_format(&ResponseFormat::JsonSchema {
             name:   String::new(),
             schema: serde_json::Value::Null,
         })
@@ -84,7 +84,7 @@ async fn produces_parseable_json(model: &str) -> TestResult {
 
 async fn conforms_to_the_schema(model: &str) -> TestResult {
     if !gemini::capabilities(model)
-        .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+        .response_format(&ResponseFormat::JsonSchema {
             name:   String::new(),
             schema: serde_json::Value::Null,
         })
@@ -106,7 +106,7 @@ async fn conforms_to_the_schema(model: &str) -> TestResult {
 
 async fn streams_a_conforming_document(model: &str) -> TestResult {
     if !gemini::capabilities(model)
-        .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+        .response_format(&ResponseFormat::JsonSchema {
             name:   String::new(),
             schema: serde_json::Value::Null,
         })

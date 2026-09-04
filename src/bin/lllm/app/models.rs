@@ -3,7 +3,7 @@ use std::io::Write;
 use lithos_llm::Client;
 use lithos_llm::catalog::{CatalogModel, CatalogProvider, ModelCapabilities};
 use lithos_llm::resolver::ModelSelectionError;
-use lithos_llm::types::{Message, Request, Role};
+use lithos_llm::types::{Message, Request, ResponseFormat, Role};
 use serde::Serialize;
 
 use crate::app::args::{CapabilityArg, ModelsArgs, ResolveArgs};
@@ -244,7 +244,7 @@ fn has_capability(capabilities: ModelCapabilities, capability: CapabilityArg) ->
         CapabilityArg::Documents => capabilities.documents().is_supported(),
         CapabilityArg::Tools => capabilities.tools().is_supported(),
         CapabilityArg::StructuredOutput => capabilities
-            .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+            .response_format(&ResponseFormat::JsonSchema {
                 name:   String::new(),
                 schema: serde_json::Value::Null,
             })
@@ -343,7 +343,7 @@ fn capability_names(capabilities: ModelCapabilities) -> Vec<&'static str> {
         (capabilities.tools().is_supported(), "tools"),
         (
             capabilities
-                .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+                .response_format(&ResponseFormat::JsonSchema {
                     name:   String::new(),
                     schema: serde_json::Value::Null,
                 })
