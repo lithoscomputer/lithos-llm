@@ -13,11 +13,12 @@
 //! catalog's notes); its live-only battery is the [`codex`] submodule,
 //! gated on `OPENAI_CODEX_TOKEN` and `CHATGPT_ACCOUNT_ID`.
 //!
-//! The roster lives in `openai_catalog.toml`; the suite iterates it through
-//! the [`model_tests`] and [`family_tests`] macros. Capability-gated runners
-//! consult the catalog row and skip models whose row does not claim the
-//! capability, so the catalog stays the single source of truth for which
-//! cells exist.
+//! The roster lives in `openai_catalog.toml`; the suite iterates its recorded
+//! rows through the [`model_tests`] and [`family_tests`] macros.
+//! Capability-gated runners consult the catalog row and skip models whose row
+//! does not claim the capability. GPT-6 Astra is present in the catalog from
+//! the published docs but stays out of these macros until API access permits a
+//! live run and recording.
 
 mod caching;
 mod codex;
@@ -48,7 +49,7 @@ pub(crate) const KEY_VARIABLE: &str = "OPENAI_API_KEY";
 
 const CATALOG_TOML: &str = include_str!("../openai_catalog.toml");
 
-/// Expands one live test per roster model.
+/// Expands one live test per recorded roster model.
 ///
 /// `$runner` is an `async fn(&'static str) -> TestResult` taking the catalog
 /// model id. Every generated test is ignored, so the roster only runs under
@@ -79,12 +80,13 @@ macro_rules! model_tests {
 
 /// Expands one live test per model family.
 ///
-/// The cheap end of each generation represents it: luna for the 5.6 rows and
-/// gpt-5.4-mini for the 5.4/5.5 rows — within a generation the upstream
-/// behavior is the same, so more cells would multiply cost without
+/// The cheap end of each recorded generation represents it: luna for the 5.6
+/// rows and gpt-5.4-mini for the 5.4/5.5 rows — within a generation the
+/// upstream behavior is the same, so more cells would multiply cost without
 /// multiplying signal. The pro rows are deliberately absent: they bill 40x
 /// the mini rates and a single request can run for minutes, so they stay on
-/// the roster-wide cells only.
+/// the roster-wide cells only. Astra joins this macro after its first live
+/// recording.
 macro_rules! family_tests {
     ($runner:path) => {
         crate::openai::model_tests!(@expand $runner,

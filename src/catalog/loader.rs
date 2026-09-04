@@ -798,6 +798,8 @@ mod tests {
         let openai = catalog.provider("openai")?;
         assert_eq!(openai.default_model(), Some("gpt-5.6-sol"));
         assert!(openai.allows_passthrough());
+        assert_eq!(catalog.model("openai", "astra")?.api_model(), "gpt-6-astra");
+        assert_eq!(catalog.model("openai", "gpt-6")?.api_model(), "gpt-6-astra");
         assert_eq!(catalog.model("openai", "luna")?.api_model(), "gpt-5.6-luna");
         // fabro routes its legacy short names at the current codex driver.
         assert_eq!(catalog.model("openai", "codex")?.api_model(), "gpt-5.4");
@@ -806,8 +808,14 @@ mod tests {
             "gpt-5.6-sol"
         );
 
-        // Sampling controls are model-specific on the live API (2026-08-30):
-        // the 5.4 rows take temperature, the 5.5 and 5.6 rows reject it.
+        // Sampling controls are model-specific: the Astra docs reject them,
+        // and on the live API (2026-08-30) only the 5.4 rows took them.
+        assert!(
+            !catalog
+                .model("openai", "gpt-6-astra")?
+                .capabilities()
+                .sampling
+        );
         assert!(catalog.model("openai", "gpt-5.4")?.capabilities().sampling);
         assert!(
             catalog
@@ -851,7 +859,30 @@ mod tests {
     {
         let catalog = Catalog::builder().with_builtin().build()?;
 
-        // OpenAI's published rates and limits, verified live on 2026-08-30.
+        // Astra's published rates and limits, documented on 2026-09-03.
+        let astra = catalog.model("openai", "gpt-6-astra")?;
+        assert_eq!(
+            astra
+                .limits()
+                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
+            Some((1_050_000, 128_000))
+        );
+        assert!(astra.capabilities().documents);
+        assert!(astra.capabilities().reasoning_effort_levels);
+        let pricing = astra.pricing().ok_or("gpt-6-astra should be priced")?;
+        assert_eq!(pricing.input_usd_micros_per_million, Some(10_000_000));
+        assert_eq!(pricing.output_usd_micros_per_million, Some(50_000_000));
+        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(1_000_000));
+        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(12_500_000));
+        let long = pricing.for_input_tokens(300_000);
+        assert_eq!(long.input_usd_micros_per_million, Some(20_000_000));
+        assert_eq!(long.output_usd_micros_per_million, Some(75_000_000));
+        let fast = pricing.for_speed(Some(Speed::Fast));
+        assert_eq!(fast.input_usd_micros_per_million, Some(20_000_000));
+        let flex = pricing.for_speed(Some(Speed::Economical));
+        assert_eq!(flex.input_usd_micros_per_million, Some(5_000_000));
+
+        // OpenAI's GPT-5 rates and limits, verified live on 2026-08-30.
         // Luna's window is 1,050,000 tokens; 272,000 is the long-context
         // billing threshold, and the 5.6 family bills cache writes at 1.25x.
         let luna = catalog.model("openai", "gpt-5.6-luna")?;
