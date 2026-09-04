@@ -79,6 +79,7 @@ impl Middleware for ObserverMiddleware {
         self.observer.on_start(&call);
         let result = next.run(call.clone()).await;
         match result {
+            Ok(Output::InputTokenCount(count)) => Ok(Output::InputTokenCount(count)),
             Ok(Output::Complete(response)) => {
                 self.observer.on_complete(&call, Ok(&response));
                 Ok(Output::Complete(response))

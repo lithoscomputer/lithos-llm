@@ -10,7 +10,7 @@ use futures_util::StreamExt as _;
 use futures_util::stream::{empty, unfold};
 use tokio::time::sleep;
 
-use super::{Call, Middleware, Mode, Next, Observer, Output, RetryStage};
+use super::{Call, Middleware, Next, Observer, Operation, Output, RetryStage};
 use crate::types::{Error, ErrorKind, ResponseStream, RetryClassification, StreamEvent};
 
 /// The longest `Retry-After` this policy honors by default.
@@ -203,7 +203,7 @@ impl Middleware for RetryMiddleware {
         loop {
             current.context.set_attempt(attempt);
             match next.clone().run(current.clone()).await {
-                Ok(Output::Stream(stream)) if call.mode == Mode::Stream => {
+                Ok(Output::Stream(stream)) if call.mode == Operation::Stream => {
                     return Ok(Output::Stream(retry_stream(
                         stream,
                         current,
@@ -334,7 +334,7 @@ fn retry_stream(
                                 state.stream = stream;
                                 continue 'read;
                             }
-                            Ok(Output::Complete(_)) => {
+                            Ok(_) => {
                                 error = Error::new(
                                     ErrorKind::Middleware,
                                     "stream retry returned a complete response",

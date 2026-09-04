@@ -15,7 +15,7 @@ use tokio::time::{Instant as TokioInstant, sleep_until};
 
 use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, AdapterRegistry,
-    DEFAULT_STREAM_IDLE_TIMEOUT, InputTokenCount, ProviderAdapter, ResolvedCall,
+    DEFAULT_STREAM_IDLE_TIMEOUT, InputTokenCount, ProviderAdapter,
 };
 use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
 #[cfg(all(
@@ -31,7 +31,9 @@ use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
 ))]
 use crate::credentials::EnvironmentCredentials;
 use crate::credentials::{CredentialProvider, NoCredentials};
-use crate::middleware::{Call, CallContext, CancellationToken, Middleware, Mode, Output, Pipeline};
+use crate::middleware::{
+    Call, CallContext, CancellationToken, Middleware, Operation, Output, Pipeline,
+};
 use crate::providers::register_builtin;
 use crate::resolver::{
     AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
@@ -148,11 +150,14 @@ impl Client {
         context: CallContext,
     ) -> Result<Response, Error> {
         let context = self.prepare_context(&request, context)?;
-        match self.call_guarded(request, context, Mode::Complete).await? {
+        match self
+            .call_guarded(request, context, Operation::Complete)
+            .await?
+        {
             Output::Complete(response) => Ok(response),
-            Output::Stream(_) => Err(Error::new(
+            _ => Err(Error::new(
                 ErrorKind::Middleware,
-                "complete middleware returned a stream",
+                "complete middleware returned an incompatible output",
             )),
         }
     }
@@ -169,11 +174,14 @@ impl Client {
         let context = self.prepare_context(&request, context)?;
         let cancellation = context.cancellation().clone();
         let deadline = context.deadline();
-        match self.call_guarded(request, context, Mode::Stream).await? {
+        match self
+            .call_guarded(request, context, Operation::Stream)
+            .await?
+        {
             Output::Stream(stream) => Ok(guard_stream(stream, cancellation, deadline)),
-            Output::Complete(_) => Err(Error::new(
+            _ => Err(Error::new(
                 ErrorKind::Middleware,
-                "stream middleware returned a complete response",
+                "stream middleware returned an incompatible output",
             )),
         }
     }
@@ -182,24 +190,28 @@ impl Client {
         &self,
         request: Request,
     ) -> Result<Option<InputTokenCount>, Error> {
-        let route = self.resolve_route(&request)?;
-        validate_request(&request, &route)?;
-        let adapter = self
-            .pipeline
-            .adapters
-            .get(route.provider().id())
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Configuration,
-                    format!(
-                        "no adapter is registered for provider {}",
-                        route.provider().id()
-                    ),
-                )
-            })?;
-        adapter
-            .count_input_tokens(&ResolvedCall::new(request, route, CallContext::new()))
+        self.count_input_tokens_with_context(request, CallContext::new())
             .await
+    }
+
+    /// Counts tokens through the same deadlines, cancellation and middleware
+    /// as inference. None means that the adapter has no native count endpoint.
+    pub async fn count_input_tokens_with_context(
+        &self,
+        request: Request,
+        context: CallContext,
+    ) -> Result<Option<InputTokenCount>, Error> {
+        let context = self.prepare_context(&request, context)?;
+        match self
+            .call_guarded(request, context, Operation::CountInputTokens)
+            .await?
+        {
+            Output::InputTokenCount(count) => Ok(count),
+            _ => Err(Error::new(
+                ErrorKind::Middleware,
+                "token count middleware returned an incompatible output",
+            )),
+        }
     }
 
     fn prepare_context(
@@ -227,7 +239,7 @@ impl Client {
         &self,
         request: Request,
         context: CallContext,
-        mode: Mode,
+        mode: Operation,
     ) -> Result<Output, Error> {
         let route = self.resolve_route(&request)?;
         validate_request(&request, &route)?;
@@ -246,7 +258,7 @@ impl Client {
         &self,
         request: Request,
         context: CallContext,
-        mode: Mode,
+        mode: Operation,
     ) -> Result<Output, Error> {
         let cancellation = context.cancellation().clone();
         if let Some(deadline) = context.deadline() {

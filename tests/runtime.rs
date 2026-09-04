@@ -1126,6 +1126,73 @@ struct PendingAdapter {
 
 struct PendingMiddleware;
 
+struct CountingTokensAdapter {
+    id:    AdapterId,
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl ProviderAdapter for CountingTokensAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+    async fn complete(&self, _call: &ResolvedCall) -> Result<Response, Error> {
+        unreachable!("count only")
+    }
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        unreachable!("count only")
+    }
+    async fn count_input_tokens(
+        &self,
+        call: &ResolvedCall,
+    ) -> Result<Option<lithos_llm::adapter::InputTokenCount>, Error> {
+        assert_eq!(call.context().extensions().get::<u32>(), Some(&42));
+        assert!(call.context().deadline().is_some());
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            return Err(retryable_error());
+        }
+        Ok(Some(lithos_llm::adapter::InputTokenCount::new(
+            12,
+            call.route().handle(),
+        )))
+    }
+}
+
+#[tokio::test]
+async fn token_counting_uses_context_and_retry_middleware() -> Result<(), Box<dyn StdError>> {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", CountingTokensAdapter {
+            id:    AdapterId::new("test-adapter"),
+            calls: calls.clone(),
+        })
+        .middleware(Recorder {
+            name: "count",
+            log:  log.clone(),
+        })
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential().initial_delay(Duration::ZERO),
+        ))
+        .default_timeout(Duration::from_secs(2))
+        .build()?
+        .client;
+    let mut context = CallContext::new();
+    context.extensions_mut().insert(42_u32);
+    let count = client
+        .count_input_tokens_with_context(request()?, context)
+        .await?
+        .expect("native count");
+    assert_eq!(count.tokens(), 12);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(*log.lock().expect("log"), [
+        "count request",
+        "count response"
+    ]);
+    Ok(())
+}
+
 #[async_trait]
 impl Middleware for PendingMiddleware {
     async fn handle(&self, _call: Call, _next: Next) -> Result<Output, Error> {

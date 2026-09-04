@@ -22,19 +22,20 @@ pub use retry::{RetryMiddleware, RetryPolicy};
 use tokio::sync::Notify;
 pub use tracing_layer::TracingMiddleware;
 
-use crate::adapter::{ProviderAdapter, ResolvedCall};
+use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
 use crate::catalog::ProviderId;
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     Error, ErrorKind, Request, RequestBuildError, Response, ResponseStream, StreamEvent,
 };
 
-/// Whether a call expects a complete response or a stream.
+/// The operation executed through the middleware pipeline.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum Mode {
+pub enum Operation {
     Complete,
     Stream,
+    CountInputTokens,
 }
 
 /// A clone-safe application cancellation signal.
@@ -182,7 +183,7 @@ impl CallContext {
 pub struct Call {
     pub(crate) request: Request,
     pub(crate) route:   ResolvedRoute,
-    pub(crate) mode:    Mode,
+    pub(crate) mode:    Operation,
     pub(crate) context: CallContext,
 }
 
@@ -193,7 +194,7 @@ impl Call {
     pub fn route(&self) -> &ResolvedRoute {
         &self.route
     }
-    pub fn operation(&self) -> Mode {
+    pub fn operation(&self) -> Operation {
         self.mode
     }
     pub fn context(&self) -> &CallContext {
@@ -235,6 +236,7 @@ impl Call {
 pub enum Output {
     Complete(Response),
     Stream(ResponseStream),
+    InputTokenCount(Option<InputTokenCount>),
 }
 
 impl fmt::Debug for Output {
@@ -242,6 +244,10 @@ impl fmt::Debug for Output {
         match self {
             Self::Complete(response) => formatter.debug_tuple("Complete").field(response).finish(),
             Self::Stream(_) => formatter.write_str("Stream(<response stream>)"),
+            Self::InputTokenCount(count) => formatter
+                .debug_tuple("InputTokenCount")
+                .field(count)
+                .finish(),
         }
     }
 }
@@ -298,8 +304,12 @@ impl Next {
             })?;
         let resolved = ResolvedCall::new(call.request, call.route, call.context);
         match call.mode {
-            Mode::Complete => adapter.complete(&resolved).await.map(Output::Complete),
-            Mode::Stream => adapter.stream(&resolved).await.map(Output::Stream),
+            Operation::Complete => adapter.complete(&resolved).await.map(Output::Complete),
+            Operation::Stream => adapter.stream(&resolved).await.map(Output::Stream),
+            Operation::CountInputTokens => adapter
+                .count_input_tokens(&resolved)
+                .await
+                .map(Output::InputTokenCount),
         }
     }
 }

@@ -7,7 +7,7 @@ use futures_core::Stream;
 use tracing::Instrument as _;
 use tracing::field::Empty;
 
-use super::{Call, CancellationToken, Middleware, Mode, Next, Output};
+use super::{Call, CancellationToken, Middleware, Next, Operation, Output};
 use crate::types::{
     CostSource, Error, ErrorKind, FinishReason, Response, ResponseStream, StreamEvent, TokenCounts,
 };
@@ -43,6 +43,13 @@ impl Middleware for TracingMiddleware {
         let span = trace.span.clone();
         let result = next.run(call).instrument(span).await;
         match result {
+            Ok(Output::InputTokenCount(count)) => {
+                if let Some(count) = &count {
+                    trace.span.record("input_tokens", count.tokens());
+                }
+                trace.record_terminal(OUTCOME_COMPLETED, None);
+                Ok(Output::InputTokenCount(count))
+            }
             Ok(Output::Complete(response)) => {
                 trace.finish_completed(&response);
                 Ok(Output::Complete(response))
@@ -287,10 +294,11 @@ impl Stream for TracedStream {
     }
 }
 
-fn mode_name(mode: Mode) -> &'static str {
+fn mode_name(mode: Operation) -> &'static str {
     match mode {
-        Mode::Complete => "complete",
-        Mode::Stream => "stream",
+        Operation::Complete => "complete",
+        Operation::Stream => "stream",
+        Operation::CountInputTokens => "count_input_tokens",
     }
 }
 
@@ -347,7 +355,7 @@ mod tests {
         OUTCOME_INCOMPLETE, trace_stream,
     };
     use crate::catalog::{Catalog, ModelId, ProviderId};
-    use crate::middleware::{Call, CallContext, Mode};
+    use crate::middleware::{Call, CallContext, Operation};
     use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
     use crate::types::{
         Cost, CostSource, Error, ErrorKind, FinishReason, Request, Response, ResponseStream,
@@ -448,7 +456,7 @@ mod tests {
         mutex.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn call(mode: Mode) -> Result<Call, Box<dyn StdError>> {
+    fn call(mode: Operation) -> Result<Call, Box<dyn StdError>> {
         let catalog = Catalog::builder().overlay_toml(TEST_CATALOG)?.build()?;
         let available = AvailableProviders::all(&catalog);
         let request = Request::builder()
@@ -506,7 +514,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let mut trace = CallTrace::new(&call(Mode::Complete)?);
+        let mut trace = CallTrace::new(&call(Operation::Complete)?);
 
         trace.finish_completed(&response());
         drop(trace);
@@ -536,7 +544,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let mut trace = CallTrace::new(&call(Mode::Complete)?);
+        let mut trace = CallTrace::new(&call(Operation::Complete)?);
         let mut response = response();
         response.finish_reason = FinishReason::Incomplete;
 
@@ -556,7 +564,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let trace = CallTrace::new(&call(Mode::Stream)?);
+        let trace = CallTrace::new(&call(Operation::Stream)?);
         let mut stream = trace_stream(
             ResponseStream::new(iter([
                 Ok(StreamEvent::Started {
@@ -605,7 +613,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let trace = CallTrace::new(&call(Mode::Stream)?);
+        let trace = CallTrace::new(&call(Operation::Stream)?);
         let error = Error::new(ErrorKind::RateLimit, "slow down")
             .with_status(429)
             .with_provider_code("rate_limited");
@@ -633,7 +641,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let trace = CallTrace::new(&call(Mode::Stream)?);
+        let trace = CallTrace::new(&call(Operation::Stream)?);
         let events: Vec<Result<StreamEvent, Error>> = Vec::new();
         let mut stream = trace_stream(ResponseStream::new(iter(events)), trace);
 
@@ -653,7 +661,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let mut call = call(Mode::Stream)?;
+        let mut call = call(Operation::Stream)?;
         call.context.set_deadline(Instant::now());
         let trace = CallTrace::new(&call);
         let stream = trace_stream(ResponseStream::new(pending()), trace);
@@ -673,7 +681,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let trace = CallTrace::new(&call(Mode::Stream)?);
+        let trace = CallTrace::new(&call(Operation::Stream)?);
         let stream = trace_stream(ResponseStream::new(pending()), trace);
 
         assert!(capture.closed().is_empty());
@@ -691,7 +699,7 @@ mod tests {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
-        let call = call(Mode::Stream)?;
+        let call = call(Operation::Stream)?;
         let cancellation = call.context.cancellation().clone();
         let trace = CallTrace::new(&call);
         let stream = trace_stream(ResponseStream::new(pending()), trace);
