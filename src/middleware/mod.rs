@@ -304,8 +304,15 @@ impl Next {
             })?;
         let resolved = ResolvedCall::new(call.request, call.route, call.context);
         match call.mode {
-            Operation::Complete => adapter.complete(&resolved).await.map(Output::Complete),
-            Operation::Stream => adapter.stream(&resolved).await.map(Output::Stream),
+            Operation::Complete => adapter
+                .complete(&resolved)
+                .await
+                .and_then(|response| self.pipeline.policy.response(response))
+                .map(Output::Complete),
+            Operation::Stream => adapter
+                .stream(&resolved)
+                .await
+                .map(|stream| Output::Stream(self.pipeline.policy.stream(stream))),
             Operation::CountInputTokens => adapter
                 .count_input_tokens(&resolved)
                 .await
@@ -315,6 +322,7 @@ impl Next {
 }
 
 pub(crate) struct Pipeline {
+    pub policy:     crate::types::ResponsePolicy,
     pub middleware: Vec<Arc<dyn Middleware>>,
     pub adapters:   BTreeMap<ProviderId, Arc<dyn ProviderAdapter>>,
 }

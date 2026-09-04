@@ -44,7 +44,9 @@ use tokio::time::timeout;
 use crate::adapter::DEFAULT_STREAM_IDLE_TIMEOUT;
 use crate::catalog::{AuthScheme, CatalogProvider, ProviderId};
 use crate::credentials::{CredentialHeader, Credentials, HttpAuthentication, SecretValue};
-use crate::types::{Error, ErrorKind, RateLimits, RetryClassification, Speed, Warning};
+use crate::types::{
+    Error, ErrorKind, RateLimits, ResponseLimits, RetryClassification, Speed, Warning, limit_error,
+};
 
 /// A request whose headers and body bytes are already final.
 ///
@@ -183,6 +185,7 @@ pub(crate) struct SseEvent {
 
 #[derive(Clone)]
 pub(crate) struct HttpTransport {
+    limits:              ResponseLimits,
     client:              Client,
     /// The maximum wait between two stream chunks, or `None` to wait forever.
     stream_idle_timeout: Option<Duration>,
@@ -206,6 +209,7 @@ impl HttpTransport {
     pub(crate) fn new(client: Client) -> Self {
         Self {
             client,
+            limits: ResponseLimits::default(),
             stream_idle_timeout: Some(DEFAULT_STREAM_IDLE_TIMEOUT),
         }
     }
@@ -220,6 +224,11 @@ impl HttpTransport {
         self
     }
 
+    pub(crate) fn with_response_limits(mut self, limits: ResponseLimits) -> Self {
+        self.limits = limits;
+        self
+    }
+
     pub(crate) async fn execute_json(
         &self,
         request: EncodedRequest,
@@ -229,7 +238,7 @@ impl HttpTransport {
         let response = self
             .send(request, provider, credentials, TimeoutRetry::Never)
             .await?;
-        json_response(response, provider).await
+        json_response(response, provider, self.limits.body_bytes()).await
     }
 
     /// Executes an already-signed request and decodes a JSON body.
@@ -242,7 +251,7 @@ impl HttpTransport {
         let response = self
             .send_prepared(request, provider, TimeoutRetry::Never)
             .await?;
-        json_response(response, provider).await
+        json_response(response, provider, self.limits.body_bytes()).await
     }
 
     #[cfg(any(
@@ -275,7 +284,10 @@ impl HttpTransport {
         });
         let chunks = with_idle_timeout(chunks, self.stream_idle_timeout, provider_id);
         Ok(EventResponse {
-            events: Box::pin(sse_frames(chunks, framing)),
+            events: Box::pin(bound_event_data(
+                sse_frames(chunks, framing, self.limits.frame_bytes()),
+                self.limits.output_bytes(),
+            )),
             rate_limits,
         })
     }
@@ -294,6 +306,8 @@ impl HttpTransport {
             response,
             provider,
             self.stream_idle_timeout,
+            self.limits.frame_bytes(),
+            self.limits.output_bytes(),
         ))
     }
 
@@ -311,6 +325,8 @@ impl HttpTransport {
             response,
             provider,
             self.stream_idle_timeout,
+            self.limits.frame_bytes(),
+            self.limits.output_bytes(),
         ))
     }
 
@@ -330,7 +346,7 @@ impl HttpTransport {
         if let Some(timeout) = request.timeout {
             builder = builder.timeout(timeout);
         }
-        finish(builder, provider, on_timeout).await
+        finish(builder, provider, on_timeout, self.limits.body_bytes()).await
     }
 
     async fn send(
@@ -355,7 +371,7 @@ impl HttpTransport {
         if let Some(timeout) = request.timeout {
             builder = builder.timeout(timeout);
         }
-        finish(builder, provider, on_timeout).await
+        finish(builder, provider, on_timeout, self.limits.body_bytes()).await
     }
 }
 
@@ -380,6 +396,7 @@ async fn finish(
     builder: RequestBuilder,
     provider: &CatalogProvider,
     on_timeout: TimeoutRetry,
+    body_limit: usize,
 ) -> Result<HttpResponse, Error> {
     let response = builder.send().await.map_err(|source| {
         // A connect timeout is a network failure, not a spent time budget:
@@ -405,7 +422,39 @@ async fn finish(
     if response.status().is_success() {
         return Ok(response);
     }
-    Err(http_error(response, provider).await)
+    Err(http_error(response, provider, body_limit).await)
+}
+
+/// Collect no more than the configured bytes, even without Content-Length.
+async fn bounded_body(
+    mut response: HttpResponse,
+    provider: &CatalogProvider,
+    limit: usize,
+) -> Result<Vec<u8>, Error> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > limit as u64)
+    {
+        return Err(limit_error("HTTP body", limit).with_provider(provider.id().clone()));
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|source| {
+        let (kind, retry) = if source.is_timeout() {
+            (ErrorKind::Timeout, RetryClassification::Never)
+        } else {
+            (ErrorKind::ResponseDecode, RetryClassification::Safe)
+        };
+        Error::new(kind, "reading the provider response body failed")
+            .with_provider(provider.id().clone())
+            .with_retry(retry)
+            .with_source(source)
+    })? {
+        if chunk.len() > limit.saturating_sub(bytes.len()) {
+            return Err(limit_error("HTTP body", limit).with_provider(provider.id().clone()));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
 }
 
 /// Reads rate limits and decodes a JSON success body.
@@ -418,20 +467,17 @@ async fn finish(
 async fn json_response(
     response: HttpResponse,
     provider: &CatalogProvider,
+    body_limit: usize,
 ) -> Result<JsonResponse, Error> {
     let rate_limits = rate_limits(response.headers());
-    let body = response.json().await.map_err(|source| {
-        let (kind, retry) = if source.is_timeout() {
-            (ErrorKind::Timeout, RetryClassification::Never)
-        } else {
-            (ErrorKind::ResponseDecode, RetryClassification::Safe)
-        };
+    let bytes = bounded_body(response, provider, body_limit).await?;
+    let body = serde_json::from_slice(&bytes).map_err(|source| {
         Error::new(
-            kind,
+            ErrorKind::ResponseDecode,
             format!("provider {} returned invalid JSON", provider.id()),
         )
         .with_provider(provider.id().clone())
-        .with_retry(retry)
+        .with_retry(RetryClassification::Safe)
         .with_source(source)
     })?;
     Ok(JsonResponse { body, rate_limits })
@@ -443,6 +489,8 @@ fn event_stream_response(
     response: HttpResponse,
     provider: &CatalogProvider,
     idle_timeout: Option<Duration>,
+    frame_limit: usize,
+    output_limit: usize,
 ) -> EventResponse {
     let rate_limits = rate_limits(response.headers());
     let provider_id = provider.id().clone();
@@ -462,7 +510,7 @@ fn event_stream_response(
             let parsed = match chunk {
                 Ok(chunk) => {
                     buffer.extend_from_slice(&chunk);
-                    event_stream_events_from(buffer, &provider_id)
+                    event_stream_events_from(buffer, &provider_id, frame_limit)
                 }
                 Err(error) => vec![Err(error)],
             };
@@ -470,9 +518,43 @@ fn event_stream_response(
         })
         .flat_map(iter);
     EventResponse {
-        events: Box::pin(frames),
+        events: Box::pin(bound_event_data(frames, output_limit)),
         rate_limits,
     }
+}
+
+/// Bound data before a decoder can accumulate non-visible fields such as
+/// reasoning signatures. Normalized events alone do not expose all such data.
+fn bound_event_data<S>(
+    events: S,
+    limit: usize,
+) -> impl Stream<Item = Result<SseEvent, Error>> + Send
+where
+    S: Stream<Item = Result<SseEvent, Error>> + Send,
+{
+    unfold(
+        (Box::pin(events), 0usize, false),
+        move |(mut events, used, ended)| async move {
+            if ended {
+                return None;
+            }
+            let event = events.next().await?;
+            let size = event.as_ref().map_or(0, |event| {
+                event
+                    .data
+                    .len()
+                    .saturating_add(event.event.as_ref().map_or(0, String::len))
+            });
+            if size > limit.saturating_sub(used) {
+                return Some((
+                    Err(limit_error("provider event data", limit)),
+                    (events, used, true),
+                ));
+            }
+            let ended = event.is_err();
+            Some((event, (events, used + size, ended)))
+        },
+    )
 }
 
 /// Builds the error for a failed response-body read.
@@ -566,6 +648,7 @@ where
 fn sse_frames<C, S>(
     chunks: S,
     framing: SseFraming,
+    frame_limit: usize,
 ) -> impl Stream<Item = Result<SseEvent, Error>> + Send + 'static
 where
     S: Stream<Item = Result<C, Error>> + Send + 'static,
@@ -586,7 +669,7 @@ where
         framing,
         ended: false,
     };
-    unfold(state, |mut state| async move {
+    unfold(state, move |mut state| async move {
         loop {
             if let Some(frame) = state.ready.pop_front() {
                 return Some((frame, state));
@@ -596,10 +679,23 @@ where
             }
             match state.chunks.next().await {
                 Some(Ok(chunk)) => {
-                    state.buffer.extend_from_slice(chunk.as_ref());
-                    state
-                        .ready
-                        .extend(extract_frames(&mut state.buffer, state.framing));
+                    for piece in chunk
+                        .as_ref()
+                        .split_inclusive(|byte| matches!(byte, b'\r' | b'\n'))
+                    {
+                        if piece.len() > frame_limit.saturating_sub(state.buffer.len()) {
+                            state
+                                .ready
+                                .push_back(Err(limit_error("stream frame", frame_limit)));
+                            state.buffer.clear();
+                            state.ended = true;
+                            break;
+                        }
+                        state.buffer.extend_from_slice(piece);
+                        state
+                            .ready
+                            .extend(extract_frames(&mut state.buffer, state.framing));
+                    }
                 }
                 Some(Err(error)) => {
                     state.ready.push_back(Err(error));
@@ -840,18 +936,24 @@ fn scheme_mismatch(provider: &ProviderId) -> Error {
 /// from a proxy or a plain-text "model does not exist" 400 carries the only
 /// diagnosis there is, and message-based classification needs it. Long bodies
 /// are truncated, because an error message is not a place for a whole page.
-async fn http_error(response: HttpResponse, provider: &CatalogProvider) -> Error {
+async fn http_error(
+    response: HttpResponse,
+    provider: &CatalogProvider,
+    body_limit: usize,
+) -> Error {
     let status = response.status();
     let retry_after = response
         .headers()
         .get("retry-after")
         .and_then(|value| value.to_str().ok())
         .map(ToOwned::to_owned);
-    let data = response
-        .text()
-        .await
-        .ok()
-        .and_then(|body| error_body(&body));
+    let data = match bounded_body(response, provider, body_limit).await {
+        Ok(body) => error_body(&String::from_utf8_lossy(&body)),
+        Err(error) if error.kind() == ErrorKind::ResourceLimit => {
+            return error.with_status(status.as_u16());
+        }
+        Err(_) => None,
+    };
     provider_error(
         provider,
         Some(status.as_u16()),
@@ -1029,8 +1131,9 @@ fn parse_frame(frame: &[u8]) -> Result<Option<SseEvent>, Error> {
 fn event_stream_events_from(
     buffer: &mut Vec<u8>,
     provider: &ProviderId,
+    frame_limit: usize,
 ) -> Vec<Result<SseEvent, Error>> {
-    event_stream::extract_frames(buffer)
+    event_stream::extract_frames_with_limit(buffer, frame_limit)
         .into_iter()
         .map(|frame| {
             let frame = frame?;
@@ -1081,6 +1184,48 @@ fn event_stream_events_from(
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn invisible_provider_data_also_consumes_the_output_budget() {
+        use futures_util::{StreamExt as _, stream};
+
+        use super::{SseEvent, bound_event_data};
+        let events = stream::iter((0..10).map(|_| {
+            Ok(SseEvent {
+                event: None,
+                data:  "signature".repeat(10),
+            })
+        }));
+        let items: Vec<_> = bound_event_data(events, 100).collect().await;
+        assert_eq!(items.len(), 2);
+        assert!(items[0].is_ok());
+        assert_eq!(
+            items[1].as_ref().expect_err("cumulative event data").kind(),
+            super::ErrorKind::ResourceLimit
+        );
+    }
+    #[cfg(feature = "openai")]
+    #[tokio::test]
+    async fn frame_limit_applies_across_chunks_but_not_across_frames() {
+        use futures_util::{StreamExt as _, stream};
+
+        use super::{SseFraming, sse_frames};
+
+        let chunks = stream::iter([Ok(b"data: 1\n\ndata: 2\n\n".to_vec())]);
+        let frames: Vec<_> = sse_frames(chunks, SseFraming::Spec, 9).collect().await;
+        assert_eq!(frames.len(), 2);
+        assert!(frames.iter().all(Result::is_ok));
+
+        let chunks = stream::iter([Ok(b"data: ".to_vec()), Ok(b"1234567890".to_vec())]);
+        let frames: Vec<_> = sse_frames(chunks, SseFraming::Spec, 9).collect().await;
+        assert_eq!(frames.len(), 1);
+        assert_eq!(
+            frames[0]
+                .as_ref()
+                .expect_err("oversized unterminated frame")
+                .kind(),
+            super::ErrorKind::ResourceLimit
+        );
+    }
     use std::collections::BTreeMap;
     use std::error::Error as StdError;
     use std::time::Duration;
@@ -1453,6 +1598,35 @@ mod tests {
             error.raw_data(),
             Some(&Value::String("The model gpt-9 does not exist".into()))
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn oversized_success_and_error_bodies_are_not_retried() -> Result<(), Box<dyn StdError>> {
+        use crate::types::ResponseLimits;
+        let server = MockServer::start_async().await;
+        for status in [200, 503] {
+            let path = format!("/body-{status}");
+            server
+                .mock_async(|when, then| {
+                    when.method(MockMethod::POST).path(&path);
+                    then.status(status).body("x".repeat(1024));
+                })
+                .await;
+            let route = route()?;
+            let transport = HttpTransport::new(Client::new())
+                .with_response_limits(ResponseLimits::default().max_body_bytes(100));
+            let error = transport
+                .execute_json(
+                    post(server.url(&path)),
+                    route.provider(),
+                    Credentials::none(),
+                )
+                .await
+                .expect_err("body limit");
+            assert_eq!(error.kind(), ErrorKind::ResourceLimit);
+            assert_eq!(error.retry_classification(), RetryClassification::Never);
+        }
         Ok(())
     }
 

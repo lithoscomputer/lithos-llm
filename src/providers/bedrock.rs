@@ -70,7 +70,8 @@ impl AdapterFactory for Factory {
             id: provider.adapter().clone(),
             codec: BedrockConverseCodec,
             transport: HttpTransport::new(context.http().clone())
-                .with_stream_idle_timeout(context.stream_idle_timeout()),
+                .with_stream_idle_timeout(context.stream_idle_timeout())
+                .with_response_limits(context.response_limits()),
             credentials: context.credentials().clone(),
             #[cfg(feature = "bedrock-aws")]
             signer: AwsSigner::new(provider.id().clone()),

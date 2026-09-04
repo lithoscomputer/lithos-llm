@@ -2,6 +2,8 @@
 
 mod content;
 mod error;
+#[cfg(feature = "runtime")]
+mod limits;
 mod request;
 mod response;
 #[cfg(feature = "runtime")]
@@ -14,6 +16,10 @@ pub use content::{
     ToolResult,
 };
 pub use error::{Error, ErrorData, ErrorKind, RetryClassification};
+#[cfg(feature = "runtime")]
+pub use limits::ResponseLimits;
+#[cfg(feature = "runtime")]
+pub(crate) use limits::{ResponsePolicy, limit_error};
 pub use request::{
     CacheHint, ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
 };

@@ -151,13 +151,16 @@ pub(super) mod http {
             id: provider.adapter().clone(),
             codec: Arc::new(codec),
             transport: HttpTransport::new(context.http().clone())
-                .with_stream_idle_timeout(context.stream_idle_timeout()),
+                .with_stream_idle_timeout(context.stream_idle_timeout())
+                .with_response_limits(context.response_limits()),
+            policy: context.response_policy(),
             credentials: context.credentials().clone(),
             options,
         }))
     }
 
     struct HttpProviderAdapter {
+        policy:      crate::types::ResponsePolicy,
         id:          AdapterId,
         codec:       Arc<dyn Codec>,
         transport:   HttpTransport,
@@ -189,7 +192,7 @@ pub(super) mod http {
         /// caller a complete response, so the leading rate limits and the
         /// terminal `Completed` event are folded back into one [`Response`].
         async fn complete_by_streaming(&self, call: &ResolvedCall) -> Result<Response, Error> {
-            let mut stream = self.stream(call).await?;
+            let mut stream = self.policy.stream(self.stream(call).await?);
             let mut rate_limits: Option<RateLimits> = None;
             let mut completed: Option<Response> = None;
             while let Some(event) = stream.next().await {

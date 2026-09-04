@@ -24,7 +24,6 @@ error: response_decode: provider openai returned a 200 body without a Responses 
 $ OPENAI_API_KEY=oai-invalid-json-bytes lllm --catalog catalog.toml -m openai/fixture --no-stream 'OpenAI invalid JSON bytes'
 ? 1
 error: response_decode: provider openai returned invalid JSON route=openai/fixture provider=openai
-  caused by: error decoding response body for url (http://127.0.0.1:3931/v1/responses)
   caused by: expected value at line 1 column 1
 
 $ OPENAI_API_KEY=oai-invalid-utf8-stream lllm --catalog catalog.toml -m openai/fixture 'OpenAI invalid UTF-8 stream'
@@ -70,8 +69,8 @@ error: server: provider openai ééé[..]… route=openai/fixture provider=opena
 
 $ OPENAI_API_KEY=oai-json-body-failure lllm --catalog catalog.toml -m openai/fixture --no-stream 'OpenAI JSON body failure'
 ? 1
-error: response_decode: provider openai returned invalid JSON route=openai/fixture provider=openai
-  caused by: error decoding response body for url (http://127.0.0.1:3931/v1/responses)
+error: response_decode: reading the provider response body failed route=openai/fixture provider=openai
+  caused by: error decoding response body
   caused by: error reading a body from connection
   caused by: unexpected EOF during chunk size line
 

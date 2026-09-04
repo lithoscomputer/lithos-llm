@@ -45,6 +45,8 @@ pub enum ErrorKind {
     StreamDecode,
     /// A successful response body could not be decoded.
     ResponseDecode,
+    /// A response body, frame, or assembled output exceeded a configured limit.
+    ResourceLimit,
     /// Middleware rejected or failed the call.
     Middleware,
     /// The caller cancelled the call.

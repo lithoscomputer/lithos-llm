@@ -39,7 +39,8 @@ use crate::resolver::{
     AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
 };
 use crate::types::{
-    CacheHint, ContentPart, Error, ErrorKind, Message, Request, Response, ResponseStream, Speed,
+    CacheHint, ContentPart, Error, ErrorKind, Message, Request, Response, ResponseLimits,
+    ResponsePolicy, ResponseStream, Speed,
 };
 
 /// How long the default HTTP client waits to establish a connection.
@@ -438,6 +439,7 @@ fn deadline_error() -> Error {
 /// Builds a client from immutable catalog data and runtime extensions.
 #[must_use]
 pub struct ClientBuilder {
+    policy:              ResponsePolicy,
     default_timeout:     Option<Duration>,
     catalog:             Option<Catalog>,
     resolver:            Arc<dyn ModelResolver>,
@@ -456,6 +458,7 @@ impl Default for ClientBuilder {
         register_builtin(&mut registry);
         Self {
             default_timeout: None,
+            policy: ResponsePolicy::default(),
             catalog: None,
             resolver: Arc::new(CatalogResolver),
             credentials: Arc::new(NoCredentials),
@@ -470,6 +473,20 @@ impl Default for ClientBuilder {
 }
 
 impl ClientBuilder {
+    /// Sets body, frame, and assembled-output limits for built-in adapters.
+    /// Custom adapters also receive these limits through AdapterContext.
+    pub fn response_limits(mut self, limits: ResponseLimits) -> Self {
+        self.policy.limits = limits;
+        self
+    }
+
+    /// Retains raw provider bodies on successful responses. Defaults to true.
+    /// Disabling this does not redact content, replay metadata, or errors.
+    pub fn retain_raw_response(mut self, retain: bool) -> Self {
+        self.policy.retain_raw = retain;
+        self
+    }
+
     /// Sets the total budget for a call, including middleware, credentials,
     /// retries, and stream consumption. A request timeout overrides this
     /// default; an earlier context deadline still wins. Unset means no budget.
@@ -634,7 +651,9 @@ impl ClientBuilder {
             }
         }
         let context = AdapterContext::new(http, self.credentials)
-            .with_stream_idle_timeout(self.stream_idle_timeout);
+            .with_stream_idle_timeout(self.stream_idle_timeout)
+            .with_response_limits(self.policy.limits)
+            .with_retain_raw_response(self.policy.retain_raw);
         let mut adapters = BTreeMap::new();
         let mut issues = Vec::new();
         for provider in catalog.providers() {
@@ -679,6 +698,7 @@ impl ClientBuilder {
                 resolver: self.resolver,
                 available,
                 pipeline: Arc::new(Pipeline {
+                    policy: self.policy,
                     middleware: self.middleware,
                     adapters,
                 }),

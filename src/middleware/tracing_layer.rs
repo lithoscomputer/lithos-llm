@@ -330,6 +330,7 @@ fn error_kind_name(kind: ErrorKind) -> &'static str {
         ErrorKind::ResponseDecode => "response_decode",
         ErrorKind::Middleware => "middleware",
         ErrorKind::Cancelled => "cancelled",
+        ErrorKind::ResourceLimit => "resource_limit",
     }
 }
 

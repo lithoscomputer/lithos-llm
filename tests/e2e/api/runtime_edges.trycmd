@@ -128,14 +128,14 @@ $ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml invalid-js
     "retry": {
       "type": "safe"
     },
-    "source_message": "error decoding response body for url (http://127.0.0.1:3931/v1/responses)"
+    "source_message": "expected ident at line 1 column 2"
   },
   "debug": "Error { kind: ResponseDecode, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
   "display": "provider openai returned invalid JSON",
   "retry_after_ms": null,
   "provider_retry_after_ms": null,
   "raw_data": null,
-  "source": "error decoding response body for url (http://127.0.0.1:3931/v1/responses)"
+  "source": "expected ident at line 1 column 2"
 }
 
 ```

@@ -11,7 +11,7 @@ use std::str::from_utf8;
 
 use crc32fast::hash;
 
-use crate::types::{Error, ErrorKind, RetryClassification};
+use crate::types::{Error, ErrorKind, RetryClassification, limit_error};
 
 /// The fixed prelude: total length, headers length, and the prelude CRC32.
 const PRELUDE_LENGTH: usize = 12;
@@ -86,7 +86,15 @@ impl EventStreamFrame {
 /// chunk. A frame that fails a checksum is reported and skipped. A frame whose
 /// declared lengths are impossible ends decoding, because the position in the
 /// stream can no longer be trusted.
+#[cfg(test)]
 pub(crate) fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<EventStreamFrame, Error>> {
+    extract_frames_with_limit(buffer, MAX_FRAME_LENGTH)
+}
+
+pub(crate) fn extract_frames_with_limit(
+    buffer: &mut Vec<u8>,
+    limit: usize,
+) -> Vec<Result<EventStreamFrame, Error>> {
     let mut frames = Vec::new();
     while buffer.len() >= PRELUDE_LENGTH {
         // The prelude CRC is checked as soon as the prelude is available,
@@ -108,6 +116,11 @@ pub(crate) fn extract_frames(buffer: &mut Vec<u8>) -> Vec<Result<EventStreamFram
         }
         let total_length = read_length(&buffer[0..4]);
         let headers_length = read_length(&buffer[4..8]);
+        if total_length > limit {
+            buffer.clear();
+            frames.push(Err(limit_error("stream frame", limit)));
+            break;
+        }
         if !(PRELUDE_LENGTH + MESSAGE_CRC_LENGTH..=MAX_FRAME_LENGTH).contains(&total_length)
             || PRELUDE_LENGTH + headers_length + MESSAGE_CRC_LENGTH > total_length
         {

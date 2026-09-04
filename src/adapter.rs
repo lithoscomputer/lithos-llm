@@ -11,7 +11,7 @@ use crate::catalog::{AdapterId, CatalogProvider, CodecId, ModelHandle, ProviderI
 use crate::credentials::CredentialProvider;
 use crate::middleware::CallContext;
 use crate::resolver::ResolvedRoute;
-use crate::types::{Error, Request, Response, ResponseStream};
+use crate::types::{Error, Request, Response, ResponseLimits, ResponsePolicy, ResponseStream};
 
 /// How long a response stream may stall between two chunks by default.
 ///
@@ -107,6 +107,7 @@ pub trait ProviderAdapter: Send + Sync {
 /// Dependencies available when a catalog provider creates an adapter.
 #[derive(Clone)]
 pub struct AdapterContext {
+    policy:              ResponsePolicy,
     http:                reqwest::Client,
     credentials:         Arc<dyn CredentialProvider>,
     stream_idle_timeout: Option<Duration>,
@@ -117,6 +118,7 @@ impl AdapterContext {
     pub fn new(http: reqwest::Client, credentials: Arc<dyn CredentialProvider>) -> Self {
         Self {
             http,
+            policy: ResponsePolicy::default(),
             credentials,
             stream_idle_timeout: Some(DEFAULT_STREAM_IDLE_TIMEOUT),
         }
@@ -130,6 +132,30 @@ impl AdapterContext {
     pub fn with_stream_idle_timeout(mut self, timeout: Option<Duration>) -> Self {
         self.stream_idle_timeout = timeout;
         self
+    }
+
+    #[must_use]
+    pub fn with_response_limits(mut self, limits: ResponseLimits) -> Self {
+        self.policy.limits = limits;
+        self
+    }
+
+    #[must_use]
+    pub fn with_retain_raw_response(mut self, retain: bool) -> Self {
+        self.policy.retain_raw = retain;
+        self
+    }
+
+    pub fn response_limits(&self) -> ResponseLimits {
+        self.policy.limits
+    }
+
+    pub fn retain_raw_response(&self) -> bool {
+        self.policy.retain_raw
+    }
+
+    pub(crate) fn response_policy(&self) -> ResponsePolicy {
+        self.policy
     }
 
     pub fn http(&self) -> &reqwest::Client {
