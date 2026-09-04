@@ -68,7 +68,8 @@ pub(crate) fn limit_error(resource: &str, limit: usize) -> Error {
     )
 }
 
-/// Shared adapter-boundary policy, also used when completing via streaming.
+/// Shared client- and adapter-boundary policy, also used when completing via
+/// streaming.
 #[derive(Clone, Copy)]
 pub(crate) struct ResponsePolicy {
     pub limits:     ResponseLimits,

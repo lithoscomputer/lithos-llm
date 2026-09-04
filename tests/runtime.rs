@@ -15,12 +15,12 @@ use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId}
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
-    ObserverMiddleware, Output, RetryMiddleware, RetryPolicy, RetryStage,
+    ObserverMiddleware, Operation, Output, RetryMiddleware, RetryPolicy, RetryStage, map_stream,
 };
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
-    Message, RequestBuildError, Response, ResponseStream, RetryClassification, Role, StreamEvent,
-    TokenCounts, ToolChoice, ToolDefinition,
+    Message, RequestBuildError, Response, ResponseLimits, ResponseStream, RetryClassification,
+    Role, StreamEvent, TokenCounts, ToolChoice, ToolDefinition,
 };
 use lithos_llm::{Client, Request};
 use tokio::spawn;
@@ -264,6 +264,152 @@ async fn middleware_can_short_circuit() -> Result<(), Box<dyn StdError>> {
 
     assert_eq!(response.text(), "cached");
     assert_eq!(calls.load(Ordering::SeqCst), 0);
+    Ok(())
+}
+
+/// Supplies cache hits or transforms real adapter output after its policy ran.
+struct ResponsePolicyMiddleware {
+    cached:         bool,
+    response_bytes: usize,
+    delta_bytes:    usize,
+}
+
+#[async_trait]
+impl Middleware for ResponsePolicyMiddleware {
+    async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
+        let output = if self.cached {
+            let response = Response::new(
+                call.route().provider().id().clone(),
+                call.route().model().id().clone(),
+                Vec::new(),
+            );
+            if call.operation() == Operation::Stream {
+                Output::Stream(ResponseStream::new(iter([
+                    Ok(StreamEvent::TextDelta {
+                        id:   ContentBlockId::new("text"),
+                        text: String::new(),
+                    }),
+                    Ok(StreamEvent::Completed { response }),
+                ])))
+            } else {
+                Output::Complete(response)
+            }
+        } else {
+            next.run(call).await?
+        };
+        let response_bytes = self.response_bytes;
+        let rewrite = move |mut response: Response| {
+            response.content = vec![ContentPart::Text {
+                text: "x".repeat(response_bytes),
+            }];
+            response.raw = Some(serde_json::json!({ "provider_body": "retained" }));
+            response
+        };
+        Ok(match output {
+            Output::Complete(response) => Output::Complete(rewrite(response)),
+            Output::Stream(stream) => {
+                let delta_bytes = self.delta_bytes;
+                Output::Stream(map_stream(stream, move |event| {
+                    Ok(match event {
+                        StreamEvent::TextDelta { id, .. } => StreamEvent::TextDelta {
+                            id,
+                            text: "x".repeat(delta_bytes),
+                        },
+                        StreamEvent::Completed { response } => StreamEvent::Completed {
+                            response: rewrite(response),
+                        },
+                        event => event,
+                    })
+                }))
+            }
+            output @ Output::InputTokenCount(_) => output,
+        })
+    }
+}
+
+fn response_policy_client(
+    cached: bool,
+    response_bytes: usize,
+    delta_bytes: usize,
+    retain_raw: bool,
+) -> Result<Client, Box<dyn StdError>> {
+    Ok(Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", FakeAdapter::successful())
+        .response_limits(ResponseLimits::default().max_output_bytes(1024))
+        .retain_raw_response(retain_raw)
+        .middleware(ResponsePolicyMiddleware {
+            cached,
+            response_bytes,
+            delta_bytes,
+        })
+        .build()?
+        .client)
+}
+
+#[tokio::test]
+async fn response_limits_apply_to_cached_and_transformed_final_responses()
+-> Result<(), Box<dyn StdError>> {
+    for cached in [true, false] {
+        let client = response_policy_client(cached, 4096, 4, true)?;
+        let error = client.complete(request()?).await.expect_err("output limit");
+        assert_eq!(error.kind(), ErrorKind::ResourceLimit);
+        let mut stream = client.stream(request()?).await?;
+        assert!(matches!(
+            stream.next().await,
+            Some(Ok(StreamEvent::TextDelta { .. }))
+        ));
+        let error = stream
+            .next()
+            .await
+            .expect("terminal event")
+            .expect_err("output limit");
+        assert_eq!(error.kind(), ErrorKind::ResourceLimit);
+        assert!(stream.next().await.is_none());
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn response_limits_apply_to_cached_and_transformed_deltas() -> Result<(), Box<dyn StdError>> {
+    for cached in [true, false] {
+        let client = response_policy_client(cached, 4, 4096, true)?;
+        let mut stream = client.stream(request()?).await?;
+        let error = stream
+            .next()
+            .await
+            .expect("terminal event")
+            .expect_err("output limit");
+        assert_eq!(error.kind(), ErrorKind::ResourceLimit);
+        assert!(stream.next().await.is_none());
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn raw_retention_applies_to_cached_and_transformed_responses() -> Result<(), Box<dyn StdError>>
+{
+    for cached in [true, false] {
+        for retain_raw in [true, false] {
+            let client = response_policy_client(cached, 4, 4, retain_raw)?;
+            let response = client.complete(request()?).await?;
+            assert_eq!(response.text(), "xxxx");
+            assert_eq!(response.raw.is_some(), retain_raw);
+            let mut stream = client.stream(request()?).await?;
+            assert!(matches!(
+                stream.next().await,
+                Some(Ok(StreamEvent::TextDelta { .. }))
+            ));
+            let StreamEvent::Completed { response } =
+                stream.next().await.ok_or("missing completion")??
+            else {
+                return Err("expected completion".into());
+            };
+            assert_eq!(response.text(), "xxxx");
+            assert_eq!(response.raw.is_some(), retain_raw);
+            assert!(stream.next().await.is_none());
+        }
+    }
     Ok(())
 }
 

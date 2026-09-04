@@ -243,7 +243,8 @@ impl Client {
     ) -> Result<Output, Error> {
         let route = self.resolve_route(&request)?;
         validate_request(&request, &route)?;
-        self.pipeline
+        let output = self
+            .pipeline
             .start()
             .run(Call {
                 request,
@@ -251,7 +252,19 @@ impl Client {
                 mode,
                 context,
             })
-            .await
+            .await?;
+        // Middleware can return cached responses or transform adapter output.
+        // Apply the policy again at the client boundary so those paths obey
+        // the same output limits and raw-body retention setting.
+        match output {
+            Output::Complete(response) => self
+                .pipeline
+                .policy
+                .response(response)
+                .map(Output::Complete),
+            Output::Stream(stream) => Ok(Output::Stream(self.pipeline.policy.stream(stream))),
+            Output::InputTokenCount(count) => Ok(Output::InputTokenCount(count)),
+        }
     }
 
     async fn call_guarded(
@@ -474,7 +487,8 @@ impl Default for ClientBuilder {
 }
 
 impl ClientBuilder {
-    /// Sets body, frame, and assembled-output limits for built-in adapters.
+    /// Sets body and frame limits for built-in adapters, and normalized-output
+    /// limits for all responses, including middleware output and cache hits.
     /// Custom adapters also receive these limits through AdapterContext.
     pub fn response_limits(mut self, limits: ResponseLimits) -> Self {
         self.policy.limits = limits;
