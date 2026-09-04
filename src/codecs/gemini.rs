@@ -9,9 +9,9 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    GEMINI_SIGNATURES, carries_foreign_signature, endpoint, finish_reason, flattens_system_content,
-    flattens_tool_result_content, foreign_signature, merge_options, plain_text, sampling,
-    system_text, unsupported_capability, wire_options,
+    GEMINI_SIGNATURES, carries_foreign_signature, drop_truncated_tool_calls, endpoint,
+    finish_reason, flattens_system_content, flattens_tool_result_content, foreign_signature,
+    merge_options, plain_text, sampling, system_text, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -124,6 +124,7 @@ impl Codec for GeminiGenerateCodec {
         response.finish_reason = finished;
         response.usage = usage;
         response.raw = Some(value);
+        drop_truncated_tool_calls(&mut response);
         Ok(response)
     }
 
@@ -1414,7 +1415,8 @@ mod tests {
     #[test]
     fn a_truncated_function_call_keeps_the_provider_reason() -> Result<(), Box<dyn StdError>> {
         // Only `STOP` is corrected. `MAX_TOKENS` is the more specific fact and
-        // survives, so a cut-off call is not reported as a complete one.
+        // survives, so a cut-off call is not reported as a complete one — and
+        // the cut-off call itself is dropped, with a warning in its place.
         let response = decode(json!({
             "candidates": [{
                 "content": { "parts": [{ "functionCall": { "name": "search", "args": {} } }] },
@@ -1423,6 +1425,9 @@ mod tests {
         }))?;
 
         assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
         Ok(())
     }
 

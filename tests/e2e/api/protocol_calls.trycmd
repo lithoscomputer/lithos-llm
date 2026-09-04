@@ -89,7 +89,7 @@ $ OPENAI_API_KEY=openai-full lithos-llm-e2e call catalog.toml openai_full.json
         }
       }
     ],
-    "finish_reason": "length",
+    "finish_reason": "tool_call",
     "usage": {
       "input": 40,
       "output": 15,
@@ -113,10 +113,7 @@ $ OPENAI_API_KEY=openai-full lithos-llm-e2e call catalog.toml openai_full.json
     ],
     "raw": {
       "id": "resp_full",
-      "status": "incomplete",
-      "incomplete_details": {
-        "reason": "max_output_tokens"
-      },
+      "status": "completed",
       "output": [
         {
           "id": "message-full",

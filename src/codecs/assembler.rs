@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use super::common::parse_arguments;
+use super::common::{drop_truncated_tool_calls, parse_arguments};
 use crate::catalog::{ModelId, ProviderId, codec_ids};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
@@ -584,6 +584,9 @@ impl StreamAssembler {
         response.cost = self.cost;
         response.warnings.clone_from(&self.warnings);
         response.raw.clone_from(&self.raw);
+        // The block events already delivered the cut call as it streamed; the
+        // completed response is the contract a consumer acts on.
+        drop_truncated_tool_calls(&mut response);
 
         events.push(StreamEvent::Completed { response });
         events
@@ -1081,6 +1084,36 @@ mod tests {
         assert_eq!(response.raw, Some(json!({ "id": "resp_1" })));
         assert_eq!(response.model.provider().as_str(), "alpha");
         assert_eq!(response.model.model().as_str(), "one");
+        Ok(())
+    }
+
+    #[test]
+    fn a_length_finish_drops_the_tool_calls_it_assembled() -> Result<(), Box<dyn StdError>> {
+        // The block end still shows the partial call a reader watched arrive;
+        // the completed response is the contract, and it carries no call.
+        let mut assembler = assembler()?;
+        let text = ContentBlockId::new("block-0");
+        let tool = ContentBlockId::new("tool-0");
+
+        let mut events = assembler.text(&text, "Calling");
+        events.extend(assembler.start(tool.clone(), tool_kind("call_a", "write_note")));
+        events.extend(assembler.arguments(&tool, "{\"title\":\"Rome\",\"body\":\"Rome began"));
+        assembler.set_finish_reason(FinishReason::Length);
+        events.extend(assembler.complete());
+
+        assert!(matches!(ended_parts(&events).as_slice(), [
+            ContentPart::Text { .. },
+            ContentPart::ToolCall(_)
+        ]));
+        let Some(StreamEvent::Completed { response }) = events.last() else {
+            return Err("expected the stream to end with a completed event".into());
+        };
+        assert_eq!(response.content, vec![ContentPart::Text {
+            text: "Calling".to_owned(),
+        }]);
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
         Ok(())
     }
 

@@ -12,9 +12,9 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    cache_routing_key, endpoint, flattens_system_content, flattens_tool_result_content,
-    merge_options, parse_arguments, plain_text, refusal, reject_unencodable, sampling,
-    wire_options,
+    cache_routing_key, drop_truncated_tool_calls, endpoint, flattens_system_content,
+    flattens_tool_result_content, merge_options, parse_arguments, plain_text, refusal,
+    reject_unencodable, sampling, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -384,6 +384,7 @@ fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Response, Erro
     // the catalog instead.
     response.cost = None;
     response.raw = Some(value);
+    drop_truncated_tool_calls(&mut response);
     Ok(response)
 }
 
@@ -3511,6 +3512,107 @@ mod tests {
 
     /// A `function_call` with no name is model-internal: it is not content, and
     /// it does not make the turn look like a tool call.
+    #[test]
+    fn a_tool_call_cut_at_the_output_limit_is_dropped() -> Result<(), Box<dyn StdError>> {
+        // Verified live: a call the limit cut short arrives as an
+        // `incomplete` item whose arguments are a JSON prefix. It is not a
+        // call, so it leaves the content and a warning takes its place.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+
+        let response = codec().decode_response(
+            &route,
+            json!({
+                "id": "resp_1",
+                "status": "incomplete",
+                "incomplete_details": { "reason": "max_output_tokens" },
+                "output": [{
+                    "type": "function_call",
+                    "id": "fc_1",
+                    "call_id": "call_1",
+                    "status": "incomplete",
+                    "name": "write_note",
+                    "arguments": "{\"title\":\"Rome\",\"body\":\"Rome began",
+                }],
+            }),
+        )?;
+
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
+        assert!(response.warnings[0].message.contains("write_note"));
+        assert!(response.raw.is_some(), "the provider's item stays in raw");
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_tool_call_cut_at_the_output_limit_is_dropped_from_the_completed_response()
+    -> Result<(), Box<dyn StdError>> {
+        // The block events deliver the call as it streams; the completed
+        // response, which is what a consumer acts on, carries no call.
+        let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+            .route()
+            .clone();
+        let mut decoder = codec().stream_decoder(&route);
+        let item = |status: &str, arguments: &str| {
+            json!({
+                "type": "function_call",
+                "id": "fc_1",
+                "call_id": "call_1",
+                "status": status,
+                "name": "write_note",
+                "arguments": arguments,
+            })
+        };
+        let transcript = vec![
+            json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+            json!({
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": item("in_progress", ""),
+            }),
+            json!({
+                "type": "response.function_call_arguments.delta",
+                "item_id": "fc_1",
+                "delta": "{\"title\":\"Rome\",\"body\":\"Rome began",
+            }),
+            json!({
+                "type": "response.output_item.done",
+                "output_index": 0,
+                "item": item("incomplete", "{\"title\":\"Rome\",\"body\":\"Rome began"),
+            }),
+            json!({
+                "type": "response.incomplete",
+                "response": {
+                    "id": "resp_1",
+                    "status": "incomplete",
+                    "incomplete_details": { "reason": "max_output_tokens" },
+                    "output": [item("incomplete", "{\"title\":\"Rome\",\"body\":\"Rome began")],
+                    "usage": { "input_tokens": 10, "output_tokens": 40 },
+                },
+            }),
+        ];
+
+        let mut events = Vec::new();
+        for event in transcript {
+            events.extend(decoder.decode(sse(&event))?);
+        }
+        events.extend(decoder.finish()?);
+
+        assert!(
+            matches!(ended_parts(&events).as_slice(), [ContentPart::ToolCall(_)]),
+            "the block end still shows what streamed"
+        );
+        let response = completed(&events)?;
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
+        Ok(())
+    }
+
     #[test]
     fn an_unnamed_tool_call_is_dropped() -> Result<(), Box<dyn StdError>> {
         let route = call(Request::builder().model(MODEL).user("hi").build()?)?

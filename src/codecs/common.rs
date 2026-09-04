@@ -14,16 +14,11 @@ use crate::resolver::ResolvedRoute;
 use crate::transport::classify;
 #[cfg(any(feature = "openai", feature = "openai-compatible"))]
 use crate::types::CacheHint;
-#[cfg(any(
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
-use crate::types::FinishReason;
 #[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
 use crate::types::ReasoningContent;
-use crate::types::{ContentPart, Error, ErrorKind, Message, Request, Role};
+use crate::types::{
+    ContentPart, Error, ErrorKind, FinishReason, Message, Request, Response, Role, Warning,
+};
 
 /// Raw provider option keys a codec consumes as behavior controls.
 ///
@@ -350,6 +345,46 @@ pub(crate) fn sampling(value: f32) -> Value {
         .map_or_else(|| Value::from(f64::from(value)), Value::Number)
 }
 
+/// The warning code for a tool call the output limit cut short.
+pub(crate) const TRUNCATED_TOOL_CALL: &str = "truncated_tool_call";
+
+/// Removes the tool calls from a response the output limit cut short.
+///
+/// A call the model never finished is not a call: its arguments are whatever
+/// prefix survived — a truncated JSON string on OpenAI, an empty object on
+/// Anthropic — and running it would act on a guess. Every provider reports
+/// the cut as a length finish, so a consumer branches on
+/// [`FinishReason::Length`](crate::types::FinishReason::Length) alone and
+/// never sees the half-call. Each dropped call leaves a
+/// [`TRUNCATED_TOOL_CALL`] warning naming its tool; the provider's own item
+/// stays in [`Response::raw`] for anyone who wants the partial arguments.
+///
+/// Every codec applies this at the end of its blocking decode, and the stream
+/// assembler applies it to the response it completes, so both paths agree by
+/// construction. Only a length finish is touched: a malformed argument string
+/// on any other finish is a provider bug, not a cut, and keeps its call.
+pub(crate) fn drop_truncated_tool_calls(response: &mut Response) {
+    if response.finish_reason != FinishReason::Length {
+        return;
+    }
+    let mut dropped = Vec::new();
+    response.content.retain(|part| match part {
+        ContentPart::ToolCall(call) => {
+            dropped.push(call.name.clone());
+            false
+        }
+        _ => true,
+    });
+    response
+        .warnings
+        .extend(dropped.into_iter().map(|name| Warning {
+            code:    TRUNCATED_TOOL_CALL.to_owned(),
+            message: format!(
+                "the output limit cut off a call to {name} before its arguments were complete"
+            ),
+        }));
+}
+
 /// Parses a provider tool-argument string, falling back to an empty object.
 ///
 /// A tool call that takes no arguments streams no argument fragments, which
@@ -515,11 +550,56 @@ mod tests {
     use serde_json::{Map, Value, json};
 
     use super::{
-        CONTROL_KEYS, endpoint, finish_reason, merge_options, parse_arguments, refusal,
-        unsupported_capability, wire_options,
+        CONTROL_KEYS, TRUNCATED_TOOL_CALL, drop_truncated_tool_calls, endpoint, finish_reason,
+        merge_options, parse_arguments, refusal, unsupported_capability, wire_options,
     };
+    use crate::catalog::{ModelId, ProviderId};
     use crate::codecs::test_support;
-    use crate::types::{ErrorKind, FinishReason, Request, RetryClassification};
+    use crate::types::{
+        ContentPart, ErrorKind, FinishReason, Request, Response, RetryClassification, ToolCall,
+    };
+
+    fn response_with_a_call(finish_reason: FinishReason) -> Response {
+        let mut response = Response::new(ProviderId::new("alpha"), ModelId::new("one"), vec![
+            ContentPart::Text {
+                text: "Calling".to_owned(),
+            },
+            ContentPart::ToolCall(ToolCall::function("call_1", "search", json!({}))),
+        ]);
+        response.finish_reason = finish_reason;
+        response
+    }
+
+    #[test]
+    fn a_length_finish_drops_its_tool_calls_and_warns() {
+        let mut response = response_with_a_call(FinishReason::Length);
+
+        drop_truncated_tool_calls(&mut response);
+
+        assert_eq!(response.content, vec![ContentPart::Text {
+            text: "Calling".to_owned(),
+        }]);
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, TRUNCATED_TOOL_CALL);
+        assert!(response.warnings[0].message.contains("search"));
+    }
+
+    #[test]
+    fn every_other_finish_keeps_its_tool_calls() {
+        for finish_reason in [
+            FinishReason::Stop,
+            FinishReason::ToolCall,
+            FinishReason::ContentFilter,
+            FinishReason::Incomplete,
+            FinishReason::Other("cancelled".to_owned()),
+        ] {
+            let mut response = response_with_a_call(finish_reason.clone());
+            drop_truncated_tool_calls(&mut response);
+            assert_eq!(response.content.len(), 2, "{finish_reason:?}");
+            assert!(response.warnings.is_empty(), "{finish_reason:?}");
+        }
+    }
 
     fn object(value: Value) -> Result<Map<String, Value>, Box<dyn StdError>> {
         match value {
