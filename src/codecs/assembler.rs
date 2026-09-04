@@ -12,12 +12,12 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use super::common::{drop_truncated_tool_calls, parse_arguments};
+use super::common::drop_truncated_tool_calls;
 use crate::catalog::{ModelId, ProviderId, codec_ids};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Cost, FinishReason, ReasoningContent, Response,
-    StreamEvent, TokenCounts, ToolCall, ToolCallKind, Warning,
+    StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolInput, Warning,
 };
 
 /// The signature family a route's codec mints reasoning signatures in.
@@ -119,16 +119,11 @@ impl Block {
                 })
             }
             ContentBlockKind::ToolCall { id, name, kind } => {
-                let arguments = match kind {
-                    ToolCallKind::Function => parse_arguments(&self.buffer),
-                    ToolCallKind::Custom => Value::String(self.buffer.clone()),
-                };
+                let input = ToolInput::from_wire(kind, self.buffer);
                 ContentPart::ToolCall(ToolCall {
                     id,
                     name: name.unwrap_or_default(),
-                    arguments,
-                    kind,
-                    raw_arguments: (!self.buffer.is_empty()).then_some(self.buffer),
+                    input,
                     provider_metadata: self.provider_metadata,
                 })
             }
@@ -850,14 +845,14 @@ mod tests {
         };
         assert_eq!(second_call.id, "call_b");
         assert_eq!(second_call.name, "search");
-        assert_eq!(second_call.arguments, json!({ "n": 2 }));
-        assert_eq!(second_call.raw_arguments.as_deref(), Some("{\"n\":2}"));
+        assert_eq!(second_call.input.wire_value(), json!({ "n": 2 }));
+        assert_eq!(Some(second_call.input.raw()), Some("{\"n\":2}"));
 
         let ContentPart::ToolCall(first_call) = &parts[1] else {
             return Err("expected the first block to end last".into());
         };
         assert_eq!(first_call.id, "call_a");
-        assert_eq!(first_call.arguments, json!({ "q": "rust" }));
+        assert_eq!(first_call.input.wire_value(), json!({ "q": "rust" }));
         Ok(())
     }
 
@@ -873,8 +868,8 @@ mod tests {
         let ContentPart::ToolCall(call) = &parts[0] else {
             return Err("expected a tool call part".into());
         };
-        assert_eq!(call.arguments, json!({}));
-        assert_eq!(call.raw_arguments, None);
+        assert_eq!(call.input.wire_value(), json!({}));
+        assert_eq!(call.input.raw(), "{}");
         Ok(())
     }
 
@@ -914,7 +909,7 @@ mod tests {
         let ContentPart::ToolCall(call) = &parts[1] else {
             return Err("expected a tool call part".into());
         };
-        assert_eq!(call.raw_arguments.as_deref(), Some("{\"q\":\"rust\"}"));
+        assert_eq!(Some(call.input.raw()), Some("{\"q\":\"rust\"}"));
         assert_eq!(
             call.provider_metadata.get("gemini"),
             Some(&json!({ "thoughtSignature": "abc" }))
@@ -968,8 +963,11 @@ mod tests {
         let ContentPart::ToolCall(call) = &parts[0] else {
             return Err("expected a tool call part".into());
         };
-        assert_eq!(call.kind, ToolCallKind::Custom);
-        assert_eq!(call.arguments, Value::String("*** Begin Patch".to_owned()));
+        assert_eq!(call.input.kind(), ToolCallKind::Custom);
+        assert_eq!(
+            call.input.wire_value(),
+            Value::String("*** Begin Patch".to_owned())
+        );
         Ok(())
     }
 
@@ -1156,7 +1154,7 @@ mod tests {
         let ContentPart::ToolCall(call) = &response.content[0] else {
             return Err("expected the block to assemble as a tool call".into());
         };
-        assert_eq!(call.arguments, json!({ "city": "Oslo" }));
+        assert_eq!(call.input.wire_value(), json!({ "city": "Oslo" }));
         Ok(())
     }
 

@@ -6,6 +6,7 @@ mod request;
 mod response;
 #[cfg(feature = "runtime")]
 mod stream;
+mod tool_input;
 
 pub use content::{
     AudioContent, ContentPart, DocumentContent, ImageContent, MediaSource, Message,
@@ -19,3 +20,4 @@ pub use request::{
 pub use response::{Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Warning};
 #[cfg(feature = "runtime")]
 pub use stream::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};
+pub use tool_input::{ToolArgumentError, ToolArguments, ToolInput};

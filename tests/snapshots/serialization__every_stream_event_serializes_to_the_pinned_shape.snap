@@ -73,10 +73,10 @@ expression: render(&every_stream_event())?
       "type": "tool_call",
       "id": "call_1",
       "name": "lookup",
-      "arguments": {
-        "query": "rust"
-      },
-      "kind": "function"
+      "input": {
+        "type": "function",
+        "value": "{\"query\":\"rust\"}"
+      }
     }
   },
   {
@@ -112,10 +112,10 @@ expression: render(&every_stream_event())?
           "type": "tool_call",
           "id": "call_1",
           "name": "lookup",
-          "arguments": {
-            "query": "rust"
-          },
-          "kind": "function"
+          "input": {
+            "type": "function",
+            "value": "{\"query\":\"rust\"}"
+          }
         }
       ],
       "finish_reason": "tool_call",

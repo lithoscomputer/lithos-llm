@@ -119,7 +119,7 @@ async fn calls_the_forced_tool(model: &str) -> TestResult {
         if let Some(call) = calls.first() {
             assert_eq!(call.name, "get_weather");
             assert!(!call.id.is_empty(), "the tool call carries no id");
-            assert_weather_call(&call.arguments);
+            assert_weather_call(&call.input.to_value().expect("valid tool input"));
             assert_eq!(response.finish_reason, FinishReason::ToolCall);
             return Ok(());
         }
@@ -155,7 +155,7 @@ async fn streams_the_forced_tool_call(model: &str) -> TestResult {
     let calls = support::tool_calls(&response);
     let call = calls.first().ok_or("the stream carries no tool call")?;
     assert_eq!(call.name, "get_weather");
-    assert_weather_call(&call.arguments);
+    assert_weather_call(&call.input.to_value().expect("valid tool input"));
     Ok(())
 }
 
@@ -212,7 +212,7 @@ async fn calls_a_tool_under_auto_choice(model: &str) -> TestResult {
         let response = client.complete(request).await?;
         if let Some(call) = support::tool_calls(&response).first() {
             assert_eq!(call.name, "get_weather");
-            assert_weather_call(&call.arguments);
+            assert_weather_call(&call.input.to_value().expect("valid tool input"));
             return Ok(());
         }
         support::observe(&format!(

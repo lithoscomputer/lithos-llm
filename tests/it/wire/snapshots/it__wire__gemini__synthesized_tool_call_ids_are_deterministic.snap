@@ -4,11 +4,11 @@ expression: rendered
 ---
 [
   {
-    "arguments": {
-      "query": "rust"
-    },
     "id": "search-0-resp-gemini-ids",
-    "kind": "function",
+    "input": {
+      "type": "function",
+      "value": "{\"query\":\"rust\"}"
+    },
     "name": "search",
     "type": "tool_call"
   },
@@ -17,11 +17,11 @@ expression: rendered
     "type": "text"
   },
   {
-    "arguments": {
-      "query": "gemini"
-    },
     "id": "search-1-resp-gemini-ids",
-    "kind": "function",
+    "input": {
+      "type": "function",
+      "value": "{\"query\":\"gemini\"}"
+    },
     "name": "search",
     "type": "tool_call"
   }

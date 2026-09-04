@@ -1303,9 +1303,9 @@ async fn streams_reasoning_text_and_interleaved_tool_calls() {
     // The block id and the provider's tool-call id are different things, and
     // each call keeps its own.
     assert_eq!(content[2]["id"], "call_paris");
-    assert_eq!(content[2]["arguments"], json!({ "city": "Paris" }));
+    assert_eq!(content[2]["input"]["value"], r#"{"city":"Paris"}"#);
     assert_eq!(content[3]["id"], "call_madrid");
-    assert_eq!(content[3]["arguments"], json!({ "city": "Madrid" }));
+    assert_eq!(content[3]["input"]["value"], r#"{"city":"Madrid"}"#);
 
     crate::json_snapshot!(wire);
     crate::json_snapshot!(events);

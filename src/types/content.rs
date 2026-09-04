@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::{ToolArguments, ToolInput};
+
 /// The author of a message.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -381,18 +383,7 @@ impl ToolChoice {
 pub struct ToolCall {
     pub id:                String,
     pub name:              String,
-    /// The parsed arguments. A custom call holds its free-form input as a JSON
-    /// string.
-    pub arguments:         Value,
-    #[serde(default)]
-    pub kind:              ToolCallKind,
-    /// The provider's original argument string, when it supplied one.
-    ///
-    /// Codecs replay this text verbatim rather than re-serializing
-    /// `arguments`, because reordered keys break provider prompt caches and
-    /// because a malformed argument string must survive parsing.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub raw_arguments:     Option<String>,
+    pub input:             ToolInput,
     /// Provider-namespaced replay data, keyed by namespace.
     ///
     /// A codec reads only the entry matching its own provider namespace and
@@ -406,19 +397,16 @@ impl ToolCall {
     /// Creates a function call from parsed JSON arguments.
     pub fn function(id: impl Into<String>, name: impl Into<String>, arguments: Value) -> Self {
         Self {
-            id: id.into(),
-            name: name.into(),
-            arguments,
-            kind: ToolCallKind::Function,
-            raw_arguments: None,
+            id:                id.into(),
+            name:              name.into(),
+            input:             ToolInput::Function(ToolArguments::from_json(arguments)),
             provider_metadata: BTreeMap::new(),
         }
     }
 
     /// Creates a custom call from free-form input text.
     ///
-    /// The input is stored both as a JSON string in `arguments` and verbatim in
-    /// `raw_arguments`, because custom tool input is not JSON.
+    /// Custom tool input is stored once as free-form text.
     pub fn custom(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -428,9 +416,7 @@ impl ToolCall {
         Self {
             id:                id.into(),
             name:              name.into(),
-            arguments:         Value::String(input.clone()),
-            kind:              ToolCallKind::Custom,
-            raw_arguments:     Some(input),
+            input:             ToolInput::Custom(input),
             provider_metadata: BTreeMap::new(),
         }
     }
@@ -627,19 +613,18 @@ mod tests {
     #[test]
     fn tool_calls_preserve_kind_arguments_and_metadata() -> Result<(), Box<dyn StdError>> {
         let mut call = ToolCall::function("call_1", "lookup", json!({ "query": "rust" }));
-        call.raw_arguments = Some("{\"query\":\"rust\"}".to_owned());
+        call.input = crate::types::ToolInput::Function(crate::types::ToolArguments::from_raw(
+            "{\"query\":\"rust\"}".to_owned(),
+        ));
         call.provider_metadata
             .insert("openai".to_owned(), json!({ "id": "fc_1" }));
 
         let decoded = round_trip(&call)?;
 
         assert_eq!(decoded, call);
-        assert_eq!(decoded.kind, ToolCallKind::Function);
-        assert_eq!(decoded.arguments, json!({ "query": "rust" }));
-        assert_eq!(
-            decoded.raw_arguments.as_deref(),
-            Some("{\"query\":\"rust\"}")
-        );
+        assert_eq!(decoded.input.kind(), ToolCallKind::Function);
+        assert_eq!(decoded.input.wire_value(), json!({ "query": "rust" }));
+        assert_eq!(Some(decoded.input.raw()), Some("{\"query\":\"rust\"}"));
         assert_eq!(
             decoded.provider_metadata.get("openai"),
             Some(&json!({ "id": "fc_1" }))
@@ -654,12 +639,12 @@ mod tests {
         let decoded = round_trip(&call)?;
 
         assert_eq!(decoded, call);
-        assert_eq!(decoded.kind, ToolCallKind::Custom);
+        assert_eq!(decoded.input.kind(), ToolCallKind::Custom);
         assert_eq!(
-            decoded.arguments,
+            decoded.input.wire_value(),
             Value::String("*** Begin Patch".to_owned())
         );
-        assert_eq!(decoded.raw_arguments.as_deref(), Some("*** Begin Patch"));
+        assert_eq!(Some(decoded.input.raw()), Some("*** Begin Patch"));
         Ok(())
     }
 

@@ -577,8 +577,8 @@ fn encode_reasoning(reasoning: &ReasoningContent) -> Value {
 /// AWS with a ValidationException. Any non-object is coerced to `{}` so the
 /// wire is always valid, regardless of where the replayed call originated.
 fn encode_tool_call(call: &ToolCall) -> Value {
-    let input = match &call.arguments {
-        Value::Object(_) => call.arguments.clone(),
+    let input = match &call.input.wire_value() {
+        Value::Object(_) => call.input.wire_value().clone(),
         _ => json!({}),
     };
     json!({
@@ -1816,7 +1816,7 @@ mod tests {
             Some(ContentPart::ToolCall(call)) => {
                 assert_eq!(call.id, "call-1");
                 assert_eq!(call.name, "search");
-                assert_eq!(call.arguments, json!({ "q": "rust" }));
+                assert_eq!(call.input.wire_value(), json!({ "q": "rust" }));
             }
             other => return Err(format!("expected a tool call, got {other:?}").into()),
         }
@@ -2300,17 +2300,17 @@ mod tests {
         let [response] = responses.as_slice() else {
             return Err("expected exactly one Completed".into());
         };
-        let calls: Vec<(&str, &Value)> = response
+        let calls: Vec<(&str, Value)> = response
             .content
             .iter()
             .filter_map(|part| match part {
-                ContentPart::ToolCall(call) => Some((call.id.as_str(), &call.arguments)),
+                ContentPart::ToolCall(call) => Some((call.id.as_str(), call.input.wire_value())),
                 _ => None,
             })
             .collect();
         assert_eq!(calls, [
-            ("call-a", &json!({ "q": "rust" })),
-            ("call-b", &json!({ "id": 1 })),
+            ("call-a", json!({ "q": "rust" })),
+            ("call-b", json!({ "id": 1 })),
         ]);
         assert_eq!(response.finish_reason, FinishReason::ToolCall);
         Ok(())

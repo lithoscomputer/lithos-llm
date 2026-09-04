@@ -320,8 +320,15 @@ fn add_tool() -> ToolDefinition {
 /// Answers one tool call the way the real `add` tool would.
 fn tool_result_message(call: &ToolCall) -> Message {
     let (text, is_error) = if call.name == TOOL_NAME {
-        let sum = integer(&call.arguments, "a").saturating_add(integer(&call.arguments, "b"));
-        (sum.to_string(), false)
+        match call.input.to_value() {
+            Ok(arguments) => (
+                integer(&arguments, "a")
+                    .saturating_add(integer(&arguments, "b"))
+                    .to_string(),
+                false,
+            ),
+            Err(error) => (error.to_string(), true),
+        }
     } else {
         (format!("unknown tool {}", call.name), true)
     };

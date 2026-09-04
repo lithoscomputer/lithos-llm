@@ -1110,7 +1110,9 @@ pub(crate) fn replay_request(model: &str, namespace: &str) -> Request {
     // Key order and spacing differ from a re-serialization on purpose: a codec
     // that replays `arguments` instead of `raw_arguments` changes these bytes
     // and breaks the provider's prompt cache.
-    call.raw_arguments = Some("{\"city\": \"Paris\"}".to_owned());
+    call.input = lithos_llm::types::ToolInput::Function(
+        lithos_llm::types::ToolArguments::from_raw("{\"city\": \"Paris\"}".to_owned()),
+    );
     call.provider_metadata
         .insert(namespace.to_owned(), json!({ "item_id": "item_replay" }));
     call.provider_metadata

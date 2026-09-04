@@ -64,11 +64,10 @@ $ OPENAI_API_KEY=openai-full lithos-llm-e2e call catalog.toml openai_full.json
         "type": "tool_call",
         "id": "function-output",
         "name": "lookup",
-        "arguments": {
-          "query": "done"
+        "input": {
+          "type": "function",
+          "value": "{/"query/":/"done/"}"
         },
-        "kind": "function",
-        "raw_arguments": "{/"query/":/"done/"}",
         "provider_metadata": {
           "openai": {
             "item_id": "function-item"
@@ -79,9 +78,10 @@ $ OPENAI_API_KEY=openai-full lithos-llm-e2e call catalog.toml openai_full.json
         "type": "tool_call",
         "id": "custom-output",
         "name": "shell",
-        "arguments": "echo done",
-        "kind": "custom",
-        "raw_arguments": "echo done",
+        "input": {
+          "type": "custom",
+          "value": "echo done"
+        },
         "provider_metadata": {
           "openai": {
             "item_id": "custom-item"
@@ -443,11 +443,10 @@ $ OPENAI_API_KEY=openai-stream lithos-llm-e2e call catalog.toml openai_stream.js
           "type": "tool_call",
           "id": "call-edge",
           "name": "lookup",
-          "arguments": {
-            "x": 1
+          "input": {
+            "type": "function",
+            "value": "{/"x/":1}"
           },
-          "kind": "function",
-          "raw_arguments": "{/"x/":1}",
           "provider_metadata": {
             "openai": {
               "item_id": "function-edge"
@@ -486,9 +485,10 @@ $ OPENAI_API_KEY=openai-stream lithos-llm-e2e call catalog.toml openai_stream.js
           "type": "tool_call",
           "id": "custom-call",
           "name": "shell",
-          "arguments": "echo ready",
-          "kind": "custom",
-          "raw_arguments": "echo ready",
+          "input": {
+            "type": "custom",
+            "value": "echo ready"
+          },
           "provider_metadata": {
             "openai": {
               "item_id": "custom-edge"
@@ -573,11 +573,10 @@ $ OPENAI_API_KEY=openai-stream lithos-llm-e2e call catalog.toml openai_stream.js
               "type": "tool_call",
               "id": "call-edge",
               "name": "lookup",
-              "arguments": {
-                "x": 1
+              "input": {
+                "type": "function",
+                "value": "{/"x/":1}"
               },
-              "kind": "function",
-              "raw_arguments": "{/"x/":1}",
               "provider_metadata": {
                 "openai": {
                   "item_id": "function-edge"
@@ -588,9 +587,10 @@ $ OPENAI_API_KEY=openai-stream lithos-llm-e2e call catalog.toml openai_stream.js
               "type": "tool_call",
               "id": "custom-call",
               "name": "shell",
-              "arguments": "echo ready",
-              "kind": "custom",
-              "raw_arguments": "echo ready",
+              "input": {
+                "type": "custom",
+                "value": "echo ready"
+              },
               "provider_metadata": {
                 "openai": {
                   "item_id": "custom-edge"

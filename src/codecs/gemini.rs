@@ -474,7 +474,7 @@ fn encode_tool_call(call: &ToolCall) -> Value {
     let mut part = Map::new();
     part.insert(
         "functionCall".to_owned(),
-        json!({ "id": call.id, "name": call.name, "args": call.arguments }),
+        json!({ "id": call.id, "name": call.name, "args": call.input.wire_value() }),
     );
     let signature = call
         .provider_metadata
@@ -2014,7 +2014,7 @@ mod tests {
         // The response id from the first chunk scopes the synthesized call id
         // for the whole stream.
         assert_eq!(call.id, "search-0-resp-stream-1");
-        assert_eq!(call.arguments, json!({ "query": "rust" }));
+        assert_eq!(call.input.wire_value(), json!({ "query": "rust" }));
         assert_eq!(
             call.provider_metadata.get("gemini"),
             Some(&json!({ "thoughtSignature": "sig-call" }))

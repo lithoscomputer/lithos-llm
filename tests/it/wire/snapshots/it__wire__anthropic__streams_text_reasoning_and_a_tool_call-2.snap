@@ -92,13 +92,12 @@ expression: rendered
   {
     "id": "block-2",
     "part": {
-      "arguments": {
-        "city": "Paris"
-      },
       "id": "toolu_01Weather",
-      "kind": "function",
+      "input": {
+        "type": "function",
+        "value": "{\"city\": \"Paris\"}"
+      },
       "name": "get_weather",
-      "raw_arguments": "{\"city\": \"Paris\"}",
       "type": "tool_call"
     },
     "type": "content_block_end"
@@ -127,13 +126,12 @@ expression: rendered
           "type": "text"
         },
         {
-          "arguments": {
-            "city": "Paris"
-          },
           "id": "toolu_01Weather",
-          "kind": "function",
+          "input": {
+            "type": "function",
+            "value": "{\"city\": \"Paris\"}"
+          },
           "name": "get_weather",
-          "raw_arguments": "{\"city\": \"Paris\"}",
           "type": "tool_call"
         }
       ],

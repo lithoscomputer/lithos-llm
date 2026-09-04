@@ -44,7 +44,9 @@ fn round_trip<T: Serialize + DeserializeOwned>(value: &T) -> Result<T, serde_jso
 /// A request that sets every field and uses every content part kind.
 fn complete_request() -> Result<Request, Box<dyn StdError>> {
     let mut call = ToolCall::function("call_1", "lookup", json!({ "query": "rust" }));
-    call.raw_arguments = Some("{\"query\":\"rust\"}".to_owned());
+    call.input = lithos_llm::types::ToolInput::Function(
+        lithos_llm::types::ToolArguments::from_raw("{\"query\":\"rust\"}".to_owned()),
+    );
     call.provider_metadata
         .insert("openai".to_owned(), json!({ "id": "fc_1" }));
 

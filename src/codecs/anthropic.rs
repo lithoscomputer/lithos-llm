@@ -312,7 +312,7 @@ fn reject_custom_tools(call: &ResolvedCall) -> Result<(), Error> {
         .iter()
         .flat_map(Message::content)
         .any(|part| {
-            matches!(part, ContentPart::ToolCall(tool_call) if tool_call.kind == ToolCallKind::Custom)
+            matches!(part, ContentPart::ToolCall(tool_call) if tool_call.input.kind() == ToolCallKind::Custom)
         });
 
     if defined || called {
@@ -860,7 +860,7 @@ fn content_block(part: &ContentPart) -> Option<Value> {
             "type": "tool_use",
             "id": tool_call.id,
             "name": tool_call.name,
-            "input": tool_call.arguments,
+            "input": tool_call.input.wire_value(),
         })),
         ContentPart::ToolResult(result) => Some(json!({
             "type": "tool_result",
@@ -936,14 +936,13 @@ fn decode_block(block: &Value) -> Option<ContentPart> {
 /// `raw_arguments` stays empty unless the wire really did carry a string.
 fn decode_tool_use(block: &Value) -> ToolCall {
     let arguments = block.get("input").cloned().unwrap_or_else(|| json!({}));
-    let raw_arguments = arguments.as_str().map(ToOwned::to_owned);
 
     ToolCall {
-        id: field(block, "id").to_owned(),
-        name: field(block, "name").to_owned(),
-        arguments,
-        kind: ToolCallKind::Function,
-        raw_arguments,
+        id:                field(block, "id").to_owned(),
+        name:              field(block, "name").to_owned(),
+        input:             crate::types::ToolInput::Function(
+            crate::types::ToolArguments::from_json(arguments),
+        ),
         provider_metadata: BTreeMap::new(),
     }
 }
@@ -2181,8 +2180,8 @@ mod tests {
         assert_eq!(reasoning.signature.as_deref(), Some("sig"));
         assert_eq!(tool_call.id, "toolu_1");
         assert_eq!(tool_call.name, "lookup");
-        assert_eq!(tool_call.arguments, json!({ "q": "rust" }));
-        assert_eq!(tool_call.raw_arguments.as_deref(), Some("{\"q\":\"rust\"}"));
+        assert_eq!(tool_call.input.wire_value(), json!({ "q": "rust" }));
+        assert_eq!(Some(tool_call.input.raw()), Some("{\"q\":\"rust\"}"));
         Ok(())
     }
 

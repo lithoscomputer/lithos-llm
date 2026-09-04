@@ -22,8 +22,8 @@ use serde_json::{Map, Value, json, to_string};
 use super::assembler::StreamAssembler;
 use super::common::{
     cache_routing_key, drop_truncated_tool_calls, endpoint, finish_reason,
-    flattens_tool_result_content, merge_options, parse_arguments, plain_text, refusal,
-    reject_unencodable, sampling, unsupported_capability, wire_options,
+    flattens_tool_result_content, merge_options, plain_text, refusal, reject_unencodable, sampling,
+    unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -903,13 +903,7 @@ fn encode_tool_call(call: &ToolCall) -> Value {
 /// that reached this dialect through failover holds its input as a JSON string
 /// and is sent as that text, not as a quoted JSON literal.
 fn wire_arguments(call: &ToolCall) -> String {
-    if let Some(raw) = &call.raw_arguments {
-        return raw.clone();
-    }
-    match &call.arguments {
-        Value::String(input) => input.clone(),
-        arguments => to_string(arguments).unwrap_or_else(|_| "{}".to_owned()),
-    }
+    call.input.raw().to_owned()
 }
 
 /// Encodes one tool result as its own `tool` message.
@@ -1055,9 +1049,10 @@ fn decode_tool_call(call: &Value) -> Result<ContentPart, &'static str> {
     Ok(ContentPart::ToolCall(ToolCall {
         id:                id.to_owned(),
         name:              name.to_owned(),
-        arguments:         parse_arguments(raw),
-        kind:              ToolCallKind::Function,
-        raw_arguments:     (!raw.is_empty()).then(|| raw.to_owned()),
+        input:             crate::types::ToolInput::from_wire(
+            ToolCallKind::Function,
+            raw.to_owned(),
+        ),
         provider_metadata: BTreeMap::new(),
     }))
 }
@@ -1465,8 +1460,8 @@ mod tests {
             .copied()
             .ok_or("expected a tool call")?
             .clone();
-        assert_eq!(call.arguments, json!({ "city": "Boston" }));
-        assert_eq!(call.raw_arguments.as_deref(), Some(r#"{"city":"Boston"}"#));
+        assert_eq!(call.input.wire_value(), json!({ "city": "Boston" }));
+        assert_eq!(Some(call.input.raw()), Some(r#"{"city":"Boston"}"#));
         Ok(())
     }
 
@@ -1899,7 +1894,7 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].id, "call-1");
         assert_eq!(calls[0].name, "search");
-        assert_eq!(calls[0].arguments, json!({ "q": "rust" }));
+        assert_eq!(calls[0].input.wire_value(), json!({ "q": "rust" }));
         Ok(())
     }
 
@@ -1926,7 +1921,7 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].id, "tool-0");
         assert_eq!(calls[0].name, "");
-        assert_eq!(calls[0].arguments, json!({ "q": "rust" }));
+        assert_eq!(calls[0].input.wire_value(), json!({ "q": "rust" }));
         Ok(())
     }
 
@@ -1952,7 +1947,7 @@ mod tests {
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].id, "call-real");
         assert_eq!(calls[0].name, "search");
-        assert_eq!(calls[0].arguments, json!({ "q": "rust" }));
+        assert_eq!(calls[0].input.wire_value(), json!({ "q": "rust" }));
         Ok(())
     }
 
@@ -2630,9 +2625,9 @@ mod tests {
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].id, "call-a");
         assert_eq!(calls[0].name, "alpha");
-        assert_eq!(calls[0].arguments, json!({ "a": 1 }));
+        assert_eq!(calls[0].input.wire_value(), json!({ "a": 1 }));
         assert_eq!(calls[1].id, "call-b");
-        assert_eq!(calls[1].arguments, json!({ "b": 2 }));
+        assert_eq!(calls[1].input.wire_value(), json!({ "b": 2 }));
         Ok(())
     }
 

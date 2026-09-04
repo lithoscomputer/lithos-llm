@@ -17,10 +17,10 @@ expression: render(&complete_response())?
       "type": "tool_call",
       "id": "call_1",
       "name": "lookup",
-      "arguments": {
-        "query": "rust"
-      },
-      "kind": "function"
+      "input": {
+        "type": "function",
+        "value": "{\"query\":\"rust\"}"
+      }
     }
   ],
   "finish_reason": "tool_call",

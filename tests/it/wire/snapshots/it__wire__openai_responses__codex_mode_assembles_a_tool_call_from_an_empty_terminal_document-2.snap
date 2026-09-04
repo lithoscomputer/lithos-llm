@@ -5,18 +5,17 @@ expression: rendered
 {
   "content": [
     {
-      "arguments": {
-        "city": "Paris"
-      },
       "id": "call_1",
-      "kind": "function",
+      "input": {
+        "type": "function",
+        "value": "{\"city\":\"Paris\"}"
+      },
       "name": "get_weather",
       "provider_metadata": {
         "openai": {
           "item_id": "fc_1"
         }
       },
-      "raw_arguments": "{\"city\":\"Paris\"}",
       "type": "tool_call"
     }
   ],

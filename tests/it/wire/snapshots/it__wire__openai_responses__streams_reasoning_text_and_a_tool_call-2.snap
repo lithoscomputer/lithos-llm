@@ -136,18 +136,17 @@ expression: rendered
   {
     "id": "fc_stream",
     "part": {
-      "arguments": {
-        "city": "Paris"
-      },
       "id": "call_weather",
-      "kind": "function",
+      "input": {
+        "type": "function",
+        "value": "{\"city\":\"Paris\"}"
+      },
       "name": "get_weather",
       "provider_metadata": {
         "openai": {
           "item_id": "fc_stream"
         }
       },
-      "raw_arguments": "{\"city\":\"Paris\"}",
       "type": "tool_call"
     },
     "type": "content_block_end"
@@ -206,18 +205,17 @@ expression: rendered
           "type": "opaque"
         },
         {
-          "arguments": {
-            "city": "Paris"
-          },
           "id": "call_weather",
-          "kind": "function",
+          "input": {
+            "type": "function",
+            "value": "{\"city\":\"Paris\"}"
+          },
           "name": "get_weather",
           "provider_metadata": {
             "openai": {
               "item_id": "fc_stream"
             }
           },
-          "raw_arguments": "{\"city\":\"Paris\"}",
           "type": "tool_call"
         }
       ],

@@ -109,7 +109,10 @@ async fn calls_a_forced_tool() -> TestResult {
 
     assert_eq!(call.name, "get_weather");
     assert!(!call.id.is_empty());
-    assert_eq!(call.arguments["city"], "Paris");
+    assert_eq!(
+        call.input.to_value().expect("valid tool input")["city"],
+        "Paris"
+    );
     assert_eq!(response.finish_reason, FinishReason::ToolCall);
     Ok(())
 }

@@ -4,58 +4,221 @@
     {
       "role": "system",
       "name": "policy",
-      "content": [{ "type": "text", "text": "Follow the policy." }]
+      "content": [
+        {
+          "type": "text",
+          "text": "Follow the policy."
+        }
+      ]
     },
     {
       "role": "developer",
-      "content": [{ "type": "text", "text": "Use concise output." }]
+      "content": [
+        {
+          "type": "text",
+          "text": "Use concise output."
+        }
+      ]
     },
     {
       "role": "user",
       "content": [
-        { "type": "text", "text": "Inspect every input." },
-        { "type": "image", "source": { "type": "url", "url": "https://example.com/image.png", "media_type": "image/png" }, "detail": "high" },
-        { "type": "image", "source": { "type": "base64", "data": "QUJDRA==", "media_type": "image/jpeg" } },
-        { "type": "audio", "source": { "type": "url", "url": "https://example.com/audio.wav" } },
-        { "type": "audio", "source": { "type": "base64", "data": "QUJDREVGRw==", "media_type": "audio/wav" } },
-        { "type": "document", "source": { "type": "url", "url": "https://example.com/report.pdf", "media_type": "application/pdf" }, "name": "remote.pdf" },
-        { "type": "document", "source": { "type": "base64", "data": "QUJDREVGR0g=", "media_type": "application/pdf" }, "name": "inline.pdf" },
-        { "type": "json", "value": { "score": 0.5 } },
-        { "type": "opaque", "kind": "fixture.native", "data": { "payload": true } }
+        {
+          "type": "text",
+          "text": "Inspect every input."
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "url",
+            "url": "https://example.com/image.png",
+            "media_type": "image/png"
+          },
+          "detail": "high"
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "data": "QUJDRA==",
+            "media_type": "image/jpeg"
+          }
+        },
+        {
+          "type": "audio",
+          "source": {
+            "type": "url",
+            "url": "https://example.com/audio.wav"
+          }
+        },
+        {
+          "type": "audio",
+          "source": {
+            "type": "base64",
+            "data": "QUJDREVGRw==",
+            "media_type": "audio/wav"
+          }
+        },
+        {
+          "type": "document",
+          "source": {
+            "type": "url",
+            "url": "https://example.com/report.pdf",
+            "media_type": "application/pdf"
+          },
+          "name": "remote.pdf"
+        },
+        {
+          "type": "document",
+          "source": {
+            "type": "base64",
+            "data": "QUJDREVGR0g=",
+            "media_type": "application/pdf"
+          },
+          "name": "inline.pdf"
+        },
+        {
+          "type": "json",
+          "value": {
+            "score": 0.5
+          }
+        },
+        {
+          "type": "opaque",
+          "kind": "fixture.native",
+          "data": {
+            "payload": true
+          }
+        }
       ]
     },
     {
       "role": "assistant",
       "content": [
-        { "type": "reasoning", "text": "signed reasoning", "signature": "signature", "signature_origin": "openai", "redacted": false },
-        { "type": "reasoning", "text": "redacted payload", "redacted": true },
-        { "type": "tool_call", "id": "call-json", "name": "lookup", "arguments": { "query": "rust" }, "kind": "function" },
-        { "type": "tool_call", "id": "call-raw", "name": "shell", "arguments": "echo fixture", "kind": "custom", "raw_arguments": "echo fixture" }
+        {
+          "type": "reasoning",
+          "text": "signed reasoning",
+          "signature": "signature",
+          "signature_origin": "openai",
+          "redacted": false
+        },
+        {
+          "type": "reasoning",
+          "text": "redacted payload",
+          "redacted": true
+        },
+        {
+          "type": "tool_call",
+          "id": "call-json",
+          "name": "lookup",
+          "input": {
+            "type": "function",
+            "value": "{\"query\":\"rust\"}"
+          }
+        },
+        {
+          "type": "tool_call",
+          "id": "call-raw",
+          "name": "shell",
+          "input": {
+            "type": "custom",
+            "value": "echo fixture"
+          }
+        }
       ]
     },
     {
       "role": "tool",
       "tool_call_id": "call-json",
       "content": [
-        { "type": "tool_result", "tool_call_id": "call-json", "name": "lookup", "content": [{ "type": "text", "text": "found" }, { "type": "json", "value": { "ok": true } }], "is_error": false },
-        { "type": "tool_result", "tool_call_id": "call-raw", "content": [{ "type": "text", "text": "failed" }], "is_error": true }
+        {
+          "type": "tool_result",
+          "tool_call_id": "call-json",
+          "name": "lookup",
+          "content": [
+            {
+              "type": "text",
+              "text": "found"
+            },
+            {
+              "type": "json",
+              "value": {
+                "ok": true
+              }
+            }
+          ],
+          "is_error": false
+        },
+        {
+          "type": "tool_result",
+          "tool_call_id": "call-raw",
+          "content": [
+            {
+              "type": "text",
+              "text": "failed"
+            }
+          ],
+          "is_error": true
+        }
       ]
     }
   ],
   "tools": [
-    { "name": "lookup", "description": "Look up a value", "kind": { "type": "function", "input_schema": { "type": "object" } } },
-    { "name": "shell", "description": "Run text", "kind": { "type": "custom", "format": { "type": "grammar", "syntax": "lark" } } }
+    {
+      "name": "lookup",
+      "description": "Look up a value",
+      "kind": {
+        "type": "function",
+        "input_schema": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "name": "shell",
+      "description": "Run text",
+      "kind": {
+        "type": "custom",
+        "format": {
+          "type": "grammar",
+          "syntax": "lark"
+        }
+      }
+    }
   ],
-  "tool_choice": { "type": "tool", "name": "lookup" },
-  "response_format": { "type": "json_schema", "name": "answer", "schema": { "type": "object" } },
+  "tool_choice": {
+    "type": "tool",
+    "name": "lookup"
+  },
+  "response_format": {
+    "type": "json_schema",
+    "name": "answer",
+    "schema": {
+      "type": "object"
+    }
+  },
   "max_output_tokens": 128,
   "temperature": 0.4,
   "top_p": 0.8,
   "reasoning_effort": "max",
-  "cache_hint": { "type": "key", "key": "stable" },
+  "cache_hint": {
+    "type": "key",
+    "key": "stable"
+  },
   "speed": "economical",
   "timeout": 2500,
-  "stop_sequences": ["END"],
-  "metadata": { "trace": "yes" },
-  "provider_options": { "openai": { "store": false }, "fixture": { "native": true } }
+  "stop_sequences": [
+    "END"
+  ],
+  "metadata": {
+    "trace": "yes"
+  },
+  "provider_options": {
+    "openai": {
+      "store": false
+    },
+    "fixture": {
+      "native": true
+    }
+  }
 }

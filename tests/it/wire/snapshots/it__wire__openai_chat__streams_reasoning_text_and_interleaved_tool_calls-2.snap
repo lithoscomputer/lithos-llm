@@ -100,13 +100,12 @@ expression: rendered
   {
     "id": "tool-0",
     "part": {
-      "arguments": {
-        "city": "Paris"
-      },
       "id": "call_paris",
-      "kind": "function",
+      "input": {
+        "type": "function",
+        "value": "{\"city\":\"Paris\"}"
+      },
       "name": "get_weather",
-      "raw_arguments": "{\"city\":\"Paris\"}",
       "type": "tool_call"
     },
     "type": "content_block_end"
@@ -114,13 +113,12 @@ expression: rendered
   {
     "id": "tool-1",
     "part": {
-      "arguments": {
-        "city": "Madrid"
-      },
       "id": "call_madrid",
-      "kind": "function",
+      "input": {
+        "type": "function",
+        "value": "{\"city\":\"Madrid\"}"
+      },
       "name": "get_weather",
-      "raw_arguments": "{\"city\":\"Madrid\"}",
       "type": "tool_call"
     },
     "type": "content_block_end"
@@ -137,23 +135,21 @@ expression: rendered
           "type": "text"
         },
         {
-          "arguments": {
-            "city": "Paris"
-          },
           "id": "call_paris",
-          "kind": "function",
+          "input": {
+            "type": "function",
+            "value": "{\"city\":\"Paris\"}"
+          },
           "name": "get_weather",
-          "raw_arguments": "{\"city\":\"Paris\"}",
           "type": "tool_call"
         },
         {
-          "arguments": {
-            "city": "Madrid"
-          },
           "id": "call_madrid",
-          "kind": "function",
+          "input": {
+            "type": "function",
+            "value": "{\"city\":\"Madrid\"}"
+          },
           "name": "get_weather",
-          "raw_arguments": "{\"city\":\"Madrid\"}",
           "type": "tool_call"
         }
       ],

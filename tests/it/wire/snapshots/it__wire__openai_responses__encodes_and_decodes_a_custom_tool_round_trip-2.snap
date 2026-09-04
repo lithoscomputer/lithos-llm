@@ -5,16 +5,17 @@ expression: rendered
 {
   "content": [
     {
-      "arguments": "*** Begin Patch\n*** End Patch",
       "id": "call_patch",
-      "kind": "custom",
+      "input": {
+        "type": "custom",
+        "value": "*** Begin Patch\n*** End Patch"
+      },
       "name": "apply_patch",
       "provider_metadata": {
         "openai": {
           "item_id": "ctc_patch"
         }
       },
-      "raw_arguments": "*** Begin Patch\n*** End Patch",
       "type": "tool_call"
     }
   ],

@@ -113,9 +113,10 @@ $ lithos-llm-e2e values values.json
     {
       "id": "custom-1",
       "name": "shell",
-      "arguments": "echo hello",
-      "kind": "custom",
-      "raw_arguments": "echo hello"
+      "input": {
+        "type": "custom",
+        "value": "echo hello"
+      }
     }
   ],
   "finish_reasons": [

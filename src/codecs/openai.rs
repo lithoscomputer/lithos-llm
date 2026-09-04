@@ -13,8 +13,8 @@ use serde_json::{Map, Value, json};
 use super::assembler::StreamAssembler;
 use super::common::{
     cache_routing_key, drop_truncated_tool_calls, endpoint, flattens_system_content,
-    flattens_tool_result_content, merge_options, parse_arguments, plain_text, refusal,
-    reject_unencodable, sampling, wire_options,
+    flattens_tool_result_content, merge_options, plain_text, refusal, reject_unencodable, sampling,
+    wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -474,7 +474,7 @@ impl CustomTools {
             .iter()
             .flat_map(Message::content)
             .filter_map(|part| match part {
-                ContentPart::ToolCall(call) if call.kind == ToolCallKind::Custom => {
+                ContentPart::ToolCall(call) if call.input.kind() == ToolCallKind::Custom => {
                     Some(call.id.clone())
                 }
                 _ => None,
@@ -692,15 +692,9 @@ fn role(role: Role) -> &'static str {
 /// when the decoder kept one, because a replayed item without it cannot anchor
 /// the reasoning chain.
 fn tool_call_item(call: &ToolCall) -> Value {
-    let arguments = call
-        .raw_arguments
-        .clone()
-        .unwrap_or_else(|| match &call.arguments {
-            Value::String(input) => input.clone(),
-            other => serde_json::to_string(other).unwrap_or_default(),
-        });
+    let arguments = call.input.raw();
 
-    let mut item = match call.kind {
+    let mut item = match call.input.kind() {
         ToolCallKind::Function => json!({
             "type": "function_call",
             "call_id": call.id,
@@ -935,20 +929,13 @@ fn decode_tool_call(item: &Value, kind: ToolCallKind) -> ToolCall {
     .unwrap_or_default();
 
     let mut call = ToolCall {
-        id: call_id.or(item_id).unwrap_or_default().to_owned(),
-        name: item
+        id:                call_id.or(item_id).unwrap_or_default().to_owned(),
+        name:              item
             .get("name")
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_owned(),
-        arguments: match kind {
-            ToolCallKind::Function => parse_arguments(raw),
-            ToolCallKind::Custom => Value::String(raw.to_owned()),
-        },
-        kind,
-        // An empty string means the provider sent no arguments, which the
-        // streamed form of the same call also reports as absent.
-        raw_arguments: (!raw.is_empty()).then(|| raw.to_owned()),
+        input:             crate::types::ToolInput::from_wire(kind, raw.to_owned()),
         provider_metadata: BTreeMap::new(),
     };
     if let (Some(call_id), Some(item_id)) = (call_id, item_id)
@@ -1639,7 +1626,9 @@ mod tests {
     #[test]
     fn tool_calls_and_results_keep_their_protocol_identity() -> Result<(), Box<dyn StdError>> {
         let mut call_part = ToolCall::function("call_abc", "search", json!({ "query": "rust" }));
-        call_part.raw_arguments = Some("{\"query\":\"rust\"}".to_owned());
+        call_part.input = crate::types::ToolInput::Function(crate::types::ToolArguments::from_raw(
+            "{\"query\":\"rust\"}".to_owned(),
+        ));
         call_part
             .provider_metadata
             .insert("openai".to_owned(), json!({ "item_id": "fc_123" }));
@@ -1705,11 +1694,8 @@ mod tests {
             return Err("expected one tool call".into());
         };
         assert_eq!(decoded.id, "call_abc");
-        assert_eq!(decoded.arguments, json!({ "query": "rust" }));
-        assert_eq!(
-            decoded.raw_arguments.as_deref(),
-            Some("{\"query\":\"rust\"}")
-        );
+        assert_eq!(decoded.input.wire_value(), json!({ "query": "rust" }));
+        assert_eq!(Some(decoded.input.raw()), Some("{\"query\":\"rust\"}"));
         assert_eq!(
             decoded.provider_metadata.get("openai"),
             Some(&json!({ "item_id": "fc_123" }))
@@ -2112,12 +2098,12 @@ mod tests {
         let [ContentPart::ToolCall(decoded)] = response.content.as_slice() else {
             return Err("expected one tool call".into());
         };
-        assert_eq!(decoded.kind, ToolCallKind::Custom);
+        assert_eq!(decoded.input.kind(), ToolCallKind::Custom);
         assert_eq!(
-            decoded.arguments,
+            decoded.input.wire_value(),
             Value::String("*** Begin Patch".to_owned())
         );
-        assert_eq!(decoded.raw_arguments.as_deref(), Some("*** Begin Patch"));
+        assert_eq!(Some(decoded.input.raw()), Some("*** Begin Patch"));
         Ok(())
     }
 
@@ -2376,7 +2362,7 @@ mod tests {
         };
         assert_eq!(recovered.id, "call_abc");
         assert_eq!(recovered.name, "search");
-        assert_eq!(recovered.arguments, json!({ "query": "rust" }));
+        assert_eq!(recovered.input.wire_value(), json!({ "query": "rust" }));
         Ok(())
     }
 
@@ -2482,11 +2468,8 @@ mod tests {
         let [ContentPart::ToolCall(healed)] = parts.as_slice() else {
             return Err(format!("expected one tool call part, got {parts:?}").into());
         };
-        assert_eq!(healed.arguments, json!({ "query": "rust" }));
-        assert_eq!(
-            healed.raw_arguments.as_deref(),
-            Some("{\"query\":\"rust\"}")
-        );
+        assert_eq!(healed.input.wire_value(), json!({ "query": "rust" }));
+        assert_eq!(Some(healed.input.raw()), Some("{\"query\":\"rust\"}"));
         Ok(())
     }
 
@@ -2540,11 +2523,8 @@ mod tests {
         let [ContentPart::ToolCall(replaced)] = parts.as_slice() else {
             return Err(format!("expected one tool call part, got {parts:?}").into());
         };
-        assert_eq!(replaced.arguments, json!({ "query": "rust" }));
-        assert_eq!(
-            replaced.raw_arguments.as_deref(),
-            Some("{\"query\":\"rust\"}")
-        );
+        assert_eq!(replaced.input.wire_value(), json!({ "query": "rust" }));
+        assert_eq!(Some(replaced.input.raw()), Some("{\"query\":\"rust\"}"));
         Ok(())
     }
 
@@ -2903,7 +2883,7 @@ mod tests {
         };
         assert_eq!(streamed.id, "call_abc");
         assert_eq!(streamed.name, "search");
-        assert_eq!(streamed.arguments, json!({ "query": "rust" }));
+        assert_eq!(streamed.input.wire_value(), json!({ "query": "rust" }));
         assert_eq!(
             streamed.provider_metadata.get("openai"),
             Some(&json!({ "item_id": "fc_123" }))
@@ -3195,9 +3175,9 @@ mod tests {
         let [ContentPart::ToolCall(recovered)] = parts.as_slice() else {
             return Err("expected one recovered tool call".into());
         };
-        assert_eq!(recovered.kind, ToolCallKind::Custom);
+        assert_eq!(recovered.input.kind(), ToolCallKind::Custom);
         assert_eq!(
-            recovered.arguments,
+            recovered.input.wire_value(),
             Value::String("*** Begin Patch".to_owned())
         );
         Ok(())

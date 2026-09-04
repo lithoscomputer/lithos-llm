@@ -169,10 +169,7 @@ pub fn content_part_tokens(part: &ContentPart) -> TokenEstimate {
         ContentPart::ToolCall(call) => {
             // The raw argument text is what a codec replays, and `arguments`
             // repeats it in parsed form, so only one of them counts.
-            let arguments = call
-                .raw_arguments
-                .as_deref()
-                .map_or_else(|| json_tokens(&call.arguments), text_tokens);
+            let arguments = text_tokens(call.input.raw());
             TokenEstimate::exact(text_tokens(&call.id) + text_tokens(&call.name) + arguments)
         }
         ContentPart::ToolResult(result) => tool_result_tokens(result),
@@ -487,7 +484,9 @@ mod tests {
     fn a_tool_call_counts_its_arguments_once() {
         let parsed = ToolCall::function("call_1", "lookup", json!({"query": "rust"}));
         let mut replayed = parsed.clone();
-        replayed.raw_arguments = Some("{\"query\":\"rust\"}".to_owned());
+        replayed.input = crate::types::ToolInput::Function(crate::types::ToolArguments::from_raw(
+            "{\"query\":\"rust\"}".to_owned(),
+        ));
 
         assert_eq!(
             content_part_tokens(&ContentPart::ToolCall(parsed)).tokens(),

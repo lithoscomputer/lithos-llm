@@ -71,11 +71,10 @@ expression: render(&complete_request()?)?
           "type": "tool_call",
           "id": "call_1",
           "name": "lookup",
-          "arguments": {
-            "query": "rust"
+          "input": {
+            "type": "function",
+            "value": "{\"query\":\"rust\"}"
           },
-          "kind": "function",
-          "raw_arguments": "{\"query\":\"rust\"}",
           "provider_metadata": {
             "openai": {
               "id": "fc_1"
@@ -86,9 +85,10 @@ expression: render(&complete_request()?)?
           "type": "tool_call",
           "id": "call_2",
           "name": "apply_patch",
-          "arguments": "*** Begin Patch",
-          "kind": "custom",
-          "raw_arguments": "*** Begin Patch"
+          "input": {
+            "type": "custom",
+            "value": "*** Begin Patch"
+          }
         },
         {
           "type": "text",

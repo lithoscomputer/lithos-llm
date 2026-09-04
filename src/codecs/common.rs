@@ -385,17 +385,6 @@ pub(crate) fn drop_truncated_tool_calls(response: &mut Response) {
         }));
 }
 
-/// Parses a provider tool-argument string, falling back to an empty object.
-///
-/// A tool call that takes no arguments streams no argument fragments, which
-/// leaves an empty string. Canonically that is an empty object, not null. A
-/// malformed string is normalized the same way rather than failing the stream;
-/// the untouched text stays available in
-/// [`ToolCall::raw_arguments`](crate::types::ToolCall::raw_arguments).
-pub(crate) fn parse_arguments(raw: &str) -> Value {
-    serde_json::from_str(raw).unwrap_or_else(|_| json!({}))
-}
-
 /// The error every codec returns for a request feature it cannot encode.
 ///
 /// Codecs raise this before any network dispatch — for example when a request
@@ -551,7 +540,7 @@ mod tests {
 
     use super::{
         CONTROL_KEYS, TRUNCATED_TOOL_CALL, drop_truncated_tool_calls, endpoint, finish_reason,
-        merge_options, parse_arguments, refusal, unsupported_capability, wire_options,
+        merge_options, refusal, unsupported_capability, wire_options,
     };
     use crate::catalog::{ModelId, ProviderId};
     use crate::codecs::test_support;
@@ -691,17 +680,6 @@ mod tests {
         assert!(wire.is_empty());
         assert!(controls.auto_cache);
         Ok(())
-    }
-
-    #[test]
-    fn empty_and_malformed_arguments_become_an_empty_object() {
-        assert_eq!(parse_arguments(""), json!({}));
-        assert_eq!(parse_arguments("{\"query\":"), json!({}));
-        assert_eq!(parse_arguments("   "), json!({}));
-        assert_eq!(
-            parse_arguments("{\"query\":\"rust\"}"),
-            json!({ "query": "rust" })
-        );
     }
 
     #[test]
