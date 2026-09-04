@@ -496,9 +496,14 @@ mod tests {
         // choice, and Venice lists it at Anthropic's own rates.
         let fable_51 = catalog.model("venice", "claude-fable-5.1")?;
         assert_eq!(fable_51.api_model(), "claude-fable-5-1");
-        assert!(!fable_51.capabilities().forced_tool_choice);
-        assert!(fable_51.capabilities().sampling);
-        assert!(fable_51.capabilities().cache_routing);
+        assert!(
+            !fable_51
+                .capabilities()
+                .tool_choice(&crate::types::ToolChoice::Required)
+                .is_supported()
+        );
+        assert!(fable_51.capabilities().sampling().is_supported());
+        assert!(fable_51.capabilities().cache_routing().is_supported());
         assert_eq!(
             fable_51.pricing().map(|pricing| (
                 pricing.input_usd_micros_per_million,
@@ -510,7 +515,8 @@ mod tests {
             catalog
                 .model("venice", "claude-fable-5")?
                 .capabilities()
-                .forced_tool_choice
+                .tool_choice(&crate::types::ToolChoice::Required)
+                .is_supported()
         );
 
         // Live-verified capability corrections win over fabro's claims.
@@ -518,18 +524,19 @@ mod tests {
             !catalog
                 .model("venice", "qwen3.8-max")?
                 .capabilities()
-                .structured_output
+                .response_format(&crate::types::ResponseFormat::JsonObject)
+                .is_supported()
         );
         assert!(
             catalog
                 .model("venice", "kimi-k3")?
-                .capabilities()
+                .protocol_options()
                 .reasoning_effort_levels
         );
         assert!(
             !catalog
                 .model("venice", "glm-5.3")?
-                .capabilities()
+                .protocol_options()
                 .reasoning_effort_levels
         );
 
@@ -559,11 +566,21 @@ mod tests {
         // is the one Claude row that takes no forced tool choice.
         let fable = catalog.model("openrouter", "fable")?;
         assert_eq!(fable.api_model(), "anthropic/claude-fable-5");
-        assert!(fable.capabilities().forced_tool_choice);
+        assert!(
+            fable
+                .capabilities()
+                .tool_choice(&crate::types::ToolChoice::Required)
+                .is_supported()
+        );
         let fable_51 = catalog.model("openrouter", "claude-fable-5.1")?;
         assert_eq!(fable_51.api_model(), "anthropic/claude-fable-5.1");
-        assert!(!fable_51.capabilities().forced_tool_choice);
-        assert!(fable_51.capabilities().cache_breakpoints);
+        assert!(
+            !fable_51
+                .capabilities()
+                .tool_choice(&crate::types::ToolChoice::Required)
+                .is_supported()
+        );
+        assert!(fable_51.protocol_options().cache_breakpoints);
         assert_eq!(
             fable_51
                 .pricing()
@@ -580,14 +597,23 @@ mod tests {
         );
 
         let flash = catalog.model("openrouter", "gemini-3.5-flash")?;
-        assert!(flash.capabilities().structured_output);
-        assert!(flash.capabilities().reasoning_effort_levels);
-        assert!(!flash.capabilities().audio);
+        assert!(
+            flash
+                .capabilities()
+                .response_format(&crate::types::ResponseFormat::JsonSchema {
+                    name:   String::new(),
+                    schema: serde_json::Value::Null,
+                })
+                .is_supported()
+        );
+        assert!(flash.protocol_options().reasoning_effort_levels);
+        assert!(!flash.capabilities().audio().is_supported());
         assert!(
             !catalog
                 .model("openrouter", "qwen3.6-flash")?
                 .capabilities()
-                .structured_output
+                .response_format(&crate::types::ResponseFormat::JsonObject)
+                .is_supported()
         );
 
         let sol = catalog.model("openrouter", "gpt-5.6-sol")?;
@@ -621,8 +647,8 @@ mod tests {
         );
 
         let kimi = catalog.model("fireworks", "kimi-k2.6")?;
-        assert!(kimi.capabilities().images);
-        assert!(kimi.capabilities().reasoning);
+        assert!(kimi.capabilities().images().is_supported());
+        assert!(kimi.capabilities().reasoning().is_supported());
 
         let pro = catalog.model("fireworks", "deepseek-v4-pro")?;
         let pricing = pro.pricing().ok_or("DeepSeek V4 Pro should be priced")?;
@@ -652,45 +678,55 @@ mod tests {
                 .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
             Some((1_000_000, 128_000))
         );
-        assert!(fable.capabilities().reasoning_effort_levels);
-        assert!(!fable.capabilities().sampling);
-        assert!(fable.capabilities().forced_tool_choice);
+        assert!(fable.protocol_options().reasoning_effort_levels);
+        assert!(!fable.capabilities().sampling().is_supported());
+        assert!(
+            fable
+                .capabilities()
+                .tool_choice(&crate::types::ToolChoice::Required)
+                .is_supported()
+        );
 
         // Fable 5.1 shares Fable 5's limits and rates except for cache reads,
         // and is the one row that takes no forced tool choice.
         let fable_51 = catalog.model("anthropic", "claude-fable-5.1")?;
         assert_eq!(fable_51.api_model(), "claude-fable-5-1");
         assert_eq!(fable_51.limits(), fable.limits());
-        assert!(fable_51.capabilities().reasoning_effort_levels);
-        assert!(!fable_51.capabilities().sampling);
-        assert!(!fable_51.capabilities().forced_tool_choice);
+        assert!(fable_51.protocol_options().reasoning_effort_levels);
+        assert!(!fable_51.capabilities().sampling().is_supported());
+        assert!(
+            !fable_51
+                .capabilities()
+                .tool_choice(&crate::types::ToolChoice::Required)
+                .is_supported()
+        );
 
         // System turns: the Claude 5 rows and Opus 4.8 take them, the older
         // rows reject them, so the codec hoists there.
-        assert!(fable_51.capabilities().system_turns);
-        assert!(fable.capabilities().system_turns);
+        assert!(fable_51.protocol_options().system_turns);
+        assert!(fable.protocol_options().system_turns);
         assert!(
             catalog
                 .model("anthropic", "claude-sonnet-5")?
-                .capabilities()
+                .protocol_options()
                 .system_turns
         );
         assert!(
             catalog
                 .model("anthropic", "claude-opus-4.8")?
-                .capabilities()
+                .protocol_options()
                 .system_turns
         );
         assert!(
             !catalog
                 .model("anthropic", "claude-opus-4.7")?
-                .capabilities()
+                .protocol_options()
                 .system_turns
         );
         assert!(
             !catalog
                 .model("anthropic", "claude-haiku-4.5")?
-                .capabilities()
+                .protocol_options()
                 .system_turns
         );
         let fable_51_pricing = fable_51.pricing().ok_or("Fable 5.1 must be priced")?;
@@ -710,7 +746,7 @@ mod tests {
                 .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
             Some((200_000, 64_000))
         );
-        assert!(!sonnet_45.capabilities().reasoning_effort_levels);
+        assert!(!sonnet_45.protocol_options().reasoning_effort_levels);
         Ok(())
     }
 
@@ -734,9 +770,9 @@ mod tests {
                 .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
             Some((1_048_576, 65_536))
         );
-        assert!(flash.capabilities().reasoning);
-        assert!(flash.capabilities().reasoning_effort_levels);
-        assert!(flash.capabilities().sampling);
+        assert!(flash.capabilities().reasoning().is_supported());
+        assert!(flash.protocol_options().reasoning_effort_levels);
+        assert!(flash.capabilities().sampling().is_supported());
         assert_eq!(
             flash
                 .pricing()
@@ -786,8 +822,8 @@ mod tests {
                 .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
             Some((1_048_576, 1_048_576))
         );
-        assert!(k3.capabilities().reasoning_effort_levels);
-        assert!(!k3.capabilities().sampling);
+        assert!(k3.protocol_options().reasoning_effort_levels);
+        assert!(!k3.capabilities().sampling().is_supported());
 
         let fabro = k3
             .metadata()
@@ -821,27 +857,42 @@ mod tests {
             !catalog
                 .model("openai", "gpt-6-astra")?
                 .capabilities()
-                .sampling
+                .sampling()
+                .is_supported()
         );
-        assert!(catalog.model("openai", "gpt-5.4")?.capabilities().sampling);
+        assert!(
+            catalog
+                .model("openai", "gpt-5.4")?
+                .capabilities()
+                .sampling()
+                .is_supported()
+        );
         assert!(
             catalog
                 .model("openai", "gpt-5.4-mini")?
                 .capabilities()
-                .sampling
+                .sampling()
+                .is_supported()
         );
-        assert!(!catalog.model("openai", "gpt-5.5")?.capabilities().sampling);
+        assert!(
+            !catalog
+                .model("openai", "gpt-5.5")?
+                .capabilities()
+                .sampling()
+                .is_supported()
+        );
         assert!(
             !catalog
                 .model("openai", "gpt-5.6-sol")?
                 .capabilities()
-                .sampling
+                .sampling()
+                .is_supported()
         );
 
         // The pro rows cache nothing and price no speed tier, so the local
         // speed gate refuses fast and economical for them.
         let pro = catalog.model("openai", "gpt-5.5-pro")?;
-        assert!(!pro.capabilities().caching);
+        assert!(!pro.capabilities().caching().is_supported());
         let pricing = pro.pricing().ok_or("gpt-5.5-pro should be priced")?;
         assert!(pricing.speed.is_none());
 
@@ -874,8 +925,8 @@ mod tests {
                 .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
             Some((1_050_000, 128_000))
         );
-        assert!(astra.capabilities().documents);
-        assert!(astra.capabilities().reasoning_effort_levels);
+        assert!(astra.capabilities().documents().is_supported());
+        assert!(astra.protocol_options().reasoning_effort_levels);
         let pricing = astra.pricing().ok_or("gpt-6-astra should be priced")?;
         assert_eq!(pricing.input_usd_micros_per_million, Some(10_000_000));
         assert_eq!(pricing.output_usd_micros_per_million, Some(50_000_000));
@@ -929,14 +980,14 @@ mod tests {
         let fast = pricing.for_speed(Some(Speed::Fast));
         assert_eq!(fast.input_usd_micros_per_million, Some(3_000_000));
         assert_eq!(fast.output_usd_micros_per_million, Some(15_000_000));
-        assert!(sonnet.capabilities().reasoning_effort_levels);
+        assert!(sonnet.protocol_options().reasoning_effort_levels);
 
         // Bedrock on-demand access needs the `us.` inference profile, and the
         // model caches, which the codec gates on.
         let bedrock = catalog.model("bedrock", "anthropic.claude-sonnet-4-6")?;
         assert_eq!(bedrock.api_model(), "us.anthropic.claude-sonnet-4-6");
-        assert!(bedrock.capabilities().caching);
-        assert!(bedrock.capabilities().reasoning_effort_levels);
+        assert!(bedrock.capabilities().caching().is_supported());
+        assert!(bedrock.protocol_options().reasoning_effort_levels);
         assert_eq!(
             bedrock.limits().map(|limits| limits.max_output_tokens),
             Some(64_000)

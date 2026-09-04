@@ -7,4 +7,5 @@ base_url = "http://127.0.0.1:3931/v1"
 display_name = "OpenAI Chat fixture"
 aliases = ["chat-fixture"]
 api_model = "chat-fixture-v1"
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, forced_tool_choice = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, cache_breakpoints = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }

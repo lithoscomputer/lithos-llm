@@ -7,4 +7,5 @@ base_url = "http://127.0.0.1:3931/v1"
 display_name = "Fixture model"
 aliases = ["fixture-alias"]
 api_model = "fixture-v1"
-capabilities = { text = true, tools = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }

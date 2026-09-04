@@ -30,7 +30,8 @@ api_key_url = "https://app.fireworks.ai/settings/users/api-keys"
 display_name = "Kimi K3"
 api_model = "accounts/fireworks/models/kimi-k3"
 limits = { context_tokens = 1048576, max_output_tokens = 131072 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
 
 [providers.fireworks.models."kimi-k3".metadata.fabro]
@@ -42,7 +43,8 @@ display_name = "Kimi K3 Fast"
 api_model = "accounts/fireworks/routers/kimi-k3-fast"
 limits = { context_tokens = 1048576, max_output_tokens = 131072 }
 # Fireworks documents this router as the K3 Fast tier at 50% above standard.
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 450000 }
 
 [providers.fireworks.models."kimi-k3-fast".metadata.fabro]
@@ -53,7 +55,7 @@ family = "kimi-k3"
 display_name = "Kimi K2.7 Code"
 api_model = "accounts/fireworks/models/kimi-k2p7-code"
 limits = { context_tokens = 262144, max_output_tokens = 32768 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 190000 }
 
 [providers.fireworks.models."kimi-k2.7-code".metadata.fabro]
@@ -64,7 +66,7 @@ display_name = "Kimi K2.6"
 api_model = "accounts/fireworks/models/kimi-k2p6"
 limits = { context_tokens = 262144, max_output_tokens = 16384 }
 # The live listing and probes override fabro's no-vision/no-reasoning claim.
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 160000 }
 
 [providers.fireworks.models."kimi-k2.6".metadata.fabro]
@@ -75,7 +77,8 @@ display_name = "DeepSeek V4 Pro"
 api_model = "accounts/fireworks/models/deepseek-v4-pro-0813"
 limits = { context_tokens = 1048576, max_output_tokens = 16384 }
 # Fireworks says the 0813 release supersedes the preview id in fabro.
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1320000, output_usd_micros_per_million = 3960000, cached_input_usd_micros_per_million = 44000 }
 
 [providers.fireworks.models."deepseek-v4-pro".metadata.fabro]
@@ -88,7 +91,8 @@ aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
 api_model = "accounts/fireworks/models/deepseek-v4-flash-0731"
 limits = { context_tokens = 1048576, max_output_tokens = 384000 }
 # Fireworks says the 0731 release supersedes the preview id in fabro.
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 220000, output_usd_micros_per_million = 660000, cached_input_usd_micros_per_million = 7000 }
 
 [providers.fireworks.models."deepseek-v4-flash".metadata.fabro]
@@ -99,7 +103,8 @@ family = "deepseek-v4"
 display_name = "GLM 5.2 (via Fireworks)"
 api_model = "accounts/fireworks/models/glm-5p2"
 limits = { context_tokens = 1048576, max_output_tokens = 131072 }
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1400000, output_usd_micros_per_million = 4400000, cached_input_usd_micros_per_million = 140000 }
 
 [providers.fireworks.models."glm-5.2".metadata.fabro]
@@ -112,7 +117,8 @@ display_name = "GLM 5.3 (via Fireworks)"
 aliases = ["glm53", "glm5.3", "glm-5-3"]
 api_model = "accounts/fireworks/models/glm-5p3"
 limits = { context_tokens = 1048576, max_output_tokens = 131072 }
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1400000, output_usd_micros_per_million = 4400000, cached_input_usd_micros_per_million = 260000 }
 
 [providers.fireworks.models."qwen3.7-plus"]
@@ -120,7 +126,7 @@ display_name = "Qwen3.7 Plus"
 api_model = "accounts/fireworks/models/qwen3p7-plus"
 limits = { context_tokens = 262144, max_output_tokens = 16384 }
 # The live response carried reasoning, overriding fabro's false claim.
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1600000, cached_input_usd_micros_per_million = 80000 }
 
 [providers.fireworks.models."qwen3.7-plus".metadata.fabro]
@@ -134,14 +140,15 @@ display_name = "Qwen 3.8 Max (via Fireworks)"
 aliases = ["qwen", "qwen-max", "qwen3.8", "qwen-3.8", "qwen38", "qwen-3.8-max", "qwen38-max"]
 api_model = "accounts/fireworks/models/qwen3p8-max"
 limits = { context_tokens = 262144, max_output_tokens = 131072 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 250000 }
 
 [providers.fireworks.models."gpt-oss-120b"]
 display_name = "GPT-OSS 120B"
 api_model = "accounts/fireworks/models/gpt-oss-120b"
 limits = { context_tokens = 131072, max_output_tokens = 32768 }
-capabilities = { text = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 150000, output_usd_micros_per_million = 600000, cached_input_usd_micros_per_million = 14000 }
 
 [providers.fireworks.models."gpt-oss-120b".metadata.fabro]

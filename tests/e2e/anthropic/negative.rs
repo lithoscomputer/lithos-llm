@@ -157,7 +157,8 @@ name = "x-api-key"
 [providers.anthropic.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5, system turns claimed"
 api_model = "claude-haiku-4-5-20251001"
-capabilities = { text = true, system_turns = true }
+capabilities = { text = true }
+protocol_options = { system_turns = true }
 "#;
 
 /// The older rows claim no system turns, so the client hoists their
@@ -219,7 +220,8 @@ name = "x-api-key"
 [providers.anthropic.models."claude-fable-5.1"]
 display_name = "Claude Fable 5.1, forced choice unrestricted"
 api_model = "claude-fable-5-1"
-capabilities = { text = true, tools = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 "#;
 
 /// The catalog row for Fable 5.1 denies forced tool choice, so the client

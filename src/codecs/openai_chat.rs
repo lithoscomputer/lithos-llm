@@ -96,7 +96,10 @@ impl Codec for OpenAiChatCodec {
         // string content into part arrays could get the request rejected. A
         // caller can also turn breakpoints off with the `auto_cache` control.
         let capabilities = route.model().capabilities();
-        if controls.auto_cache && capabilities.caching && capabilities.cache_breakpoints {
+        if controls.auto_cache
+            && capabilities.caching().is_supported()
+            && route.model().protocol_options().cache_breakpoints
+        {
             mark_cache_breakpoints(&mut messages);
         }
         body.insert("messages".to_owned(), Value::Array(messages));
@@ -2144,7 +2147,8 @@ mod tests {
         [providers.gateway.models.fronted]
         display_name = "Fronted"
         api_model = "fronted-v1"
-        capabilities = { text = true, caching = true, cache_breakpoints = true }
+        capabilities = { text = true, caching = true }
+protocol_options = { cache_breakpoints = true }
     "#;
 
     /// A one-provider catalog whose model takes a cache routing hint, the
@@ -2163,7 +2167,7 @@ mod tests {
         [providers.gateway.models.routed]
         display_name = "Routed"
         api_model = "routed-v1"
-        capabilities = { text = true, tools = true, caching = true, cache_routing = true }
+        capabilities = { text = true, tools = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true } }
     "#;
 
     fn routed(request: Request) -> Result<Value, Box<dyn StdError>> {

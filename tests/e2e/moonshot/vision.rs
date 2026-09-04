@@ -25,7 +25,7 @@ mod inline {
 }
 
 async fn describes_an_inline_image(model: &str) -> TestResult {
-    if !moonshot::capabilities(model).images {
+    if !moonshot::capabilities(model).images().is_supported() {
         return support::skip("the catalog does not claim images");
     }
     let Some(client) = moonshot::live_client() else {

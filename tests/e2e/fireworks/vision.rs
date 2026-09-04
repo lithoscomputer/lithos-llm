@@ -18,7 +18,7 @@ mod url {
 }
 
 async fn describes_a_url_image(model: &str) -> TestResult {
-    if !fireworks::capabilities(model).images {
+    if !fireworks::capabilities(model).images().is_supported() {
         return support::skip("the catalog does not claim images");
     }
     let Some(client) = fireworks::live_client() else {

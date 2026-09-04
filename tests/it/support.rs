@@ -45,9 +45,7 @@ pub(crate) const TEST_API_KEY: &str = "test-key";
 /// Wire tests exercise encoding, not capability gating, so the default model
 /// in a wire catalog claims everything. A test that needs a capability refused
 /// writes its own catalog TOML.
-pub(crate) const FULL_CAPABILITIES: &str = "{ text = true, images = true, audio = true, \
-     documents = true, tools = true, structured_output = true, reasoning = true, caching = true, \
-     cache_breakpoints = true, sampling = true, system_turns = true }";
+pub(crate) const FULL_CAPABILITIES: &str = "{ text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true } }\nprotocol_options = { cache_breakpoints = true, system_turns = true }";
 
 // ===========================================================================
 // Capture and normalization

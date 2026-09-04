@@ -12,6 +12,13 @@
 //! capability, so the catalog stays the single source of truth for which
 //! cells exist.
 
+pub(crate) fn protocol_options(model: &str) -> lithos_llm::catalog::ModelProtocolOptions {
+    catalog()
+        .model(PROVIDER, model)
+        .expect("roster model")
+        .protocol_options()
+}
+
 mod caching;
 mod negative;
 mod preflight;

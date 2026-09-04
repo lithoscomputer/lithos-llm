@@ -53,7 +53,8 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 # calling, structured output, thinking, and caching. The live API also accepted
 # temperature and top-p. Google's cached-input price is $0.20, not fabro's
 # $0.50; the documented long-context tier starts above 200,000 prompt tokens.
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000 } }
 
 [providers.gemini.models."gemini-3.1-pro-preview".metadata.fabro]
@@ -72,7 +73,8 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 # optimized to prioritize custom tools and bash. Lithos function tools worked
 # in a forced-call probe; codec-native custom tool definitions remain outside
 # this catalog capability flag.
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000 } }
 
 [providers.gemini.models."gemini-3.1-pro-preview-customtools".metadata.fabro]
@@ -90,7 +92,8 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 # Fabro omits sampling, but the live API accepted temperature and top-p on
 # 2026-08-29. Google documents those controls as deprecated for this model,
 # so a future removal must update this claim.
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1500000, output_usd_micros_per_million = 9000000, cached_input_usd_micros_per_million = 150000 }
 
 [providers.gemini.models."gemini-3.5-flash".metadata.fabro]
@@ -108,7 +111,8 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 # The catalog stores the standard text/image/video input rate. Google prices
 # audio input at $1.00 per million, a modality distinction the schema cannot
 # represent. Fabro omits sampling, but the live API accepted both controls.
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 3000000, cached_input_usd_micros_per_million = 50000 }
 
 [providers.gemini.models."gemini-3-flash-preview".metadata.fabro]
@@ -126,7 +130,8 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 # The catalog stores the standard text/image/video input and cache-read rates.
 # Google prices audio at $0.50 input and $0.05 cached input per million, which
 # the current modality-neutral pricing schema cannot represent.
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 250000, output_usd_micros_per_million = 1500000, cached_input_usd_micros_per_million = 25000 }
 
 [providers.gemini.models."gemini-3.1-flash-lite".metadata.fabro]

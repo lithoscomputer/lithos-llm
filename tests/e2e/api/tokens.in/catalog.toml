@@ -6,7 +6,8 @@ base_url = "http://127.0.0.1:3931/v1"
 [providers.openai.models.fixture]
 display_name = "OpenAI count fixture"
 api_model = "responses-v1"
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, forced_tool_choice = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.anthropic]
 base_url = "http://127.0.0.1:3932"
@@ -14,7 +15,8 @@ base_url = "http://127.0.0.1:3932"
 [providers.anthropic.models.fixture]
 display_name = "Anthropic count fixture"
 api_model = "claude-fixture"
-capabilities = { text = true, images = true, documents = true, tools = true, forced_tool_choice = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.gemini]
 base_url = "http://127.0.0.1:3932"
@@ -22,7 +24,8 @@ base_url = "http://127.0.0.1:3932"
 [providers.gemini.models.fixture]
 display_name = "Gemini count fixture"
 api_model = "gemini-fixture-v1"
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, forced_tool_choice = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.openrouter]
 base_url = "http://127.0.0.1:3932/v1"
@@ -30,4 +33,4 @@ base_url = "http://127.0.0.1:3932/v1"
 [providers.openrouter.models.fixture]
 display_name = "Chat count fixture"
 api_model = "chat-fixture-v1"
-capabilities = { text = true, tools = true }
+capabilities = { text = true, tools = true, tool_choice = { required = true, named = true } }

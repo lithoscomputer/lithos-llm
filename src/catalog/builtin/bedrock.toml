@@ -28,7 +28,8 @@ aliases = ["bedrock-sonnet"]
 # model needs the profile rather than the bare model id.
 api_model = "us.anthropic.claude-sonnet-4-6"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
-capabilities = { text = true, images = true, documents = true, tools = true, reasoning = true, reasoning_effort_levels = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
 
 [providers.bedrock.models."anthropic.claude-sonnet-4-6".metadata.pebble]

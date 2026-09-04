@@ -82,7 +82,11 @@ impl Codec for GeminiGenerateCodec {
         // Gemini 3 takes named thinking levels. Older and passthrough routes
         // do not claim that dialect, so they keep the unsupported warning.
         if call.request().reasoning_effort().is_some()
-            && !call.route().model().capabilities().reasoning_effort_levels
+            && !call
+                .route()
+                .model()
+                .protocol_options()
+                .reasoning_effort_levels
         {
             encoded = encoded.unsupported_control("the reasoning effort control");
         }
@@ -278,7 +282,7 @@ fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, Error> {
         );
     }
     if let Some(effort) = request.reasoning_effort()
-        && route.model().capabilities().reasoning_effort_levels
+        && route.model().protocol_options().reasoning_effort_levels
     {
         generation.insert(
             "thinkingConfig".to_owned(),

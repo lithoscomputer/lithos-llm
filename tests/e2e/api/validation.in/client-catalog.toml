@@ -11,7 +11,7 @@ capabilities = { text = true }
 [providers.openai.models.no-force]
 display_name = "No forced choice"
 api_model = "no-force"
-capabilities = { text = true, tools = true, forced_tool_choice = false }
+capabilities = { text = true, tools = true, tool_choice = { required = false, named = false } }
 
 [providers.openai.models.no-structured]
 display_name = "No structured output"
@@ -36,7 +36,7 @@ capabilities = { text = true }
 [providers.openai.models.no-speed]
 display_name = "No speed tiers"
 api_model = "no-speed"
-capabilities = { text = true }
+capabilities = { text = true, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 1, speed = { balanced = {} } }
 
 [providers.openai.models.limited]
@@ -48,7 +48,7 @@ capabilities = { text = true }
 [providers.openai.models.no-text]
 display_name = "No text"
 api_model = "no-text"
-capabilities = {}
+capabilities = {  }
 
 [providers.openai.models.no-images]
 display_name = "No images"

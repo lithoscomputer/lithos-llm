@@ -6,7 +6,8 @@ base_url = "http://127.0.0.1:3931/v1"
 [providers.openai.models.fixture]
 display_name = "OpenAI full fixture"
 api_model = "responses-v1"
-capabilities = { text = true, images = true, documents = true, tools = true, forced_tool_choice = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.anthropic]
 base_url = "http://127.0.0.1:3932"
@@ -15,4 +16,5 @@ base_url = "http://127.0.0.1:3932"
 display_name = "Anthropic full fixture"
 api_model = "claude-fixture"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
-capabilities = { text = true, images = true, documents = true, tools = true, forced_tool_choice = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_breakpoints = true, cache_routing = true, sampling = true, system_turns = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true, system_turns = true }

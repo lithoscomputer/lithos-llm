@@ -236,17 +236,22 @@ fn entries(
     models
 }
 
-const fn has_capability(capabilities: ModelCapabilities, capability: CapabilityArg) -> bool {
+fn has_capability(capabilities: ModelCapabilities, capability: CapabilityArg) -> bool {
     match capability {
-        CapabilityArg::Text => capabilities.text,
-        CapabilityArg::Images => capabilities.images,
-        CapabilityArg::Audio => capabilities.audio,
-        CapabilityArg::Documents => capabilities.documents,
-        CapabilityArg::Tools => capabilities.tools,
-        CapabilityArg::StructuredOutput => capabilities.structured_output,
-        CapabilityArg::Reasoning => capabilities.reasoning,
-        CapabilityArg::Caching => capabilities.caching,
-        CapabilityArg::Sampling => capabilities.sampling,
+        CapabilityArg::Text => capabilities.text().is_supported(),
+        CapabilityArg::Images => capabilities.images().is_supported(),
+        CapabilityArg::Audio => capabilities.audio().is_supported(),
+        CapabilityArg::Documents => capabilities.documents().is_supported(),
+        CapabilityArg::Tools => capabilities.tools().is_supported(),
+        CapabilityArg::StructuredOutput => capabilities
+            .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+                name:   String::new(),
+                schema: serde_json::Value::Null,
+            })
+            .is_supported(),
+        CapabilityArg::Reasoning => capabilities.reasoning().is_supported(),
+        CapabilityArg::Caching => capabilities.caching().is_supported(),
+        CapabilityArg::Sampling => capabilities.sampling().is_supported(),
     }
 }
 
@@ -331,15 +336,23 @@ fn render_table(models: &[ModelEntry]) -> String {
 
 fn capability_names(capabilities: ModelCapabilities) -> Vec<&'static str> {
     [
-        (capabilities.text, "text"),
-        (capabilities.images, "images"),
-        (capabilities.audio, "audio"),
-        (capabilities.documents, "documents"),
-        (capabilities.tools, "tools"),
-        (capabilities.structured_output, "structured-output"),
-        (capabilities.reasoning, "reasoning"),
-        (capabilities.caching, "caching"),
-        (capabilities.sampling, "sampling"),
+        (capabilities.text().is_supported(), "text"),
+        (capabilities.images().is_supported(), "images"),
+        (capabilities.audio().is_supported(), "audio"),
+        (capabilities.documents().is_supported(), "documents"),
+        (capabilities.tools().is_supported(), "tools"),
+        (
+            capabilities
+                .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+                    name:   String::new(),
+                    schema: serde_json::Value::Null,
+                })
+                .is_supported(),
+            "structured-output",
+        ),
+        (capabilities.reasoning().is_supported(), "reasoning"),
+        (capabilities.caching().is_supported(), "caching"),
+        (capabilities.sampling().is_supported(), "sampling"),
     ]
     .into_iter()
     .filter_map(|(enabled, name)| enabled.then_some(name))

@@ -42,34 +42,40 @@ type = "bearer"
 display_name = "GPT-5.6 Sol"
 api_model = "gpt-5.6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.openai-codex.models."gpt-5.6-terra"]
 display_name = "GPT-5.6 Terra"
 api_model = "gpt-5.6-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.openai-codex.models."gpt-5.6-luna"]
 display_name = "GPT-5.6 Luna"
 api_model = "gpt-5.6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.openai-codex.models."gpt-5.4"]
 display_name = "GPT-5.4"
 api_model = "gpt-5.4"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.openai-codex.models."gpt-5.5"]
 display_name = "GPT-5.5"
 api_model = "gpt-5.5"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 [providers.openai-codex.models."gpt-5.4-mini"]
 display_name = "GPT-5.4 Mini"
 api_model = "gpt-5.4-mini"
 limits = { context_tokens = 400000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }

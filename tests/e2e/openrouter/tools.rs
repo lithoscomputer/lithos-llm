@@ -84,11 +84,13 @@ fn assert_weather_call(arguments: &Value) {
 /// so its row says so and these cells skip it.
 fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
     let capabilities = openrouter::capabilities(model);
-    if !capabilities.tools {
+    if !capabilities.tools().is_supported() {
         return Some(support::skip("the catalog does not claim tools"));
     }
-    (!capabilities.forced_tool_choice)
-        .then(|| support::skip("the catalog does not claim forced tool choice"))
+    (!capabilities
+        .tool_choice(&lithos_llm::types::ToolChoice::Required)
+        .is_supported())
+    .then(|| support::skip("the catalog does not claim forced tool choice"))
 }
 
 async fn calls_the_forced_tool(model: &str) -> TestResult {
@@ -160,7 +162,7 @@ async fn streams_the_forced_tool_call(model: &str) -> TestResult {
 }
 
 async fn uses_the_tool_result(model: &str) -> TestResult {
-    if !openrouter::capabilities(model).tools {
+    if !openrouter::capabilities(model).tools().is_supported() {
         return support::skip("the catalog does not claim tools");
     }
     let Some(client) = openrouter::live_client() else {
@@ -194,7 +196,7 @@ async fn uses_the_tool_result(model: &str) -> TestResult {
 }
 
 async fn calls_a_tool_under_auto_choice(model: &str) -> TestResult {
-    if !openrouter::capabilities(model).tools {
+    if !openrouter::capabilities(model).tools().is_supported() {
         return support::skip("the catalog does not claim tools");
     }
     let Some(client) = openrouter::live_client() else {
@@ -248,7 +250,7 @@ async fn calls_a_tool_under_required_choice(model: &str) -> TestResult {
 }
 
 async fn issues_parallel_tool_calls(model: &str) -> TestResult {
-    if !openrouter::capabilities(model).tools {
+    if !openrouter::capabilities(model).tools().is_supported() {
         return support::skip("the catalog does not claim tools");
     }
     // Laguna XS issued one call on both attempts on 2026-08-29. Its listing
@@ -285,7 +287,7 @@ async fn issues_parallel_tool_calls(model: &str) -> TestResult {
 }
 
 async fn acknowledges_an_error_tool_result(model: &str) -> TestResult {
-    if !openrouter::capabilities(model).tools {
+    if !openrouter::capabilities(model).tools().is_supported() {
         return support::skip("the catalog does not claim tools");
     }
     let Some(client) = openrouter::live_client() else {

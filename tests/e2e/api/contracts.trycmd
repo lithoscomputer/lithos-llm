@@ -339,15 +339,31 @@ $ lithos-llm-e2e catalog catalog.json
             "audio": false,
             "documents": false,
             "tools": true,
-            "forced_tool_choice": true,
-            "structured_output": false,
             "reasoning": false,
-            "reasoning_effort_levels": false,
             "caching": false,
-            "cache_breakpoints": false,
             "cache_routing": false,
             "sampling": true,
-            "system_turns": false
+            "tool_choice": {
+              "required": true,
+              "named": true
+            },
+            "response_format": {
+              "json_object": false,
+              "json_schema": false
+            },
+            "reasoning_effort": {
+              "minimal": "unknown",
+              "low": "unknown",
+              "medium": "unknown",
+              "high": "unknown",
+              "xhigh": "unknown",
+              "max": "unknown"
+            },
+            "speed": {
+              "fast": true,
+              "balanced": true,
+              "economical": true
+            }
           },
           "pricing": {
             "input_usd_micros_per_million": 1000000,

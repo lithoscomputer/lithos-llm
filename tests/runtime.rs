@@ -1040,7 +1040,7 @@ type = "none"
 [providers.test.models.model]
 display_name = "Test model"
 api_model = "model"
-capabilities = { text = true, tools = true, forced_tool_choice = false }
+capabilities = { text = true, tools = true, tool_choice = { required = false, named = false } }
 "#;
 
 #[tokio::test]

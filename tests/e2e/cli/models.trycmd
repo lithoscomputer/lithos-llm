@@ -44,15 +44,31 @@ $ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local -
         "audio": false,
         "documents": true,
         "tools": true,
-        "forced_tool_choice": true,
-        "structured_output": true,
         "reasoning": false,
-        "reasoning_effort_levels": false,
         "caching": true,
-        "cache_breakpoints": false,
         "cache_routing": false,
         "sampling": true,
-        "system_turns": false
+        "tool_choice": {
+          "required": true,
+          "named": true
+        },
+        "response_format": {
+          "json_object": true,
+          "json_schema": true
+        },
+        "reasoning_effort": {
+          "minimal": "unknown",
+          "low": "unknown",
+          "medium": "unknown",
+          "high": "unknown",
+          "xhigh": "unknown",
+          "max": "unknown"
+        },
+        "speed": {
+          "fast": false,
+          "balanced": true,
+          "economical": false
+        }
       },
       "adapter_compiled": true,
       "credentials_configured": true,
@@ -68,15 +84,31 @@ $ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local -
         "audio": false,
         "documents": false,
         "tools": false,
-        "forced_tool_choice": true,
-        "structured_output": false,
         "reasoning": false,
-        "reasoning_effort_levels": false,
         "caching": false,
-        "cache_breakpoints": false,
         "cache_routing": false,
         "sampling": false,
-        "system_turns": false
+        "tool_choice": {
+          "required": false,
+          "named": false
+        },
+        "response_format": {
+          "json_object": false,
+          "json_schema": false
+        },
+        "reasoning_effort": {
+          "minimal": "unknown",
+          "low": "unknown",
+          "medium": "unknown",
+          "high": "unknown",
+          "xhigh": "unknown",
+          "max": "unknown"
+        },
+        "speed": {
+          "fast": "unknown",
+          "balanced": true,
+          "economical": "unknown"
+        }
       },
       "adapter_compiled": true,
       "credentials_configured": true,

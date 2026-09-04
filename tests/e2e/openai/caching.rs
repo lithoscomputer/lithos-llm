@@ -40,7 +40,7 @@ fn large_prefix() -> String {
 }
 
 async fn caches_a_shared_prefix(model: &str) -> TestResult {
-    if !openai::capabilities(model).caching {
+    if !openai::capabilities(model).caching().is_supported() {
         return support::skip("the catalog does not claim caching");
     }
     let Some(client) = openai::live_client() else {

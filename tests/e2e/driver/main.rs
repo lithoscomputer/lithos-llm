@@ -1634,7 +1634,8 @@ default_model = "model"
 [providers.fixture.models.model]
 display_name = "Fixture model"
 api_model = "fixture-model"
-capabilities = { text = true, images = true, audio = true, documents = true, tools = true, forced_tool_choice = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 "#
 }
 

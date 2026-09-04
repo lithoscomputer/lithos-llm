@@ -17,7 +17,7 @@ mod accepted {
 }
 
 async fn accepts_sampling_parameters(model: &str) -> TestResult {
-    if !openai::capabilities(model).sampling {
+    if !openai::capabilities(model).sampling().is_supported() {
         return support::skip("the catalog does not claim sampling");
     }
     let Some(client) = openai::live_client() else {

@@ -74,9 +74,7 @@ fn provider() -> support::WireProvider<'static> {
         .with_api_model(API_MODEL)
         .with_auth("{ type = \"header\", name = \"x-goog-api-key\" }")
         .with_capabilities(
-            "{ text = true, images = true, audio = true, documents = true, tools = true, \
-             structured_output = true, reasoning = true, reasoning_effort_levels = true, \
-             caching = true, cache_breakpoints = true, sampling = true }",
+            "{ text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true } }\nprotocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }",
         )
 }
 

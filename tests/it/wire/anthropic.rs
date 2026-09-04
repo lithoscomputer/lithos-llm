@@ -921,25 +921,19 @@ async fn auto_cache_disabled_sends_no_breakpoints() {
 
 /// Capabilities for a model that takes named effort levels, as
 /// claude-sonnet-4-6 does.
-const LEVELS_CAPABILITIES: &str = "{ text = true, tools = true, structured_output = true, \
-                                    reasoning = true, reasoning_effort_levels = true }";
+const LEVELS_CAPABILITIES: &str = "{ text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }\nprotocol_options = { reasoning_effort_levels = true }";
 
 /// Capabilities for a reasoning model that takes no effort levels, as
 /// claude-sonnet-4-5 does. Effort reaches such a model as a thinking budget.
-const BUDGET_CAPABILITIES: &str =
-    "{ text = true, tools = true, structured_output = true, reasoning = true }";
+const BUDGET_CAPABILITIES: &str = "{ text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }";
 
 /// The levels capabilities for a model that takes system turns inside the
 /// conversation, as the Claude 5 models and Opus 4.8 do.
-const SYSTEM_TURN_CAPABILITIES: &str = "{ text = true, tools = true, structured_output = true, \
-                                         reasoning = true, reasoning_effort_levels = true, \
-                                         system_turns = true }";
+const SYSTEM_TURN_CAPABILITIES: &str = "{ text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }\nprotocol_options = { reasoning_effort_levels = true, system_turns = true }";
 
 /// The levels capabilities for a model that takes no forced tool choice, as
 /// claude-fable-5-1 does.
-const NO_FORCED_CHOICE_CAPABILITIES: &str = "{ text = true, tools = true, forced_tool_choice = \
-                                             false, structured_output = true, reasoning = true, \
-                                             reasoning_effort_levels = true }";
+const NO_FORCED_CHOICE_CAPABILITIES: &str = "{ text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = false, named = false } }\nprotocol_options = { reasoning_effort_levels = true }";
 
 /// The catalog output limit the model-limit fixture declares.
 const CATALOG_LIMITS: &str = "{ context_tokens = 200000, max_output_tokens = 64000 }";

@@ -29,7 +29,7 @@ fn large_prefix() -> String {
 }
 
 async fn caches_a_shared_prefix(model: &str) -> TestResult {
-    if !moonshot::capabilities(model).caching {
+    if !moonshot::capabilities(model).caching().is_supported() {
         return support::skip("the catalog does not claim caching");
     }
     let Some(client) = moonshot::live_client() else {

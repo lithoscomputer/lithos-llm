@@ -29,7 +29,7 @@ fn large_prefix() -> String {
 }
 
 async fn caches_a_shared_prefix(model: &str) -> TestResult {
-    if !fireworks::capabilities(model).caching {
+    if !fireworks::capabilities(model).caching().is_supported() {
         return support::skip("the catalog does not claim caching");
     }
     let Some(client) = fireworks::live_client() else {

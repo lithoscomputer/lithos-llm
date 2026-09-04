@@ -67,7 +67,7 @@ async fn honors_a_mid_conversation_system_message(model: &str) -> TestResult {
     // its translation emits an empty text block into the upstream system
     // array. Every Claude row claims breakpoints, so they skip here; the
     // negative suite pins the rejection and `.ai/repros/` holds the report.
-    if venice::capabilities(model).cache_breakpoints {
+    if venice::protocol_options(model).cache_breakpoints {
         return support::skip(
             "Venice rejects a cached system prefix beside a mid-conversation system message",
         );

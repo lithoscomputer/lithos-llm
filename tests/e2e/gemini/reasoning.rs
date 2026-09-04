@@ -81,7 +81,7 @@ async fn accepts_effort(model: &str, effort: ReasoningEffort) -> TestResult {
 }
 
 async fn shows_reasoning_evidence(model: &str) -> TestResult {
-    if !gemini::capabilities(model).reasoning {
+    if !gemini::capabilities(model).reasoning().is_supported() {
         return support::skip("the catalog does not claim reasoning");
     }
     let Some(client) = gemini::live_client() else {

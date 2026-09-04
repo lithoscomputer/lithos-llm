@@ -368,7 +368,7 @@ fn message_body(
     let request = call.request();
     let route = call.route();
     // A model that cannot cache would reject the breakpoints outright.
-    let cached = auto_cache && route.model().capabilities().caching;
+    let cached = auto_cache && route.model().capabilities().caching().is_supported();
 
     let mut body = Map::new();
     body.insert("model".to_owned(), route.api_model().into());
@@ -377,7 +377,7 @@ fn message_body(
     // the top-level field; a later system message stays in the conversation.
     // Everywhere else every system message is hoisted, the one encoding
     // those models take.
-    let system_turns = route.model().capabilities().system_turns;
+    let system_turns = route.model().protocol_options().system_turns;
     let hoisted = if system_turns {
         leading_system_run(request.messages())
     } else {
@@ -552,7 +552,7 @@ fn output_limit(call: &ResolvedCall) -> u32 {
 /// A caller who wants something else sets `thinking` in the raw provider
 /// options, which is merged over this.
 fn takes_adaptive_thinking(route: &ResolvedRoute) -> bool {
-    route.model().capabilities().reasoning_effort_levels
+    route.model().protocol_options().reasoning_effort_levels
 }
 
 /// Whether effort encodes as `output_config.effort` for this model.
@@ -565,7 +565,7 @@ fn takes_adaptive_thinking(route: &ResolvedRoute) -> bool {
 /// passthrough request without an effort is encoded exactly as before.
 fn takes_effort_levels(route: &ResolvedRoute) -> bool {
     let model = route.model();
-    model.capabilities().reasoning_effort_levels || model.is_passthrough()
+    model.protocol_options().reasoning_effort_levels || model.is_passthrough()
 }
 
 /// Whether the tool choice makes a tool call mandatory.
@@ -2371,7 +2371,7 @@ mod tests {
         [providers.anthropic.models."claude-sonnet-4-5"]
         display_name = "Budget Claude"
         api_model = "claude-sonnet-4-5"
-        capabilities = { text = true, tools = true, reasoning = true }
+        capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
     "#;
 
     /// The budget-model catalog with passthrough allowed.
@@ -2390,7 +2390,7 @@ mod tests {
         [providers.anthropic.models."claude-sonnet-4-5"]
         display_name = "Budget Claude"
         api_model = "claude-sonnet-4-5"
-        capabilities = { text = true, tools = true, reasoning = true }
+        capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
     "#;
 
     #[test]

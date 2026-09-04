@@ -39,8 +39,7 @@ use crate::resolver::{
     AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
 };
 use crate::types::{
-    CacheHint, ContentPart, Error, ErrorKind, Message, Request, Response, ResponseFormat,
-    ResponseStream, Speed, ToolChoice,
+    CacheHint, ContentPart, Error, ErrorKind, Message, Request, Response, ResponseStream, Speed,
 };
 
 /// How long the default HTTP client waits to establish a connection.
@@ -277,34 +276,31 @@ impl Client {
 }
 
 pub(crate) fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
-    // A passthrough model's capabilities are unknown, not absent: the catalog
-    // never described it. Only the provider can judge such a request.
-    if route.model().is_passthrough() {
-        return Ok(());
-    }
     let capabilities = route.model().capabilities();
-    if !request.tools().is_empty() && !capabilities.tools {
+    if !request.tools().is_empty() && capabilities.tools().is_unsupported() {
         return Err(unsupported_capability(route, "tools"));
     }
-    // A forced choice is what the caller asked the model to do, not a tuning
-    // knob: downgrading it to `auto` could hand back prose where a call was
-    // required. A model that rejects the forced choice refuses it here, before
-    // any tokens are spent, the same way an unclaimed sampling control is.
-    if request.tool_choice().is_some_and(ToolChoice::is_forced) && !capabilities.forced_tool_choice
+    if request
+        .tool_choice()
+        .is_some_and(|choice| capabilities.tool_choice(choice).is_unsupported())
     {
         return Err(unsupported_capability(route, "forced tool choice"));
     }
-    if matches!(
-        request.response_format(),
-        Some(ResponseFormat::JsonObject | ResponseFormat::JsonSchema { .. })
-    ) && !capabilities.structured_output
+    if request
+        .response_format()
+        .is_some_and(|format| capabilities.response_format(format).is_unsupported())
     {
         return Err(unsupported_capability(route, "structured output"));
     }
-    if request.reasoning_effort().is_some() && !capabilities.reasoning {
+    if request
+        .reasoning_effort()
+        .is_some_and(|effort| capabilities.reasoning_effort(effort).is_unsupported())
+    {
         return Err(unsupported_capability(route, "reasoning"));
     }
-    if (request.temperature().is_some() || request.top_p().is_some()) && !capabilities.sampling {
+    if (request.temperature().is_some() || request.top_p().is_some())
+        && capabilities.sampling().is_unsupported()
+    {
         return Err(unsupported_capability(route, "sampling"));
     }
     // `Disabled` asks for nothing and is honored anywhere; the explicit
@@ -312,25 +308,12 @@ pub(crate) fn validate_request(request: &Request, route: &ResolvedRoute) -> Resu
     if matches!(
         request.cache_hint(),
         Some(CacheHint::Auto | CacheHint::Key { .. })
-    ) && !capabilities.cache_routing
+    ) && capabilities.cache_routing().is_unsupported()
     {
         return Err(unsupported_capability(route, "cache routing"));
     }
-    // The catalog declares speed support through speed pricing: a model that
-    // prices a tier takes it, and `SpeedRates` may be empty, so a tier that
-    // keeps the base rates is still declarable. `Balanced` always passes
-    // because it is the default tier — codecs encode it as the provider's
-    // "auto" or standard service level, which every model takes. A model with
-    // no pricing block at all — every passthrough model in particular — is
-    // undescribed rather than restricted, so the provider judges the speed.
     if let Some(speed) = request.speed()
-        && speed != Speed::Balanced
-        && route.model().pricing().is_some_and(|pricing| {
-            pricing
-                .speed
-                .and_then(|tiers| tiers.for_speed(speed))
-                .is_none()
-        })
+        && capabilities.speed(speed).is_unsupported()
     {
         return Err(unsupported_capability(
             route,
@@ -355,12 +338,18 @@ pub(crate) fn validate_request(request: &Request, route: &ResolvedRoute) -> Resu
     }
     for part in request.messages().iter().flat_map(Message::content) {
         let capability = match part {
-            ContentPart::Text { .. } if !capabilities.text => Some("text"),
-            ContentPart::Image(_) if !capabilities.images => Some("images"),
-            ContentPart::Audio(_) if !capabilities.audio => Some("audio"),
-            ContentPart::Document(_) if !capabilities.documents => Some("documents"),
-            ContentPart::Reasoning(_) if !capabilities.reasoning => Some("reasoning"),
-            ContentPart::ToolCall(_) | ContentPart::ToolResult(_) if !capabilities.tools => {
+            ContentPart::Text { .. } if capabilities.text().is_unsupported() => Some("text"),
+            ContentPart::Image(_) if capabilities.images().is_unsupported() => Some("images"),
+            ContentPart::Audio(_) if capabilities.audio().is_unsupported() => Some("audio"),
+            ContentPart::Document(_) if capabilities.documents().is_unsupported() => {
+                Some("documents")
+            }
+            ContentPart::Reasoning(_) if capabilities.reasoning().is_unsupported() => {
+                Some("reasoning")
+            }
+            ContentPart::ToolCall(_) | ContentPart::ToolResult(_)
+                if capabilities.tools().is_unsupported() =>
+            {
                 Some("tools")
             }
             _ => None,
@@ -817,8 +806,8 @@ mod tests {
         [providers.beta.models.two]
         display_name = "Two"
         api_model = "beta-two-v1"
-        capabilities = { text = true }
-        # Priced with no speed tiers, so only the balanced default is taken.
+        capabilities = { text = true, speed = { fast = false, economical = false } }
+        # This model explicitly supports only the balanced speed.
         pricing = { input_usd_micros_per_million = 100, output_usd_micros_per_million = 200 }
 
         [providers.gamma]

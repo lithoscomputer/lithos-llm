@@ -15,7 +15,7 @@ mod accepted {
 }
 
 async fn accepts_sampling_parameters(model: &str) -> TestResult {
-    if !venice::capabilities(model).sampling {
+    if !venice::capabilities(model).sampling().is_supported() {
         return support::skip("the catalog does not claim sampling");
     }
     let Some(client) = venice::live_client() else {

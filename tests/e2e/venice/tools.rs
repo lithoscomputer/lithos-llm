@@ -83,8 +83,10 @@ fn assert_weather_call(arguments: &Value) {
 /// for a forced choice on Fable 5.1 straight through, so its row says so and
 /// these cells skip it.
 fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
-    (!venice::capabilities(model).forced_tool_choice)
-        .then(|| support::skip("the catalog does not claim forced tool choice"))
+    (!venice::capabilities(model)
+        .tool_choice(&lithos_llm::types::ToolChoice::Required)
+        .is_supported())
+    .then(|| support::skip("the catalog does not claim forced tool choice"))
 }
 
 async fn calls_the_forced_tool(model: &str) -> TestResult {

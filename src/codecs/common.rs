@@ -195,14 +195,15 @@ fn split_controls(mut options: Map<String, Value>) -> (Map<String, Value>, Contr
 #[cfg(any(feature = "openai", feature = "openai-compatible"))]
 pub(crate) fn cache_routing_key(call: &ResolvedCall, controls: Controls) -> Option<String> {
     let capabilities = call.route().model().capabilities();
-    if !capabilities.cache_routing {
+    if !capabilities.cache_routing().is_supported() {
         return None;
     }
     match call.request().cache_hint() {
         Some(CacheHint::Disabled) => None,
         Some(CacheHint::Key { key }) => Some(key.clone()),
-        Some(CacheHint::Auto) | None => (controls.auto_cache && capabilities.caching)
-            .then(|| prefix_fingerprint(call.request())),
+        Some(CacheHint::Auto) | None => (controls.auto_cache
+            && capabilities.caching().is_supported())
+        .then(|| prefix_fingerprint(call.request())),
     }
 }
 

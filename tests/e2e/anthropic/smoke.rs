@@ -87,7 +87,7 @@ async fn honors_a_mid_conversation_system_message(model: &str) -> TestResult {
         text.contains("MADRID"),
         "{model} did not follow the mid-conversation system message (system turns claimed: {}): \
          {text:?}",
-        anthropic::capabilities(model).system_turns
+        anthropic::protocol_options(model).system_turns
     );
     Ok(())
 }

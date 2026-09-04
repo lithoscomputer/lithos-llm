@@ -1,112 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Metadata, ModelId, ProviderId};
+use super::{Metadata, ModelCapabilities, ModelId, ModelProtocolOptions, ProviderId};
 use crate::types::Speed;
-
-/// Portable model capabilities.
-///
-/// Every field but one defaults to `false`, so a row claims only what it
-/// names. [`forced_tool_choice`](Self::forced_tool_choice) defaults to `true`
-/// because it records a restriction newer than the schema; see its
-/// documentation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct ModelCapabilities {
-    #[serde(default)]
-    pub text:                    bool,
-    #[serde(default)]
-    pub images:                  bool,
-    #[serde(default)]
-    pub audio:                   bool,
-    #[serde(default)]
-    pub documents:               bool,
-    #[serde(default)]
-    pub tools:                   bool,
-    /// The model takes a forced tool choice: `required`, or one named tool.
-    ///
-    /// Defaults to `true`. Every model that took tools also took a forced
-    /// choice until Claude Fable 5.1, which returns a 400 for one, so a row
-    /// that says nothing keeps the historical behavior and a catalog written
-    /// before this field existed changes nothing. `auto` and `none` are
-    /// always available where `tools` is. The client refuses a forced choice
-    /// before dispatch where this is `false`.
-    #[serde(default = "forced_tool_choice_default")]
-    pub forced_tool_choice:      bool,
-    #[serde(default)]
-    pub structured_output:       bool,
-    #[serde(default)]
-    pub reasoning:               bool,
-    /// The model takes a named reasoning effort level.
-    ///
-    /// A reasoning model without this capability takes only a reasoning token
-    /// budget, so a codec converts a requested effort into a budget.
-    #[serde(default)]
-    pub reasoning_effort_levels: bool,
-    #[serde(default)]
-    pub caching:                 bool,
-    /// The model's endpoint accepts Anthropic-style `cache_control`
-    /// breakpoints.
-    ///
-    /// Only the OpenAI-compatible codec reads this: an aggregator fronting an
-    /// Anthropic model forwards breakpoints upstream, while a skin whose
-    /// caching is automatic rejects the rewritten content, so `caching` alone
-    /// does not justify the annotation there. Protocols with a native cache
-    /// control gate on `caching` and ignore this flag.
-    #[serde(default)]
-    pub cache_breakpoints:       bool,
-    /// The model's endpoint takes a cache routing hint.
-    ///
-    /// OpenAI and the compatible gateways spell it `prompt_cache_key`. A
-    /// gateway that shards requests across replicas needs the hint for cache
-    /// hits at all — Venice writes the same Claude cache entry on every call
-    /// and never reads one without it — so a request's
-    /// [`CacheHint`](crate::types::CacheHint) only reaches the wire where
-    /// this flag is claimed.
-    #[serde(default)]
-    pub cache_routing:           bool,
-    #[serde(default)]
-    pub sampling:                bool,
-    /// The model's endpoint takes system-role turns inside the conversation.
-    ///
-    /// Only the Anthropic codec reads this. Its protocol has a top-level
-    /// system field, and the codec hoists system and developer messages into
-    /// it — which rewrites that field whenever an application appends a
-    /// system message mid-conversation, and on a model with preserved
-    /// thinking a rewritten prefix invalidates every earlier thinking block.
-    /// Where this is claimed, only the leading run of system messages is
-    /// hoisted and a later one is sent in place as a `system` turn, which the
-    /// Messages API accepts on Claude Opus 4.8 and the Claude 5 models.
-    /// Protocols that carry system turns natively ignore the flag.
-    #[serde(default)]
-    pub system_turns:            bool,
-}
-
-impl Default for ModelCapabilities {
-    /// No claims, and the one restriction field at its permissive default.
-    fn default() -> Self {
-        Self {
-            text:                    false,
-            images:                  false,
-            audio:                   false,
-            documents:               false,
-            tools:                   false,
-            forced_tool_choice:      forced_tool_choice_default(),
-            structured_output:       false,
-            reasoning:               false,
-            reasoning_effort_levels: false,
-            caching:                 false,
-            cache_breakpoints:       false,
-            cache_routing:           false,
-            sampling:                false,
-            system_turns:            false,
-        }
-    }
-}
-
-/// The serde default for [`ModelCapabilities::forced_tool_choice`].
-fn forced_tool_choice_default() -> bool {
-    true
-}
 
 /// Context and output token limits.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -257,23 +152,25 @@ impl Pricing {
 #[serde(deny_unknown_fields)]
 pub struct CatalogModel {
     #[serde(skip)]
-    provider:     ProviderId,
+    provider:         ProviderId,
     #[serde(skip)]
-    id:           ModelId,
+    id:               ModelId,
     #[serde(skip)]
-    passthrough:  bool,
-    display_name: String,
+    passthrough:      bool,
+    display_name:     String,
     #[serde(default)]
-    aliases:      Vec<String>,
-    api_model:    String,
+    aliases:          Vec<String>,
+    api_model:        String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    limits:       Option<ModelLimits>,
+    limits:           Option<ModelLimits>,
     #[serde(default)]
-    capabilities: ModelCapabilities,
+    capabilities:     ModelCapabilities,
+    #[serde(default)]
+    protocol_options: ModelProtocolOptions,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pricing:      Option<Pricing>,
+    pricing:          Option<Pricing>,
     #[serde(default, skip_serializing_if = "Metadata::is_empty")]
-    metadata:     Metadata,
+    metadata:         Metadata,
 }
 
 impl CatalogModel {
@@ -303,6 +200,10 @@ impl CatalogModel {
 
     pub fn capabilities(&self) -> ModelCapabilities {
         self.capabilities
+    }
+
+    pub fn protocol_options(&self) -> ModelProtocolOptions {
+        self.protocol_options
     }
 
     pub fn pricing(&self) -> Option<Pricing> {
@@ -336,13 +237,8 @@ impl CatalogModel {
             id: model,
             aliases: Vec::new(),
             limits: None,
-            // Conservative flags: codecs that gate wire behavior on a
-            // capability (cache points, effort levels) stay on their safe
-            // path. Validation is skipped instead via `is_passthrough`.
-            capabilities: ModelCapabilities {
-                text: true,
-                ..ModelCapabilities::default()
-            },
+            capabilities: ModelCapabilities::unknown(),
+            protocol_options: ModelProtocolOptions::default(),
             pricing: None,
             metadata: Metadata::default(),
         }
@@ -353,7 +249,7 @@ impl CatalogModel {
 mod tests {
     use std::error::Error as StdError;
 
-    use super::{LongContextPricing, ModelCapabilities, Pricing};
+    use super::{LongContextPricing, Pricing};
     use crate::types::Speed;
 
     fn sample_pricing() -> Pricing {
@@ -371,23 +267,6 @@ mod tests {
             }),
             speed: None,
         }
-    }
-
-    #[test]
-    fn forced_tool_choice_defaults_to_true() -> Result<(), Box<dyn StdError>> {
-        // A row written before the field existed keeps forcing tools.
-        let silent: ModelCapabilities = toml::from_str("text = true\ntools = true")?;
-        assert!(silent.forced_tool_choice);
-        assert!(ModelCapabilities::default().forced_tool_choice);
-
-        // Only an explicit denial records the restriction.
-        let denied: ModelCapabilities =
-            toml::from_str("text = true\ntools = true\nforced_tool_choice = false")?;
-        assert!(!denied.forced_tool_choice);
-        let rendered = toml::to_string(&denied)?;
-        let round_tripped: ModelCapabilities = toml::from_str(&rendered)?;
-        assert_eq!(round_tripped, denied);
-        Ok(())
     }
 
     #[test]
@@ -506,20 +385,5 @@ mod tests {
                 .input_usd_micros_per_million,
             Some(1)
         );
-    }
-
-    #[test]
-    fn reads_the_effort_level_capability_from_toml() -> Result<(), Box<dyn StdError>> {
-        let capabilities = toml::from_str::<ModelCapabilities>(
-            r"
-            reasoning = true
-            reasoning_effort_levels = true
-            ",
-        )?;
-
-        assert!(capabilities.reasoning_effort_levels);
-        // The capability defaults to false, so a reasoning model states it.
-        assert!(!toml::from_str::<ModelCapabilities>("reasoning = true")?.reasoning_effort_levels);
-        Ok(())
     }
 }

@@ -769,7 +769,8 @@ async fn auto_cache_false_sends_no_cache_points() {
 }
 
 /// The capabilities of a hosted family that cannot cache.
-const NO_CACHING_CAPABILITIES: &str = "{ text = true, tools = true }";
+const NO_CACHING_CAPABILITIES: &str =
+    "{ text = true, tools = true, tool_choice = { required = true, named = true } }";
 
 #[tokio::test]
 async fn a_model_that_cannot_cache_sends_no_cache_points() {

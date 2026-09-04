@@ -83,8 +83,10 @@ fn assert_weather_call(arguments: &Value) {
 /// choice with a 400, and its row says so; the negative suite pins the
 /// upstream rejection itself.
 fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
-    (!anthropic::capabilities(model).forced_tool_choice)
-        .then(|| support::skip("the catalog does not claim forced tool choice"))
+    (!anthropic::capabilities(model)
+        .tool_choice(&lithos_llm::types::ToolChoice::Required)
+        .is_supported())
+    .then(|| support::skip("the catalog does not claim forced tool choice"))
 }
 
 async fn calls_the_forced_tool(model: &str) -> TestResult {

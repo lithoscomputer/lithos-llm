@@ -49,7 +49,8 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # A system message appended mid-conversation goes out as a system turn, not
 # into the top-level field: the top-level prefix is bound to every thinking
 # block on this model, so hoisting would invalidate them (probed 2026-09-01).
-capabilities = { text = true, images = true, documents = true, tools = true, forced_tool_choice = false, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
 
 [providers.anthropic.models."claude-fable-5.1".metadata.fabro]
@@ -67,7 +68,8 @@ api_model = "claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Fable always uses adaptive thinking and rejects non-default sampling values.
 # Takes mid-conversation system turns (probed 2026-09-01).
-capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
 
 [providers.anthropic.models."claude-fable-5".metadata.fabro]
@@ -85,7 +87,8 @@ api_model = "claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Opus 5 takes all five effort levels and rejects non-default sampling values.
 # Takes mid-conversation system turns (probed 2026-09-01).
-capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
 
 [providers.anthropic.models."claude-opus-5".metadata.fabro]
@@ -106,7 +109,8 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Sonnet 5 takes all five effort levels and rejects non-default sampling values.
 # Takes mid-conversation system turns, contrary to the launch docs (probed
 # 2026-09-01).
-capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
 
 [providers.anthropic.models."claude-sonnet-5".metadata.fabro]
@@ -125,7 +129,8 @@ api_model = "claude-opus-4-8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Opus 4.8 takes all five effort levels and rejects non-default sampling values.
 # Takes mid-conversation system turns (probed 2026-09-01).
-capabilities = { text = true, images = true, documents = true, tools = true, system_turns = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
 
 [providers.anthropic.models."claude-opus-4.8".metadata.fabro]
@@ -147,7 +152,8 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Opus 4.7 and every older row reject a `system` turn ("role 'system' is not
 # supported on this model", probed 2026-09-01), so their system messages are
 # all hoisted.
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
 
 [providers.anthropic.models."claude-opus-4.7".metadata.fabro]
@@ -168,7 +174,8 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Adaptive thinking makes non-default sampling values invalid on Lithos'
 # default route, so sampling stays unclaimed even though the model takes
 # sampling controls after a caller explicitly disables thinking.
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
 
 [providers.anthropic.models."claude-opus-4.6".metadata.fabro]
@@ -187,7 +194,7 @@ display_name = "Claude Sonnet 4.5"
 api_model = "claude-sonnet-4-5-20250929"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # This older model uses a manual thinking budget, not named effort levels.
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
 
 [providers.anthropic.models."claude-sonnet-4.5".metadata.fabro]
@@ -208,7 +215,8 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # The live listing corrects fabro's stale 200k context and 64k output limits.
 # Adaptive thinking makes non-default sampling values invalid on Lithos'
 # default route, so sampling stays unclaimed.
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
 
 [providers.anthropic.models."claude-sonnet-4.6".metadata.fabro]
@@ -230,7 +238,7 @@ limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # The live listing corrects fabro's stale 8,192-token output limit and says
 # Haiku takes manual thinking, so the row claims reasoning without effort
 # levels. Anthropic's current price is $1/$5, not fabro's $0.80/$4.
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, caching = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 }
 
 [providers.anthropic.models."claude-haiku-4.5".metadata.fabro]

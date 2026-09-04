@@ -41,7 +41,7 @@ capabilities = { text = true }
 [providers.test.models.agent]
 display_name = "Agent"
 api_model = "agent"
-capabilities = { text = true, tools = true, reasoning = true }
+capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
 "#;
 
 /// How the fake provider behaves.

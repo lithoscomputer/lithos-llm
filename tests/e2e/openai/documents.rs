@@ -63,7 +63,7 @@ mod url {
 }
 
 async fn reads_an_inline_document(model: &str) -> TestResult {
-    if !openai::capabilities(model).documents {
+    if !openai::capabilities(model).documents().is_supported() {
         return support::skip("the catalog does not claim documents");
     }
     let Some(client) = openai::live_client() else {

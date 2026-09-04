@@ -47,7 +47,7 @@ mod url {
 }
 
 async fn describes_an_inline_image(model: &str) -> TestResult {
-    if !openai::capabilities(model).images {
+    if !openai::capabilities(model).images().is_supported() {
         return support::skip("the catalog does not claim images");
     }
     let Some(client) = openai::live_client() else {

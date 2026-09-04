@@ -79,18 +79,14 @@ fn plain_catalog(base_url: &str) -> Catalog {
 ///
 /// The protocol carries neither documents nor audio, so a catalog that says so
 /// makes the client refuse those requests up front.
-const TEXT_AND_IMAGE_CAPABILITIES: &str = "{ text = true, images = true, audio = false, \
-     documents = false, tools = true, structured_output = true, reasoning = true, caching = true, \
-     cache_breakpoints = true, sampling = true }";
+const TEXT_AND_IMAGE_CAPABILITIES: &str = "{ text = true, images = true, audio = false, documents = false, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true } }\nprotocol_options = { cache_breakpoints = true }";
 
 /// The same set for a model that declares no prompt caching.
 ///
 /// The prompt-cache breakpoints are gated on `caching` and
 /// `cache_breakpoints` together, so a fixture that pins their absence needs a
 /// catalog entry that denies them.
-const NO_CACHING_CAPABILITIES: &str = "{ text = true, images = true, audio = true, \
-     documents = true, tools = true, structured_output = true, reasoning = true, caching = false, \
-     sampling = true }";
+const NO_CACHING_CAPABILITIES: &str = "{ text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = false, sampling = true, tool_choice = { required = true, named = true } }";
 
 fn truthful_catalog(base_url: &str) -> Catalog {
     provider()
@@ -415,10 +411,7 @@ async fn encodes_replayed_reasoning_as_reasoning_content() {
 
 /// The capabilities of a Chat Completions row that takes no forced tool
 /// choice, as OpenRouter's Claude Fable 5.1 row does.
-const NO_FORCED_CHOICE_CAPABILITIES: &str = "{ text = true, images = true, tools = true, \
-                                             forced_tool_choice = false, structured_output = \
-                                             true, reasoning = true, caching = true, \
-                                             cache_breakpoints = true }";
+const NO_FORCED_CHOICE_CAPABILITIES: &str = "{ text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false } }\nprotocol_options = { cache_breakpoints = true }";
 
 #[tokio::test]
 async fn refuses_a_forced_tool_choice_the_model_rejects_before_dispatch() {

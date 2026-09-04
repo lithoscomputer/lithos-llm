@@ -7,5 +7,6 @@ base_url = "http://127.0.0.1:3931/v1"
 display_name = "Fixture model"
 aliases = ["fixture-alias"]
 api_model = "fixture-v1"
-capabilities = { text = true, images = true, documents = true, tools = true, structured_output = true, reasoning = true, reasoning_effort_levels = true, caching = true, cache_routing = true, sampling = true }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000 }

@@ -84,7 +84,7 @@ impl Codec for BedrockConverseCodec {
             // the Anthropic codec: it is uncataloged precisely because it
             // is newer than the catalog, and a guessed thinking budget is
             // a manual toggle the always-adaptive models reject.
-            if route.model().capabilities().reasoning_effort_levels
+            if route.model().protocol_options().reasoning_effort_levels
                 || route.model().is_passthrough()
             {
                 body.insert(
@@ -353,7 +353,7 @@ fn cache_point() -> Value {
 /// ValidationException rather than ignoring the marker. `auto_cache` is the
 /// caller's separate veto over markers this codec adds on its own.
 fn caches(route: &ResolvedRoute, auto_cache: bool) -> bool {
-    auto_cache && route.model().capabilities().caching
+    auto_cache && route.model().capabilities().caching().is_supported()
 }
 
 /// Whether `toolResult.content` has a block for this part.
@@ -1464,7 +1464,7 @@ mod tests {
         [providers.bedrock.models.older-claude]
         display_name = "Older Claude"
         api_model = "us.anthropic.claude-3-7"
-        capabilities = { text = true, tools = true, reasoning = true }
+        capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
     "#;
 
     /// The budget-model catalog with passthrough allowed.
@@ -1483,7 +1483,7 @@ mod tests {
         [providers.bedrock.models.older-claude]
         display_name = "Older Claude"
         api_model = "us.anthropic.claude-3-7"
-        capabilities = { text = true, tools = true, reasoning = true }
+        capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
     "#;
 
     #[test]
@@ -1995,7 +1995,7 @@ mod tests {
         [providers.bedrock.models.llama]
         display_name = "Llama 3 70B"
         api_model = "meta.llama3-70b-instruct-v1:0"
-        capabilities = { text = true, tools = true }
+        capabilities = { text = true, tools = true, tool_choice = { required = true, named = true } }
     "#;
 
     #[test]

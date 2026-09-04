@@ -61,7 +61,13 @@ fn assert_city_report(payload: &Value) {
 }
 
 async fn produces_parseable_json(model: &str) -> TestResult {
-    if !moonshot::capabilities(model).structured_output {
+    if !moonshot::capabilities(model)
+        .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+            name:   String::new(),
+            schema: serde_json::Value::Null,
+        })
+        .is_supported()
+    {
         return support::skip("the catalog does not claim structured_output");
     }
     let Some(client) = moonshot::live_client() else {
@@ -78,7 +84,13 @@ async fn produces_parseable_json(model: &str) -> TestResult {
 }
 
 async fn conforms_to_the_schema(model: &str) -> TestResult {
-    if !moonshot::capabilities(model).structured_output {
+    if !moonshot::capabilities(model)
+        .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+            name:   String::new(),
+            schema: serde_json::Value::Null,
+        })
+        .is_supported()
+    {
         return support::skip("the catalog does not claim structured_output");
     }
     let Some(client) = moonshot::live_client() else {
@@ -94,7 +106,13 @@ async fn conforms_to_the_schema(model: &str) -> TestResult {
 }
 
 async fn streams_a_conforming_document(model: &str) -> TestResult {
-    if !moonshot::capabilities(model).structured_output {
+    if !moonshot::capabilities(model)
+        .response_format(&lithos_llm::types::ResponseFormat::JsonSchema {
+            name:   String::new(),
+            schema: serde_json::Value::Null,
+        })
+        .is_supported()
+    {
         return support::skip("the catalog does not claim structured_output");
     }
     let Some(client) = moonshot::live_client() else {

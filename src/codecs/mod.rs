@@ -135,7 +135,7 @@ pub(crate) mod test_support {
         [providers.alpha.models.one]
         display_name = "One"
         api_model = "alpha-one-v1"
-        capabilities = { text = true, tools = true }
+        capabilities = { text = true, tools = true, tool_choice = { required = true, named = true } }
     "#;
 
     /// Resolves a request against the one-provider test catalog.
