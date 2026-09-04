@@ -158,10 +158,12 @@ const MODEL: &str = "gpt-5.6-luna";
 // Local preflight
 // ---------------------------------------------------------------------------
 
-/// The Codex roster is the platform roster minus the pro rows, which the
-/// deployment refuses for a ChatGPT account (400, 2026-08-30).
+/// The Codex roster is the verified platform subset.
+///
+/// The deployment refuses the pro rows for a ChatGPT account (400,
+/// 2026-08-30). Astra is also absent until its Codex access is verified.
 #[test]
-fn the_codex_roster_is_the_platform_roster_minus_the_pro_rows() -> TestResult {
+fn the_codex_roster_is_the_verified_platform_subset() -> TestResult {
     let builtin = Catalog::builder().with_builtin().build()?;
     let ids = |catalog: &Catalog, provider: &str| -> Result<BTreeSet<String>, Box<dyn StdError>> {
         Ok(catalog
@@ -173,6 +175,7 @@ fn the_codex_roster_is_the_platform_roster_minus_the_pro_rows() -> TestResult {
     let mut expected = ids(&builtin, "openai")?;
     assert!(expected.remove("gpt-5.5-pro"));
     assert!(expected.remove("gpt-5.4-pro"));
+    assert!(expected.remove("gpt-6-astra"));
     assert_eq!(ids(&catalog("acct_preflight"), PROVIDER)?, expected);
     Ok(())
 }

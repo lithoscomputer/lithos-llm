@@ -8,6 +8,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The built-in OpenAI catalog now includes GPT-6 Astra (`gpt-6-astra`) with
+  the published 1,050,000-token context window, 128,000-token output limit,
+  pricing, long-context threshold, cache-write rate, speed tiers, and
+  capability claims. The `astra`, `gpt-astra`, `gpt6`, and `gpt-6` aliases
+  resolve to it. These facts come from the official OpenAI documentation on
+  2026-09-03. API access was still rolling out: an authenticated model listing
+  omitted Astra, and a live lithos-llm request returned 404 `model_not_found`.
+  GPT-5.6 Sol therefore remains the provider default, and Astra is not yet in
+  the recorded per-model E2E cells.
+
 - The built-in Anthropic, OpenRouter, and Venice catalogs carry Claude
   Fable 5.1 (`claude-fable-5.1`, wire ids `claude-fable-5-1` on Anthropic
   and Venice, `anthropic/claude-fable-5.1` on OpenRouter), verified live on
@@ -144,7 +154,7 @@ This project follows [Semantic Versioning](https://semver.org/).
   roster model answers `count_input_tokens`, which also confirms Gemini's
   `countTokens` body shape (the `model` field nested inside
   `generateContentRequest`) against the real API.
-- The built-in OpenAI provider now has a current, live-verified roster:
+- The built-in OpenAI provider gained a live-verified GPT-5 roster:
   the three GPT-5.6 models, GPT-5.4, GPT-5.5, both Pro models, and
   GPT-5.4 Mini, with pricing (long-context tiers above 272K input,
   priority and flex speed tiers, and the 5.6 family's billed cache
