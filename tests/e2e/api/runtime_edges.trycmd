@@ -147,27 +147,25 @@ $ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml complete-t
   "error": {
     "kind": "error",
     "error_kind": "Timeout",
-    "message": "request to provider openai failed",
-    "provider": "openai",
+    "message": "the call deadline expired",
+    "provider": null,
     "status": null,
     "provider_code": null,
     "retry": "Never"
   },
   "data": {
     "kind": "timeout",
-    "message": "request to provider openai failed",
-    "provider": "openai",
+    "message": "the call deadline expired",
     "retry": {
       "type": "never"
-    },
-    "source_message": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
+    }
   },
-  "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
-  "display": "request to provider openai failed",
+  "debug": "Error { kind: Timeout, provider: None, status: None, provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+  "display": "the call deadline expired",
   "retry_after_ms": null,
   "provider_retry_after_ms": null,
   "raw_data": null,
-  "source": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
+  "source": null
 }
 
 ```
@@ -179,27 +177,25 @@ $ OPENAI_API_KEY=transport lithos-llm-e2e call transport-catalog.toml stream-tim
   "error": {
     "kind": "error",
     "error_kind": "Timeout",
-    "message": "request to provider openai failed",
-    "provider": "openai",
+    "message": "the call deadline expired",
+    "provider": null,
     "status": null,
     "provider_code": null,
-    "retry": "Safe"
+    "retry": "Never"
   },
   "data": {
     "kind": "timeout",
-    "message": "request to provider openai failed",
-    "provider": "openai",
+    "message": "the call deadline expired",
     "retry": {
-      "type": "safe"
-    },
-    "source_message": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
+      "type": "never"
+    }
   },
-  "debug": "Error { kind: Timeout, provider: Some(ProviderId(/"openai/")), status: None, provider_code: None, retry: Safe, provider_retry_after_millis: None, has_raw_data: false, has_source: true, .. }",
-  "display": "request to provider openai failed",
+  "debug": "Error { kind: Timeout, provider: None, status: None, provider_code: None, retry: Never, provider_retry_after_millis: None, has_raw_data: false, has_source: false, .. }",
+  "display": "the call deadline expired",
   "retry_after_ms": null,
   "provider_retry_after_ms": null,
   "raw_data": null,
-  "source": "error sending request for url (http://127.0.0.1:3931/v1/responses)"
+  "source": null
 }
 
 ```

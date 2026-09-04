@@ -3,7 +3,6 @@
 mod concurrency;
 mod observer;
 mod retry;
-mod timeout;
 mod tracing_layer;
 
 use std::any::{Any, TypeId};
@@ -20,7 +19,6 @@ pub use concurrency::ConcurrencyLimitMiddleware;
 use futures_core::Stream;
 pub use observer::{Observer, ObserverMiddleware, RetryStage};
 pub use retry::{RetryMiddleware, RetryPolicy};
-pub use timeout::TimeoutMiddleware;
 use tokio::sync::Notify;
 pub use tracing_layer::TracingMiddleware;
 

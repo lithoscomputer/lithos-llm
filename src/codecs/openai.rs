@@ -123,7 +123,6 @@ impl Codec for OpenAiResponsesCodec {
             endpoint(call.route().provider().base_url(), path),
             Value::Object(body),
         )
-        .with_timeout(request.timeout())
         .with_applied_speed(request.speed());
 
         // Reasoning text has no input item in this protocol; only an

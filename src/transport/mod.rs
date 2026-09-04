@@ -127,12 +127,6 @@ impl EncodedRequest {
         self
     }
 
-    #[must_use]
-    pub(crate) fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
-        self.timeout = timeout;
-        self
-    }
-
     /// Records that a portable request control could not be expressed.
     #[must_use]
     pub(crate) fn unsupported_control(mut self, control: &str) -> Self {
@@ -368,11 +362,11 @@ impl HttpTransport {
 /// Whether a request timeout on this path may be repeated.
 ///
 /// This is one half of the crate's timeout rule; the other half lives on
-/// [`TimeoutMiddleware`](crate::middleware::TimeoutMiddleware). A timeout that
-/// expires while the provider may already be executing the call is never
-/// retried, because a repeat duplicates the work and the billing. A timeout
-/// that expires before any output exists — opening a stream, or failing to
-/// connect at all — is safe to repeat.
+/// [`ClientBuilder::default_timeout`](crate::ClientBuilder::default_timeout). A
+/// timeout that expires while the provider may already be executing the call is
+/// never retried, because a repeat duplicates the work and the billing. A
+/// timeout that expires before any output exists — opening a stream, or failing
+/// to connect at all — is safe to repeat.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum TimeoutRetry {
     /// A complete-path request timeout: never retried.

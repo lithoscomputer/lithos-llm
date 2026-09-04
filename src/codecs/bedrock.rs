@@ -145,7 +145,6 @@ impl Codec for BedrockConverseCodec {
             Value::Object(body),
         )
         .with_headers(headers)
-        .with_timeout(request.timeout())
         .with_applied_speed(request.speed());
         // Converse has no request-metadata field, so the map is reported rather
         // than folded into some other field where it would change the prompt.
@@ -311,8 +310,7 @@ fn encode_count_tokens(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
         Method::POST,
         operation_url(route, "count-tokens"),
         json!({ "input": { "converse": Value::Object(converse) } }),
-    )
-    .with_timeout(request.timeout()))
+    ))
 }
 
 /// The URL of one Bedrock runtime operation for a route.

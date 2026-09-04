@@ -115,7 +115,6 @@ impl Codec for AnthropicMessagesCodec {
             Value::Object(body),
         )
         .with_headers(headers(&betas))
-        .with_timeout(request.timeout())
         .with_applied_speed(request.speed());
         // The system field of this protocol takes text only, so anything else
         // a system message carries is dropped. The text still reaches the
@@ -347,8 +346,7 @@ fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
         ),
         Value::Object(body),
     )
-    .with_headers(headers(&betas))
-    .with_timeout(call.request().timeout()))
+    .with_headers(headers(&betas)))
 }
 
 /// Builds every typed field of a Messages body.

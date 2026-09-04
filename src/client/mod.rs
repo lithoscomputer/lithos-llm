@@ -50,10 +50,11 @@ const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 /// An immutable provider-neutral client.
 #[derive(Clone)]
 pub struct Client {
-    catalog:   Catalog,
-    resolver:  Arc<dyn ModelResolver>,
-    available: AvailableProviders,
-    pipeline:  Arc<Pipeline>,
+    default_timeout: Option<Duration>,
+    catalog:         Catalog,
+    resolver:        Arc<dyn ModelResolver>,
+    available:       AvailableProviders,
+    pipeline:        Arc<Pipeline>,
 }
 
 impl fmt::Debug for Client {
@@ -146,6 +147,7 @@ impl Client {
         request: Request,
         context: CallContext,
     ) -> Result<Response, Error> {
+        let context = self.prepare_context(&request, context)?;
         match self.call_guarded(request, context, Mode::Complete).await? {
             Output::Complete(response) => Ok(response),
             Output::Stream(_) => Err(Error::new(
@@ -164,6 +166,7 @@ impl Client {
         request: Request,
         context: CallContext,
     ) -> Result<ResponseStream, Error> {
+        let context = self.prepare_context(&request, context)?;
         let cancellation = context.cancellation().clone();
         let deadline = context.deadline();
         match self.call_guarded(request, context, Mode::Stream).await? {
@@ -197,6 +200,27 @@ impl Client {
         adapter
             .count_input_tokens(&ResolvedCall::new(request, route, CallContext::new()))
             .await
+    }
+
+    fn prepare_context(
+        &self,
+        request: &Request,
+        mut context: CallContext,
+    ) -> Result<CallContext, Error> {
+        if let Some(timeout) = request.timeout().or(self.default_timeout) {
+            let deadline = Instant::now().checked_add(timeout).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    "the requested timeout is too large for this platform",
+                )
+            })?;
+            context.set_deadline(
+                context
+                    .deadline()
+                    .map_or(deadline, |current| current.min(deadline)),
+            );
+        }
+        Ok(context)
     }
 
     async fn call(
@@ -413,6 +437,7 @@ fn deadline_error() -> Error {
 /// Builds a client from immutable catalog data and runtime extensions.
 #[must_use]
 pub struct ClientBuilder {
+    default_timeout:     Option<Duration>,
     catalog:             Option<Catalog>,
     resolver:            Arc<dyn ModelResolver>,
     credentials:         Arc<dyn CredentialProvider>,
@@ -429,6 +454,7 @@ impl Default for ClientBuilder {
         let mut registry = AdapterRegistry::new();
         register_builtin(&mut registry);
         Self {
+            default_timeout: None,
             catalog: None,
             resolver: Arc::new(CatalogResolver),
             credentials: Arc::new(NoCredentials),
@@ -443,6 +469,14 @@ impl Default for ClientBuilder {
 }
 
 impl ClientBuilder {
+    /// Sets the total budget for a call, including middleware, credentials,
+    /// retries, and stream consumption. A request timeout overrides this
+    /// default; an earlier context deadline still wins. Unset means no budget.
+    pub fn default_timeout(mut self, timeout: Duration) -> Self {
+        self.default_timeout = Some(timeout);
+        self
+    }
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -501,7 +535,7 @@ impl ClientBuilder {
     /// then fails with a retryable timeout instead of hanging. `None` waits
     /// forever, which suits an application that bounds the call some other
     /// way, such as
-    /// [`TimeoutMiddleware`](crate::middleware::TimeoutMiddleware).
+    /// [`ClientBuilder::default_timeout`](crate::ClientBuilder::default_timeout).
     ///
     /// This reaches every built-in adapter through
     /// [`AdapterContext::stream_idle_timeout`].
@@ -639,6 +673,7 @@ impl ClientBuilder {
         let available = AvailableProviders::new(adapters.keys().cloned());
         Ok(ClientBuild {
             client: Client {
+                default_timeout: self.default_timeout,
                 catalog,
                 resolver: self.resolver,
                 available,

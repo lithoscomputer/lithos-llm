@@ -157,7 +157,6 @@ impl Codec for OpenAiChatCodec {
             endpoint(route.provider().base_url(), "/v1/chat/completions"),
             Value::Object(body),
         )
-        .with_timeout(request.timeout())
         // Every chunk is one `data:` line of JSON, and lenient compatible
         // skins and proxies separate them with single newlines rather than
         // the blank line the SSE specification requires.

@@ -315,6 +315,9 @@ impl RequestBuilder {
         self
     }
 
+    /// Sets the total call budget, including queueing, credentials, retry
+    /// waits, and streaming. Overrides the client's default timeout, but
+    /// cannot extend an earlier context deadline.
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
         self

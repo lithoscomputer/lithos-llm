@@ -15,7 +15,7 @@ use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId}
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Observer, Output,
-    RetryMiddleware, RetryPolicy, RetryStage, TimeoutMiddleware,
+    RetryMiddleware, RetryPolicy, RetryStage,
 };
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
@@ -883,7 +883,7 @@ async fn a_call_timeout_is_never_retried() -> Result<(), Box<dyn StdError>> {
                 .max_attempts(3)
                 .initial_delay(Duration::ZERO),
         ))
-        .middleware(TimeoutMiddleware::new(Duration::from_millis(5)))
+        .default_timeout(Duration::from_millis(5))
         .build()?
         .client;
 
@@ -1124,6 +1124,36 @@ struct PendingAdapter {
     id: AdapterId,
 }
 
+struct PendingMiddleware;
+
+#[async_trait]
+impl Middleware for PendingMiddleware {
+    async fn handle(&self, _call: Call, _next: Next) -> Result<Output, Error> {
+        pending().await
+    }
+}
+
+#[tokio::test]
+async fn request_budget_includes_middleware_waits() -> Result<(), Box<dyn StdError>> {
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", FakeAdapter::successful())
+        .middleware(PendingMiddleware)
+        .default_timeout(Duration::from_secs(60))
+        .build()?
+        .client;
+    let request = request()?
+        .into_builder()
+        .timeout(Duration::from_millis(5))
+        .build()?;
+    let error = timeout(Duration::from_secs(1), client.complete(request))
+        .await
+        .expect("request budget must bound middleware")
+        .expect_err("budget expires");
+    assert_eq!(error.kind(), ErrorKind::Timeout);
+    Ok(())
+}
+
 #[async_trait]
 impl ProviderAdapter for PendingAdapter {
     fn id(&self) -> &AdapterId {
@@ -1206,7 +1236,7 @@ async fn timeout_stream_emits_one_terminal_error() -> Result<(), Box<dyn StdErro
         .adapter("test", PendingAdapter {
             id: AdapterId::new("test-adapter"),
         })
-        .middleware(TimeoutMiddleware::new(Duration::from_millis(5)))
+        .default_timeout(Duration::from_millis(5))
         .build()?
         .client;
     let mut stream = client.stream(request()?).await?;

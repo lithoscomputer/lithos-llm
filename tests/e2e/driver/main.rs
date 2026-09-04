@@ -27,8 +27,7 @@ use lithos_llm::credentials::{
 use lithos_llm::estimate::{EstimateWarning, request_tokens};
 use lithos_llm::middleware::{
     Call, CallContext, ConcurrencyLimitMiddleware, Middleware, Next, Observer, ObserverMiddleware,
-    Output, RetryMiddleware, RetryPolicy, RetryStage, TimeoutMiddleware, finalize_stream,
-    inspect_stream, map_stream,
+    Output, RetryMiddleware, RetryPolicy, RetryStage, finalize_stream, inspect_stream, map_stream,
 };
 use lithos_llm::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
 use lithos_llm::types::{
@@ -1506,7 +1505,7 @@ async fn simulate(simulation: Simulation) -> Result<Value, Box<dyn StdError>> {
         builder = builder.middleware(middleware);
     }
     if let Some(timeout_ms) = simulation.timeout_ms {
-        builder = builder.middleware(TimeoutMiddleware::new(Duration::from_millis(timeout_ms)));
+        builder = builder.default_timeout(Duration::from_millis(timeout_ms));
     }
     if let Some(limit) = simulation.concurrency.and_then(NonZeroUsize::new) {
         builder = builder.middleware(ConcurrencyLimitMiddleware::new(limit));

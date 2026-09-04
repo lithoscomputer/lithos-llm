@@ -60,7 +60,7 @@ $ lithos-llm-e2e simulate timeout_complete.json
   "result": {
     "kind": "error",
     "error_kind": "Timeout",
-    "message": "the LLM call timed out",
+    "message": "the call deadline expired",
     "provider": null,
     "status": null,
     "provider_code": null,

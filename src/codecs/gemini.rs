@@ -49,7 +49,6 @@ impl Codec for GeminiGenerateCodec {
             model_endpoint(call.route(), operation),
             Value::Object(body),
         )
-        .with_timeout(call.request().timeout())
         // `?alt=sse` sends one JSON document per `data:` line, so each line
         // decodes on its own even when a proxy drops the blank line between
         // events.
@@ -180,8 +179,7 @@ fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
         Method::POST,
         model_endpoint(call.route(), "countTokens"),
         json!({ "generateContentRequest": Value::Object(body) }),
-    )
-    .with_timeout(call.request().timeout()))
+    ))
 }
 
 /// Builds the `generateContent` request body.
