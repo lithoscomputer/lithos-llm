@@ -27,7 +27,9 @@ pub use tracing_layer::TracingMiddleware;
 use crate::adapter::{ProviderAdapter, ResolvedCall};
 use crate::catalog::ProviderId;
 use crate::resolver::ResolvedRoute;
-use crate::types::{Error, ErrorKind, Request, Response, ResponseStream, StreamEvent};
+use crate::types::{
+    Error, ErrorKind, Request, RequestBuildError, Response, ResponseStream, StreamEvent,
+};
 
 /// Whether a call expects a complete response or a stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -180,10 +182,51 @@ impl CallContext {
 /// One resolved logical inference call.
 #[derive(Clone, Debug)]
 pub struct Call {
-    pub request: Request,
-    pub route:   ResolvedRoute,
-    pub mode:    Mode,
-    pub context: CallContext,
+    pub(crate) request: Request,
+    pub(crate) route:   ResolvedRoute,
+    pub(crate) mode:    Mode,
+    pub(crate) context: CallContext,
+}
+
+impl Call {
+    pub fn request(&self) -> &Request {
+        &self.request
+    }
+    pub fn route(&self) -> &ResolvedRoute {
+        &self.route
+    }
+    pub fn operation(&self) -> Mode {
+        self.mode
+    }
+    pub fn context(&self) -> &CallContext {
+        &self.context
+    }
+    pub fn context_mut(&mut self) -> &mut CallContext {
+        &mut self.context
+    }
+
+    /// Transforms the payload without changing its resolved model selector.
+    pub fn map_request(
+        mut self,
+        transform: impl FnOnce(Request) -> Result<Request, RequestBuildError>,
+    ) -> Result<Self, Error> {
+        let selector = self.request.model().to_owned();
+        let request = transform(self.request).map_err(|source| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                "middleware produced an invalid request",
+            )
+            .with_source(source)
+        })?;
+        if request.model() != selector {
+            return Err(Error::new(
+                ErrorKind::Middleware,
+                "middleware cannot change the model selector",
+            ));
+        }
+        self.request = request;
+        Ok(self)
+    }
 }
 
 /// A complete response or an accepted response stream.
@@ -240,6 +283,7 @@ impl Next {
                 .await;
         }
 
+        crate::client::validate_request(&call.request, &call.route)?;
         let adapter = self
             .pipeline
             .adapters

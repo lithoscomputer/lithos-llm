@@ -240,7 +240,7 @@ impl Client {
     }
 }
 
-fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
+pub(crate) fn validate_request(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
     // A passthrough model's capabilities are unknown, not absent: the catalog
     // never described it. Only the provider can judge such a request.
     if route.model().is_passthrough() {

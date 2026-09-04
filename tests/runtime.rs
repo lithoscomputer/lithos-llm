@@ -186,12 +186,56 @@ async fn first_middleware_is_outermost() -> Result<(), Box<dyn StdError>> {
 
 struct ShortCircuit;
 
+struct ChangeRequest {
+    change_model: bool,
+}
+
+#[async_trait]
+impl Middleware for ChangeRequest {
+    async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
+        let call = call.map_request(|request| {
+            let builder = request.into_builder();
+            if self.change_model {
+                builder.model("test/another").build()
+            } else {
+                builder.temperature(0.5).build()
+            }
+        })?;
+        next.run(call).await
+    }
+}
+
+#[tokio::test]
+async fn middleware_cannot_change_routing_or_bypass_limits() -> Result<(), Box<dyn StdError>> {
+    for change_model in [true, false] {
+        let client = Client::builder()
+            .catalog(catalog()?)
+            .adapter("test", FakeAdapter::successful())
+            .middleware(ChangeRequest { change_model })
+            .build()?
+            .client;
+        let error = client
+            .complete(request()?)
+            .await
+            .expect_err("invalid transformation");
+        assert_eq!(
+            error.kind(),
+            if change_model {
+                ErrorKind::Middleware
+            } else {
+                ErrorKind::InvalidRequest
+            }
+        );
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl Middleware for ShortCircuit {
     async fn handle(&self, call: Call, _next: Next) -> Result<Output, Error> {
         Ok(Output::Complete(Response::new(
-            call.route.provider().id().clone(),
-            call.route.model().id().clone(),
+            call.route().provider().id().clone(),
+            call.route().model().id().clone(),
             vec![ContentPart::Text {
                 text: "cached".to_owned(),
             }],
@@ -538,7 +582,7 @@ impl Observer for RetryRecorder {
             .expect("recorder mutex should not be poisoned")
             .push(RecordedRetry {
                 attempt,
-                context_attempt: call.context.attempt(),
+                context_attempt: call.context().attempt(),
                 delay,
                 kind: error.kind(),
                 stage,
