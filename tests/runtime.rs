@@ -1306,6 +1306,117 @@ impl ProviderAdapter for PendingAdapter {
     async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
         Ok(ResponseStream::new(pending_stream()))
     }
+
+    async fn count_input_tokens(
+        &self,
+        _call: &ResolvedCall,
+    ) -> Result<Option<InputTokenCount>, Error> {
+        pending().await
+    }
+}
+
+struct SetDeadline(Duration);
+
+#[async_trait]
+impl Middleware for SetDeadline {
+    async fn handle(&self, mut call: Call, next: Next) -> Result<Output, Error> {
+        call.context_mut().set_deadline(Instant::now() + self.0);
+        next.run(call).await
+    }
+}
+
+#[tokio::test]
+async fn middleware_deadlines_bound_completion_and_token_counting() -> Result<(), Box<dyn StdError>>
+{
+    for default_timeout in [None, Some(Duration::from_secs(60))] {
+        let mut builder = Client::builder()
+            .catalog(catalog()?)
+            .adapter("test", PendingAdapter {
+                id: AdapterId::new("test-adapter"),
+            })
+            .middleware(SetDeadline(Duration::from_millis(5)));
+        if let Some(budget) = default_timeout {
+            builder = builder.default_timeout(budget);
+        }
+        let client = builder.build()?.client;
+        let error = timeout(Duration::from_secs(1), client.complete(request()?))
+            .await
+            .expect("middleware deadline must stop completion")
+            .expect_err("deadline expires");
+        assert_eq!(error.kind(), ErrorKind::Timeout);
+        let error = timeout(
+            Duration::from_secs(1),
+            client.count_input_tokens(request()?),
+        )
+        .await
+        .expect("middleware deadline must stop counting")
+        .expect_err("deadline expires");
+        assert_eq!(error.kind(), ErrorKind::Timeout);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn middleware_deadline_bounds_downstream_stream_setup() -> Result<(), Box<dyn StdError>> {
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", FakeAdapter::successful())
+        .middleware(SetDeadline(Duration::from_millis(5)))
+        .middleware(PendingMiddleware)
+        .build()?
+        .client;
+    let error = timeout(Duration::from_secs(1), client.stream(request()?))
+        .await
+        .expect("middleware deadline must stop stream setup")
+        .map(|_| ())
+        .expect_err("deadline expires");
+    assert_eq!(error.kind(), ErrorKind::Timeout);
+    Ok(())
+}
+
+#[tokio::test]
+async fn middleware_deadline_survives_stream_setup_and_later_extension()
+-> Result<(), Box<dyn StdError>> {
+    let outcomes = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", PendingAdapter {
+            id: AdapterId::new("test-adapter"),
+        })
+        .middleware(ObserverMiddleware::new(OutcomeObserver(outcomes.clone())))
+        .middleware(SetDeadline(Duration::from_millis(20)))
+        .middleware(SetDeadline(Duration::from_secs(60)))
+        .build()?
+        .client;
+    let mut stream = client.stream(request()?).await?;
+    let error = timeout(Duration::from_secs(1), stream.next())
+        .await
+        .expect("earlier deadline must bound consumption")
+        .expect("terminal event")
+        .expect_err("deadline expires");
+    assert_eq!(error.kind(), ErrorKind::Timeout);
+    assert!(stream.next().await.is_none());
+    assert_eq!(*outcomes.lock().expect("outcomes"), ["failed"]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn middleware_cannot_extend_the_client_budget() -> Result<(), Box<dyn StdError>> {
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", PendingAdapter {
+            id: AdapterId::new("test-adapter"),
+        })
+        .default_timeout(Duration::from_millis(5))
+        .middleware(SetDeadline(Duration::from_secs(60)))
+        .build()?
+        .client;
+    let error = timeout(Duration::from_secs(1), client.complete(request()?))
+        .await
+        .expect("client budget still applies")
+        .expect_err("deadline expires");
+    assert_eq!(error.kind(), ErrorKind::Timeout);
+    Ok(())
 }
 
 fn pending_client() -> Result<Client, Box<dyn StdError>> {

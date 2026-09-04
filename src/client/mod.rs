@@ -411,7 +411,7 @@ fn cancellation_stream(stream: ResponseStream, cancellation: CancellationToken) 
     ))
 }
 
-fn deadline_stream(stream: ResponseStream, deadline: Instant) -> ResponseStream {
+pub(crate) fn deadline_stream(stream: ResponseStream, deadline: Instant) -> ResponseStream {
     ResponseStream::new(unfold(
         (stream, false),
         move |(mut stream, finished)| async move {
@@ -419,6 +419,7 @@ fn deadline_stream(stream: ResponseStream, deadline: Instant) -> ResponseStream 
                 return None;
             }
             tokio::select! {
+                biased;
                 () = sleep_until(TokioInstant::from_std(deadline)) => {
                     Some((Err(deadline_error()), (stream, true)))
                 }

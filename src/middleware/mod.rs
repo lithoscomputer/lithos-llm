@@ -20,11 +20,12 @@ use futures_core::Stream;
 pub use observer::{CallOutcome, Observer, ObserverMiddleware, RetryStage};
 pub use retry::{RetryMiddleware, RetryPolicy};
 use tokio::sync::Notify;
+use tokio::time::{Instant as TokioInstant, sleep_until};
 pub use tracing_layer::TracingMiddleware;
 
 use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
 use crate::catalog::ProviderId;
-use crate::client::validate_request;
+use crate::client::{deadline_stream, validate_request};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     Error, ErrorKind, Request, RequestBuildError, Response, ResponsePolicy, ResponseStream,
@@ -171,6 +172,9 @@ impl CallContext {
         self.deadline
     }
 
+    /// Sets the deadline enforced when this context enters the client or
+    /// is forwarded through [`Next::run`], including stream consumption.
+    /// Earlier deadlines in enclosing calls still apply.
     pub fn set_deadline(&mut self, deadline: Instant) {
         self.deadline = Some(deadline);
     }
@@ -280,6 +284,30 @@ impl Next {
             return Err(Error::new(ErrorKind::Timeout, "the call deadline expired"));
         }
 
+        // Each forwarded call can tighten its enclosing budget. Keep this
+        // guard alive through dispatch, then transfer it to the returned
+        // stream so a middleware deadline also bounds stream consumption.
+        let deadline = call.context.deadline();
+        let output = if let Some(deadline) = deadline {
+            tokio::select! {
+                biased;
+                () = sleep_until(TokioInstant::from_std(deadline)) => {
+                    return Err(Error::new(ErrorKind::Timeout, "the call deadline expired"));
+                }
+                output = self.dispatch(call) => output?,
+            }
+        } else {
+            self.dispatch(call).await?
+        };
+        Ok(match (deadline, output) {
+            (Some(deadline), Output::Stream(stream)) => {
+                Output::Stream(deadline_stream(stream, deadline))
+            }
+            (_, output) => output,
+        })
+    }
+
+    async fn dispatch(self, call: Call) -> Result<Output, Error> {
         if let Some(middleware) = self.pipeline.middleware.get(self.index).cloned() {
             return middleware
                 .handle(call, Self {
