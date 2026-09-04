@@ -4,7 +4,7 @@ use serde::de::{Error as DeError, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use super::ContentPart;
+use super::{ContentPart, Message, Role, ToolCall};
 use crate::catalog::{ModelHandle, ModelId, ProviderId};
 
 /// Why a model stopped producing output.
@@ -260,6 +260,21 @@ pub struct Response {
 }
 
 impl Response {
+    /// Visits the final response's tool calls in content order.
+    pub fn tool_calls(&self) -> impl Iterator<Item = &ToolCall> {
+        self.content.iter().filter_map(|part| match part {
+            ContentPart::ToolCall(call) => Some(call),
+            _ => None,
+        })
+    }
+
+    /// Moves all content, including provider replay data, into an assistant
+    /// message. Record response usage and other accounting fields before
+    /// consuming it.
+    pub fn into_message(self) -> Message {
+        Message::new(Role::Assistant, self.content)
+    }
+
     pub fn new(provider: ProviderId, model: ModelId, content: Vec<ContentPart>) -> Self {
         Self {
             id: None,
