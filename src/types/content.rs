@@ -379,7 +379,7 @@ impl ToolChoice {
     /// `Required` and a named `Tool` force a call; `Auto` and `None` leave
     /// the model free to answer in prose. Some models take no forced choice
     /// at all, which the catalog records as
-    /// [`ModelCapabilities::forced_tool_choice`](crate::catalog::ModelCapabilities::forced_tool_choice).
+    /// [`ModelCapabilities::tool_choice`](crate::catalog::ModelCapabilities::tool_choice).
     pub fn is_forced(&self) -> bool {
         matches!(self, Self::Required | Self::Tool { .. })
     }

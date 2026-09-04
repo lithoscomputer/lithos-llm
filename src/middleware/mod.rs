@@ -259,8 +259,38 @@ impl fmt::Debug for Output {
 }
 
 /// Wraps one resolved logical call.
+///
+/// Middleware runs in registration order, with the first layer outermost.
+/// Instances may handle concurrent calls. Do not block runtime threads, hold
+/// blocking locks across awaits, or detach work that outlives an abandoned
+/// call.
 #[async_trait]
 pub trait Middleware: Send + Sync + 'static {
+    /// Forwards, transforms, or short-circuits one operation.
+    ///
+    /// Return the [`Output`] variant matching [`Call::operation`], including
+    /// for cache hits. Use [`Call::map_request`] to change the payload; the
+    /// resolved route cannot change. [`Next::run`] validates transformed
+    /// requests before adapter dispatch and enforces context deadlines and
+    /// cancellation. The client also applies output limits and raw-body
+    /// retention to cache hits and transformed responses after this method
+    /// returns.
+    ///
+    /// Clone `Next` only when another dispatch is intentional, such as a retry.
+    /// Retrying streams must not duplicate visible output. Stream
+    /// transformations must preserve event ordering and emit either a
+    /// terminal completion or an error; keep stream-lifetime resources
+    /// owned by the returned stream.
+    ///
+    /// This future and any returned stream may be dropped at any await or poll.
+    /// Release owned resources on drop. Install observers outside retries to
+    /// observe one logical call rather than individual attempts.
+    ///
+    /// # Errors
+    ///
+    /// Preserve downstream errors and their retry classifications. Return a
+    /// classified error for failures introduced by this layer; use
+    /// [`ErrorKind::Middleware`] for middleware contract failures.
     async fn handle(&self, call: Call, next: Next) -> Result<Output, Error>;
 }
 
@@ -272,6 +302,18 @@ pub struct Next {
 }
 
 impl Next {
+    /// Runs the remaining layers and, unless a layer short-circuits, the
+    /// adapter.
+    ///
+    /// The supplied context's deadline and cancellation signal apply through
+    /// stream consumption. An enclosing layer's earlier deadline still applies.
+    /// Each invocation can dispatch a new provider attempt; cloning this value
+    /// does not cache or share the result.
+    ///
+    /// # Errors
+    ///
+    /// Returns cancellation, timeout, transformed-request validation failures,
+    /// or downstream middleware and provider errors without flattening them.
     pub async fn run(self, call: Call) -> Result<Output, Error> {
         let guard = CallGuard::new(&call.context);
         let output = guard.run(self.dispatch(call)).await?;

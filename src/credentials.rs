@@ -183,8 +183,27 @@ impl fmt::Debug for Credentials {
 }
 
 /// Supplies credentials for each provider attempt.
+///
+/// Instances may serve concurrent calls. Resolve secrets lazily so each retry
+/// can observe refreshed credentials. If caching or refresh is needed, the
+/// implementation owns its synchronization and expiry policy. Never log secret
+/// material or include it in error messages.
 #[async_trait]
 pub trait CredentialProvider: Send + Sync {
+    /// Returns credentials matching the provider's declared authentication
+    /// scheme.
+    ///
+    /// This future may be dropped when a call is cancelled or times out. Do not
+    /// block a runtime thread or detach refresh work without an explicit owner.
+    /// A failed refresh must not leave shared credential state partially
+    /// updated.
+    ///
+    /// # Errors
+    ///
+    /// Return [`CredentialError`] for missing or invalid credentials or refresh
+    /// failures. Preserve a useful source without exposing secrets. Return
+    /// `Credentials::none()` only when no authentication is intended, not as a
+    /// substitute for a failed credential lookup.
     async fn credentials(&self, provider: &CatalogProvider)
     -> Result<Credentials, CredentialError>;
 }

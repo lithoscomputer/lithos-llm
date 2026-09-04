@@ -77,12 +77,61 @@ impl InputTokenCount {
 }
 
 /// Implements normalized complete and streaming calls for one protocol.
+///
+/// Implementations are application extension points and may serve concurrent
+/// calls. Do not block the runtime thread or hold a blocking lock across an
+/// await. Read credentials for each attempt so retries can use refreshed
+/// values.
+///
+/// The client can drop any call future or returned stream on cancellation,
+/// timeout, or caller abandonment. Keep connections, permits, and other work
+/// owned by that future or stream. If background tasks are necessary, their
+/// owner must stop them on drop; dropping a task handle alone does not stop it.
+/// Cancellation cannot undo a request the provider already accepted.
+///
+/// Custom transports should honor the body and frame limits supplied through
+/// [`AdapterContext`]. The client enforces normalized-output limits and
+/// raw-body retention after adapter dispatch and again after middleware
+/// returns.
 #[async_trait]
 pub trait ProviderAdapter: Send + Sync {
+    /// The adapter family ID, not the catalog provider ID. It must remain
+    /// stable.
     fn id(&self) -> &AdapterId;
 
+    /// Returns a normalized response with the canonical identity of
+    /// `call.route()`.
+    ///
+    /// Preserve provider accounting and replay metadata. Do not report an
+    /// interrupted tool call as complete or invent missing tool arguments.
+    ///
+    /// # Errors
+    ///
+    /// Return a classified [`struct@Error`] for encoding, credential,
+    /// transport, or decoding failures. Preserve the source and structured
+    /// provider details. Set a retry classification only when repeating the
+    /// call is appropriate; [`Error::new`] defaults to never retrying. Do
+    /// not turn failures into empty successful responses or start a hidden
+    /// retry loop.
     async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error>;
 
+    /// Opens a stream that follows the ordering contract of
+    /// [`crate::types::StreamEvent`].
+    ///
+    /// Return opening failures here and later failures as error items. A
+    /// successful stream must emit one authoritative `Completed` response with
+    /// the canonical route identity. Block-end parts are provisional; consumers
+    /// must not treat them as permission to execute a tool.
+    /// [`ResponseStream`] enforces terminal behavior and drops its inner stream
+    /// on completion or error. The adapter still owns correct content and event
+    /// ordering, and must not hide truncation by manufacturing a completion.
+    ///
+    /// # Errors
+    ///
+    /// Use the same classification and source-preservation rules as
+    /// [`complete`](Self::complete). Retry middleware can reconnect only before
+    /// visible output; a retry hint does not permit replaying delivered
+    /// content.
     async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error>;
 
     /// Counts the input tokens this call would send, using the provider.
@@ -179,7 +228,19 @@ impl AdapterContext {
 }
 
 /// Creates an adapter for a catalog provider that names its adapter ID.
+///
+/// This synchronous method runs during client construction. Validate local
+/// configuration without making network calls or reading credentials. Store
+/// the context dependencies for use during provider attempts instead.
 pub trait AdapterFactory: Send + Sync {
+    /// Builds one shared adapter instance. Its ID must match the provider's
+    /// adapter ID. The returned instance must support concurrent calls.
+    ///
+    /// # Errors
+    ///
+    /// Return a provider-local [`AdapterBuildError`] for unsupported codecs,
+    /// invalid options, or missing adapter requirements. The client reports it
+    /// as a build issue and can retain other successfully built providers.
     fn create(
         &self,
         provider: &CatalogProvider,

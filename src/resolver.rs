@@ -120,7 +120,24 @@ impl ResolvedRoute {
 }
 
 /// Selects one provider and model for a request.
+///
+/// This is an open application extension point. Resolution is synchronous and
+/// side-effect free, including when called without dispatch through the
+/// client's route-inspection API. Do not read credentials, perform network I/O,
+/// or block. Implementations may be called concurrently.
 pub trait ModelResolver: Send + Sync {
+    /// Selects an available provider and a model that belongs to it.
+    ///
+    /// Honor `available`, not just catalog membership. Construct custom routes
+    /// with [`ResolvedRoute::try_new`]. The client validates request
+    /// capabilities separately; the resolver owns selection policy, not
+    /// request execution.
+    ///
+    /// # Errors
+    ///
+    /// Return [`ModelSelectionError`] when no requested route is available or
+    /// route construction fails. Do not silently select an unrelated provider
+    /// unless that fallback is part of the resolver's documented policy.
     fn resolve(
         &self,
         request: &Request,
