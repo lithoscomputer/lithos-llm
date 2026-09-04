@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use futures_util::StreamExt as _;
 
 use super::{Call, Middleware, Next, Output};
-use crate::types::{Error, Response, StreamEvent};
+use crate::types::{Error, Response, ResponseStream, StreamEvent};
 
 /// Where in a call's life a retry was decided.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -85,9 +85,11 @@ impl Middleware for ObserverMiddleware {
             }
             Ok(Output::Stream(stream)) => {
                 let observer = self.observer.clone();
-                Ok(Output::Stream(Box::pin(stream.inspect(move |event| {
-                    observer.on_stream_event(&call, event.as_ref());
-                }))))
+                Ok(Output::Stream(ResponseStream::new(stream.inspect(
+                    move |event| {
+                        observer.on_stream_event(&call, event.as_ref());
+                    },
+                ))))
             }
             Err(error) => {
                 self.observer.on_complete(&call, Err(&error));

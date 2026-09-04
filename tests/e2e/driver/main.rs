@@ -1653,7 +1653,7 @@ fn fixture_response(text: String) -> Response {
 }
 
 fn scripted_stream(items: Vec<StreamItem>) -> ResponseStream {
-    Box::pin(unfold(items.into_iter(), |mut items| async move {
+    ResponseStream::new(unfold(items.into_iter(), |mut items| async move {
         let item = items.next()?;
         let (result, delay_ms) = match item {
             StreamItem::Event { event, delay_ms } => (Ok(*event), delay_ms),

@@ -85,7 +85,7 @@ impl ProviderAdapter for FakeAdapter {
         Ok(success_response(call, "done"))
     }
 
-    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+    async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
         let call_index = self.stream_calls.fetch_add(1, Ordering::SeqCst);
         if call_index < self.stream_open_failures {
             return Err(retryable_error());
@@ -101,12 +101,17 @@ impl ProviderAdapter for FakeAdapter {
                 Err(retryable_error()),
             ]
         } else {
-            vec![Ok(StreamEvent::TextDelta {
-                id:   ContentBlockId::new("block-0"),
-                text: "done".to_owned(),
-            })]
+            vec![
+                Ok(StreamEvent::TextDelta {
+                    id:   ContentBlockId::new("block-0"),
+                    text: "done".to_owned(),
+                }),
+                Ok(StreamEvent::Completed {
+                    response: success_response(call, "done"),
+                }),
+            ]
         };
-        Ok(Box::pin(iter(events)))
+        Ok(ResponseStream::new(iter(events)))
     }
 }
 
@@ -307,7 +312,7 @@ async fn retry_restarts_stream_before_visible_output() -> Result<(), Box<dyn Std
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
     ));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
@@ -342,7 +347,7 @@ async fn a_stream_retry_does_not_deadlock_behind_the_concurrency_limiter()
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
     ));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
@@ -377,12 +382,17 @@ impl ProviderAdapter for UsageThenFailAdapter {
                 Err(retryable_error()),
             ]
         } else {
-            vec![Ok(StreamEvent::TextDelta {
-                id:   ContentBlockId::new("block-0"),
-                text: "done".to_owned(),
-            })]
+            vec![
+                Ok(StreamEvent::TextDelta {
+                    id:   ContentBlockId::new("block-0"),
+                    text: "done".to_owned(),
+                }),
+                Ok(StreamEvent::Completed {
+                    response: success_response(_call, "done"),
+                }),
+            ]
         };
-        Ok(Box::pin(iter(events)))
+        Ok(ResponseStream::new(iter(events)))
     }
 }
 
@@ -411,7 +421,7 @@ async fn a_usage_snapshot_does_not_close_the_stream_retry_window() -> Result<(),
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
     ));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
@@ -654,7 +664,7 @@ async fn a_pre_visible_stream_retry_is_reported() -> Result<(), Box<dyn StdError
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
     ));
     assert_eq!(recorder.retries(), [RecordedRetry {
         attempt:         1,
@@ -692,7 +702,7 @@ async fn a_retry_names_the_stage_that_failed() -> Result<(), Box<dyn StdError>> 
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
     ));
     assert_eq!(recorder.retries(), [
         RecordedRetry {
@@ -809,8 +819,11 @@ impl ProviderAdapter for BookkeepingAdapter {
                 id:   ContentBlockId::new("block-0"),
                 text: "done".to_owned(),
             }));
+            events.push(Ok(StreamEvent::Completed {
+                response: success_response(_call, "done"),
+            }));
         }
-        Ok(Box::pin(iter(events)))
+        Ok(ResponseStream::new(iter(events)))
     }
 }
 
@@ -851,7 +864,7 @@ async fn a_retried_stream_starts_once() -> Result<(), Box<dyn StdError>> {
     ));
     assert!(matches!(
         events.last(),
-        Some(Ok(StreamEvent::TextDelta { text, .. })) if text == "done"
+        Some(Ok(StreamEvent::Completed { response })) if response.text() == "done"
     ));
     Ok(())
 }
@@ -903,7 +916,7 @@ impl ProviderAdapter for CountingPendingAdapter {
 
     async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        Ok(Box::pin(pending_stream()))
+        Ok(ResponseStream::new(pending_stream()))
     }
 }
 
@@ -1122,7 +1135,7 @@ impl ProviderAdapter for PendingAdapter {
     }
 
     async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
-        Ok(Box::pin(pending_stream()))
+        Ok(ResponseStream::new(pending_stream()))
     }
 }
 

@@ -64,7 +64,7 @@ impl Middleware for TimeoutMiddleware {
 }
 
 fn timeout_stream(stream: ResponseStream, max_wait: Duration, deadline: Instant) -> ResponseStream {
-    Box::pin(unfold(
+    ResponseStream::new(unfold(
         (stream, false),
         move |(mut stream, finished)| async move {
             if finished {

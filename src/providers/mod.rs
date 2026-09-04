@@ -272,7 +272,7 @@ pub(super) mod http {
                     event
                 })
             });
-            Ok(Box::pin(limits.chain(decoded)))
+            Ok(ResponseStream::new(limits.chain(decoded)))
         }
 
         async fn count_input_tokens(
@@ -723,7 +723,7 @@ pub(super) mod http {
                 Ok(response) => panic!("an incomplete stream must not complete: {response:?}"),
             };
 
-            assert_eq!(error.kind(), ErrorKind::Provider);
+            assert_eq!(error.kind(), ErrorKind::StreamDecode);
             Ok(())
         }
 

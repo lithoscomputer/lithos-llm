@@ -1,9 +1,10 @@
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use futures_core::Stream;
 use serde::{Deserialize, Serialize};
 
-use super::{ContentPart, Error, RateLimits, Response, TokenCounts, ToolCallKind};
+use super::{ContentPart, Error, ErrorKind, RateLimits, Response, TokenCounts, ToolCallKind};
 
 /// A stable identifier for one content block within one response stream.
 ///
@@ -69,8 +70,10 @@ pub enum ContentBlockKind {
 ///   with the provider's original argument string, and provider metadata.
 /// - [`Usage`] events are cumulative snapshots for the current provider call,
 ///   not deltas. A codec that receives incremental counters accumulates them.
-/// - Every successful stream ends with exactly one [`Completed`] event whose
-///   response content is the ordered sequence of [`ContentBlockEnd`] parts.
+/// - Every successful stream ends with exactly one [`Completed`] event. Its
+///   response is authoritative. Block-end parts are provisional: a truncated
+///   tool call may be omitted from the final response. Inspect the final finish
+///   reason before executing tools.
 /// - A stream failure is an `Err(Error)` item and produces no [`Completed`]
 ///   event.
 ///
@@ -106,7 +109,7 @@ pub enum StreamEvent {
         id:        ContentBlockId,
         arguments: String,
     },
-    /// A content block closed, carrying its fully assembled part.
+    /// A content block closed, carrying its provisional assembled part.
     ContentBlockEnd {
         id:   ContentBlockId,
         part: ContentPart,
@@ -146,18 +149,117 @@ impl StreamEvent {
     }
 }
 
-/// A cancel-on-drop stream of normalized provider events.
-pub type ResponseStream = Pin<Box<dyn Stream<Item = Result<StreamEvent, Error>> + Send + 'static>>;
+/// A cancel-on-drop stream with exactly one terminal event or error.
+///
+/// Completion or failure immediately releases the inner stream. All later
+/// polls return `None`. An inner stream that ends without `Completed` produces
+/// a `StreamDecode` error, rather than silently appearing successful.
+pub struct ResponseStream {
+    inner: Option<Pin<Box<dyn Stream<Item = Result<StreamEvent, Error>> + Send + 'static>>>,
+}
+
+impl ResponseStream {
+    pub fn new(stream: impl Stream<Item = Result<StreamEvent, Error>> + Send + 'static) -> Self {
+        Self {
+            inner: Some(Box::pin(stream)),
+        }
+    }
+}
+
+impl Stream for ResponseStream {
+    type Item = Result<StreamEvent, Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let Some(inner) = self.inner.as_mut() else {
+            return Poll::Ready(None);
+        };
+        let result = inner.as_mut().poll_next(cx);
+        match result {
+            Poll::Ready(Some(Ok(StreamEvent::Completed { .. }) | Err(_))) => {
+                self.inner = None;
+                result
+            }
+            Poll::Ready(None) => {
+                self.inner = None;
+                Poll::Ready(Some(Err(Error::new(
+                    ErrorKind::StreamDecode,
+                    "the response stream ended without completion",
+                ))))
+            }
+            _ => result,
+        }
+    }
+}
+
+impl futures_core::stream::FusedStream for ResponseStream {
+    fn is_terminated(&self) -> bool {
+        self.inner.is_none()
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use std::error::Error as StdError;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use futures_util::StreamExt as _;
+    use futures_util::stream::iter;
     use serde_json::json;
 
-    use super::{ContentBlockId, ContentBlockKind, StreamEvent};
+    use super::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};
     use crate::catalog::{ModelId, ProviderId};
-    use crate::types::{ContentPart, RateLimits, Response, TokenCounts, ToolCall, ToolCallKind};
+    use crate::types::{
+        ContentPart, Error, ErrorKind, RateLimits, Response, TokenCounts, ToolCall, ToolCallKind,
+    };
+
+    #[tokio::test]
+    async fn terminal_events_release_resources_and_fuse() {
+        for terminal in [
+            Ok(StreamEvent::Completed {
+                response: Response::new(ProviderId::new("p"), ModelId::new("m"), vec![]),
+            }),
+            Err(Error::new(ErrorKind::Network, "failed")),
+        ] {
+            let drops = Arc::new(AtomicUsize::new(0));
+            let counter = drops.clone();
+            let inner = crate::middleware::finalize_stream(
+                ResponseStream::new(iter([terminal, Ok(StreamEvent::Started { id: None })])),
+                move || {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                },
+            );
+            let mut stream = ResponseStream::new(inner);
+            assert!(stream.next().await.is_some());
+            assert_eq!(drops.load(Ordering::SeqCst), 1);
+            assert!(stream.next().await.is_none());
+            assert!(stream.next().await.is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn premature_eof_and_mapping_errors_are_terminal() {
+        let mut stream = ResponseStream::new(iter([]));
+        assert_eq!(
+            stream
+                .next()
+                .await
+                .expect("error")
+                .expect_err("missing completion")
+                .kind(),
+            ErrorKind::StreamDecode
+        );
+        assert!(stream.next().await.is_none());
+        let mut mapped = crate::middleware::map_stream(
+            ResponseStream::new(iter([
+                Ok(StreamEvent::Started { id: None }),
+                Ok(StreamEvent::Started { id: None }),
+            ])),
+            |_| Err(Error::new(ErrorKind::Middleware, "mapping failed")),
+        );
+        assert!(mapped.next().await.expect("mapping error").is_err());
+        assert!(mapped.next().await.is_none());
+    }
 
     fn every_variant() -> Vec<StreamEvent> {
         let id = ContentBlockId::new("block-0");

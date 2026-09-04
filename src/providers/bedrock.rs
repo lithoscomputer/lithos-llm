@@ -130,7 +130,7 @@ impl ProviderAdapter for BedrockAdapter {
                 .into_iter()
                 .map(|rate_limits| Ok(StreamEvent::RateLimits { rate_limits })),
         );
-        Ok(Box::pin(limits.chain(finished)))
+        Ok(ResponseStream::new(limits.chain(finished)))
     }
 
     async fn count_input_tokens(

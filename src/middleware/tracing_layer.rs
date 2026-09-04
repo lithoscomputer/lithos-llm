@@ -235,7 +235,7 @@ impl Drop for CallTrace {
 }
 
 fn trace_stream(stream: ResponseStream, trace: CallTrace) -> ResponseStream {
-    Box::pin(TracedStream {
+    ResponseStream::new(TracedStream {
         stream,
         trace: Some(trace),
     })
@@ -261,9 +261,9 @@ impl Stream for TracedStream {
         let span = self.trace.as_ref().map(|trace| trace.span.clone());
         let result = if let Some(span) = span.as_ref() {
             let _entered = span.enter();
-            self.stream.as_mut().poll_next(context)
+            Pin::new(&mut self.stream).poll_next(context)
         } else {
-            self.stream.as_mut().poll_next(context)
+            Pin::new(&mut self.stream).poll_next(context)
         };
 
         match &result {
@@ -350,8 +350,8 @@ mod tests {
     use crate::middleware::{Call, CallContext, Mode};
     use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
     use crate::types::{
-        Cost, CostSource, Error, ErrorKind, FinishReason, Request, Response, StreamEvent,
-        TokenCounts,
+        Cost, CostSource, Error, ErrorKind, FinishReason, Request, Response, ResponseStream,
+        StreamEvent, TokenCounts,
     };
 
     const TEST_CATALOG: &str = r#"
@@ -558,7 +558,7 @@ mod tests {
         let _guard = set_default(&dispatch);
         let trace = CallTrace::new(&call(Mode::Stream)?);
         let mut stream = trace_stream(
-            Box::pin(iter([
+            ResponseStream::new(iter([
                 Ok(StreamEvent::Started {
                     id: Some("response-1".to_owned()),
                 }),
@@ -609,7 +609,7 @@ mod tests {
         let error = Error::new(ErrorKind::RateLimit, "slow down")
             .with_status(429)
             .with_provider_code("rate_limited");
-        let mut stream = trace_stream(Box::pin(iter([Err(error)])), trace);
+        let mut stream = trace_stream(ResponseStream::new(iter([Err(error)])), trace);
 
         let error = stream
             .next()
@@ -635,8 +635,9 @@ mod tests {
         let _guard = set_default(&dispatch);
         let trace = CallTrace::new(&call(Mode::Stream)?);
         let events: Vec<Result<StreamEvent, Error>> = Vec::new();
-        let mut stream = trace_stream(Box::pin(iter(events)), trace);
+        let mut stream = trace_stream(ResponseStream::new(iter(events)), trace);
 
+        assert!(stream.next().await.expect("terminal error").is_err());
         assert!(stream.next().await.is_none());
 
         let closed = capture.closed();
@@ -655,7 +656,7 @@ mod tests {
         let mut call = call(Mode::Stream)?;
         call.context.set_deadline(Instant::now());
         let trace = CallTrace::new(&call);
-        let stream = trace_stream(Box::pin(pending()), trace);
+        let stream = trace_stream(ResponseStream::new(pending()), trace);
 
         drop(stream);
 
@@ -673,7 +674,7 @@ mod tests {
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
         let trace = CallTrace::new(&call(Mode::Stream)?);
-        let stream = trace_stream(Box::pin(pending()), trace);
+        let stream = trace_stream(ResponseStream::new(pending()), trace);
 
         assert!(capture.closed().is_empty());
         drop(stream);
@@ -693,7 +694,7 @@ mod tests {
         let call = call(Mode::Stream)?;
         let cancellation = call.context.cancellation().clone();
         let trace = CallTrace::new(&call);
-        let stream = trace_stream(Box::pin(pending()), trace);
+        let stream = trace_stream(ResponseStream::new(pending()), trace);
 
         cancellation.cancel();
         drop(stream);

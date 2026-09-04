@@ -328,7 +328,7 @@ pub fn map_stream(
     use futures_util::StreamExt as _;
 
     let map = Arc::new(map);
-    Box::pin(stream.map(move |item| item.and_then(|event| map(event))))
+    ResponseStream::new(stream.map(move |item| item.and_then(|event| map(event))))
 }
 
 /// Inspects stream events and errors without changing them.
@@ -338,7 +338,7 @@ pub fn inspect_stream(
 ) -> ResponseStream {
     use futures_util::StreamExt as _;
 
-    Box::pin(stream.inspect(inspect))
+    ResponseStream::new(stream.inspect(inspect))
 }
 
 /// Runs one callback when a stream ends or is dropped.
@@ -346,7 +346,7 @@ pub fn finalize_stream(
     stream: ResponseStream,
     finalize: impl FnOnce() + Send + 'static,
 ) -> ResponseStream {
-    Box::pin(FinalizeStream {
+    ResponseStream::new(FinalizeStream {
         stream,
         finalize: Some(Box::new(finalize)),
     })
@@ -361,7 +361,7 @@ impl Stream for FinalizeStream {
     type Item = Result<StreamEvent, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let result = self.stream.as_mut().poll_next(context);
+        let result = Pin::new(&mut self.stream).poll_next(context);
         if matches!(result, Poll::Ready(None))
             && let Some(finalize) = self.finalize.take()
         {

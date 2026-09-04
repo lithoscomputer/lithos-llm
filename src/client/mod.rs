@@ -367,7 +367,7 @@ fn guard_stream(
 }
 
 fn cancellation_stream(stream: ResponseStream, cancellation: CancellationToken) -> ResponseStream {
-    Box::pin(unfold(
+    ResponseStream::new(unfold(
         (stream, cancellation, false),
         |(mut stream, cancellation, finished)| async move {
             if finished {
@@ -386,7 +386,7 @@ fn cancellation_stream(stream: ResponseStream, cancellation: CancellationToken) 
 }
 
 fn deadline_stream(stream: ResponseStream, deadline: Instant) -> ResponseStream {
-    Box::pin(unfold(
+    ResponseStream::new(unfold(
         (stream, false),
         move |(mut stream, finished)| async move {
             if finished {
@@ -810,7 +810,7 @@ mod tests {
         }
 
         async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
-            Ok(Box::pin(empty()))
+            Ok(ResponseStream::new(empty()))
         }
     }
 

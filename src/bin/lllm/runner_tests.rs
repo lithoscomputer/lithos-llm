@@ -79,7 +79,7 @@ impl ProviderAdapter for RecordingAdapter {
             .expect("request lock should work")
             .push(call.request().clone());
         let id = ContentBlockId::new("text-0");
-        Ok(Box::pin(stream::iter([
+        Ok(ResponseStream::new(stream::iter([
             Ok(StreamEvent::TextDelta {
                 id:   id.clone(),
                 text: "stream ".to_owned(),

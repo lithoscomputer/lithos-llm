@@ -286,7 +286,7 @@ fn retry_stream(
         ready: VecDeque::new(),
         ended: false,
     };
-    Box::pin(unfold(state, |mut state| async move {
+    ResponseStream::new(unfold(state, |mut state| async move {
         'read: loop {
             if let Some(item) = state.ready.pop_front() {
                 return Some((item, state));
@@ -309,7 +309,7 @@ fn retry_stream(
                     // a resource — a concurrency permit, a connection — for
                     // exactly as long as its stream lives, and the reconnect
                     // re-enters that layer to acquire the same resource.
-                    state.stream = Box::pin(empty());
+                    state.stream = ResponseStream::new(empty());
                     while let Some(delay) = state.policy.next_delay(state.attempt, &error) {
                         if deadline_prevents_retry(&state.call, delay) {
                             break;

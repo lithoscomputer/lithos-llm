@@ -6,7 +6,7 @@ use futures_util::StreamExt as _;
 use tokio::sync::Semaphore;
 
 use super::{Call, Middleware, Next, Output};
-use crate::types::{Error, ErrorKind};
+use crate::types::{Error, ErrorKind, ResponseStream};
 
 /// Limits the number of calls active inside this middleware layer.
 #[derive(Clone, Debug)]
@@ -36,10 +36,12 @@ impl Middleware for ConcurrencyLimitMiddleware {
             })?;
         match next.run(call).await? {
             Output::Complete(response) => Ok(Output::Complete(response)),
-            Output::Stream(stream) => Ok(Output::Stream(Box::pin(stream.map(move |item| {
-                let _permit = &permit;
-                item
-            })))),
+            Output::Stream(stream) => Ok(Output::Stream(ResponseStream::new(stream.map(
+                move |item| {
+                    let _permit = &permit;
+                    item
+                },
+            )))),
         }
     }
 }
