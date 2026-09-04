@@ -446,15 +446,20 @@ impl StreamDecoder for ChatStreamDecoder {
         if !self.refusal.is_empty() {
             return Err(refusal(&self.route, Some(&self.refusal), None));
         }
-        // Some skins stream tool calls yet report `stop`, or no reason at
-        // all. The streamed blocks are the ground truth for whether the model
-        // called a tool — the same rule the Responses codec applies to a
-        // trimmed terminal document.
-        if self.assembler.has_tool_call()
-            && matches!(
-                self.assembler.finish_reason(),
-                None | Some(FinishReason::Stop)
+        // Opening a tool block does not mean its arguments finished. Without
+        // a finish reason, EOF may have cut the call at any fragment, including
+        // before its first argument. Never promote that prefix into a call.
+        if self.assembler.has_tool_call() && self.assembler.finish_reason().is_none() {
+            return Err(Error::new(
+                ErrorKind::StreamDecode,
+                "the tool call stream ended without a finish reason",
             )
+            .with_provider(self.route.provider().id().clone())
+            .with_retry(RetryClassification::Safe));
+        }
+        // Some skins finish tool calls with `stop` instead of `tool_calls`.
+        if self.assembler.has_tool_call()
+            && matches!(self.assembler.finish_reason(), Some(FinishReason::Stop))
         {
             self.assembler.set_finish_reason(FinishReason::ToolCall);
         }
@@ -1964,20 +1969,24 @@ mod tests {
     }
 
     #[test]
-    fn a_streamed_tool_call_sets_the_finish_reason_when_none_arrived()
-    -> Result<(), Box<dyn StdError>> {
-        // A skin that never reports a finish reason still called the tool;
-        // completing as `incomplete` would end an agent loop mid-round.
-        let events = stream(vec![json!({ "id": "chatcmpl-1", "choices": [{ "delta": {
-            "tool_calls": [
-                { "index": 0, "id": "call-1",
-                  "function": { "name": "search", "arguments": "{}" } },
-            ],
-        } }] })])?;
-
-        let responses = completed(&events);
-        assert_eq!(responses.len(), 1);
-        assert_eq!(responses[0].finish_reason, FinishReason::ToolCall);
+    fn a_streamed_tool_call_without_a_finish_reason_fails() -> Result<(), Box<dyn StdError>> {
+        // Even syntactically complete arguments cannot prove the model has
+        // finished the call. In particular, an empty prefix must not become {}.
+        for arguments in ["", "{\"q\":", "{}"] {
+            let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+            let events = decoder.decode(SseEvent {
+                event: None,
+                data:  json!({ "id": "chatcmpl-1", "choices": [{ "delta": {
+                    "tool_calls": [{ "index": 0, "id": "call-1",
+                        "function": { "name": "search", "arguments": arguments } }],
+                } }] })
+                .to_string(),
+            })?;
+            assert!(completed(&events).is_empty());
+            let error = decoder.finish().expect_err("unfinished tool call");
+            assert_eq!(error.kind(), ErrorKind::StreamDecode);
+            assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        }
         Ok(())
     }
 
