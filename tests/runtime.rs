@@ -5,7 +5,7 @@ use std::future::pending;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
@@ -25,7 +25,7 @@ use lithos_llm::types::{
 use lithos_llm::{Client, Request};
 use tokio::spawn;
 use tokio::task::yield_now;
-use tokio::time::timeout;
+use tokio::time::{Instant, timeout};
 
 const TEST_CATALOG: &str = r#"
 schema_version = 1
@@ -158,7 +158,7 @@ impl Middleware for Recorder {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn first_middleware_is_outermost() -> Result<(), Box<dyn StdError>> {
     let log = Arc::new(Mutex::new(Vec::new()));
     let client = Client::builder()
@@ -210,7 +210,7 @@ impl Middleware for ChangeRequest {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn middleware_cannot_change_routing_or_bypass_limits() -> Result<(), Box<dyn StdError>> {
     for change_model in [true, false] {
         let client = Client::builder()
@@ -248,7 +248,7 @@ impl Middleware for ShortCircuit {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn middleware_can_short_circuit() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut adapter = FakeAdapter::successful();
@@ -347,7 +347,7 @@ fn response_policy_client(
         .client)
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn response_limits_apply_to_cached_and_transformed_final_responses()
 -> Result<(), Box<dyn StdError>> {
     for cached in [true, false] {
@@ -370,7 +370,7 @@ async fn response_limits_apply_to_cached_and_transformed_final_responses()
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn response_limits_apply_to_cached_and_transformed_deltas() -> Result<(), Box<dyn StdError>> {
     for cached in [true, false] {
         let client = response_policy_client(cached, 4, 4096, true)?;
@@ -386,7 +386,7 @@ async fn response_limits_apply_to_cached_and_transformed_deltas() -> Result<(), 
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn raw_retention_applies_to_cached_and_transformed_responses() -> Result<(), Box<dyn StdError>>
 {
     for cached in [true, false] {
@@ -413,7 +413,7 @@ async fn raw_retention_applies_to_cached_and_transformed_responses() -> Result<(
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn retry_repeats_complete_calls_on_the_same_route() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut adapter = FakeAdapter::successful();
@@ -437,7 +437,7 @@ async fn retry_repeats_complete_calls_on_the_same_route() -> Result<(), Box<dyn 
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn retry_restarts_stream_before_visible_output() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut adapter = FakeAdapter::successful();
@@ -464,7 +464,7 @@ async fn retry_restarts_stream_before_visible_output() -> Result<(), Box<dyn Std
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_stream_retry_does_not_deadlock_behind_the_concurrency_limiter()
 -> Result<(), Box<dyn StdError>> {
     // The failed attempt's stream holds the limiter's only permit until it is
@@ -542,7 +542,7 @@ impl ProviderAdapter for UsageThenFailAdapter {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_usage_snapshot_does_not_close_the_stream_retry_window() -> Result<(), Box<dyn StdError>>
 {
     // Anthropic reports usage at message_start, before any content exists. A
@@ -573,7 +573,7 @@ async fn a_usage_snapshot_does_not_close_the_stream_retry_window() -> Result<(),
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn retry_does_not_replay_after_visible_output() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut adapter = FakeAdapter::successful();
@@ -651,7 +651,7 @@ fn throttled_client(
         .client)
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn retry_waits_the_exact_retry_after_within_the_cap() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let client = throttled_client(
@@ -677,7 +677,7 @@ async fn retry_waits_the_exact_retry_after_within_the_cap() -> Result<(), Box<dy
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn retry_stops_when_retry_after_exceeds_the_cap() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let client = throttled_client(
@@ -746,7 +746,7 @@ impl Observer for RetryRecorder {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn retry_reports_each_retried_attempt_to_the_observer() -> Result<(), Box<dyn StdError>> {
     let recorder = Arc::new(RetryRecorder::default());
     let mut adapter = FakeAdapter::successful();
@@ -787,7 +787,7 @@ async fn retry_reports_each_retried_attempt_to_the_observer() -> Result<(), Box<
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_pre_visible_stream_retry_is_reported() -> Result<(), Box<dyn StdError>> {
     let recorder = Arc::new(RetryRecorder::default());
     let mut adapter = FakeAdapter::successful();
@@ -822,7 +822,7 @@ async fn a_pre_visible_stream_retry_is_reported() -> Result<(), Box<dyn StdError
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_retry_names_the_stage_that_failed() -> Result<(), Box<dyn StdError>> {
     let recorder = Arc::new(RetryRecorder::default());
     let mut adapter = FakeAdapter::successful();
@@ -869,7 +869,7 @@ async fn a_retry_names_the_stage_that_failed() -> Result<(), Box<dyn StdError>> 
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_refused_retry_is_not_reported() -> Result<(), Box<dyn StdError>> {
     let recorder = Arc::new(RetryRecorder::default());
     let calls = Arc::new(AtomicUsize::new(0));
@@ -973,7 +973,7 @@ impl ProviderAdapter for BookkeepingAdapter {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_retried_stream_starts_once() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let client = Client::builder()
@@ -1015,7 +1015,7 @@ async fn a_retried_stream_starts_once() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_call_timeout_is_never_retried() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let client = Client::builder()
@@ -1140,7 +1140,7 @@ fn a_missing_catalog_is_still_a_fatal_build_error() {
     assert!(matches!(result, Err(ClientBuildError::MissingCatalog)));
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn catalog_capabilities_reject_unsupported_content() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut adapter = FakeAdapter::successful();
@@ -1189,7 +1189,7 @@ api_model = "model"
 capabilities = { text = true, tools = true, tool_choice = { required = false, named = false } }
 "#;
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_forced_tool_choice_needs_the_capability() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut adapter = FakeAdapter::successful();
@@ -1239,7 +1239,7 @@ async fn a_forced_tool_choice_needs_the_capability() -> Result<(), Box<dyn StdEr
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn an_explicit_cache_hint_needs_the_routing_capability() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut adapter = FakeAdapter::successful();
@@ -1288,7 +1288,7 @@ impl Observer for OutcomeObserver {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn observer_finishes_complete_stream_and_count_once() -> Result<(), Box<dyn StdError>> {
     let outcomes = Arc::new(Mutex::new(Vec::new()));
     let client = Client::builder()
@@ -1311,7 +1311,7 @@ async fn observer_finishes_complete_stream_and_count_once() -> Result<(), Box<dy
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn observer_finishes_dropped_and_cancelled_calls_once() -> Result<(), Box<dyn StdError>> {
     let outcomes = Arc::new(Mutex::new(Vec::new()));
     let client = Client::builder()
@@ -1376,7 +1376,7 @@ impl ProviderAdapter for CountingTokensAdapter {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn token_counting_uses_context_and_retry_middleware() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
     let log = Arc::new(Mutex::new(Vec::new()));
@@ -1418,7 +1418,7 @@ impl Middleware for PendingMiddleware {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn request_budget_includes_middleware_waits() -> Result<(), Box<dyn StdError>> {
     let client = Client::builder()
         .catalog(catalog()?)
@@ -1466,12 +1466,13 @@ struct SetDeadline(Duration);
 #[async_trait]
 impl Middleware for SetDeadline {
     async fn handle(&self, mut call: Call, next: Next) -> Result<Output, Error> {
-        call.context_mut().set_deadline(Instant::now() + self.0);
+        call.context_mut()
+            .set_deadline((Instant::now() + self.0).into_std());
         next.run(call).await
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn middleware_deadlines_bound_completion_and_token_counting() -> Result<(), Box<dyn StdError>>
 {
     for default_timeout in [None, Some(Duration::from_secs(60))] {
@@ -1502,7 +1503,7 @@ async fn middleware_deadlines_bound_completion_and_token_counting() -> Result<()
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn middleware_deadline_bounds_downstream_stream_setup() -> Result<(), Box<dyn StdError>> {
     let client = Client::builder()
         .catalog(catalog()?)
@@ -1520,7 +1521,7 @@ async fn middleware_deadline_bounds_downstream_stream_setup() -> Result<(), Box<
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn middleware_deadline_survives_stream_setup_and_later_extension()
 -> Result<(), Box<dyn StdError>> {
     let outcomes = Arc::new(Mutex::new(Vec::new()));
@@ -1546,7 +1547,7 @@ async fn middleware_deadline_survives_stream_setup_and_later_extension()
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn middleware_cannot_extend_the_client_budget() -> Result<(), Box<dyn StdError>> {
     let client = Client::builder()
         .catalog(catalog()?)
@@ -1575,7 +1576,7 @@ fn pending_client() -> Result<Client, Box<dyn StdError>> {
         .client)
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cancellation_stops_an_active_complete_call() -> Result<(), Box<dyn StdError>> {
     let client = pending_client()?;
     let context = CallContext::new();
@@ -1591,7 +1592,7 @@ async fn cancellation_stops_an_active_complete_call() -> Result<(), Box<dyn StdE
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn cancellation_ends_an_active_stream() -> Result<(), Box<dyn StdError>> {
     let client = pending_client()?;
     let context = CallContext::new();
@@ -1610,11 +1611,11 @@ async fn cancellation_ends_an_active_stream() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn context_deadline_stops_an_active_call() -> Result<(), Box<dyn StdError>> {
     let client = pending_client()?;
     let mut context = CallContext::new();
-    context.set_deadline(Instant::now() + Duration::from_millis(5));
+    context.set_deadline((Instant::now() + Duration::from_millis(5)).into_std());
 
     let error = client
         .complete_with_context(request()?, context)
@@ -1625,7 +1626,7 @@ async fn context_deadline_stops_an_active_call() -> Result<(), Box<dyn StdError>
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn timeout_stream_emits_one_terminal_error() -> Result<(), Box<dyn StdError>> {
     let client = Client::builder()
         .catalog(catalog()?)

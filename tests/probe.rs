@@ -188,7 +188,7 @@ fn requests(log: &RequestLog) -> Vec<Request> {
         .clone()
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_one_word_probe_passes_and_reports_route_and_usage() -> Result<(), Box<dyn StdError>> {
     let (client, log) = client(Script::Answers)?;
 
@@ -211,7 +211,7 @@ async fn a_one_word_probe_passes_and_reports_route_and_usage() -> Result<(), Box
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn reasoning_effort_widens_the_output_budget() -> Result<(), Box<dyn StdError>> {
     let (client, log) = client(Script::Answers)?;
 
@@ -229,7 +229,7 @@ async fn reasoning_effort_widens_the_output_budget() -> Result<(), Box<dyn StdEr
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn an_unknown_model_fails_before_any_request() -> Result<(), Box<dyn StdError>> {
     let (client, log) = client(Script::Answers)?;
 
@@ -244,7 +244,7 @@ async fn an_unknown_model_fails_before_any_request() -> Result<(), Box<dyn StdEr
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn bad_credentials_fail_with_the_authentication_kind() -> Result<(), Box<dyn StdError>> {
     let (client, _) = client(Script::RejectsCredentials)?;
 
@@ -262,7 +262,7 @@ async fn bad_credentials_fail_with_the_authentication_kind() -> Result<(), Box<d
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_tool_probe_on_a_model_without_tools_fails_locally() -> Result<(), Box<dyn StdError>> {
     let (client, log) = client(Script::UsesTheTool)?;
 
@@ -285,7 +285,7 @@ async fn a_tool_probe_on_a_model_without_tools_fails_locally() -> Result<(), Box
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_tool_probe_passes_when_the_model_uses_the_tool() -> Result<(), Box<dyn StdError>> {
     let (client, log) = client(Script::UsesTheTool)?;
 
@@ -307,7 +307,7 @@ async fn a_tool_probe_passes_when_the_model_uses_the_tool() -> Result<(), Box<dy
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_tool_probe_fails_when_the_model_skips_the_tool() -> Result<(), Box<dyn StdError>> {
     let (client, _) = client(Script::SkipsTheTool)?;
 
@@ -322,7 +322,7 @@ async fn a_tool_probe_fails_when_the_model_skips_the_tool() -> Result<(), Box<dy
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_tool_probe_fails_on_the_wrong_total() -> Result<(), Box<dyn StdError>> {
     let (client, _) = client(Script::MissesTheTotal)?;
 
@@ -337,7 +337,7 @@ async fn a_tool_probe_fails_on_the_wrong_total() -> Result<(), Box<dyn StdError>
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_probe_that_runs_out_of_time_reports_a_timeout() -> Result<(), Box<dyn StdError>> {
     let (client, _) = client(Script::NeverAnswers)?;
 
@@ -356,7 +356,7 @@ async fn a_probe_that_runs_out_of_time_reports_a_timeout() -> Result<(), Box<dyn
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn an_outer_cancellation_ends_a_probe() -> Result<(), Box<dyn StdError>> {
     let (client, log) = client(Script::NeverAnswers)?;
     let context = CallContext::new();

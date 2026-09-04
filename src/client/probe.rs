@@ -1,9 +1,10 @@
 //! Model probes: one cheap exchange that answers "can this client serve this
 //! model right now" with a classified report instead of an error.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde_json::{Value, json};
+use tokio::time::Instant;
 
 use super::Client;
 use crate::catalog::ModelHandle;
@@ -149,7 +150,9 @@ impl Client {
     ) -> ProbeReport {
         let started = Instant::now();
         let selector = selector.into();
-        if let Some(deadline) = started.checked_add(options.effective_timeout())
+        if let Some(deadline) = started
+            .checked_add(options.effective_timeout())
+            .map(Instant::into_std)
             && context
                 .deadline()
                 .is_none_or(|existing| deadline < existing)

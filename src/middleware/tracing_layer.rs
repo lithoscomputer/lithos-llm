@@ -314,10 +314,10 @@ mod tests {
     use std::error::Error as StdError;
     use std::fmt;
     use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-    use std::time::Instant;
 
     use futures_util::StreamExt as _;
     use futures_util::stream::{iter, pending};
+    use tokio::time::Instant;
     use tracing::dispatcher::set_default;
     use tracing::field::{Field, Visit};
     use tracing::span::{Attributes, Id, Record};
@@ -631,13 +631,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn dropping_a_stream_past_its_deadline_records_an_error() -> Result<(), Box<dyn StdError>> {
+    #[tokio::test(start_paused = true)]
+    async fn dropping_a_stream_past_its_deadline_records_an_error() -> Result<(), Box<dyn StdError>>
+    {
         let capture = Capture::default();
         let dispatch = Dispatch::new(registry().with(capture.clone()));
         let _guard = set_default(&dispatch);
         let mut call = call(Operation::Stream)?;
-        call.context.set_deadline(Instant::now());
+        call.context.set_deadline(Instant::now().into_std());
         let trace = CallTrace::new(&call);
         let stream = trace_stream(ResponseStream::new(pending()), trace);
 

@@ -10,24 +10,26 @@ use crate::types::{Error, ErrorKind, ResponseStream};
 
 /// Owns the cancellation signal and deadline at one call boundary.
 ///
+/// Deadlines use Tokio's clock internally, matching its timers. The public
+/// context still accepts standard-library instants.
 /// Each middleware boundary takes its own snapshot. Inner calls can tighten
 /// the budget but cannot replace the guard retained by an enclosing call.
 #[derive(Clone)]
 pub(crate) struct CallGuard {
     cancellation: CancellationToken,
-    deadline:     Option<Instant>,
+    deadline:     Option<TokioInstant>,
 }
 
 impl CallGuard {
     pub(crate) fn new(context: &CallContext) -> Self {
         Self {
             cancellation: context.cancellation().clone(),
-            deadline:     context.deadline(),
+            deadline:     context.deadline().map(TokioInstant::from_std),
         }
     }
 
     pub(crate) fn with_timeout(mut self, timeout: Duration) -> Result<Self, Error> {
-        let deadline = Instant::now().checked_add(timeout).ok_or_else(|| {
+        let deadline = TokioInstant::now().checked_add(timeout).ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidRequest,
                 "the requested timeout is too large for this platform",
@@ -41,7 +43,7 @@ impl CallGuard {
     }
 
     pub(crate) fn deadline(&self) -> Option<Instant> {
-        self.deadline
+        self.deadline.map(TokioInstant::into_std)
     }
 
     pub(crate) fn check(&self) -> Result<(), Error> {
@@ -50,7 +52,7 @@ impl CallGuard {
         }
         if self
             .deadline
-            .is_some_and(|deadline| Instant::now() >= deadline)
+            .is_some_and(|deadline| TokioInstant::now() >= deadline)
         {
             return Err(Self::expired());
         }
@@ -60,7 +62,7 @@ impl CallGuard {
     pub(crate) fn permits_retry_after(&self, delay: Duration) -> bool {
         self.check().is_ok()
             && self.deadline.is_none_or(|deadline| {
-                Instant::now()
+                TokioInstant::now()
                     .checked_add(delay)
                     .is_some_and(|next| next < deadline)
             })
@@ -92,7 +94,7 @@ impl CallGuard {
 
     async fn wait_for_deadline(&self) {
         match self.deadline {
-            Some(deadline) => sleep_until(TokioInstant::from_std(deadline)).await,
+            Some(deadline) => sleep_until(deadline).await,
             None => pending().await,
         }
     }
@@ -109,15 +111,16 @@ impl CallGuard {
 #[cfg(test)]
 mod tests {
     use std::future::ready;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     use futures_util::{StreamExt as _, stream};
+    use tokio::time::{Instant, advance};
 
     use super::CallGuard;
     use crate::middleware::CallContext;
-    use crate::types::{ErrorKind, ResponseStream, StreamEvent};
+    use crate::types::{ErrorKind, Response, ResponseStream, StreamEvent};
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn cancellation_wins_over_ready_calls_and_stream_events() {
         let context = CallContext::new();
         context.cancellation().cancel();
@@ -145,10 +148,10 @@ mod tests {
         assert!(events.next().await.is_none());
     }
 
-    #[test]
-    fn a_timeout_cannot_extend_an_expired_context_deadline() {
+    #[tokio::test(start_paused = true)]
+    async fn a_timeout_cannot_extend_an_expired_context_deadline() {
         let mut context = CallContext::new();
-        let deadline = Instant::now();
+        let deadline = Instant::now().into_std();
         context.set_deadline(deadline);
         let guard = CallGuard::new(&context)
             .with_timeout(Duration::from_secs(60))
@@ -159,5 +162,48 @@ mod tests {
             ErrorKind::Timeout
         );
         assert!(!guard.permits_retry_after(Duration::ZERO));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn retry_windows_and_expiry_share_the_timer_clock() {
+        let guard = CallGuard::new(&CallContext::new())
+            .with_timeout(Duration::from_secs(10))
+            .expect("budget");
+        assert!(guard.permits_retry_after(Duration::from_secs(9)));
+        assert!(!guard.permits_retry_after(Duration::from_secs(10)));
+        advance(Duration::from_secs(8)).await;
+        assert!(guard.permits_retry_after(Duration::from_secs(1)));
+        assert!(!guard.permits_retry_after(Duration::from_secs(2)));
+        advance(Duration::from_secs(2)).await;
+        assert_eq!(
+            guard.run(ready(Ok(()))).await.expect_err("expired").kind(),
+            ErrorKind::Timeout
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_stream_keeps_its_budget_between_polls() {
+        let guard = CallGuard::new(&CallContext::new())
+            .with_timeout(Duration::from_secs(10))
+            .expect("budget");
+        let mut events = guard.stream(ResponseStream::new(stream::iter([
+            Ok(StreamEvent::Started { id: None }),
+            Ok(StreamEvent::Completed {
+                response: Response::new("test".into(), "model".into(), Vec::new()),
+            }),
+        ])));
+        advance(Duration::from_secs(9)).await;
+        assert!(events.next().await.expect("within budget").is_ok());
+        advance(Duration::from_secs(1)).await;
+        assert_eq!(
+            events
+                .next()
+                .await
+                .expect("terminal")
+                .expect_err("expired")
+                .kind(),
+            ErrorKind::Timeout
+        );
+        assert!(events.next().await.is_none());
     }
 }

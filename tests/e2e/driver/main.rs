@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::{env, fs};
 
 use async_trait::async_trait;
@@ -40,9 +40,9 @@ use lithos_llm::types::{
 use lithos_llm::{Client, ClientBuild};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tokio::time::sleep;
+use tokio::time::{Instant, pause, sleep};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     match run().await {
         Ok(()) => ExitCode::SUCCESS,
@@ -1463,6 +1463,8 @@ impl Middleware for PassThroughMiddleware {
 }
 
 async fn simulate(simulation: Simulation) -> Result<Value, Box<dyn StdError>> {
+    // Simulations use only scripted adapters. Real HTTP commands keep real time.
+    pause();
     let adapter = ScriptedAdapter::new(simulation.steps);
     let observer = Arc::new(RecordingObserver::default());
     let catalog = Catalog::builder()
@@ -1537,7 +1539,7 @@ async fn simulate(simulation: Simulation) -> Result<Value, Box<dyn StdError>> {
                 .checked_add(Duration::from_millis(deadline_ms.unsigned_abs()))
                 .unwrap_or_else(Instant::now)
         };
-        context.set_deadline(deadline);
+        context.set_deadline(deadline.into_std());
     }
     if simulation.cancel_before {
         context.cancellation().cancel();

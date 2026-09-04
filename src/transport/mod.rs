@@ -1702,7 +1702,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn a_stalled_stream_fails_with_a_retryable_timeout() {
         let stalled = pending::<Result<Vec<u8>, Error>>();
 
@@ -1722,7 +1722,7 @@ mod tests {
         assert!(stream.next().await.is_none(), "one stall, one error");
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn an_idle_timeout_leaves_a_flowing_stream_alone() {
         let chunks = iter(vec![Ok::<_, Error>(vec![b'a']), Ok(vec![b'b'])]);
 
