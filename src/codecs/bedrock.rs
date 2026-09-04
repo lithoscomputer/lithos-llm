@@ -17,10 +17,10 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    ANTHROPIC_SIGNATURES, carries_foreign_signature, endpoint, finish_reason,
-    flattens_system_content, flattens_tool_result_content, foreign_signature, merge_options,
-    plain_text, refusal, reject_unencodable, sampling, system_text, unsupported_capability,
-    wire_options,
+    ANTHROPIC_SIGNATURES, carries_foreign_signature, drop_truncated_tool_calls, endpoint,
+    finish_reason, flattens_system_content, flattens_tool_result_content, foreign_signature,
+    merge_options, plain_text, refusal, reject_unencodable, sampling, system_text,
+    unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -242,6 +242,7 @@ impl Codec for BedrockConverseCodec {
         response.finish_reason = stop_reason(value.get("stopReason").and_then(Value::as_str));
         response.usage = token_counts(value.get("usage"));
         response.raw = Some(value);
+        drop_truncated_tool_calls(&mut response);
         Ok(response)
     }
 
@@ -2027,6 +2028,22 @@ mod tests {
             "{}",
             counted.body
         );
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_use_cut_at_the_output_limit_is_dropped() -> Result<(), Box<dyn StdError>> {
+        let response = decoded(json!({
+            "output": { "message": { "content": [
+                { "toolUse": { "toolUseId": "tool-1", "name": "write_note", "input": {} } }
+            ] } },
+            "stopReason": "max_tokens",
+        }))?;
+
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
         Ok(())
     }
 

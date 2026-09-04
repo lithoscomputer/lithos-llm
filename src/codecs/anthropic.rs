@@ -12,10 +12,10 @@ use serde_json::{Map, Value, json};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    ANTHROPIC_SIGNATURES, carries_foreign_signature, endpoint, finish_reason,
-    flattens_system_content, flattens_tool_result_content, foreign_signature, merge_options,
-    plain_text, refusal, reject_unencodable, sampling, system_text, unsupported_capability,
-    wire_options,
+    ANTHROPIC_SIGNATURES, carries_foreign_signature, drop_truncated_tool_calls, endpoint,
+    finish_reason, flattens_system_content, flattens_tool_result_content, foreign_signature,
+    merge_options, plain_text, refusal, reject_unencodable, sampling, system_text,
+    unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -205,6 +205,7 @@ impl Codec for AnthropicMessagesCodec {
         response.finish_reason = finish_reason(value.get("stop_reason").and_then(Value::as_str));
         response.usage = token_counts(value.get("usage"));
         response.raw = Some(value);
+        drop_truncated_tool_calls(&mut response);
         Ok(response)
     }
 
@@ -1273,7 +1274,7 @@ mod tests {
     use crate::codecs::test_support::{resolved, resolved_in};
     use crate::transport::SseEvent;
     use crate::types::{
-        ContentPart, ErrorKind, ImageContent, MediaSource, Message, ReasoningContent,
+        ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ReasoningContent,
         ReasoningEffort, Request, ResponseFormat, RetryClassification, Role, Speed, StreamEvent,
         ToolChoice, ToolDefinition, ToolResult,
     };
@@ -1435,6 +1436,88 @@ mod tests {
             })
             .ok_or("expected a reasoning part")?;
         assert_eq!(reasoning.signature.as_deref(), Some("sig-stop"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_tool_use_cut_at_the_output_limit_is_dropped() -> Result<(), Box<dyn StdError>> {
+        // Verified live: `stop_reason: max_tokens` beside a `tool_use` block
+        // whose input is `{}`. The block is not a call and leaves the content.
+        let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+
+        let response = AnthropicMessagesCodec.decode_response(
+            call.route(),
+            json!({
+                "id": "msg-1",
+                "model": "claude-sonnet-4-6",
+                "content": [
+                    { "type": "tool_use", "id": "toolu_1", "name": "write_note", "input": {} }
+                ],
+                "stop_reason": "max_tokens",
+                "usage": { "input_tokens": 10, "output_tokens": 30 }
+            }),
+        )?;
+
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
+        Ok(())
+    }
+
+    #[test]
+    fn a_streamed_tool_use_cut_at_the_output_limit_is_dropped_from_the_completed_response()
+    -> Result<(), Box<dyn StdError>> {
+        // Verified live: the stream opens the block, sends one empty
+        // `input_json_delta`, and reports `max_tokens` on `message_delta`.
+        let events = stream(vec![
+            sse(
+                "message_start",
+                &json!({ "type": "message_start", "message": { "id": "msg_1" } }),
+            ),
+            sse(
+                "content_block_start",
+                &json!({
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "write_note",
+                        "input": {},
+                    },
+                }),
+            ),
+            sse(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": { "type": "input_json_delta", "partial_json": "" },
+                }),
+            ),
+            sse(
+                "content_block_stop",
+                &json!({ "type": "content_block_stop", "index": 0 }),
+            ),
+            sse(
+                "message_delta",
+                &json!({
+                    "type": "message_delta",
+                    "delta": { "stop_reason": "max_tokens" },
+                    "usage": { "output_tokens": 30 },
+                }),
+            ),
+            sse("message_stop", &json!({ "type": "message_stop" })),
+        ])?;
+
+        let Some(StreamEvent::Completed { response }) = events.last() else {
+            return Err("expected the stream to end with a completed event".into());
+        };
+        assert_eq!(response.content, Vec::new());
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
         Ok(())
     }
 

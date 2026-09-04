@@ -21,9 +21,9 @@ use serde_json::{Map, Value, json, to_string};
 
 use super::assembler::StreamAssembler;
 use super::common::{
-    cache_routing_key, endpoint, finish_reason, flattens_tool_result_content, merge_options,
-    parse_arguments, plain_text, refusal, reject_unencodable, sampling, unsupported_capability,
-    wire_options,
+    cache_routing_key, drop_truncated_tool_calls, endpoint, finish_reason,
+    flattens_tool_result_content, merge_options, parse_arguments, plain_text, refusal,
+    reject_unencodable, sampling, unsupported_capability, wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -292,6 +292,7 @@ impl Codec for OpenAiChatCodec {
         response.usage = value.get("usage").map(token_counts).unwrap_or_default();
         response.cost = provider_cost(&value);
         response.raw = Some(value);
+        drop_truncated_tool_calls(&mut response);
         Ok(response)
     }
 
@@ -1993,10 +1994,39 @@ mod tests {
     }
 
     #[test]
+    fn a_tool_call_cut_at_the_output_limit_is_dropped() -> Result<(), Box<dyn StdError>> {
+        // Verified live: `finish_reason: length` beside a call whose
+        // arguments are a JSON prefix. The call leaves the content and a
+        // warning names it.
+        let response = decode(json!({
+            "id": "chatcmpl-1",
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "id": "call-1",
+                        "function": {
+                            "name": "write_note",
+                            "arguments": "{\"title\":\"Rome\",\"body\":\"Rome began",
+                        },
+                    }],
+                },
+                "finish_reason": "length",
+            }],
+        }))?;
+
+        assert!(tool_parts(&response).is_empty());
+        assert_eq!(response.finish_reason, FinishReason::Length);
+        assert_eq!(response.warnings.len(), 1);
+        assert_eq!(response.warnings[0].code, "truncated_tool_call");
+        assert!(response.warnings[0].message.contains("write_note"));
+        Ok(())
+    }
+
+    #[test]
     fn a_non_stop_finish_reason_is_kept_despite_streamed_tool_calls()
     -> Result<(), Box<dyn StdError>> {
         // Truncation trumps inference: a `length` stop on a partial call is
-        // still a truncated answer.
+        // still a truncated answer, and the partial call is not a call.
         let events = stream(vec![
             json!({ "id": "chatcmpl-1", "choices": [{ "delta": { "tool_calls": [
                 { "index": 0, "id": "call-1",
@@ -2008,6 +2038,9 @@ mod tests {
         let responses = completed(&events);
         assert_eq!(responses.len(), 1);
         assert_eq!(responses[0].finish_reason, FinishReason::Length);
+        assert!(tool_parts(responses[0]).is_empty());
+        assert_eq!(responses[0].warnings.len(), 1);
+        assert_eq!(responses[0].warnings[0].code, "truncated_tool_call");
         Ok(())
     }
 

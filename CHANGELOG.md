@@ -202,6 +202,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- A tool call the model's output limit cut short is no longer a tool call.
+  Every codec drops it from `Response::content`, on the blocking path and on
+  the stream's completed response alike, and adds a `truncated_tool_call`
+  warning naming the tool. The finish reason stays `length`, so a consumer
+  branches on it alone and never sees a call with half its arguments. The
+  wire shapes were verified live: OpenAI Responses reports the item as
+  `incomplete` with a truncated JSON prefix, Chat Completions reports
+  `finish_reason: length` beside the prefix, and Anthropic reports
+  `max_tokens` beside an empty `input`. Before this, `parse_arguments`
+  turned the prefix into `{}` and the call reached the consumer as a
+  complete call with no arguments. The stream's block events still deliver
+  the call as it arrives, and the provider's item stays in `Response::raw`.
+  A malformed argument string on any other finish is unchanged.
+
 - The root `lithos-llm` package now provides the `lllm` executable behind the
   optional `cli` feature. It replaces the separate, unpublished
   `lithos-llm-cli` workspace package and the former `lithos` executable name.
