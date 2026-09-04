@@ -116,6 +116,9 @@ family = "gpt-6"
 training = "2026-04-30"
 knowledge_cutoff = "April 30, 2026"
 
+[providers.openai.models."gpt-6-astra".metadata.pebble]
+profile = "gpt6"
+
 [providers.openai.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"
 aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]

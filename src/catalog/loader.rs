@@ -203,8 +203,15 @@ mod tests {
     /// this value, so an unknown string is a build failure there rather than a
     /// fallback. The set matches fabro's `AgentProfileKind`.
     #[cfg(feature = "builtin-catalog")]
-    const AGENT_PROFILES: [&str; 6] =
-        ["anthropic", "claude-5", "openai", "gemini", "kimi", "gpt56"];
+    const AGENT_PROFILES: [&str; 7] = [
+        "anthropic",
+        "claude-5",
+        "openai",
+        "gemini",
+        "kimi",
+        "gpt56",
+        "gpt6",
+    ];
 
     const BASE: &str = r#"
         schema_version = 1
@@ -958,6 +965,10 @@ mod tests {
         assert_eq!(
             agent_profile(catalog.model("anthropic", "sonnet")?.metadata())?.as_deref(),
             Some("claude-5")
+        );
+        assert_eq!(
+            agent_profile(catalog.model("openai", "astra")?.metadata())?.as_deref(),
+            Some("gpt6")
         );
 
         // A model row that names no profile of its own leaves the provider's
