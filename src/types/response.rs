@@ -207,17 +207,23 @@ pub struct Warning {
 /// A normalized complete model response.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Response {
-    pub id:            Option<String>,
-    pub model:         ModelHandle,
-    pub content:       Vec<ContentPart>,
-    pub finish_reason: FinishReason,
-    pub usage:         TokenCounts,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cost:          Option<Cost>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rate_limits:   Option<RateLimits>,
+    pub id:                    Option<String>,
+    pub model:                 ModelHandle,
+    pub content:               Vec<ContentPart>,
+    /// Calls withheld because the turn ended with `Length` or `Incomplete`.
+    /// These retain raw arguments and replay metadata for diagnostics only.
+    /// They must not be executed or automatically replayed as assistant
+    /// content.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub warnings:      Vec<Warning>,
+    pub suppressed_tool_calls: Vec<ToolCall>,
+    pub finish_reason:         FinishReason,
+    pub usage:                 TokenCounts,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost:                  Option<Cost>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limits:           Option<RateLimits>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings:              Vec<Warning>,
     /// The complete provider success payload, when one was available.
     ///
     /// A complete (non-streaming) response holds the whole JSON success body
@@ -225,60 +231,51 @@ pub struct Response {
     /// provider response object when the streaming protocol supplies one, and
     /// is `None` otherwise. It never holds an accumulated log of stream events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub raw:           Option<Value>,
+    pub raw:                   Option<Value>,
 }
 
 impl Response {
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible",
-        feature = "bedrock",
-        test
-    ))]
-    /// Removes the tool calls from a response the output limit cut short.
-    ///
-    /// A call the model never finished is not a call: its arguments are
-    /// whatever prefix survived — a truncated JSON string on OpenAI, an
-    /// empty object on Anthropic — and running it would act on a guess.
-    /// Every provider reports the cut as a length finish, so a consumer
-    /// branches on
-    /// [`FinishReason::Length`](crate::types::FinishReason::Length) alone and
-    /// never sees the half-call. Each dropped call leaves a
-    /// [`TRUNCATED_TOOL_CALL`] warning naming its tool; the provider's own item
-    /// stays in [`Response::raw`] for anyone who wants the partial arguments.
-    ///
-    /// Every codec applies this at the end of its blocking decode, and the
-    /// stream assembler applies it to the response it completes, so both
-    /// paths agree by construction. Only a length finish is touched: a
-    /// malformed argument string on any other finish is a provider bug, not
-    /// a cut, and keeps its call.
-    pub(crate) fn drop_truncated_tool_calls(&mut self) {
-        if self.finish_reason != FinishReason::Length {
+    #[cfg(any(feature = "runtime", test))]
+    /// Withholds every tool call from an unfinished turn, preserving
+    /// diagnostics. This is idempotent across codec, adapter, and client
+    /// boundaries.
+    pub(crate) fn suppress_unfinished_tool_calls(&mut self) {
+        if !self.is_unfinished() {
             return;
         }
-        let mut dropped = Vec::new();
-        self.content.retain(|part| match part {
-            ContentPart::ToolCall(call) => {
-                dropped.push(call.name.clone());
-                false
+        let mut content = Vec::with_capacity(self.content.len());
+        for part in self.content.drain(..) {
+            if let ContentPart::ToolCall(call) = part {
+                self.warnings.push(Warning {
+                    code: "truncated_tool_call".to_owned(),
+                    message: format!(
+                        "the turn was unfinished ({reason}); the call to {name} was withheld from execution",
+                        reason = self.finish_reason.as_str(), name = call.name,
+                    ),
+                });
+                self.suppressed_tool_calls.push(call);
+            } else {
+                content.push(part);
             }
-            _ => true,
-        });
-        self.warnings
-            .extend(dropped.into_iter().map(|name| Warning {
-                code:    "truncated_tool_call".to_owned(),
-                message: format!(
-                    "the output limit cut off a call to {name} before its arguments were complete"
-                ),
-            }));
+        }
+        self.content = content;
+    }
+
+    fn is_unfinished(&self) -> bool {
+        matches!(
+            self.finish_reason,
+            FinishReason::Length | FinishReason::Incomplete
+        )
     }
 
     /// Visits the final response's tool calls in content order.
+    ///
+    /// An unfinished turn (`Length` or `Incomplete`) yields no calls, even for
+    /// an application-constructed response that has not passed client policy.
+    /// Callers still validate arguments and the finish reason before execution.
     pub fn tool_calls(&self) -> impl Iterator<Item = &ToolCall> {
         self.content.iter().filter_map(|part| match part {
-            ContentPart::ToolCall(call) => Some(call),
+            ContentPart::ToolCall(call) if !self.is_unfinished() => Some(call),
             _ => None,
         })
     }
@@ -295,6 +292,7 @@ impl Response {
             id: None,
             model: ModelHandle::new(provider, model),
             content,
+            suppressed_tool_calls: Vec::new(),
             finish_reason: FinishReason::Stop,
             usage: TokenCounts::default(),
             cost: None,
@@ -346,7 +344,7 @@ mod tests {
     fn a_length_finish_drops_its_tool_calls_and_warns() {
         let mut response = response_with_a_call(FinishReason::Length);
 
-        response.drop_truncated_tool_calls();
+        response.suppress_unfinished_tool_calls();
 
         assert_eq!(response.content, vec![ContentPart::Text {
             text: "Calling".to_owned(),
@@ -363,13 +361,44 @@ mod tests {
             FinishReason::Stop,
             FinishReason::ToolCall,
             FinishReason::ContentFilter,
-            FinishReason::Incomplete,
             FinishReason::Other("cancelled".to_owned()),
         ] {
             let mut response = response_with_a_call(finish_reason.clone());
-            response.drop_truncated_tool_calls();
+            response.suppress_unfinished_tool_calls();
             assert_eq!(response.content.len(), 2, "{finish_reason:?}");
             assert!(response.warnings.is_empty(), "{finish_reason:?}");
+        }
+    }
+
+    #[test]
+    fn unfinished_turns_preserve_calls_only_as_diagnostics() {
+        for reason in [FinishReason::Length, FinishReason::Incomplete] {
+            let mut response = response_with_a_call(reason);
+            let call = ToolCall::custom("partial", "edit", "unfinished patch");
+            response.content.push(ContentPart::ToolCall(call.clone()));
+            assert_eq!(response.tool_calls().count(), 0);
+            response.suppress_unfinished_tool_calls();
+            response.suppress_unfinished_tool_calls();
+            assert_eq!(response.suppressed_tool_calls.len(), 2);
+            assert_eq!(response.suppressed_tool_calls[1], call);
+            assert_eq!(response.warnings.len(), 2);
+            assert!(
+                response
+                    .warnings
+                    .iter()
+                    .all(|w| w.message.contains("turn was unfinished"))
+            );
+            let saved = serde_json::to_value(&response).expect("serialize diagnostics");
+            let restored: Response = serde_json::from_value(saved).expect("restore diagnostics");
+            assert_eq!(response, restored);
+            assert_eq!(restored.tool_calls().count(), 0);
+            assert!(
+                restored
+                    .into_message()
+                    .content()
+                    .iter()
+                    .all(|p| !matches!(p, ContentPart::ToolCall(_)))
+            );
         }
     }
 

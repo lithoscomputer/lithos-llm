@@ -240,7 +240,7 @@ impl Codec for BedrockConverseCodec {
         response.finish_reason = stop_reason(value.get("stopReason").and_then(Value::as_str));
         response.usage = token_counts(value.get("usage"));
         response.raw = Some(value);
-        response.drop_truncated_tool_calls();
+        response.suppress_unfinished_tool_calls();
         Ok(response)
     }
 

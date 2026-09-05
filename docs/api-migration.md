@@ -8,6 +8,13 @@ not that the model finished its answer. Inspect `response.finish_reason`,
 including `Incomplete` and `Length`, before accepting the turn or executing
 tools. Update stream consumers and stored event readers together.
 
+`Length` and `Incomplete` responses withhold all tool calls. Their
+`suppressed_tool_calls` field preserves the calls, raw arguments, and provider
+metadata for diagnostics, even when raw response retention is disabled.
+`tool_calls()` yields no calls for either finish reason. The existing
+`truncated_tool_call` warning code now describes an unfinished turn; it does
+not assert that each individual call had malformed arguments.
+
 | Before | After |
 | --- | --- |
 | Deserialize unchecked request fields | Deserialization validates through RequestBuilder |

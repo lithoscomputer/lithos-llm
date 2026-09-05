@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Unfinished turns (`Length` and `Incomplete`) withhold all tool calls and
+  preserve them in `Response::suppressed_tool_calls` for diagnostics. The policy
+  also applies to custom adapters and middleware responses, independently of raw
+  response retention. Warnings describe the unfinished turn.
+
 - Retry middleware now retries incomplete responses before content reaches
   the caller, including blocking calls. It preserves the final partial response
   when no retry fits the attempt or deadline budget, and never retries `Length`.

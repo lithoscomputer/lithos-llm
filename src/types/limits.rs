@@ -87,6 +87,7 @@ impl Default for ResponsePolicy {
 
 impl ResponsePolicy {
     pub(crate) fn response(self, mut response: Response) -> Result<Response, Error> {
+        response.suppress_unfinished_tool_calls();
         let raw = response.raw.take();
         serialized_size(&response, self.limits.output)?;
         if self.retain_raw {

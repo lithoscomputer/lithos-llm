@@ -290,7 +290,7 @@ impl Codec for OpenAiChatCodec {
         response.usage = value.get("usage").map(token_counts).unwrap_or_default();
         response.cost = provider_cost(&value);
         response.raw = Some(value);
-        response.drop_truncated_tool_calls();
+        response.suppress_unfinished_tool_calls();
         Ok(response)
     }
 

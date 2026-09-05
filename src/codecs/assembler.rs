@@ -580,7 +580,7 @@ impl StreamAssembler {
         response.raw.clone_from(&self.raw);
         // The block events already delivered the cut call as it streamed; the
         // completed response is the contract a consumer acts on.
-        response.drop_truncated_tool_calls();
+        response.suppress_unfinished_tool_calls();
 
         events.push(StreamEvent::Ended { response });
         events
@@ -1144,6 +1144,7 @@ mod tests {
         events.extend(assembler.arguments(&tool, r#"{"city":"#));
         let ignored = assembler.text(&tool, "sorry, I cannot");
         events.extend(assembler.arguments(&tool, r#""Oslo"}"#));
+        assembler.set_finish_reason(FinishReason::ToolCall);
         events.extend(assembler.complete());
 
         assert!(ignored.is_empty(), "a mismatched delta emits no event");

@@ -216,10 +216,11 @@ async fn answer_with_weather(client: &Client) -> Result<String, Box<dyn Error>> 
 }
 ```
 
-A call the model's output limit cut short does not appear in `content`: the
-response finishes with `FinishReason::Length`, and a `truncated_tool_call`
-warning names the tool the model was calling. Branch on the finish reason, not
-on the presence of calls, to tell a cut answer from a finished one.
+A turn cut short by the output limit (`Length`) or an incomplete stream
+(`Incomplete`) exposes no calls through `tool_calls()`. Withheld calls remain
+in `suppressed_tool_calls` for diagnostics, with their raw arguments and replay
+metadata. Do not execute these calls. A `truncated_tool_call` warning names each
+withheld tool. Inspect the finish reason to distinguish a finished turn.
 
 Replay the complete assistant content in the follow-up request. It can contain
 provider data that a later request needs. One response can contain more than

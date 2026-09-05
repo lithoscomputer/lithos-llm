@@ -203,7 +203,7 @@ impl Codec for AnthropicMessagesCodec {
         response.finish_reason = finish_reason(value.get("stop_reason").and_then(Value::as_str));
         response.usage = token_counts(value.get("usage"));
         response.raw = Some(value);
-        response.drop_truncated_tool_calls();
+        response.suppress_unfinished_tool_calls();
         Ok(response)
     }
 

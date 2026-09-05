@@ -376,7 +376,7 @@ fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Response, Erro
     // the catalog instead.
     response.cost = None;
     response.raw = Some(value);
-    response.drop_truncated_tool_calls();
+    response.suppress_unfinished_tool_calls();
     Ok(response)
 }
 

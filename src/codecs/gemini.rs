@@ -127,7 +127,7 @@ impl Codec for GeminiGenerateCodec {
         response.finish_reason = finished;
         response.usage = usage;
         response.raw = Some(value);
-        response.drop_truncated_tool_calls();
+        response.suppress_unfinished_tool_calls();
         Ok(response)
     }
 
