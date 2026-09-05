@@ -61,6 +61,12 @@ impl ResolvedRoute {
             .with_provider_code("max_output_tokens"));
         }
         for part in request.messages().iter().flat_map(Message::content) {
+            if let Some(kind) = part.unknown_kind() {
+                return Err(Error::new(ErrorKind::InvalidRequest,
+                    format!("unknown transcript content type {kind}; convert or remove it before dispatch"))
+                    .with_provider(self.provider().id().clone())
+                    .with_provider_code("unknown_content_type"));
+            }
             let capability = match part {
                 ContentPart::Text { .. } if capabilities.text().is_unsupported() => Some("text"),
                 ContentPart::Image(_) if capabilities.images().is_unsupported() => Some("images"),

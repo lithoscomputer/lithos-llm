@@ -62,6 +62,12 @@ the model's protocol_options table.
 
 ## Stored data
 
+Unrecognized content `type` values deserialize as `ContentPart::Unknown`,
+preserving the entire JSON object for newer readers. This differs from provider
+`Opaque` content. The client refuses unknown content, including inside tool
+results, until the application explicitly converts or removes it. Malformed
+known types still fail deserialization.
+
 Applications own conversion of historical records. Lithos no longer accepts
 the old finish-reason object, token-count aliases, or a null warning code.
 Use the string "tool_call" for the canonical tool-call finish reason.

@@ -865,7 +865,8 @@ fn encode_content_part(part: &ContentPart) -> Option<Value> {
         | ContentPart::Reasoning(_)
         | ContentPart::ToolCall(_)
         | ContentPart::ToolResult(_)
-        | ContentPart::Opaque { .. } => None,
+        | ContentPart::Opaque { .. }
+        | ContentPart::Unknown(_) => None,
     }
 }
 

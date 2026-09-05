@@ -530,7 +530,7 @@ fn encode_content_part(part: &ContentPart, route: &ResolvedRoute) -> Result<Opti
         ContentPart::Json { value } => Some(json!({ "text": value.to_string() })),
         // Audio is rejected before dispatch. An opaque part in another
         // provider's namespace is skipped so failover can still send.
-        ContentPart::Audio(_) | ContentPart::Opaque { .. } => None,
+        ContentPart::Audio(_) | ContentPart::Opaque { .. } | ContentPart::Unknown(_) => None,
     };
     Ok(block)
 }

@@ -875,7 +875,7 @@ fn content_block(part: &ContentPart) -> Option<Value> {
         },
         // The Messages API has no audio input.
         // Rejected before dispatch by `reject_unencodable`.
-        ContentPart::Audio(_) => None,
+        ContentPart::Audio(_) | ContentPart::Unknown(_) => None,
     }
 }
 

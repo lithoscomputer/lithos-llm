@@ -564,7 +564,10 @@ fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
             | ContentPart::Document(_) => items.extend(pending.take()),
             // Audio never reaches here, reasoning text has no input item, and
             // another provider's opaque part is not ours to send.
-            ContentPart::Audio(_) | ContentPart::Reasoning(_) | ContentPart::Opaque { .. } => {}
+            ContentPart::Audio(_)
+            | ContentPart::Reasoning(_)
+            | ContentPart::Opaque { .. }
+            | ContentPart::Unknown(_) => {}
         }
     }
     // A message whose only content is skipped assistant text still has to send
@@ -654,7 +657,8 @@ fn message_content(message: &Message, skip_text: bool) -> Vec<Value> {
             | ContentPart::Reasoning(_)
             | ContentPart::ToolCall(_)
             | ContentPart::ToolResult(_)
-            | ContentPart::Opaque { .. } => None,
+            | ContentPart::Opaque { .. }
+            | ContentPart::Unknown(_) => None,
         })
         .collect()
 }

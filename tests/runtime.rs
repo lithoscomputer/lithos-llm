@@ -23,6 +23,7 @@ use lithos_llm::types::{
     RetryClassification, Role, StreamEvent, TokenCounts, ToolChoice, ToolDefinition,
 };
 use lithos_llm::{Client, Request};
+use serde_json::json;
 use tokio::spawn;
 use tokio::task::yield_now;
 use tokio::time::{Instant, timeout};
@@ -1830,5 +1831,42 @@ async fn incomplete_turns_retry_only_before_delivery() -> Result<(), Box<dyn Std
             _ => Duration::from_millis(300),
         });
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn unknown_transcript_content_is_rejected_before_dispatch() -> Result<(), Box<dyn StdError>> {
+    let adapter = FakeAdapter::successful();
+    let calls = adapter.complete_calls.clone();
+    let streams = adapter.stream_calls.clone();
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", adapter)
+        .build()?
+        .client;
+    for content in [
+        json!({"type":"future_image","pixels":[1,2]}),
+        json!({"type":"tool_result","tool_call_id":"call_1","content":[
+            {"type":"tool_result","tool_call_id":"nested","content":[
+                {"type":"future_image","pixels":[1,2]}
+            ]}
+        ]}),
+    ] {
+        let message: Message = serde_json::from_value(json!({"role":"user","content":[content]}))?;
+        let request = Request::builder()
+            .model("test/model")
+            .message(message)
+            .build()?;
+        let error = client
+            .complete(request.clone())
+            .await
+            .expect_err("unknown content refused");
+        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+        assert_eq!(error.provider_code(), Some("unknown_content_type"));
+        assert!(client.stream(request.clone()).await.is_err());
+        assert!(client.count_input_tokens(request).await.is_err());
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert_eq!(streams.load(Ordering::SeqCst), 0);
     Ok(())
 }

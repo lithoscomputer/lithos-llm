@@ -9,6 +9,7 @@ mod response;
 #[cfg(feature = "runtime")]
 mod stream;
 mod tool_input;
+mod unknown_content;
 
 pub use content::{
     AudioContent, ContentPart, DocumentContent, ImageContent, MediaSource, Message,
@@ -35,3 +36,4 @@ pub use response::{Cost, CostSource, FinishReason, RateLimits, Response, TokenCo
 #[cfg(feature = "runtime")]
 pub use stream::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};
 pub use tool_input::{ToolArgumentError, ToolArguments, ToolInput};
+pub use unknown_content::{UnknownContent, UnknownContentError};

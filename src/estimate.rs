@@ -174,6 +174,11 @@ pub fn content_part_tokens(part: &ContentPart) -> TokenEstimate {
         }
         ContentPart::ToolResult(result) => tool_result_tokens(result),
         ContentPart::Json { value } => TokenEstimate::exact(json_tokens(value)),
+        ContentPart::Unknown(content) => {
+            let mut estimate = TokenEstimate::exact(json_tokens(content.as_value()));
+            estimate.warn(EstimateWarning::OpaqueContent);
+            estimate
+        }
         ContentPart::Opaque { kind, data } => {
             let mut estimate = TokenEstimate::exact(text_tokens(kind) + json_tokens(data));
             estimate.warn(EstimateWarning::OpaqueContent);

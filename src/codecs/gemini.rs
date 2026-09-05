@@ -395,6 +395,8 @@ fn encode_tool_choice(choice: &ToolChoice) -> Value {
 /// [`tool_call_names`].
 fn encode_part(part: &ContentPart, names: &HashMap<&str, &str>) -> Option<Value> {
     match part {
+        // Unknown content is rejected at the client and dispatch boundaries.
+        ContentPart::Unknown(_) => None,
         ContentPart::Text { text } => Some(json!({ "text": text })),
         ContentPart::Image(image) => Some(encode_media(&image.source, "image/png")),
         ContentPart::Audio(audio) => Some(encode_media(&audio.source, "audio/wav")),

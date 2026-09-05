@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{ToolArguments, ToolInput};
+use super::{ToolArguments, ToolInput, UnknownContent};
 
 /// The author of a message.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -113,9 +113,23 @@ pub enum ContentPart {
         kind: String,
         data: Value,
     },
+    /// An unrecognized stored content type, kept verbatim for newer readers.
+    /// It cannot be sent to a provider without explicit application conversion.
+    #[serde(untagged)]
+    Unknown(UnknownContent),
 }
 
 impl ContentPart {
+    /// Finds unknown content, including inside nested tool results.
+    #[cfg(feature = "runtime")]
+    pub(crate) fn unknown_kind(&self) -> Option<&str> {
+        match self {
+            Self::Unknown(content) => Some(content.kind()),
+            Self::ToolResult(result) => result.content.iter().find_map(Self::unknown_kind),
+            _ => None,
+        }
+    }
+
     /// Creates a provider-native part preserved verbatim for replay.
     ///
     /// `kind` must be provider-namespaced as `<namespace>.<name>`, such as
