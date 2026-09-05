@@ -43,6 +43,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 `Client::from_env()` uses the built-in catalog, the default HTTP client, and
 conventional provider environment variables such as `OPENAI_API_KEY`.
 
+The catalog also includes provisional imports for DeepSeek, Inception, MiniMax,
+Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
+configuration notes, and pending live checks are in
+[provider live-test TODOs](docs/provider-live-tests.md).
+
 Building a client returns a `ClientBuild`, which carries the client together
 with one issue for every provider that could not be constructed. A provider
 that fails does not remove the providers that succeeded, so an application can

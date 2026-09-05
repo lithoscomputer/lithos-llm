@@ -1,0 +1,25 @@
+# Translated from Fabro litellm.toml at 775b62b500c957fe319710fe34e6327ae1eb1bbf.
+# Imported 2026-09-05. Limits, prices, and capabilities are provisional
+# except for the documentation corrections below. No live tests have run.
+# TODO: Complete docs/provider-live-tests.md before claiming live support.
+#
+# Deployment model names and capabilities belong in an application overlay.
+# There is no universal default model. Use litellm/<deployment-model>.
+# Fabro enabled=false is application policy: use enabled_providers to opt in.
+# https://docs.litellm.ai/docs/proxy/quick_start
+
+schema_version = 1
+
+[providers.litellm]
+display_name = "LiteLLM"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "http://localhost:4000/v1"
+priority = 50
+allow_passthrough = true
+
+[providers.litellm.auth]
+type = "bearer"
+
+[providers.litellm.metadata.pebble]
+profile = "openai"

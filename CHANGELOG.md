@@ -31,6 +31,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Import DeepSeek, Inception, MiniMax, Z.ai, Poolside, LiteLLM, Ollama, and
+  Bedrock OpenAI provider entries from Fabro, with Lithos catalog fields,
+  credential mappings, and offline HTTP coverage. Z.ai uses the new compatible
+  adapter option `base_url_is_api_root` to keep its `/v4` endpoint intact.
+  The imports are provisional; live verification and recording TODOs are in
+  `docs/provider-live-tests.md`.
+
 - The built-in OpenAI catalog now includes GPT-6 Astra (`gpt-6-astra`) with
   the published 1,050,000-token context window, 128,000-token output limit,
   pricing, long-context threshold, cache-write rate, speed tiers, and

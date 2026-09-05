@@ -40,5 +40,11 @@ mod anthropic;
 #[cfg(feature = "bedrock")]
 mod bedrock;
 mod gemini;
+#[cfg(all(
+    feature = "builtin-catalog",
+    feature = "openai-compatible",
+    feature = "openai"
+))]
+mod imported_providers;
 mod openai_chat;
 mod openai_responses;

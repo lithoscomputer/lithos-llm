@@ -280,11 +280,25 @@ impl EnvironmentCredentials {
     /// and falls back to `BEDROCK_API_KEY`. With the `bedrock-aws` feature,
     /// Bedrock falls back once more to the AWS default credential chain, so a
     /// host with only an instance role or a profile still resolves.
+    /// `bedrock-openai` reads the same key variables as plain HTTP bearer
+    /// credentials and has no AWS default-chain fallback. Ollama needs no key.
     pub fn conventional() -> Self {
         let builder = EnvironmentCredentialsBuilder::default()
             .bearer("openai", "OPENAI_API_KEY")
             .header("anthropic", "x-api-key", "ANTHROPIC_API_KEY")
             .bearer("fireworks", "FIREWORKS_API_KEY")
+            .bearer("deepseek", "DEEPSEEK_API_KEY")
+            .bearer("inception", "INCEPTION_API_KEY")
+            .bearer("minimax", "MINIMAX_API_KEY")
+            .bearer("zai", "ZAI_API_KEY")
+            .bearer("poolside", "POOLSIDE_API_KEY")
+            .bearer("litellm", "LITELLM_API_KEY")
+            // Local Ollama serves requests without an authentication secret.
+            .with_http(ProviderId::new("ollama"), |_| {})
+            // Mantle uses HTTP bearer auth; the Converse credential variant
+            // and its AWS default-chain fallback cannot be used here.
+            .bearer("bedrock-openai", "AWS_BEARER_TOKEN_BEDROCK")
+            .or_bearer("bedrock-openai", "BEDROCK_API_KEY")
             .header("gemini", "x-goog-api-key", "GEMINI_API_KEY")
             .or_header("gemini", "x-goog-api-key", "GOOGLE_API_KEY")
             .header("modal", "Modal-Key", "MODAL_TOKEN_ID")
@@ -847,5 +861,48 @@ mod tests {
         let message = resolve("bedrock", &[]).expect_err("bedrock should not resolve");
 
         assert!(message.contains("AWS_BEARER_TOKEN_BEDROCK"), "{message}");
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn imported_providers_resolve_conventional_credentials() -> Result<(), String> {
+        for (provider, variable) in [
+            ("deepseek", "DEEPSEEK_API_KEY"),
+            ("inception", "INCEPTION_API_KEY"),
+            ("minimax", "MINIMAX_API_KEY"),
+            ("zai", "ZAI_API_KEY"),
+            ("poolside", "POOLSIDE_API_KEY"),
+            ("litellm", "LITELLM_API_KEY"),
+        ] {
+            assert_eq!(
+                resolve(provider, &[(variable, "test-key")])?,
+                Credentials::bearer(SecretValue::new("test-key"))
+            );
+            assert!(
+                resolve(provider, &[])
+                    .expect_err("missing key")
+                    .contains(variable)
+            );
+        }
+        assert_eq!(resolve("ollama", &[])?, Credentials::none());
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn mantle_uses_bearer_keys_without_a_converse_or_aws_chain_fallback() -> Result<(), String> {
+        assert_eq!(
+            resolve("bedrock-openai", &[
+                ("AWS_BEARER_TOKEN_BEDROCK", "preferred"),
+                ("BEDROCK_API_KEY", "fallback")
+            ])?,
+            Credentials::bearer(SecretValue::new("preferred"))
+        );
+        assert_eq!(
+            resolve("bedrock-openai", &[("BEDROCK_API_KEY", "fallback")])?,
+            Credentials::bearer(SecretValue::new("fallback"))
+        );
+        assert!(resolve("bedrock-openai", &[]).is_err());
+        Ok(())
     }
 }

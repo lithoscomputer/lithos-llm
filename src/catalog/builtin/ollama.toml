@@ -1,0 +1,26 @@
+# Translated from Fabro ollama.toml at 775b62b500c957fe319710fe34e6327ae1eb1bbf.
+# Imported 2026-09-05. Limits, prices, and capabilities are provisional
+# except for the documentation corrections below. No live tests have run.
+# TODO: Complete docs/provider-live-tests.md before claiming live support.
+#
+# Installed model names and capabilities belong in an application overlay.
+# No default model, fabricated price, or credentials are needed.
+# Use ollama/<installed-model:tag>. Fabro enabled=false is application
+# policy: use enabled_providers to opt in. Local compute cost is application-owned.
+# https://docs.ollama.com/api/openai-compatibility
+
+schema_version = 1
+
+[providers.ollama]
+display_name = "Ollama"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "http://localhost:11434/v1"
+priority = 30
+allow_passthrough = true
+
+[providers.ollama.auth]
+type = "none"
+
+[providers.ollama.metadata.pebble]
+profile = "openai"

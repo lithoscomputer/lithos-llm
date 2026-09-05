@@ -61,8 +61,18 @@ const REASONING_BLOCK: &str = "reasoning-0";
 /// The id of the single streamed `reasoning_details` block.
 const REASONING_DETAILS_BLOCK: &str = "reasoning-details-0";
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct OpenAiChatCodec;
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct OpenAiChatCodec {
+    base_url_is_api_root: bool,
+}
+
+impl OpenAiChatCodec {
+    pub(crate) fn at_api_root() -> Self {
+        Self {
+            base_url_is_api_root: true,
+        }
+    }
+}
 
 impl Codec for OpenAiChatCodec {
     fn encode(&self, call: &ResolvedCall, stream: bool) -> Result<EncodedRequest, Error> {
@@ -153,7 +163,14 @@ impl Codec for OpenAiChatCodec {
 
         let mut encoded = EncodedRequest::new(
             Method::POST,
-            endpoint(route.provider().base_url(), "/v1/chat/completions"),
+            endpoint(
+                route.provider().base_url(),
+                if self.base_url_is_api_root {
+                    "/chat/completions"
+                } else {
+                    "/v1/chat/completions"
+                },
+            ),
             Value::Object(body),
         )
         // Every chunk is one `data:` line of JSON, and lenient compatible
@@ -1176,7 +1193,7 @@ mod tests {
 
     /// Decodes one complete body against the `MODEL` route.
     fn decode(body: Value) -> Result<Response, Box<dyn StdError>> {
-        Ok(OpenAiChatCodec.decode_response(&route()?, body)?)
+        Ok(OpenAiChatCodec::default().decode_response(&route()?, body)?)
     }
 
     fn object(value: Value) -> Result<Map<String, Value>, Box<dyn StdError>> {
@@ -1188,7 +1205,7 @@ mod tests {
 
     /// Feeds chunks through one stream decoder and finishes the stream.
     fn stream(chunks: Vec<Value>) -> Result<Vec<StreamEvent>, Box<dyn StdError>> {
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
         let mut events = Vec::new();
         for chunk in chunks {
             events.extend(decoder.decode(SseEvent {
@@ -1242,7 +1259,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(encoded.body["messages"][0]["role"], "assistant");
         assert_eq!(encoded.body["messages"][0]["tool_calls"][0]["id"], "call-1");
@@ -1350,7 +1367,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         let messages: Vec<&str> = encoded
             .warnings
@@ -1503,7 +1520,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(encoded.body["temperature"], json!(0.9));
         assert_eq!(encoded.body["seed"], json!(7));
@@ -1523,7 +1540,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(encoded.body["stop"], json!(["END", "STOP"]));
         // Only OpenAI itself takes `metadata` here, so the tags are dropped
@@ -1548,7 +1565,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(encoded.body["reasoning_effort"], json!("xhigh"));
         Ok(())
@@ -1564,7 +1581,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(encoded.body["messages"][0]["role"], "system");
         Ok(())
@@ -1588,7 +1605,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(
             encoded.body["messages"][0]["content"],
@@ -1619,7 +1636,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(
             encoded.body["messages"][0]["content"],
@@ -1649,7 +1666,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(encoded.body["messages"][0]["content"], json!(""));
         Ok(())
@@ -1674,7 +1691,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(
             encoded.body["messages"][0]["content"],
@@ -1700,7 +1717,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert!(
             encoded.body["messages"][1]
@@ -1741,7 +1758,7 @@ mod tests {
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(
             encoded.body["messages"][1]["reasoning_content"],
@@ -1752,7 +1769,7 @@ mod tests {
 
     #[test]
     fn a_body_without_choices_fails_to_decode() -> Result<(), Box<dyn StdError>> {
-        let error = OpenAiChatCodec
+        let error = OpenAiChatCodec::default()
             .decode_response(&route()?, json!({ "id": "chatcmpl-1", "choices": [] }))
             .err()
             .ok_or("expected an empty choices array to fail")?;
@@ -1766,7 +1783,7 @@ mod tests {
     fn an_invalid_stream_chunk_fails_retryably() -> Result<(), Box<dyn StdError>> {
         // A chunk that is not JSON is indistinguishable from mid-stream
         // corruption; the old client retried it and this keeps that contract.
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
 
         let error = decoder
             .decode(SseEvent {
@@ -1785,7 +1802,7 @@ mod tests {
     fn an_explicit_null_error_member_is_not_an_error() -> Result<(), Box<dyn StdError>> {
         // A skin that spells out `"error": null` on success chunks must not
         // fail every stream it serves.
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
 
         let events = decoder.decode(SseEvent {
             event: None,
@@ -1811,7 +1828,7 @@ mod tests {
     {
         // A skin that streams content as an array of parts must not complete
         // as an empty success; the blocking path already reads both shapes.
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
 
         let events = decoder.decode(SseEvent {
             event: None,
@@ -1840,7 +1857,7 @@ mod tests {
         // 0 would silently merge parallel calls into one call with garbled
         // arguments; the reference decoder required the field and failed the
         // chunk retryably.
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
 
         let error = decoder
             .decode(SseEvent {
@@ -1973,7 +1990,7 @@ mod tests {
         // Even syntactically complete arguments cannot prove the model has
         // finished the call. In particular, an empty prefix must not become {}.
         for arguments in ["", "{\"q\":", "{}"] {
-            let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+            let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
             let events = decoder.decode(SseEvent {
                 event: None,
                 data:  json!({ "id": "chatcmpl-1", "choices": [{ "delta": {
@@ -2055,7 +2072,7 @@ mod tests {
             }],
         });
 
-        let error = OpenAiChatCodec
+        let error = OpenAiChatCodec::default()
             .decode_response(&route()?, body.clone())
             .expect_err("a refusal must fail the call");
 
@@ -2069,7 +2086,7 @@ mod tests {
     #[test]
     fn a_streamed_refusal_fails_the_stream_with_the_whole_explanation()
     -> Result<(), Box<dyn StdError>> {
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
         for fragment in ["I can't ", "do that."] {
             decoder.decode(SseEvent {
                 event: None,
@@ -2093,7 +2110,7 @@ mod tests {
 
     #[test]
     fn a_choice_without_a_message_fails_to_decode() -> Result<(), Box<dyn StdError>> {
-        let error = OpenAiChatCodec
+        let error = OpenAiChatCodec::default()
             .decode_response(
                 &route()?,
                 json!({ "id": "chatcmpl-1", "choices": [{ "finish_reason": "stop" }] }),
@@ -2115,7 +2132,7 @@ mod tests {
             json!({ "type": "function", "function": { "name": "f", "arguments": "{}" } }),
             json!({ "id": "call-1", "type": "function", "function": { "arguments": "{}" } }),
         ] {
-            let error = OpenAiChatCodec
+            let error = OpenAiChatCodec::default()
                 .decode_response(
                     &route()?,
                     json!({
@@ -2172,7 +2189,7 @@ protocol_options = { cache_breakpoints = true }
 
     fn routed(request: Request) -> Result<Value, Box<dyn StdError>> {
         let call = resolved_in(ROUTING_CATALOG, request)?;
-        Ok(OpenAiChatCodec.encode(&call, false)?.body)
+        Ok(OpenAiChatCodec::default().encode(&call, false)?.body)
     }
 
     #[test]
@@ -2269,7 +2286,7 @@ protocol_options = { cache_breakpoints = true }
     #[test]
     fn no_routing_capability_means_no_fingerprint() -> Result<(), Box<dyn StdError>> {
         let call = resolved_in(BREAKPOINT_CATALOG, multi_turn("gateway/fronted")?)?;
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
         assert_eq!(encoded.body.get("prompt_cache_key"), None);
         Ok(())
     }
@@ -2306,7 +2323,7 @@ protocol_options = { cache_breakpoints = true }
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(
             encoded.body["venice_parameters"]["include_venice_system_prompt"],
@@ -2330,7 +2347,7 @@ protocol_options = { cache_breakpoints = true }
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         // The request overrides the one key it names; the default's sibling
         // key survives, because option namespaces merge recursively.
@@ -2355,7 +2372,7 @@ protocol_options = { cache_breakpoints = true }
         );
         let call = resolved_in(&catalog, multi_turn("gateway/fronted")?)?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         let rendered = to_string(&encoded.body)?;
         assert_eq!(rendered.matches("cache_control").count(), 0);
@@ -2377,7 +2394,7 @@ protocol_options = { cache_breakpoints = true }
     fn auto_cache_marks_the_system_message_and_the_prefix() -> Result<(), Box<dyn StdError>> {
         let call = resolved_in(BREAKPOINT_CATALOG, multi_turn("gateway/fronted")?)?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         let messages = &encoded.body["messages"];
         assert_eq!(
@@ -2413,7 +2430,7 @@ protocol_options = { cache_breakpoints = true }
                 .build()?,
         )?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(
             to_string(&encoded.body)?.matches("cache_control").count(),
@@ -2429,7 +2446,7 @@ protocol_options = { cache_breakpoints = true }
         // the part-array rewrite, so its content must stay untouched.
         let call = resolved(multi_turn(MODEL)?)?;
 
-        let encoded = OpenAiChatCodec.encode(&call, false)?;
+        let encoded = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(
             to_string(&encoded.body)?.matches("cache_control").count(),
@@ -2553,7 +2570,7 @@ protocol_options = { cache_breakpoints = true }
                 .build()?,
         )?;
 
-        let error = OpenAiChatCodec
+        let error = OpenAiChatCodec::default()
             .encode(&call, false)
             .err()
             .ok_or("expected a custom tool to be rejected")?;
@@ -2566,7 +2583,11 @@ protocol_options = { cache_breakpoints = true }
     fn count_tokens_is_unavailable() -> Result<(), Box<dyn StdError>> {
         let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
 
-        assert!(OpenAiChatCodec.encode_count_tokens(&call).is_none());
+        assert!(
+            OpenAiChatCodec::default()
+                .encode_count_tokens(&call)
+                .is_none()
+        );
         Ok(())
     }
 
@@ -2574,8 +2595,8 @@ protocol_options = { cache_breakpoints = true }
     fn streaming_always_requests_usage() -> Result<(), Box<dyn StdError>> {
         let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
 
-        let streamed = OpenAiChatCodec.encode(&call, true)?;
-        let complete = OpenAiChatCodec.encode(&call, false)?;
+        let streamed = OpenAiChatCodec::default().encode(&call, true)?;
+        let complete = OpenAiChatCodec::default().encode(&call, false)?;
 
         assert_eq!(streamed.body["stream"], json!(true));
         assert_eq!(
@@ -2713,7 +2734,7 @@ protocol_options = { cache_breakpoints = true }
 
     #[test]
     fn a_stream_error_chunk_ends_the_stream() -> Result<(), Box<dyn StdError>> {
-        let mut decoder = OpenAiChatCodec.stream_decoder(&route()?);
+        let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
 
         let error: Error = decoder
             .decode(SseEvent {

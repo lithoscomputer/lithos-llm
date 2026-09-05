@@ -1,0 +1,51 @@
+# Translated from Fabro poolside.toml at 775b62b500c957fe319710fe34e6327ae1eb1bbf.
+# Imported 2026-09-05. Limits, prices, and capabilities are provisional
+# except for the documentation corrections below. No live tests have run.
+# TODO: Complete docs/provider-live-tests.md before claiming live support.
+#
+# The imported rates are Fabro's paid hosted estimates. The preview was
+# free when Fabro recorded them; confirm current account billing live.
+
+schema_version = 1
+
+[providers.poolside]
+display_name = "Poolside"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://inference.poolside.ai/v1"
+priority = 65
+allow_passthrough = true
+default_model = "laguna-s-2.1"
+
+[providers.poolside.auth]
+type = "bearer"
+
+[providers.poolside.metadata.fabro]
+api_key_url = "https://platform.poolside.ai"
+
+[providers.poolside.metadata.pebble]
+profile = "openai"
+
+[providers.poolside.models."laguna-s-2.1"]
+display_name = "Laguna S 2.1"
+aliases = ["laguna", "laguna-s"]
+api_model = "poolside/laguna-s-2.1"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+capabilities = { text = true, images = false, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 200000, cached_input_usd_micros_per_million = 10000 }
+
+[providers.poolside.models."laguna-s-2.1".metadata.fabro]
+family = "laguna-2"
+
+[providers.poolside.models."laguna-xs-2.1"]
+display_name = "Laguna XS 2.1"
+aliases = ["laguna-xs"]
+api_model = "poolside/laguna-xs-2.1"
+limits = { context_tokens = 262144, max_output_tokens = 32768 }
+capabilities = { text = true, images = false, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 200000, cached_input_usd_micros_per_million = 50000 }
+
+[providers.poolside.models."laguna-xs-2.1".metadata.fabro]
+family = "laguna-2"
+probe = true
+small_default = true

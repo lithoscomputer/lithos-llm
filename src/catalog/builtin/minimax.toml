@@ -1,0 +1,41 @@
+# Translated from Fabro minimax.toml at 775b62b500c957fe319710fe34e6327ae1eb1bbf.
+# Imported 2026-09-05. Limits, prices, and capabilities are provisional
+# except for the documentation corrections below. No live tests have run.
+# TODO: Complete docs/provider-live-tests.md before claiming live support.
+#
+# Docs correct Fabro's lowercase wire id and 196608-token context claim.
+# M2.5 reasons; reasoning_split preserves its separate reasoning_details.
+# https://platform.minimax.io/docs/api-reference/text-openai-api
+
+schema_version = 1
+
+[providers.minimax]
+display_name = "MiniMax"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://api.minimax.io/v1"
+priority = 50
+allow_passthrough = true
+default_model = "minimax-m2.5"
+default_options = { reasoning_split = true }
+
+[providers.minimax.auth]
+type = "bearer"
+
+[providers.minimax.metadata.fabro]
+api_key_url = "https://platform.minimaxi.com/user-center/basic-information/interface-key"
+
+[providers.minimax.metadata.pebble]
+profile = "openai"
+
+[providers.minimax.models."minimax-m2.5"]
+display_name = "Minimax M2.5"
+aliases = ["minimax"]
+api_model = "MiniMax-M2.5"
+limits = { context_tokens = 204800, max_output_tokens = 16384 }
+capabilities = { text = true, images = false, tools = true, reasoning = true, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000 }
+
+[providers.minimax.models."minimax-m2.5".metadata.fabro]
+family = "minimax-m2"
+estimated_output_tps = 45

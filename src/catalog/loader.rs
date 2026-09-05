@@ -1129,4 +1129,55 @@ mod tests {
         ));
         Ok(())
     }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn imported_providers_preserve_routes_and_decimal_prices() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        for (provider, selector, api_model) in [
+            ("deepseek", "deepseek", "deepseek-v4-flash"),
+            ("deepseek", "deepseek-v4-pro", "deepseek-v4-pro"),
+            ("inception", "mercury", "mercury-2"),
+            ("minimax", "minimax", "MiniMax-M2.5"),
+            ("zai", "glm", "glm-5.2"),
+            ("zai", "glm4", "glm-4.7"),
+            ("poolside", "laguna", "poolside/laguna-s-2.1"),
+            ("poolside", "laguna-xs", "poolside/laguna-xs-2.1"),
+            ("bedrock-openai", "gpt-5.5", "openai.gpt-5.5"),
+            ("bedrock-openai", "gpt-5.4", "openai.gpt-5.4"),
+        ] {
+            assert_eq!(catalog.model(provider, selector)?.api_model(), api_model);
+        }
+        let pro = catalog.model("deepseek", "deepseek-v4-pro")?;
+        assert_eq!(
+            pro.pricing()
+                .ok_or("prices")?
+                .cached_input_usd_micros_per_million,
+            Some(3625)
+        );
+        let xs = catalog.model("poolside", "laguna-xs")?;
+        assert_eq!(
+            xs.pricing().ok_or("prices")?.input_usd_micros_per_million,
+            Some(100_000)
+        );
+        assert_eq!(
+            xs.metadata().get("fabro").ok_or("metadata")?["small_default"],
+            true
+        );
+        for provider in ["ollama", "litellm"] {
+            let provider = catalog.provider(provider)?;
+            assert!(provider.default_model().is_none());
+            assert_eq!(provider.models().len(), 0);
+            assert!(provider.allows_passthrough());
+        }
+        assert!(matches!(
+            catalog.provider("ollama")?.auth(),
+            AuthScheme::None
+        ));
+        assert!(matches!(
+            catalog.provider("bedrock-openai")?.auth(),
+            AuthScheme::Bearer { .. }
+        ));
+        Ok(())
+    }
 }

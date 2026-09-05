@@ -60,7 +60,7 @@ pub(super) mod http {
     use futures_core::Stream;
     use futures_util::StreamExt as _;
     use futures_util::stream::{iter, unfold};
-    #[cfg(feature = "openai")]
+    #[cfg(any(feature = "openai", feature = "openai-compatible"))]
     use serde::de::DeserializeOwned;
 
     use crate::adapter::{
@@ -97,7 +97,7 @@ pub(super) mod http {
     /// Returns [`AdapterBuildError::InvalidAdapterOptions`] when the table does
     /// not match `T`. The client turns that into one provider build issue and
     /// still builds every other provider.
-    #[cfg(feature = "openai")]
+    #[cfg(any(feature = "openai", feature = "openai-compatible"))]
     pub(in crate::providers) fn adapter_options<T: Default + DeserializeOwned>(
         provider: &CatalogProvider,
     ) -> Result<T, AdapterBuildError> {

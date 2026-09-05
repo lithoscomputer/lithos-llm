@@ -1,0 +1,54 @@
+# Translated from Fabro zai.toml at 775b62b500c957fe319710fe34e6327ae1eb1bbf.
+# Imported 2026-09-05. Limits, prices, and capabilities are provisional
+# except for the documentation corrections below. No live tests have run.
+# TODO: Complete docs/provider-live-tests.md before claiming live support.
+#
+# This is the Coding Plan endpoint. A general API account needs a base_url
+# overlay to https://api.z.ai/api/paas/v4. Imported prices are token-rate
+# estimates, not a calculation of the Coding Plan subscription charge.
+# https://docs.z.ai/guides/overview/quick-start
+
+schema_version = 1
+
+[providers.zai]
+display_name = "Z.ai"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://api.z.ai/api/coding/paas/v4"
+priority = 60
+allow_passthrough = true
+adapter_options = { base_url_is_api_root = true }
+default_model = "glm-5.2"
+
+[providers.zai.auth]
+type = "bearer"
+
+[providers.zai.metadata.fabro]
+api_key_url = "https://open.bigmodel.cn/usercenter/apikeys"
+
+[providers.zai.metadata.pebble]
+profile = "openai"
+
+[providers.zai.models."glm-5.2"]
+display_name = "GLM 5.2"
+aliases = ["glm", "glm5", "glm52", "glm5.2"]
+api_model = "glm-5.2"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+capabilities = { text = true, images = false, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = true, xhigh = false, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 1400000, output_usd_micros_per_million = 4400000, cached_input_usd_micros_per_million = 260000 }
+
+[providers.zai.models."glm-5.2".metadata.fabro]
+family = "glm-5"
+
+[providers.zai.models."glm-4.7"]
+display_name = "GLM 4.7"
+aliases = ["glm4"]
+api_model = "glm-4.7"
+limits = { context_tokens = 202752, max_output_tokens = 16384 }
+capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 600000, output_usd_micros_per_million = 2200000 }
+
+[providers.zai.models."glm-4.7".metadata.fabro]
+family = "glm-4"
+estimated_output_tps = 100
