@@ -127,7 +127,7 @@ async fn stream_answer(client: &Client) -> Result<(), Box<dyn Error>> {
                 print!("{text}");
                 io::stdout().flush()?;
             }
-            StreamEvent::Completed { response } => {
+            StreamEvent::Ended { response } => {
                 eprintln!("\n{} tokens", response.usage.total());
             }
             _ => {}
@@ -137,8 +137,10 @@ async fn stream_answer(client: &Client) -> Result<(), Box<dyn Error>> {
 }
 ```
 
-Every successful stream ends with one `StreamEvent::Completed`. It contains
-the assembled `Response`. Streams can also carry reasoning, tool-call, usage,
+Every successful stream ends with one `StreamEvent::Ended`. It contains
+the assembled `Response`. An ended stream can carry an incomplete answer;
+inspect `response.finish_reason` before accepting the turn or executing tools.
+Streams can also carry reasoning, tool-call, usage,
 and rate-limit events. Dropping the stream cancels the operation as far as the
 provider and transport permit.
 

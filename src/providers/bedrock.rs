@@ -118,10 +118,10 @@ impl ProviderAdapter for BedrockAdapter {
 
         let route = call.route().clone();
         let finished = decoded.map(move |event| match event {
-            Ok(StreamEvent::Completed { mut response }) => {
+            Ok(StreamEvent::Ended { mut response }) => {
                 response.warnings.extend(warnings.clone());
                 route.apply_catalog_cost(&mut response, speed);
-                Ok(StreamEvent::Completed { response })
+                Ok(StreamEvent::Ended { response })
             }
             other => other,
         });
@@ -258,7 +258,7 @@ type TransportEvents = Pin<Box<dyn Stream<Item = Result<SseEvent, Error>> + Send
 /// Drives one stream decoder over the transport events.
 ///
 /// The decoder's `finish` runs once when the byte stream ends without error.
-/// A decode failure ends the stream, so no `Completed` event follows one.
+/// A decode failure ends the stream, so no `Ended` event follows one.
 fn decode_stream(
     events: TransportEvents,
     decoder: Box<dyn StreamDecoder>,

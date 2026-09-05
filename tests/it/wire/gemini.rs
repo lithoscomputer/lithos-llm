@@ -1253,7 +1253,7 @@ async fn stream_usage_is_last_wins_and_the_completed_response_carries_no_raw() {
     .await;
 
     let completed = events.last().expect("the stream should produce events");
-    assert_eq!(completed["type"], "completed");
+    assert_eq!(completed["type"], "ended");
     let response = &completed["response"];
 
     // Two chunks reported usage. The totals are snapshots of the same call, so
@@ -1291,7 +1291,7 @@ async fn stream_usage_is_last_wins_and_the_completed_response_carries_no_raw() {
 ///
 /// INTENTIONAL DIFFERENCE: the reference synthesized a `Stop` finish for this
 /// case, so a stream the transport cut short read as a finished answer. Every
-/// successful stream here ends with exactly one `completed`, and one the
+/// successful stream here ends with exactly one `ended`, and one the
 /// provider never finished says so.
 #[tokio::test]
 async fn a_stream_without_a_finish_reason_completes_as_incomplete() {
@@ -1304,7 +1304,7 @@ async fn a_stream_without_a_finish_reason_completes_as_incomplete() {
 
     assert_stream_contract(&events);
     let completed = events.last().expect("the stream should produce events");
-    assert_eq!(completed["type"], "completed");
+    assert_eq!(completed["type"], "ended");
     assert_eq!(
         completed["response"]["finish_reason"],
         json!("incomplete"),
@@ -1335,7 +1335,7 @@ async fn stream_error_chunk_ends_the_stream_without_completing() {
         "an error chunk must terminate the stream"
     );
     assert!(
-        !types.contains(&"completed"),
+        !types.contains(&"ended"),
         "a failed stream must never complete"
     );
 

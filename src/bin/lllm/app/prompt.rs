@@ -286,7 +286,7 @@ async fn stream(
                     return Ok(OutputState::Closed);
                 }
             }
-            StreamEvent::Completed {
+            StreamEvent::Ended {
                 response: completed,
             } => response = Some(completed),
             _ => {}

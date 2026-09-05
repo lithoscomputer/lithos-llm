@@ -2,6 +2,12 @@
 
 This is an intentional breaking refresh for coordinated callers.
 
+The terminal stream event is now `StreamEvent::Ended` (JSON `type: "ended"`),
+replacing `Completed` (`"completed"`). It means the response stream ended,
+not that the model finished its answer. Inspect `response.finish_reason`,
+including `Incomplete` and `Length`, before accepting the turn or executing
+tools. Update stream consumers and stored event readers together.
+
 | Before | After |
 | --- | --- |
 | Deserialize unchecked request fields | Deserialization validates through RequestBuilder |

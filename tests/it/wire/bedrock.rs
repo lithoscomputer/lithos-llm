@@ -590,7 +590,7 @@ async fn a_streamed_refusal_fails_before_the_stream_completes() {
     assert_eq!(failure["error"]["kind"], "content_filter");
     assert_eq!(failure["error"]["provider_code"], "refusal");
     assert!(
-        !events.iter().any(|event| event["type"] == "completed"),
+        !events.iter().any(|event| event["type"] == "ended"),
         "a refused stream must not complete"
     );
     crate::json_snapshot!(events);
@@ -937,7 +937,7 @@ async fn streams_text_reasoning_and_a_tool_call() {
         .last()
         .expect("the stream should produce events")
         .clone();
-    assert_eq!(completed["type"], "completed");
+    assert_eq!(completed["type"], "ended");
     // Bedrock sends no final response document, only the terminal `metadata`
     // usage event, so a streamed response keeps `raw` unset rather than
     // inventing an accumulated log of events.
@@ -976,7 +976,7 @@ async fn an_empty_text_delta_opens_no_text_block() {
         "an empty delta must open no text block: {events:#?}"
     );
     let completed = events.last().expect("the stream should produce events");
-    assert_eq!(completed["type"], "completed");
+    assert_eq!(completed["type"], "ended");
     assert_eq!(completed["response"]["content"], json!([]));
     crate::json_snapshot!(events);
 }
@@ -1013,7 +1013,7 @@ async fn an_exception_frame_fails_the_stream() {
     assert_eq!(failure["error"]["kind"], "rate_limit");
     assert_eq!(failure["error"]["provider_code"], "ThrottlingException");
     assert!(
-        !events.iter().any(|event| event["type"] == "completed"),
+        !events.iter().any(|event| event["type"] == "ended"),
         "a failed stream must not complete"
     );
     crate::json_snapshot!(events);
@@ -1062,7 +1062,7 @@ async fn an_error_frame_fails_the_stream() {
         "provider bedrock The model stopped responding mid-stream."
     );
     assert!(
-        !events.iter().any(|event| event["type"] == "completed"),
+        !events.iter().any(|event| event["type"] == "ended"),
         "a failed stream must not complete"
     );
     crate::json_snapshot!(events);

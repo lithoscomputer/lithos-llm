@@ -249,7 +249,7 @@ fn every_stream_event() -> Vec<StreamEvent> {
                 ..RateLimits::default()
             },
         },
-        StreamEvent::Completed {
+        StreamEvent::Ended {
             response: complete_response(),
         },
     ]

@@ -149,6 +149,6 @@ expression: rendered
         "reasoning": 9
       }
     },
-    "type": "completed"
+    "type": "ended"
   }
 ]

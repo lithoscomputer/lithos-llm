@@ -168,7 +168,7 @@ async fn changed_wire_block_index_cannot_pass_the_exact_contract() {
         .iter()
         .filter_map(|event| event.as_ref().ok())
         .find_map(|event| {
-            if let StreamEvent::Completed { response } = event {
+            if let StreamEvent::Ended { response } = event {
                 Some(response)
             } else {
                 None
@@ -320,7 +320,7 @@ async fn stream_errors_retry_only_before_visible_content() {
             assert!(
                 !events
                     .iter()
-                    .any(|e| matches!(e, Ok(StreamEvent::Completed { .. })))
+                    .any(|e| matches!(e, Ok(StreamEvent::Ended { .. })))
             );
             assert_eq!(
                 events
@@ -375,7 +375,7 @@ async fn malformed_truncated_and_disconnected_streams_never_claim_full_success()
         while let Some(event) = bounded(stream.next()).await {
             match event {
                 Err(_) => terminals += 1,
-                Ok(StreamEvent::Completed { response }) => {
+                Ok(StreamEvent::Ended { response }) => {
                     terminals += 1;
                     assert_eq!(response.finish_reason, FinishReason::Incomplete);
                 }
@@ -428,7 +428,7 @@ async fn header_and_stream_stalls_obey_deadlines_and_cancellation() {
     assert!(
         !events
             .iter()
-            .any(|e| matches!(e, Ok(StreamEvent::Completed { .. })))
+            .any(|e| matches!(e, Ok(StreamEvent::Ended { .. })))
     );
     assert_eq!(
         twin.logs("stall").await["requests"]

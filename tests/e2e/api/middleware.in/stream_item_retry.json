@@ -20,7 +20,7 @@
       { "type": "event", "event": { "type": "tool_call_delta", "id": "tool-0", "arguments": "{}" } },
       { "type": "event", "event": { "type": "content_block_end", "id": "text-0", "part": { "type": "text", "text": "visible" } } },
       { "type": "event", "event": { "type": "usage", "usage": { "input": 2, "output": 3, "reasoning": 4, "cache_read": 5, "cache_write": 6 } } },
-      { "type": "event", "event": { "type": "completed", "response": { "id": "kept", "model": { "provider": "fixture", "model": "model" }, "content": [{ "type": "text", "text": "visible" }], "finish_reason": "stop", "usage": { "input": 2, "output": 3, "reasoning": 4, "cache_read": 5, "cache_write": 6 } } } }
+      { "type": "event", "event": { "type": "ended", "response": { "id": "kept", "model": { "provider": "fixture", "model": "model" }, "content": [{ "type": "text", "text": "visible" }], "finish_reason": "stop", "usage": { "input": 2, "output": 3, "reasoning": 4, "cache_read": 5, "cache_write": 6 } } } }
     ] }
   ]
 }

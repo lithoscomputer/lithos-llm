@@ -49,6 +49,6 @@ expression: rendered
         "reasoning": 0
       }
     },
-    "type": "completed"
+    "type": "ended"
   }
 ]

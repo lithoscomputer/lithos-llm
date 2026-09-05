@@ -534,7 +534,7 @@ impl StreamAssembler {
         self.cost = Some(cost);
     }
 
-    /// Closes every still-open block, then emits the single `Completed` event.
+    /// Closes every still-open block, then emits the single `Ended` event.
     ///
     /// Blocks close in the order they were opened. The completed response
     /// carries the assembled parts in the order their blocks closed, which is
@@ -543,7 +543,7 @@ impl StreamAssembler {
     /// This is idempotent: a second call returns an empty vector, so a codec
     /// that completes on an explicit terminal event and a
     /// [`StreamDecoder::finish`](super::StreamDecoder::finish) that also
-    /// completes cannot emit two `Completed` events.
+    /// completes cannot emit two `Ended` events.
     pub(crate) fn complete(&mut self) -> Vec<StreamEvent> {
         if self.completed {
             return Vec::new();
@@ -582,7 +582,7 @@ impl StreamAssembler {
         // completed response is the contract a consumer acts on.
         response.drop_truncated_tool_calls();
 
-        events.push(StreamEvent::Completed { response });
+        events.push(StreamEvent::Ended { response });
         events
     }
 
@@ -708,7 +708,7 @@ mod tests {
                 StreamEvent::Started { .. }
                 | StreamEvent::Usage { .. }
                 | StreamEvent::RateLimits { .. }
-                | StreamEvent::Completed { .. } => {}
+                | StreamEvent::Ended { .. } => {}
             }
         }
 
@@ -729,7 +729,7 @@ mod tests {
     fn completed_responses(events: &[StreamEvent]) -> Vec<&StreamEvent> {
         events
             .iter()
-            .filter(|event| matches!(event, StreamEvent::Completed { .. }))
+            .filter(|event| matches!(event, StreamEvent::Ended { .. }))
             .collect()
     }
 
@@ -742,7 +742,7 @@ mod tests {
 
         let events = assembler.complete();
 
-        let Some(StreamEvent::Completed { response }) = events.last() else {
+        let Some(StreamEvent::Ended { response }) = events.last() else {
             panic!("the stream should complete once");
         };
         // A truncated stream must stay distinguishable from a model that
@@ -1013,7 +1013,7 @@ mod tests {
         });
 
         let events = assembler.complete();
-        let [StreamEvent::Completed { response }] = events.as_slice() else {
+        let [StreamEvent::Ended { response }] = events.as_slice() else {
             return Err("expected one completed event".into());
         };
         assert_eq!(response.usage.total(), 160);
@@ -1072,7 +1072,7 @@ mod tests {
         assert_block_boundaries(&events);
         assert_eq!(completed_responses(&events).len(), 1);
 
-        let Some(StreamEvent::Completed { response }) = events.last() else {
+        let Some(StreamEvent::Ended { response }) = events.last() else {
             return Err("expected the stream to end with a completed event".into());
         };
         assert_eq!(response.content, ended_parts(&events));
@@ -1102,7 +1102,7 @@ mod tests {
             ContentPart::Text { .. },
             ContentPart::ToolCall(_)
         ]));
-        let Some(StreamEvent::Completed { response }) = events.last() else {
+        let Some(StreamEvent::Ended { response }) = events.last() else {
             return Err("expected the stream to end with a completed event".into());
         };
         assert_eq!(response.content, vec![ContentPart::Text {
@@ -1126,7 +1126,7 @@ mod tests {
         events.extend(assembler.end(&first));
         events.extend(assembler.complete());
 
-        let Some(StreamEvent::Completed { response }) = events.last() else {
+        let Some(StreamEvent::Ended { response }) = events.last() else {
             return Err("expected a completed event".into());
         };
         assert_eq!(response.content, ended_parts(&events));
@@ -1147,7 +1147,7 @@ mod tests {
         events.extend(assembler.complete());
 
         assert!(ignored.is_empty(), "a mismatched delta emits no event");
-        let Some(StreamEvent::Completed { response }) = events.last() else {
+        let Some(StreamEvent::Ended { response }) = events.last() else {
             return Err("expected a completed event".into());
         };
         let ContentPart::ToolCall(call) = &response.content[0] else {
@@ -1171,7 +1171,7 @@ mod tests {
         });
         let events = assembler.complete();
 
-        let Some(StreamEvent::Completed { response }) = events.last() else {
+        let Some(StreamEvent::Ended { response }) = events.last() else {
             return Err("expected a completed event".into());
         };
         assert_eq!(

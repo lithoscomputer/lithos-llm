@@ -1551,7 +1551,7 @@ mod tests {
     /// The single completed response of a stream.
     fn completed(events: &[StreamEvent]) -> Result<Response, Box<dyn StdError>> {
         let mut responses = events.iter().filter_map(|event| match event {
-            StreamEvent::Completed { response } => Some(response.clone()),
+            StreamEvent::Ended { response } => Some(response.clone()),
             _ => None,
         });
         let response = responses
@@ -1593,7 +1593,7 @@ mod tests {
                 StreamEvent::Started { .. }
                 | StreamEvent::Usage { .. }
                 | StreamEvent::RateLimits { .. }
-                | StreamEvent::Completed { .. } => {}
+                | StreamEvent::Ended { .. } => {}
             }
         }
 

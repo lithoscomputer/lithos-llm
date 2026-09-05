@@ -21,12 +21,12 @@ const OUTCOME_DROPPED: &str = "dropped";
 ///
 /// Each `llm.call` span carries stable `call_id`, `attempt`, `provider`,
 /// `model`, and `mode` fields. Before the span closes, `outcome` is set to one
-/// of `completed`, `incomplete`, `failed`, `cancelled`, or `dropped`.
+/// of `ended`, `incomplete`, `failed`, `cancelled`, or `dropped`.
 /// Successful and incomplete calls also record token counts and cost when
 /// available. Failures record `error_kind`, HTTP `status`, and `provider_code`
 /// when available.
 ///
-/// A stream owns its span until it produces [`StreamEvent::Completed`],
+/// A stream owns its span until it produces [`StreamEvent::Ended`],
 /// produces an error, ends without a terminal event, or is dropped. The span
 /// is entered while each stream poll runs, but not while the stream is idle.
 ///
@@ -248,7 +248,7 @@ impl Stream for TracedStream {
         };
 
         match &result {
-            Poll::Ready(Some(Ok(StreamEvent::Completed { response }))) => {
+            Poll::Ready(Some(Ok(StreamEvent::Ended { response }))) => {
                 self.finish(|trace| trace.finish_completed(response));
             }
             Poll::Ready(Some(Ok(StreamEvent::Usage { usage }))) => {
@@ -551,7 +551,7 @@ mod tests {
                         ..TokenCounts::default()
                     },
                 }),
-                Ok(StreamEvent::Completed {
+                Ok(StreamEvent::Ended {
                     response: response(),
                 }),
             ])),
@@ -571,7 +571,7 @@ mod tests {
         assert!(capture.closed().is_empty());
         assert!(matches!(
             stream.next().await,
-            Some(Ok(StreamEvent::Completed { .. }))
+            Some(Ok(StreamEvent::Ended { .. }))
         ));
 
         let closed = capture.closed();

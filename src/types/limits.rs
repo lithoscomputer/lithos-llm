@@ -101,9 +101,9 @@ impl ResponsePolicy {
         ResponseStream::new(stream.map(move |event| {
             let event = event?;
             match event {
-                StreamEvent::Completed { response } => self
+                StreamEvent::Ended { response } => self
                     .response(response)
-                    .map(|response| StreamEvent::Completed { response }),
+                    .map(|response| StreamEvent::Ended { response }),
                 event => {
                     let used = match &event {
                         StreamEvent::ContentBlockStart { .. }

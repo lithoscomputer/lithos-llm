@@ -1109,7 +1109,7 @@ impl StreamDecoder for AnthropicStreamDecoder {
 
     fn finish(&mut self) -> Result<Vec<StreamEvent>, Error> {
         // A stream that ended without `message_stop` was truncated. Completing
-        // here keeps the one-`Completed`-per-successful-stream contract; a
+        // here keeps the one-`Ended`-per-successful-stream contract; a
         // stream that already saw `message_stop` gets nothing, because
         // completing is idempotent.
         let ids: Vec<ContentBlockId> = self.opaque.keys().cloned().collect();
@@ -1507,7 +1507,7 @@ mod tests {
             sse("message_stop", &json!({ "type": "message_stop" })),
         ])?;
 
-        let Some(StreamEvent::Completed { response }) = events.last() else {
+        let Some(StreamEvent::Ended { response }) = events.last() else {
             return Err("expected the stream to end with a completed event".into());
         };
         assert_eq!(response.content, Vec::new());
@@ -2151,7 +2151,7 @@ mod tests {
         let completions: Vec<_> = events
             .iter()
             .filter_map(|event| match event {
-                StreamEvent::Completed { response } => Some(response),
+                StreamEvent::Ended { response } => Some(response),
                 _ => None,
             })
             .collect();

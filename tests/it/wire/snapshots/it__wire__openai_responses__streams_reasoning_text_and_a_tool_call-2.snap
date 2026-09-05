@@ -284,6 +284,6 @@ expression: rendered
         "reasoning": 19
       }
     },
-    "type": "completed"
+    "type": "ended"
   }
 ]

@@ -85,7 +85,7 @@ pub(crate) trait Codec: Send + Sync {
 ///
 /// Implementors uphold the invariants documented on
 /// [`StreamEvent`](crate::types::StreamEvent): one start, then deltas, then one
-/// end per block; cumulative usage snapshots; and exactly one `Completed` event
+/// end per block; cumulative usage snapshots; and exactly one `Ended` event
 /// for a stream that does not fail.
 pub(crate) trait StreamDecoder: Send {
     /// Decodes one transport event into zero or more normalized events.
@@ -93,7 +93,7 @@ pub(crate) trait StreamDecoder: Send {
     /// # Errors
     ///
     /// Returns a classified error for a provider error event or a payload that
-    /// does not match the protocol. The stream then ends without a `Completed`
+    /// does not match the protocol. The stream then ends without a `Ended`
     /// event.
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error>;
 

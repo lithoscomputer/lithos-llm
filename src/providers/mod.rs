@@ -175,7 +175,7 @@ pub(super) mod http {
         ///
         /// A protocol that only accepts streaming requests still owes the
         /// caller a complete response, so the leading rate limits and the
-        /// terminal `Completed` event are folded back into one [`Response`].
+        /// terminal `Ended` event are folded back into one [`Response`].
         async fn complete_by_streaming(&self, call: &ResolvedCall) -> Result<Response, Error> {
             let mut stream = self.policy.stream(self.stream(call).await?);
             let mut rate_limits: Option<RateLimits> = None;
@@ -185,7 +185,7 @@ pub(super) mod http {
                     StreamEvent::RateLimits {
                         rate_limits: limits,
                     } => rate_limits = Some(limits),
-                    StreamEvent::Completed { response } => completed = Some(response),
+                    StreamEvent::Ended { response } => completed = Some(response),
                     _ => {}
                 }
             }
@@ -253,7 +253,7 @@ pub(super) mod http {
             );
             let decoded = decode_stream(accepted.events, decoder).map(move |event| {
                 event.map(|mut event| {
-                    if let StreamEvent::Completed { response } = &mut event {
+                    if let StreamEvent::Ended { response } = &mut event {
                         response.warnings.extend(warnings.iter().cloned());
                         route.apply_catalog_cost(response, speed);
                     }
@@ -291,7 +291,7 @@ pub(super) mod http {
     /// [`StreamDecoder::finish`] runs exactly once, and only when the transport
     /// ended without an error. Any error — from the transport or from the
     /// decoder — is the last item of the stream, so a failed stream can never
-    /// carry a `Completed` event.
+    /// carry a `Ended` event.
     fn decode_stream<S>(
         events: S,
         decoder: Box<dyn StreamDecoder>,
@@ -353,7 +353,7 @@ pub(super) mod http {
             /// The cost a decoded response carries, as a provider would report.
             cost:            Option<Cost>,
             usage:           TokenCounts,
-            /// A decoder that ends the stream without a `Completed` event.
+            /// A decoder that ends the stream without a `Ended` event.
             never_completes: bool,
             /// Encoding reports one control this protocol cannot express.
             warns:           bool,
@@ -441,7 +441,7 @@ pub(super) mod http {
                 if self.never_completes {
                     return Ok(Vec::new());
                 }
-                Ok(vec![StreamEvent::Completed {
+                Ok(vec![StreamEvent::Ended {
                     response: self.response.clone(),
                 }])
             }
@@ -642,7 +642,7 @@ pub(super) mod http {
             assert!(
                 !events
                     .iter()
-                    .any(|event| matches!(event, Ok(StreamEvent::Completed { .. }))),
+                    .any(|event| matches!(event, Ok(StreamEvent::Ended { .. }))),
                 "a failed stream must not complete"
             );
             Ok(())
@@ -770,7 +770,7 @@ pub(super) mod http {
             let completed = events
                 .into_iter()
                 .find_map(|event| match event {
-                    Ok(StreamEvent::Completed { response }) => Some(response),
+                    Ok(StreamEvent::Ended { response }) => Some(response),
                     _ => None,
                 })
                 .ok_or("the stream must complete")?;
@@ -796,7 +796,7 @@ pub(super) mod http {
 
             let completions = events
                 .iter()
-                .filter(|event| matches!(event, Ok(StreamEvent::Completed { .. })))
+                .filter(|event| matches!(event, Ok(StreamEvent::Ended { .. })))
                 .count();
             assert_eq!(completions, 1);
             Ok(())

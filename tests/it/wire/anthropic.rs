@@ -13,9 +13,9 @@
 //! - Content-block ids are stable and surfaced on every stream event.
 //! - `redacted_thinking` survives the STREAMING path. The reference kept it in
 //!   the blocking path and dropped it while streaming.
-//! - A truncated stream still emits exactly one `completed`, and that
-//!   completion says `incomplete` rather than `stop`. The reference emitted no
-//!   terminal event at all, which left a caller with nothing to act on.
+//! - A truncated stream still emits exactly one `ended`, and that completion
+//!   says `incomplete` rather than `stop`. The reference emitted no terminal
+//!   event at all, which left a caller with nothing to act on.
 
 use httpmock::{Method, Mock, MockServer};
 use lithos_llm::types::{
@@ -1830,7 +1830,7 @@ async fn a_streamed_response_has_no_raw_document() {
     let completed = events
         .last()
         .expect("a successful stream ends with a completed event");
-    assert_eq!(completed["type"], json!("completed"));
+    assert_eq!(completed["type"], json!("ended"));
     // Anthropic sends no terminal response document. `raw` stays empty rather
     // than being synthesized from accumulated stream state, because an
     // accumulated log is not what the provider said.
@@ -1937,10 +1937,10 @@ async fn a_stream_error_event_ends_the_stream() {
     // A mid-stream error carries no HTTP status, so it is classified from its
     // code alone.
     assert!(last["error"].get("status").is_none());
-    // A failed stream emits no `completed` event: the partial text is not a
+    // A failed stream emits no `ended` event: the partial text is not a
     // response the caller may treat as finished.
     assert!(
-        !events.iter().any(|event| event["type"] == "completed"),
+        !events.iter().any(|event| event["type"] == "ended"),
         "a failed stream must not complete: {events:?}"
     );
 
@@ -1977,11 +1977,11 @@ async fn a_truncated_stream_completes_once_and_says_it_is_incomplete() {
 
     // INTENTIONAL DIFFERENCE: the transport ended without `message_stop`, and
     // the reference emitted no terminal event at all, leaving the caller to
-    // guess. We close the open block and emit exactly one `completed` carrying
+    // guess. We close the open block and emit exactly one `ended` carrying
     // the partial text, so every successful stream has a terminal event.
     let completions = events
         .iter()
-        .filter(|event| event["type"] == "completed")
+        .filter(|event| event["type"] == "ended")
         .count();
     assert_eq!(completions, 1);
     let response = events
@@ -2041,7 +2041,7 @@ async fn a_streamed_refusal_fails_the_stream() {
         "{last:?}"
     );
     assert!(
-        !events.iter().any(|event| event["type"] == "completed"),
+        !events.iter().any(|event| event["type"] == "ended"),
         "a refused stream must not complete: {events:?}"
     );
 

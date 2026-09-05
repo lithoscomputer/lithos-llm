@@ -170,7 +170,7 @@ $ lithos-llm-e2e simulate stream_open_retry.json
     "events": [
       "started:visible=false",
       "text:visible=true",
-      "completed:visible=true"
+      "ended:visible=true"
     ],
     "inspected": 3,
     "finalized": 1
@@ -206,7 +206,7 @@ $ lithos-llm-e2e simulate stream_item_retry.json
       "tool:visible=true",
       "block_end:visible=true",
       "usage:visible=false",
-      "completed:visible=true"
+      "ended:visible=true"
     ],
     "inspected": 9,
     "finalized": 1

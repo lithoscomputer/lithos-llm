@@ -1699,7 +1699,7 @@ fn event_name(event: &StreamEvent) -> String {
         StreamEvent::ContentBlockEnd { .. } => "block_end",
         StreamEvent::Usage { .. } => "usage",
         StreamEvent::RateLimits { .. } => "rate_limits",
-        StreamEvent::Completed { .. } => "completed",
+        StreamEvent::Ended { .. } => "ended",
         _ => "unknown",
     };
     format!("{name}:visible={visible}")

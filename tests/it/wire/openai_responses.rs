@@ -1554,7 +1554,7 @@ fn stream_transcript() -> String {
 ///    reference carried the accumulated argument text on every delta, which
 ///    made a consumer that concatenated deltas produce quadratic garbage.
 ///
-/// The terminal `completed` response is also this dialect's alone: it comes
+/// The terminal `ended` response is also this dialect's alone: it comes
 /// from the provider's `response.completed` document, so it carries the
 /// provider's id, usage, and complete raw body rather than anything this crate
 /// assembled.
@@ -1582,10 +1582,7 @@ async fn streams_reasoning_text_and_a_tool_call() {
         .last()
         .expect("the stream should produce events")
         .clone();
-    assert_eq!(
-        completed.get("type").and_then(Value::as_str),
-        Some("completed"),
-    );
+    assert_eq!(completed.get("type").and_then(Value::as_str), Some("ended"),);
     let raw = completed
         .pointer("/response/raw")
         .expect("this dialect's completed response must carry the provider's own document");
@@ -1606,7 +1603,7 @@ async fn streams_reasoning_text_and_a_tool_call() {
 
 /// A mid-stream `error` event ends the stream with an `Err` item.
 ///
-/// The contract that matters is negative: no `completed` event may follow, so a
+/// The contract that matters is negative: no `ended` event may follow, so a
 /// consumer can never mistake a failed generation for a finished one. The text
 /// block that was already open simply stays open.
 #[tokio::test]
@@ -1642,7 +1639,7 @@ async fn a_mid_stream_error_terminates_without_completing() {
     assert!(
         !events
             .iter()
-            .any(|event| event.get("type").and_then(Value::as_str) == Some("completed")),
+            .any(|event| event.get("type").and_then(Value::as_str) == Some("ended")),
         "a failed stream must not complete",
     );
     assert_eq!(
@@ -1761,7 +1758,7 @@ async fn ignores_a_stream_frame_that_is_not_json() {
     let completed = events.last().expect("the stream should produce events");
     assert_eq!(
         completed.get("type").and_then(Value::as_str),
-        Some("completed"),
+        Some("ended"),
         "an unparseable frame must not end the stream",
     );
     assert_eq!(

@@ -96,7 +96,7 @@ expression: render(&every_stream_event())?
     }
   },
   {
-    "type": "completed",
+    "type": "ended",
     "response": {
       "id": "resp_1",
       "model": {

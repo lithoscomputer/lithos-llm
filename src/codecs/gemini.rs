@@ -1982,7 +1982,7 @@ mod tests {
         let completed: Vec<&Response> = events
             .iter()
             .filter_map(|event| match event {
-                StreamEvent::Completed { response } => Some(response),
+                StreamEvent::Ended { response } => Some(response),
                 _ => None,
             })
             .collect();

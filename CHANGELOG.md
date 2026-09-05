@@ -6,6 +6,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: rename the terminal `StreamEvent::Completed` to `Ended`, with
+  JSON type `ended`. The terminal response can be incomplete or length-limited;
+  callers must inspect its finish reason before accepting a turn.
+
 ### Added
 
 - The built-in OpenAI catalog now includes GPT-6 Astra (`gpt-6-astra`) with

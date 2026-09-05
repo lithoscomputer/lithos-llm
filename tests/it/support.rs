@@ -380,10 +380,10 @@ pub(crate) async fn collect_stream_events(mut stream: ResponseStream) -> Vec<Val
 /// - A block id is never reused inside one stream, so two blocks can never be
 ///   open under the same id.
 /// - `usage` snapshots are cumulative, so no bucket ever decreases.
-/// - A successful stream ends with exactly one `completed`, nothing follows it,
+/// - A successful stream ends with exactly one `ended`, nothing follows it,
 ///   every block is closed by then, and its response content is the ordered
 ///   sequence of `content_block_end` parts.
-/// - A failed stream emits no `completed` at all.
+/// - A failed stream emits no `ended` at all.
 ///
 /// # Panics
 ///
@@ -446,7 +446,7 @@ pub(crate) fn assert_stream_contract(events: &[Value]) {
                 }
                 usage = Some(next);
             }
-            "completed" => completed = Some(event),
+            "ended" => completed = Some(event),
             _ => {}
         }
     }
@@ -454,12 +454,12 @@ pub(crate) fn assert_stream_contract(events: &[Value]) {
     if failed {
         assert!(
             completed.is_none(),
-            "a stream that failed must not emit a `completed` event"
+            "a stream that failed must not emit a `ended` event"
         );
         return;
     }
 
-    let completed = completed.expect("a successful stream must end with one `completed` event");
+    let completed = completed.expect("a successful stream must end with one `ended` event");
     assert!(
         open.is_empty(),
         "the stream completed with these blocks still open: {:?}",
@@ -468,7 +468,7 @@ pub(crate) fn assert_stream_contract(events: &[Value]) {
     let content = completed
         .get("response")
         .and_then(|response| response.get("content"))
-        .expect("a `completed` event must carry a response with content");
+        .expect("a `ended` event must carry a response with content");
     assert_eq!(
         content,
         &Value::Array(parts),

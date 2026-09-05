@@ -106,7 +106,7 @@ impl ProviderAdapter for FakeAdapter {
                     id:   ContentBlockId::new("block-0"),
                     text: "done".to_owned(),
                 }),
-                Ok(StreamEvent::Completed {
+                Ok(StreamEvent::Ended {
                     response: success_response(call, "done"),
                 }),
             ]
@@ -289,7 +289,7 @@ impl Middleware for ResponsePolicyMiddleware {
                         id:   ContentBlockId::new("text"),
                         text: String::new(),
                     }),
-                    Ok(StreamEvent::Completed { response }),
+                    Ok(StreamEvent::Ended { response }),
                 ])))
             } else {
                 Output::Complete(response)
@@ -315,7 +315,7 @@ impl Middleware for ResponsePolicyMiddleware {
                             id,
                             text: "x".repeat(delta_bytes),
                         },
-                        StreamEvent::Completed { response } => StreamEvent::Completed {
+                        StreamEvent::Ended { response } => StreamEvent::Ended {
                             response: rewrite(response),
                         },
                         event => event,
@@ -400,7 +400,7 @@ async fn raw_retention_applies_to_cached_and_transformed_responses() -> Result<(
                 stream.next().await,
                 Some(Ok(StreamEvent::TextDelta { .. }))
             ));
-            let StreamEvent::Completed { response } =
+            let StreamEvent::Ended { response } =
                 stream.next().await.ok_or("missing completion")??
             else {
                 return Err("expected completion".into());
@@ -458,7 +458,7 @@ async fn retry_restarts_stream_before_visible_output() -> Result<(), Box<dyn Std
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Ended { .. })] if text == "done"
     ));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
@@ -493,7 +493,7 @@ async fn a_stream_retry_does_not_deadlock_behind_the_concurrency_limiter()
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Ended { .. })] if text == "done"
     ));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
@@ -533,7 +533,7 @@ impl ProviderAdapter for UsageThenFailAdapter {
                     id:   ContentBlockId::new("block-0"),
                     text: "done".to_owned(),
                 }),
-                Ok(StreamEvent::Completed {
+                Ok(StreamEvent::Ended {
                     response: success_response(_call, "done"),
                 }),
             ]
@@ -567,7 +567,7 @@ async fn a_usage_snapshot_does_not_close_the_stream_retry_window() -> Result<(),
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Ended { .. })] if text == "done"
     ));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     Ok(())
@@ -810,7 +810,7 @@ async fn a_pre_visible_stream_retry_is_reported() -> Result<(), Box<dyn StdError
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Ended { .. })] if text == "done"
     ));
     assert_eq!(recorder.retries(), [RecordedRetry {
         attempt:         1,
@@ -848,7 +848,7 @@ async fn a_retry_names_the_stage_that_failed() -> Result<(), Box<dyn StdError>> 
 
     assert!(matches!(
         events.as_slice(),
-        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Completed { .. })] if text == "done"
+        [Ok(StreamEvent::TextDelta { text, .. }), Ok(StreamEvent::Ended { .. })] if text == "done"
     ));
     assert_eq!(recorder.retries(), [
         RecordedRetry {
@@ -965,7 +965,7 @@ impl ProviderAdapter for BookkeepingAdapter {
                 id:   ContentBlockId::new("block-0"),
                 text: "done".to_owned(),
             }));
-            events.push(Ok(StreamEvent::Completed {
+            events.push(Ok(StreamEvent::Ended {
                 response: success_response(_call, "done"),
             }));
         }
@@ -1010,7 +1010,7 @@ async fn a_retried_stream_starts_once() -> Result<(), Box<dyn StdError>> {
     ));
     assert!(matches!(
         events.last(),
-        Some(Ok(StreamEvent::Completed { response })) if response.text() == "done"
+        Some(Ok(StreamEvent::Ended { response })) if response.text() == "done"
     ));
     Ok(())
 }

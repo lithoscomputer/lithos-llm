@@ -188,7 +188,7 @@ mod tests {
             .expect("budget");
         let mut events = guard.stream(ResponseStream::new(stream::iter([
             Ok(StreamEvent::Started { id: None }),
-            Ok(StreamEvent::Completed {
+            Ok(StreamEvent::Ended {
                 response: Response::new("test".into(), "model".into(), Vec::new()),
             }),
         ])));

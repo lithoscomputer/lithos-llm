@@ -89,7 +89,7 @@ impl ProviderAdapter for RecordingAdapter {
                 id,
                 text: "output".to_owned(),
             }),
-            Ok(StreamEvent::Completed {
+            Ok(StreamEvent::Ended {
                 response: response("stream output"),
             }),
         ])))

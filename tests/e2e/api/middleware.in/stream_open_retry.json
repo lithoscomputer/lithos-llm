@@ -8,7 +8,7 @@
     { "type": "stream", "items": [
       { "type": "event", "event": { "type": "started", "id": "stream-open" } },
       { "type": "event", "event": { "type": "text_delta", "id": "text-0", "text": "ready" } },
-      { "type": "event", "event": { "type": "completed", "response": { "id": "stream-open", "model": { "provider": "fixture", "model": "model" }, "content": [{ "type": "text", "text": "ready" }], "finish_reason": "stop", "usage": { "input": 1, "output": 1, "reasoning": 0, "cache_read": 0, "cache_write": 0 } } } }
+      { "type": "event", "event": { "type": "ended", "response": { "id": "stream-open", "model": { "provider": "fixture", "model": "model" }, "content": [{ "type": "text", "text": "ready" }], "finish_reason": "stop", "usage": { "input": 1, "output": 1, "reasoning": 0, "cache_read": 0, "cache_write": 0 } } } }
     ] }
   ]
 }

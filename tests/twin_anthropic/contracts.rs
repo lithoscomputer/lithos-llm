@@ -123,7 +123,7 @@ pub(super) fn completed(events: &[StreamEvent]) -> &Response {
                 }
                 assert!(closed.insert(id.clone(), part.clone()).is_none());
             }
-            StreamEvent::Completed { response } => {
+            StreamEvent::Ended { response } => {
                 assert!(open.is_empty(), "completion with open blocks");
                 completion = Some(response);
             }
@@ -332,7 +332,7 @@ async fn output_truncation_never_returns_tools_for_execution() {
             events
                 .into_iter()
                 .find_map(|e| {
-                    if let StreamEvent::Completed { response } = e {
+                    if let StreamEvent::Ended { response } = e {
                         Some(response)
                     } else {
                         None
@@ -434,7 +434,7 @@ async fn exact_contract_detects_corrupted_tool_signature_usage_and_stop_state() 
                 events
                     .iter()
                     .find_map(|e| {
-                        if let StreamEvent::Completed { response } = e {
+                        if let StreamEvent::Ended { response } = e {
                             Some(response.clone())
                         } else {
                             None

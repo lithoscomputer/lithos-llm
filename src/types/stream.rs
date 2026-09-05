@@ -74,17 +74,16 @@ pub enum ContentBlockKind {
 ///   with the provider's original argument string, and provider metadata.
 /// - [`Usage`] events are cumulative snapshots for the current provider call,
 ///   not deltas. A codec that receives incremental counters accumulates them.
-/// - Every successful stream ends with exactly one [`Completed`] event. Its
+/// - Every successful stream ends with exactly one [`Ended`] event. Its
 ///   response is authoritative. Block-end parts are provisional: a truncated
 ///   tool call may be omitted from the final response. Inspect the final finish
 ///   reason before executing tools.
-/// - A stream failure is an `Err(Error)` item and produces no [`Completed`]
-///   event.
+/// - A stream failure is an `Err(Error)` item and produces no [`Ended`] event.
 ///
 /// [`ContentBlockStart`]: StreamEvent::ContentBlockStart
 /// [`ContentBlockEnd`]: StreamEvent::ContentBlockEnd
 /// [`Usage`]: StreamEvent::Usage
-/// [`Completed`]: StreamEvent::Completed
+/// [`Ended`]: StreamEvent::Ended
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[non_exhaustive]
@@ -125,8 +124,10 @@ pub enum StreamEvent {
     RateLimits {
         rate_limits: RateLimits,
     },
-    /// The single terminal event of a successful stream.
-    Completed {
+    /// The response stream ended. Inspect `response.finish_reason` for the
+    /// outcome: an ended stream can carry an incomplete or length-limited
+    /// answer. This event does not authorize tool execution.
+    Ended {
         response: Response,
     },
 }
@@ -156,7 +157,7 @@ impl StreamEvent {
 /// A cancel-on-drop stream with exactly one terminal event or error.
 ///
 /// Completion or failure immediately releases the inner stream. All later
-/// polls return `None`. An inner stream that ends without `Completed` produces
+/// polls return `None`. An inner stream that ends without `Ended` produces
 /// a `StreamDecode` error, rather than silently appearing successful.
 pub struct ResponseStream {
     inner: Option<BoxedEvents>,
@@ -181,7 +182,7 @@ impl Stream for ResponseStream {
         };
         let result = inner.as_mut().poll_next(cx);
         match result {
-            Poll::Ready(Some(Ok(StreamEvent::Completed { .. }) | Err(_))) => {
+            Poll::Ready(Some(Ok(StreamEvent::Ended { .. }) | Err(_))) => {
                 self.inner = None;
                 result
             }
@@ -224,7 +225,7 @@ mod tests {
     #[tokio::test]
     async fn terminal_events_release_resources_and_fuse() {
         for terminal in [
-            Ok(StreamEvent::Completed {
+            Ok(StreamEvent::Ended {
                 response: Response::new(ProviderId::new("p"), ModelId::new("m"), vec![]),
             }),
             Err(Error::new(ErrorKind::Network, "failed")),
@@ -325,7 +326,7 @@ mod tests {
                     ..RateLimits::default()
                 },
             },
-            StreamEvent::Completed {
+            StreamEvent::Ended {
                 response: Response::new(ProviderId::new("openai"), ModelId::new("gpt-5"), vec![
                     ContentPart::Text {
                         text: "hello".to_owned(),

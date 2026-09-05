@@ -119,7 +119,7 @@ pub trait ProviderAdapter: Send + Sync {
     /// [`crate::types::StreamEvent`].
     ///
     /// Return opening failures here and later failures as error items. A
-    /// successful stream must emit one authoritative `Completed` response with
+    /// successful stream must emit one authoritative `Ended` response with
     /// the canonical route identity. Block-end parts are provisional; consumers
     /// must not treat them as permission to execute a tool.
     /// [`ResponseStream`] enforces terminal behavior and drops its inner stream

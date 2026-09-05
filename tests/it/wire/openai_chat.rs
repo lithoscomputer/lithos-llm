@@ -279,7 +279,7 @@ fn error_json(error: &Error) -> Value {
 fn completed(events: &[Value]) -> &Value {
     events
         .iter()
-        .find(|event| event.get("type").and_then(Value::as_str) == Some("completed"))
+        .find(|event| event.get("type").and_then(Value::as_str) == Some("ended"))
         .and_then(|event| event.get("response"))
         .expect("the stream should carry one completed response")
 }
@@ -1374,7 +1374,7 @@ async fn a_stream_error_chunk_ends_the_stream() {
     .await;
 
     // `assert_stream_contract` enforces the half that matters: a failed stream
-    // emits no `completed` event, so a caller can never mistake a truncated
+    // emits no `ended` event, so a caller can never mistake a truncated
     // answer for a whole one.
     support::assert_stream_contract(&events);
     let last = events.last().expect("the stream should produce items");
@@ -1383,7 +1383,7 @@ async fn a_stream_error_chunk_ends_the_stream() {
     assert!(
         !events
             .iter()
-            .any(|event| event.get("type").and_then(Value::as_str) == Some("completed")),
+            .any(|event| event.get("type").and_then(Value::as_str) == Some("ended")),
         "a failed stream must not complete"
     );
     crate::json_snapshot!(events);
@@ -1422,7 +1422,7 @@ async fn a_stream_cut_off_after_content_completes_as_incomplete() {
 ///
 /// INTENTIONAL DIFFERENCE: the reference emitted no terminal event at all
 /// here, so a caller could not tell a cut stream from a consumer bug. Every
-/// successful stream ends with exactly one `completed`.
+/// successful stream ends with exactly one `ended`.
 #[tokio::test]
 async fn a_stream_cut_off_before_content_completes_as_incomplete() {
     let (_, events) = stream(support::base_request(&selector()), &[

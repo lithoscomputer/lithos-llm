@@ -126,7 +126,7 @@ pub(crate) async fn checked_stream(
     let completed = events
         .iter()
         .rev()
-        .find(|event| event.get("type").and_then(Value::as_str) == Some("completed"));
+        .find(|event| event.get("type").and_then(Value::as_str) == Some("ended"));
     let Some(completed) = completed else {
         let failure = events
             .iter()

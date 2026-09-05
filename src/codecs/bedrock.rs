@@ -1296,7 +1296,7 @@ mod tests {
         events
             .iter()
             .filter_map(|event| match event {
-                StreamEvent::Completed { response } => Some(response),
+                StreamEvent::Ended { response } => Some(response),
                 _ => None,
             })
             .collect()
@@ -2115,7 +2115,7 @@ mod tests {
         );
         let responses = completed(&events);
         let [response] = responses.as_slice() else {
-            return Err(format!("expected one Completed, got {}", responses.len()).into());
+            return Err(format!("expected one Ended, got {}", responses.len()).into());
         };
         let Some(ContentPart::Reasoning(reasoning)) = response.content.first() else {
             return Err(format!("expected reasoning, got {:?}", response.content).into());
@@ -2151,7 +2151,7 @@ mod tests {
 
         let responses = completed(&events);
         let [response] = responses.as_slice() else {
-            return Err(format!("expected one Completed, got {}", responses.len()).into());
+            return Err(format!("expected one Ended, got {}", responses.len()).into());
         };
         let Some(ContentPart::Reasoning(reasoning)) = response.content.first() else {
             return Err(format!("expected reasoning, got {:?}", response.content).into());
@@ -2226,7 +2226,7 @@ mod tests {
         assert_eq!(ids, ["block-3", "block-3", "block-3", "block-3"]);
         let responses = completed(&events);
         let [response] = responses.as_slice() else {
-            return Err("expected exactly one Completed".into());
+            return Err("expected exactly one Ended".into());
         };
         assert_eq!(response.text(), "Hello");
         Ok(())
@@ -2297,7 +2297,7 @@ mod tests {
 
         let responses = completed(&events);
         let [response] = responses.as_slice() else {
-            return Err("expected exactly one Completed".into());
+            return Err("expected exactly one Ended".into());
         };
         let calls: Vec<(&str, Value)> = response
             .content
@@ -2357,7 +2357,7 @@ mod tests {
 
         let responses = completed(&events);
         let [response] = responses.as_slice() else {
-            return Err(format!("expected one Completed, got {}", responses.len()).into());
+            return Err(format!("expected one Ended, got {}", responses.len()).into());
         };
         assert_eq!(response.usage, *usage);
         assert!(response.raw.is_none());
@@ -2388,7 +2388,7 @@ mod tests {
         );
         let responses = completed(&events);
         let [response] = responses.as_slice() else {
-            return Err(format!("expected one Completed, got {}", responses.len()).into());
+            return Err(format!("expected one Ended, got {}", responses.len()).into());
         };
         assert!(response.content.is_empty(), "{:?}", response.content);
         Ok(())

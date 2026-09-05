@@ -511,9 +511,9 @@ $ OPENAI_API_KEY=openai-stream lithos-llm-e2e call catalog.toml openai_stream.js
       }
     },
     {
-      "name": "completed:visible=true",
+      "name": "ended:visible=true",
       "event": {
-        "type": "completed",
+        "type": "ended",
         "response": {
           "id": "resp-edge",
           "model": {
@@ -709,9 +709,9 @@ $ OPENAI_API_KEY=openai-salvage lithos-llm-e2e call catalog.toml openai_salvage.
       }
     },
     {
-      "name": "completed:visible=true",
+      "name": "ended:visible=true",
       "event": {
-        "type": "completed",
+        "type": "ended",
         "response": {
           "id": "resp-salvage",
           "model": {
