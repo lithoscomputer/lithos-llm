@@ -170,13 +170,17 @@ pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_millio
 [providers.fireworks.models."qwen3.8-max".metadata.pebble]
 reasoning_by_default = true
 
-[providers.fireworks.models."gpt-oss-120b"]
-display_name = "GPT-OSS 120B"
-api_model = "accounts/fireworks/models/gpt-oss-120b"
-limits = { context_tokens = 131072, max_output_tokens = 32768 }
-capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
-protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 150000, output_usd_micros_per_million = 600000, cached_input_usd_micros_per_million = 14000 }
+# Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
+# https://fireworks.ai/models/fireworks/minimax-m2p7
+[providers.fireworks.models."minimax-m2.7"]
+display_name = "MiniMax M2.7"
+api_model = "accounts/fireworks/models/minimax-m2p7"
+limits = { context_tokens = 196608, max_output_tokens = 16384 }
+capabilities = { text = true, images = false, tools = true, reasoning = false, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 59000 }
 
-[providers.fireworks.models."gpt-oss-120b".metadata.fabro]
-family = "gpt-oss"
+[providers.fireworks.models."minimax-m2.7".metadata.fabro]
+family = "minimax-m2"
+
+[providers.fireworks.models."minimax-m2.7".metadata.pebble]
+profile = "openai"

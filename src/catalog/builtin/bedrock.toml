@@ -67,34 +67,6 @@ small_default = true
 [providers.bedrock.models."claude-haiku-4-5".metadata.pebble]
 profile = "anthropic"
 
-[providers.bedrock.models."gpt-oss-120b"]
-display_name = "GPT-OSS 120B (Bedrock)"
-api_model = "openai.gpt-oss-120b-1:0"
-limits = { context_tokens = 128000, max_output_tokens = 16384 }
-capabilities = { text = true, images = false, tools = true, reasoning = true, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
-pricing = { input_usd_micros_per_million = 150000, output_usd_micros_per_million = 600000 }
-
-[providers.bedrock.models."gpt-oss-120b".metadata.fabro]
-family = "gpt-oss"
-agent_profile = "openai"
-
-[providers.bedrock.models."gpt-oss-120b".metadata.pebble]
-profile = "openai"
-
-[providers.bedrock.models."gpt-oss-20b"]
-display_name = "GPT-OSS 20B (Bedrock)"
-api_model = "openai.gpt-oss-20b-1:0"
-limits = { context_tokens = 128000, max_output_tokens = 16384 }
-capabilities = { text = true, images = false, tools = true, reasoning = true, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
-pricing = { input_usd_micros_per_million = 70000, output_usd_micros_per_million = 300000 }
-
-[providers.bedrock.models."gpt-oss-20b".metadata.fabro]
-family = "gpt-oss"
-agent_profile = "openai"
-
-[providers.bedrock.models."gpt-oss-20b".metadata.pebble]
-profile = "openai"
-
 [providers.bedrock.models."nova-2-lite"]
 display_name = "Nova 2 Lite (Bedrock)"
 api_model = "global.amazon.nova-2-lite-v1:0"

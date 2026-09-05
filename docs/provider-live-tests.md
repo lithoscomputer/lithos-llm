@@ -105,7 +105,7 @@ These probes do not replace the full suite.
 
 ## Bedrock model parity imports
 
-The 15 rows below use Converse and ConverseStream. Local tests cover both
+The 13 rows below use Converse and ConverseStream. Local tests cover both
 operations for every row, native usage buckets, cache placement, and rejection
 of unmapped effort. Receiving reasoning does not enable an effort control.
 All imported rows explicitly reject portable effort until the endpoint mapping
@@ -115,8 +115,6 @@ and cache-write rates stay unknown.
 
 - [ ] `claude-opus-4-8`: verify the US inference profile, tools and cache buckets.
 - [ ] `claude-haiku-4-5`: verify the dated US profile and small-model selection.
-- [ ] `gpt-oss-120b`: verify reasoning and tool replay; establish native effort.
-- [ ] `gpt-oss-20b`: verify reasoning and tool replay; establish native effort.
 - [ ] `nova-2-lite`: verify global routing and the 65,535-token output cap.
 - [ ] `llama-4-maverick`: verify the US profile, images, tools and missing prices.
 - [ ] `mistral-large-3`: verify images, tools and regional prices.
@@ -143,3 +141,30 @@ Two documentation decisions were made on 2026-09-05:
   lists a compatible `context-1m-2025-08-07` opt-in. The import does not silently
   enable that opt-in. Verify account/region behavior above 200K before applying
   a 1M overlay. This is a conservative catalog policy, not a model maximum claim.
+
+## Other model parity imports
+
+Checked provider documentation and Lithos catalog history on 2026-09-05. None
+of these five rows had a prior add/remove entry in the current catalog paths.
+Four rows are imported provisionally:
+
+- [ ] OpenRouter `kimi-k2.6`: verify images, reasoning, structured output, cache
+      reads and tools. The [current model page](https://openrouter.ai/moonshotai/kimi-k2.6)
+      corrects Fabro's text-only claim, output cap and prices. Router prices
+      vary with the selected upstream; the row records the displayed estimate.
+- [ ] OpenRouter `nemotron-3-super-120b-a12b`: verify tools, reasoning behavior
+      and limits. The [model page](https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b)
+      supports the route and updates the displayed input/output rates.
+- [ ] Fireworks `minimax-m2.7`: verify tools, reasoning exposure and caching.
+      The [model page](https://fireworks.ai/models/fireworks/minimax-m2p7) lists
+      serverless support and agrees with Fabro's wire ID and token prices.
+- [ ] Moonshot `kimi-k2.5`: verify current account availability, thinking/tool
+      replay, images, caching and fixed sampling. The
+      [model documentation](https://platform.kimi.ai/docs/models) lists K2.5;
+      Fabro's limits and prices remain provisional. K3 remains the default.
+
+GPT-OSS was dropped from the catalog and parity scope at user request on
+2026-09-05. This covers both sizes on Bedrock and Fireworks. The four source
+selectors remain in the inventory as explicit exclusions. No deployment or
+migration work is pending for this family. Historical E2E fixtures remain to
+check codec behavior against the recorded responses.

@@ -365,3 +365,34 @@ limits = { context_tokens = 1000000, max_output_tokens = 131072 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 425000, output_usd_micros_per_million = 2550000, cached_input_usd_micros_per_million = 85000, cache_write_usd_micros_per_million = 531250 }
+
+# Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
+# https://openrouter.ai/moonshotai/kimi-k2.6
+[providers.openrouter.models."kimi-k2.6"]
+display_name = "Kimi K2.6"
+api_model = "moonshotai/kimi-k2.6"
+limits = { context_tokens = 262144, max_output_tokens = 262144 }
+capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 510000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 100000 }
+
+[providers.openrouter.models."kimi-k2.6".metadata.fabro]
+family = "kimi-k2"
+agent_profile = "kimi"
+
+[providers.openrouter.models."kimi-k2.6".metadata.pebble]
+profile = "kimi"
+
+# Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
+# https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b
+[providers.openrouter.models."nemotron-3-super-120b-a12b"]
+display_name = "NVIDIA Nemotron 3 Super 120B"
+api_model = "nvidia/nemotron-3-super-120b-a12b"
+limits = { context_tokens = 1000000, max_output_tokens = 16384 }
+capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 85000, output_usd_micros_per_million = 400000 }
+
+[providers.openrouter.models."nemotron-3-super-120b-a12b".metadata.fabro]
+family = "nemotron-3"
+
+[providers.openrouter.models."nemotron-3-super-120b-a12b".metadata.pebble]
+profile = "openai"

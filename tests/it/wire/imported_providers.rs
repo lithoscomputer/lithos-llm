@@ -48,6 +48,25 @@ async fn imported_chat_providers_use_their_api_paths_models_and_auth()
 -> Result<(), Box<dyn StdError>> {
     for (provider, model, wire_model, path) in [
         (
+            "openrouter",
+            "kimi-k2.6",
+            "moonshotai/kimi-k2.6",
+            "/api/v1/chat/completions",
+        ),
+        (
+            "openrouter",
+            "nemotron-3-super-120b-a12b",
+            "nvidia/nemotron-3-super-120b-a12b",
+            "/api/v1/chat/completions",
+        ),
+        (
+            "fireworks",
+            "minimax-m2.7",
+            "accounts/fireworks/models/minimax-m2p7",
+            "/inference/v1/chat/completions",
+        ),
+        ("moonshot", "kimi-k2.5", "kimi-k2.5", "/v1/chat/completions"),
+        (
             "deepseek",
             "deepseek",
             "deepseek-v4-flash",

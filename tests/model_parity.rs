@@ -42,7 +42,7 @@ struct Route {
 #[serde(rename_all = "snake_case")]
 enum Status {
     Catalog,
-    Pending,
+    Excluded,
     Deployment,
 }
 
@@ -61,13 +61,20 @@ fn fabro_names_resolve_to_full_catalog_models() -> Result<(), Box<dyn StdError>>
     let catalog = Catalog::builder().with_builtin().build()?;
     let available = AvailableProviders::all(&catalog);
     let mut seen = BTreeSet::new();
-    let mut pending = 0;
+    let mut excluded = 0;
     let mut deployments = 0;
     for route in inventory.routes {
         assert!(seen.insert((route.provider.clone(), route.fabro_model.clone())));
         match route.status {
-            Status::Pending => {
-                pending += 1;
+            Status::Excluded => {
+                excluded += 1;
+                assert!(route.fabro_model.starts_with("gpt-oss-"));
+                assert!(
+                    catalog
+                        .provider(&route.provider)?
+                        .model(&route.canonical_model)
+                        .is_none()
+                );
                 assert!(!route.reason.as_deref().unwrap_or_default().is_empty());
                 continue;
             }
@@ -96,8 +103,8 @@ fn fabro_names_resolve_to_full_catalog_models() -> Result<(), Box<dyn StdError>>
             );
         }
     }
-    // Removed as imports land; a growing exception list is a regression.
-    assert_eq!(pending, 5);
+    // A growing exception list is a regression.
+    assert_eq!(excluded, 4);
     assert_eq!(deployments, 1);
     Ok(())
 }

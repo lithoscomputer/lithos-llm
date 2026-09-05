@@ -31,6 +31,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Add OpenRouter Kimi K2.6 and Nemotron 3 Super, Fireworks MiniMax M2.7,
+  and Moonshot Kimi K2.5. Drop GPT-OSS from the built-in catalog and
+  model parity scope at user request.
+
 - Add 15 provisional Bedrock models with native Converse IDs, family profiles,
   limits, and prices. Reject unmapped effort controls and Claude 5 sampling.
   Sonnet 5 uses standard post-promotion input/output prices; Sonnet 4.6 stays

@@ -42,3 +42,23 @@ pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_millio
 agent_profile = "kimi"
 family = "kimi-k3"
 api_key_url = "https://platform.kimi.ai/console/api-keys"
+
+# Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
+# https://platform.kimi.ai/docs/models
+[providers.moonshot.models."kimi-k2.5"]
+display_name = "Kimi K2.5"
+api_model = "kimi-k2.5"
+limits = { context_tokens = 262144, max_output_tokens = 32768 }
+capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+pricing = { input_usd_micros_per_million = 600000, output_usd_micros_per_million = 3000000, cached_input_usd_micros_per_million = 100000 }
+
+[providers.moonshot.models."kimi-k2.5".metadata.fabro]
+family = "kimi-k2"
+training = "2025-10-01"
+knowledge_cutoff = "October 2025"
+estimated_output_tps = 50
+reasoning_by_default = true
+
+[providers.moonshot.models."kimi-k2.5".metadata.pebble]
+profile = "kimi"
+reasoning_by_default = true

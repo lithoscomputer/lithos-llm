@@ -233,17 +233,19 @@
       "provider": "bedrock",
       "fabro_model": "gpt-oss-120b",
       "fabro_aliases": [],
-      "status": "catalog",
+      "status": "excluded",
       "canonical_model": "gpt-oss-120b",
-      "api_model": "openai.gpt-oss-120b-1:0"
+      "api_model": "openai.gpt-oss-120b-1:0",
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
     },
     {
       "provider": "bedrock",
       "fabro_model": "gpt-oss-20b",
       "fabro_aliases": [],
-      "status": "catalog",
+      "status": "excluded",
       "canonical_model": "gpt-oss-20b",
-      "api_model": "openai.gpt-oss-20b-1:0"
+      "api_model": "openai.gpt-oss-20b-1:0",
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
     },
     {
       "provider": "bedrock",
@@ -417,10 +419,9 @@
       "provider": "fireworks",
       "fabro_model": "minimax-m2.7",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "minimax-m2.7",
-      "api_model": "accounts/fireworks/models/minimax-m2p7",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "accounts/fireworks/models/minimax-m2p7"
     },
     {
       "provider": "fireworks",
@@ -434,18 +435,19 @@
       "provider": "fireworks",
       "fabro_model": "gpt-oss-120b",
       "fabro_aliases": [],
-      "status": "catalog",
+      "status": "excluded",
       "canonical_model": "gpt-oss-120b",
-      "api_model": "accounts/fireworks/models/gpt-oss-120b"
+      "api_model": "accounts/fireworks/models/gpt-oss-120b",
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
     },
     {
       "provider": "fireworks",
       "fabro_model": "gpt-oss-20b",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "excluded",
       "canonical_model": "gpt-oss-20b",
       "api_model": "accounts/fireworks/models/gpt-oss-20b",
-      "reason": "Pending model parity import and documentation review."
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
     },
     {
       "provider": "gemini",
@@ -530,10 +532,9 @@
       "provider": "moonshot",
       "fabro_model": "kimi-k2.5",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "kimi-k2.5",
-      "api_model": "kimi-k2.5",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "kimi-k2.5"
     },
     {
       "provider": "moonshot",
@@ -840,10 +841,9 @@
       "provider": "openrouter",
       "fabro_model": "kimi-k2.6",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "kimi-k2.6",
-      "api_model": "moonshotai/kimi-k2.6",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "moonshotai/kimi-k2.6"
     },
     {
       "provider": "openrouter",
@@ -918,10 +918,9 @@
       "provider": "openrouter",
       "fabro_model": "nemotron-3-super-120b-a12b",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "nemotron-3-super-120b-a12b",
-      "api_model": "nvidia/nemotron-3-super-120b-a12b",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "nvidia/nemotron-3-super-120b-a12b"
     },
     {
       "provider": "openrouter",
