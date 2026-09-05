@@ -135,7 +135,7 @@ impl CallTrace {
     }
 
     fn finish_error(&mut self, error: &Error) {
-        let kind = error_kind_name(error.kind());
+        let kind = error_kind_name(&error.kind());
         let outcome = if error.kind() == ErrorKind::Cancelled {
             OUTCOME_CANCELLED
         } else {
@@ -168,7 +168,7 @@ impl CallTrace {
     }
 
     fn finish_incomplete_stream(&mut self) {
-        let kind = error_kind_name(ErrorKind::StreamDecode);
+        let kind = error_kind_name(&ErrorKind::StreamDecode);
         if !self.record_terminal(OUTCOME_FAILED, Some(kind)) {
             return;
         }
@@ -284,7 +284,7 @@ fn cost_source_name(source: CostSource) -> &'static str {
     }
 }
 
-fn error_kind_name(kind: ErrorKind) -> &'static str {
+fn error_kind_name(kind: &ErrorKind) -> &'static str {
     match kind {
         ErrorKind::Configuration => "configuration",
         ErrorKind::ModelSelection => "model_selection",
@@ -305,6 +305,7 @@ fn error_kind_name(kind: ErrorKind) -> &'static str {
         ErrorKind::Middleware => "middleware",
         ErrorKind::Cancelled => "cancelled",
         ErrorKind::ResourceLimit => "resource_limit",
+        ErrorKind::Unknown(_) => "unknown",
     }
 }
 

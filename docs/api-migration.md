@@ -68,6 +68,17 @@ preserving the entire JSON object for newer readers. This differs from provider
 results, until the application explicitly converts or removes it. Malformed
 known types still fail deserialization.
 
+Usage readers ignore additional fields. The five disjoint buckets keep their
+existing meanings; a new field that changes accounting requires a storage
+schema version change. Legacy `*_tokens` bucket names are still rejected, so
+old usage cannot silently become zero. Convert those records in the application.
+
+Unrecognized error categories deserialize as `ErrorKind::Unknown(String)` and
+serialize to the original string. `ErrorKind` is now `Clone`, not `Copy`.
+`as_str()` returns its stored spelling. Runtime errors of an unknown kind remain
+non-retryable even if a retry hint is supplied. Applications must not infer
+failover eligibility from an unfamiliar category.
+
 Applications own conversion of historical records. Lithos no longer accepts
 the old finish-reason object, token-count aliases, or a null warning code.
 Use the string "tool_call" for the canonical tool-call finish reason.
@@ -90,3 +101,6 @@ Signed reasoning needs an explicit matching signature_origin.
 Unrecognized historical replay fields are ignored, not converted.
 
 Fabro will implement conversion of its records when it integrates Lithos.
+
+`ProbeOutcome::Failed` now contains `Box<ErrorData>` to keep the enum compact.
+Use `Box::new(data)` when constructing this variant. Its JSON shape is unchanged.

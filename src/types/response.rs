@@ -1,6 +1,6 @@
 use std::fmt;
 
-use serde::de::{Error as DeError, Visitor};
+use serde::de::{Error as DeError, IgnoredAny, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
@@ -94,8 +94,7 @@ impl Visitor<'_> for FinishReasonVisitor {
 /// `TokenCounts`, subtracting the detail counters with saturating arithmetic so
 /// an inconsistent provider payload can never underflow.
 /// [`TokenCounts::from_inclusive`] does exactly that for the common shape.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct TokenCounts {
     /// Prompt tokens that were neither read from nor written to a cache.
     #[serde(default)]
@@ -112,6 +111,52 @@ pub struct TokenCounts {
     /// Prompt tokens written into a provider cache.
     #[serde(default)]
     pub cache_write: u64,
+}
+
+impl<'de> Deserialize<'de> for TokenCounts {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct CountsVisitor;
+        impl<'de> Visitor<'de> for CountsVisitor {
+            type Value = TokenCounts;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("token usage with five disjoint nonnegative buckets")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<TokenCounts, A::Error> {
+                let mut counts = TokenCounts::default();
+                let mut seen = 0u8;
+                while let Some(key) = map.next_key::<String>()? {
+                    let (field, bit, name) = match key.as_str() {
+                        "input" => (&mut counts.input, 1, "input"),
+                        "output" => (&mut counts.output, 2, "output"),
+                        "reasoning" => (&mut counts.reasoning, 4, "reasoning"),
+                        "cache_read" => (&mut counts.cache_read, 8, "cache_read"),
+                        "cache_write" => (&mut counts.cache_write, 16, "cache_write"),
+                        "input_tokens" | "output_tokens" | "reasoning_tokens"
+                        | "cache_read_tokens" | "cache_write_tokens" => {
+                            // These are historical bucket names, not additive metadata.
+                            // Ignoring them would turn real usage into zero tokens.
+                            return Err(A::Error::custom(
+                                "legacy usage fields require application conversion",
+                            ));
+                        }
+                        _ => {
+                            map.next_value::<IgnoredAny>()?;
+                            continue;
+                        }
+                    };
+                    if seen & bit != 0 {
+                        return Err(A::Error::duplicate_field(name));
+                    }
+                    seen |= bit;
+                    *field = map.next_value()?;
+                }
+                Ok(counts)
+            }
+        }
+        deserializer.deserialize_map(CountsVisitor)
+    }
 }
 
 impl TokenCounts {
@@ -506,7 +551,20 @@ mod tests {
     }
 
     #[test]
-    fn token_counts_reject_noncanonical_fields() {
+    fn additional_usage_fields_do_not_change_the_five_buckets() {
+        let usage: TokenCounts = serde_json::from_value(json!({
+            "input": 10, "output": 20, "reasoning": 3, "cache_read": 4, "cache_write": 5,
+            "future_metadata": {"estimated": true}, "new_counter": 100,
+        }))
+        .expect("additive fields");
+        assert_eq!(usage.total(), 42);
+        assert_eq!(usage.billable_output(), 23);
+        assert!(serde_json::from_str::<TokenCounts>(r#"{"input":1,"input":2}"#).is_err());
+        assert!(serde_json::from_value::<TokenCounts>(json!({"input":-1})).is_err());
+    }
+
+    #[test]
+    fn token_counts_reject_legacy_bucket_names() {
         assert!(serde_json::from_value::<TokenCounts>(json!({ "input_tokens": 100 })).is_err());
     }
 

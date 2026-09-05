@@ -2960,6 +2960,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "axum",
+ "futures-util",
  "serde",
  "serde_json",
  "tokio",

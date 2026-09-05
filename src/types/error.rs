@@ -3,14 +3,13 @@ use std::fmt;
 use std::num::NonZeroU64;
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::catalog::ProviderId;
 
 /// A stable category that applications can use for error handling.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[non_exhaustive]
 pub enum ErrorKind {
     /// The client, catalog, or credentials are configured incorrectly.
@@ -51,6 +50,76 @@ pub enum ErrorKind {
     Middleware,
     /// The caller cancelled the call.
     Cancelled,
+    /// An error category written by a newer version. Preserved for diagnostics;
+    /// this category never enables automatic retry or provider failover.
+    Unknown(String),
+}
+
+impl ErrorKind {
+    /// The stable stored spelling, including unrecognized categories.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Configuration => "configuration",
+            Self::ModelSelection => "model_selection",
+            Self::Authentication => "authentication",
+            Self::AccessDenied => "access_denied",
+            Self::NotFound => "not_found",
+            Self::InvalidRequest => "invalid_request",
+            Self::ContextLength => "context_length",
+            Self::RateLimit => "rate_limit",
+            Self::QuotaExceeded => "quota_exceeded",
+            Self::ContentFilter => "content_filter",
+            Self::Server => "server",
+            Self::Provider => "provider",
+            Self::Network => "network",
+            Self::Timeout => "timeout",
+            Self::StreamDecode => "stream_decode",
+            Self::ResponseDecode => "response_decode",
+            Self::ResourceLimit => "resource_limit",
+            Self::Middleware => "middleware",
+            Self::Cancelled => "cancelled",
+            Self::Unknown(name) => name,
+        }
+    }
+}
+
+impl From<String> for ErrorKind {
+    fn from(name: String) -> Self {
+        match name.as_str() {
+            "configuration" => Self::Configuration,
+            "model_selection" => Self::ModelSelection,
+            "authentication" => Self::Authentication,
+            "access_denied" => Self::AccessDenied,
+            "not_found" => Self::NotFound,
+            "invalid_request" => Self::InvalidRequest,
+            "context_length" => Self::ContextLength,
+            "rate_limit" => Self::RateLimit,
+            "quota_exceeded" => Self::QuotaExceeded,
+            "content_filter" => Self::ContentFilter,
+            "server" => Self::Server,
+            "provider" => Self::Provider,
+            "network" => Self::Network,
+            "timeout" => Self::Timeout,
+            "stream_decode" => Self::StreamDecode,
+            "response_decode" => Self::ResponseDecode,
+            "resource_limit" => Self::ResourceLimit,
+            "middleware" => Self::Middleware,
+            "cancelled" => Self::Cancelled,
+            _ => Self::Unknown(name),
+        }
+    }
+}
+
+impl Serialize for ErrorKind {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ErrorKind {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(Self::from)
+    }
 }
 
 /// Whether repeating the same resolved call is safe.
@@ -145,8 +214,8 @@ pub struct ErrorData {
 /// A provider-neutral runtime failure.
 #[must_use]
 pub struct Error {
-    kind: ErrorKind,
-    message: String,
+    kind: Box<ErrorKind>,
+    message: Box<str>,
     provider: Option<ProviderId>,
     status: Option<u16>,
     /// A `Box<str>` rather than a `String`: with the advised-wait field
@@ -184,8 +253,8 @@ impl fmt::Debug for Error {
 impl Error {
     pub fn new(kind: ErrorKind, message: impl Into<String>) -> Self {
         Self {
-            kind,
-            message: message.into(),
+            kind: Box::new(kind),
+            message: message.into().into_boxed_str(),
             provider: None,
             status: None,
             provider_code: None,
@@ -212,7 +281,11 @@ impl Error {
     }
 
     pub fn with_retry(mut self, retry: RetryClassification) -> Self {
-        self.retry = retry;
+        self.retry = if matches!(*self.kind, ErrorKind::Unknown(_)) {
+            RetryClassification::Never
+        } else {
+            retry
+        };
         self
     }
 
@@ -237,7 +310,7 @@ impl Error {
     }
 
     pub fn kind(&self) -> ErrorKind {
-        self.kind
+        self.kind.as_ref().clone()
     }
 
     pub fn message(&self) -> &str {
@@ -286,8 +359,8 @@ impl Error {
     /// [`ErrorData::source_message`].
     pub fn data(&self) -> ErrorData {
         ErrorData {
-            kind: self.kind,
-            message: self.message.clone(),
+            kind: self.kind.as_ref().clone(),
+            message: self.message.to_string(),
             provider: self.provider.clone(),
             status: self.status,
             provider_code: self.provider_code.as_deref().map(ToOwned::to_owned),
@@ -346,6 +419,21 @@ mod tests {
         .with_provider_code("rate_limit_exceeded")
         .with_retry(RetryClassification::after(Duration::from_millis(1500)))
         .with_raw_data(json!({"error": {"message": "slow down"}}))
+    }
+
+    #[test]
+    fn unknown_error_categories_round_trip_without_enabling_retry() {
+        let raw = json!({"kind":"future_failure", "message":"new failure",
+            "retry":{"type":"never"}, "provider":"test", "future_detail":true});
+        let data: super::ErrorData = serde_json::from_value(raw).expect("read newer error");
+        assert_eq!(data.kind, ErrorKind::Unknown("future_failure".to_owned()));
+        assert_eq!(
+            serde_json::to_value(&data).expect("save")["kind"],
+            "future_failure"
+        );
+        let error = Error::new(data.kind, data.message).with_retry(RetryClassification::Safe);
+        assert_eq!(error.retry_classification(), RetryClassification::Never);
+        assert_eq!(error.data().retry, RetryClassification::Never);
     }
 
     #[test]

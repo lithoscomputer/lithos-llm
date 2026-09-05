@@ -229,7 +229,7 @@ fn render_error(error: &CliError) -> String {
         CliError::Call { route, source } => (source.as_ref(), route.as_str()),
         _ => return format!("error: {}", format_error_chain(error)),
     };
-    let mut rendered = format!("error: {}: {}", error_kind(error.kind()), error.message());
+    let mut rendered = format!("error: {}: {}", error_kind(&error.kind()), error.message());
     let _ignored = write!(rendered, " route={route}");
     if let Some(provider) = error.provider() {
         let _ignored = write!(rendered, " provider={provider}");
@@ -277,7 +277,7 @@ fn append_sources(rendered: &mut String, error: &(dyn StdError + 'static)) {
     }
 }
 
-pub(crate) const fn error_kind(kind: ErrorKind) -> &'static str {
+pub(crate) fn error_kind(kind: &ErrorKind) -> &'static str {
     match kind {
         ErrorKind::Configuration => "configuration",
         ErrorKind::ModelSelection => "model_selection",

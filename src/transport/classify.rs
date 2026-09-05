@@ -226,20 +226,33 @@ pub(crate) fn classify(
             ErrorKind::Authentication
         }
         Some(400 | 422) => code_kind
-            .or(message_kind)
+            .as_ref()
+            .or(message_kind.as_ref())
+            .cloned()
             .unwrap_or(ErrorKind::InvalidRequest),
         // A timeout code wins over the generic 5xx mapping: Gemini reports a
         // server-side DEADLINE_EXCEEDED as HTTP 504, and by then the provider
         // may have spent (and billed) the full execution, so the request must
         // not be re-sent.
-        Some(status) if status >= 500 && code_kind.or(message_kind) == Some(ErrorKind::Timeout) => {
+        Some(status)
+            if status >= 500
+                && code_kind.as_ref().or(message_kind.as_ref()) == Some(&ErrorKind::Timeout) =>
+        {
             ErrorKind::Timeout
         }
         Some(status) if status >= 500 => ErrorKind::Server,
-        Some(_) => code_kind.or(message_kind).unwrap_or(ErrorKind::Provider),
+        Some(_) => code_kind
+            .as_ref()
+            .or(message_kind.as_ref())
+            .cloned()
+            .unwrap_or(ErrorKind::Provider),
         // Mid-stream failures carry no status. An unrecognized one is
         // provider-side and worth another attempt.
-        None => code_kind.or(message_kind).unwrap_or(ErrorKind::Server),
+        None => code_kind
+            .as_ref()
+            .or(message_kind.as_ref())
+            .cloned()
+            .unwrap_or(ErrorKind::Server),
     };
 
     // Throttling whose body reports spent credit or quota is not temporary.
@@ -495,7 +508,7 @@ mod tests {
     use super::*;
 
     fn kinds(failure: &ProviderFailure) -> (ErrorKind, RetryClassification) {
-        (failure.kind, failure.retry)
+        (failure.kind.clone(), failure.retry)
     }
 
     #[test]

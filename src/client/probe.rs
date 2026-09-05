@@ -97,7 +97,7 @@ pub enum ProbeOutcome {
     /// `ModelSelection` for an unknown model, `Authentication`, `NotFound`,
     /// `InvalidRequest` with the `unsupported_capability` provider code for a
     /// catalog rejection, `Timeout` when the probe ran out of time, and so on.
-    Failed(ErrorData),
+    Failed(Box<ErrorData>),
     /// Every request succeeded, but the model did not behave as a working
     /// model would: it never called the tool, gave the wrong total, or was
     /// still calling tools when the turn budget ran out.
@@ -196,7 +196,7 @@ impl Probe<'_> {
             false,
         ) {
             Ok(request) => request,
-            Err(error) => return ProbeOutcome::Failed(error.data()),
+            Err(error) => return ProbeOutcome::Failed(Box::new(error.data())),
         };
         match self.turn(request).await {
             Ok(_) => ProbeOutcome::Passed,
@@ -210,7 +210,7 @@ impl Probe<'_> {
         for _ in 0..MAX_TOOL_TURNS {
             let request = match build_request(selector, options, messages.clone(), true) {
                 Ok(request) => request,
-                Err(error) => return ProbeOutcome::Failed(error.data()),
+                Err(error) => return ProbeOutcome::Failed(Box::new(error.data())),
             };
             let response = match self.turn(request).await {
                 Ok(response) => response,
@@ -254,7 +254,7 @@ impl Probe<'_> {
                 self.usage = add_usage(self.usage, response.usage);
                 Ok(response)
             }
-            Err(error) => Err(ProbeOutcome::Failed(error.data())),
+            Err(error) => Err(ProbeOutcome::Failed(Box::new(error.data()))),
         }
     }
 }

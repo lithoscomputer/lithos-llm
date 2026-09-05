@@ -92,7 +92,7 @@ fn render_text(selector: &str, report: &ProbeReport) -> String {
 fn failed_text(route: &str, error: &ErrorData) -> String {
     let mut rendered = format!(
         "failed {route} · {} · {}",
-        error_kind(error.kind),
+        error_kind(&error.kind),
         error.message
     );
     if let Some(status) = error.status {

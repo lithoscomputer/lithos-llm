@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Usage records accept added fields without changing the five existing buckets.
+  Historical bucket names remain errors to avoid silently losing usage.
+  Unknown error categories round-trip through `ErrorKind::Unknown(String)`;
+  these runtime errors never enable automatic retry. `ErrorKind` is no longer
+  `Copy` and exposes its stored spelling through `as_str()`.
+
 - Unknown transcript content types round-trip as their full JSON objects through
   `ContentPart::Unknown`. Known malformed types still fail to parse. Clients
   reject unknown content before dispatch, including nested tool-result content.
