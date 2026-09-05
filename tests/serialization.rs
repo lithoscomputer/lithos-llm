@@ -384,3 +384,64 @@ fn every_pinned_shape_round_trips() -> Result<(), Box<dyn StdError>> {
     }
     Ok(())
 }
+
+#[test]
+fn stored_responses_accept_additions_without_changing_usage_or_unknown_content()
+-> Result<(), Box<dyn StdError>> {
+    // A record written before suppression diagnostics existed remains readable.
+    let old = serde_json::to_value(minimal_response())?;
+    assert!(old.get("suppressed_tool_calls").is_none());
+    assert!(
+        serde_json::from_value::<Response>(old.clone())?
+            .suppressed_tool_calls
+            .is_empty()
+    );
+
+    let unknown = json!({"type":"future_content","version":2,"payload":{"nested":[null,7,"x"]}});
+    let mut future = old;
+    future["content"] = json!([
+        {"type":"text","text":"known"},
+        {"type":"tool_result","tool_call_id":"call_1","content":[unknown.clone()]}
+    ]);
+    future["usage"] = json!({"input":10,"output":20,"reasoning":3,"cache_read":4,"cache_write":5,"future_detail":{"input":[1,2]}});
+    future["future_response_field"] = json!(["ignored"]);
+    future["finish_reason"] = json!("future_stop_reason");
+    let response: Response = serde_json::from_value(future)?;
+    assert_eq!(response.usage.total(), 42);
+    assert_eq!(response.usage.billable_output(), 23);
+    let saved = serde_json::to_value(round_trip(&response)?)?;
+    assert_eq!(saved["content"][1]["content"][0], unknown);
+    assert_eq!(saved["finish_reason"], "future_stop_reason");
+    Ok(())
+}
+
+#[test]
+fn ended_records_preserve_terminal_reason_and_diagnostics() -> Result<(), Box<dyn StdError>> {
+    for reason in [
+        FinishReason::Stop,
+        FinishReason::ToolCall,
+        FinishReason::Length,
+        FinishReason::Incomplete,
+    ] {
+        let mut response = minimal_response();
+        response.finish_reason = reason.clone();
+        if matches!(reason, FinishReason::Length | FinishReason::Incomplete) {
+            let mut call = ToolCall::function("partial", "lookup", json!({}));
+            call.input = ToolInput::Function(ToolArguments::from_raw("{\"query\":".to_owned()));
+            call.provider_metadata
+                .insert("openai".to_owned(), json!({"id":"fc_1"}));
+            response.suppressed_tool_calls.push(call);
+        }
+        let event = StreamEvent::Ended {
+            response: Box::new(response),
+        };
+        let saved = serde_json::to_value(&event)?;
+        assert_eq!(saved["type"], "ended");
+        assert_eq!(round_trip(&event)?, event);
+        // Renaming the normalized terminal event is an explicit migration.
+        let mut legacy = saved;
+        legacy["type"] = json!("completed");
+        assert!(serde_json::from_value::<StreamEvent>(legacy).is_err());
+    }
+    Ok(())
+}

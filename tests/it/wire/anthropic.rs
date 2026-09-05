@@ -2326,3 +2326,46 @@ async fn counts_input_tokens_without_max_tokens() {
 
     crate::json_snapshot!(captured);
 }
+
+#[tokio::test]
+async fn eof_during_tool_arguments_preserves_diagnostics_without_executable_calls() {
+    let server = MockServer::start_async().await;
+    let (client, model) = client_for(&server);
+    let transcript = support::sse_transcript(&[
+        (
+            "message_start",
+            r#"{"type":"message_start","message":{"id":"msg_cut_tool","type":"message","role":"assistant","model":"claude-sonnet-4-6","content":[],"usage":{"input_tokens":8,"output_tokens":0}}}"#,
+        ),
+        (
+            "content_block_start",
+            r#"{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool_partial","name":"get_weather","input":{}}}"#,
+        ),
+        (
+            "content_block_delta",
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"city\":"}}"#,
+        ),
+    ]);
+    let (_mock, _slot) = support::mount_capture_sse(&server, MESSAGES_PATH, &transcript);
+    let stream = client
+        .stream(support::tools_request(&model, None))
+        .await
+        .expect("stream opens");
+    let events = support::collect_stream_events(stream).await;
+    support::assert_stream_contract(&events);
+    let response = &events.last().expect("terminal response")["response"];
+    assert_eq!(response["finish_reason"], "incomplete");
+    assert_eq!(response["content"], json!([]));
+    assert_eq!(
+        response["suppressed_tool_calls"]
+            .as_array()
+            .expect("diagnostics")
+            .len(),
+        1
+    );
+    assert_eq!(response["suppressed_tool_calls"][0]["id"], "tool_partial");
+    assert_eq!(
+        response["suppressed_tool_calls"][0]["input"],
+        json!({"type":"function","value":"{\"city\":"})
+    );
+    assert_eq!(response["warnings"][0]["code"], "truncated_tool_call");
+}

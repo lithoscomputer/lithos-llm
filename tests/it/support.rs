@@ -465,6 +465,34 @@ pub(crate) fn assert_stream_contract(events: &[Value]) {
         "the stream completed with these blocks still open: {:?}",
         open.keys().collect::<Vec<_>>()
     );
+    let response = &completed["response"];
+    if matches!(
+        response["finish_reason"].as_str(),
+        Some("length" | "incomplete")
+    ) {
+        let mut suppressed = Vec::new();
+        parts.retain(|part| {
+            if part["type"] == "tool_call" {
+                let mut call = part.clone();
+                call.as_object_mut()
+                    .expect("tool call object")
+                    .remove("type");
+                suppressed.push(call);
+                false
+            } else {
+                true
+            }
+        });
+        let diagnostics = response
+            .get("suppressed_tool_calls")
+            .cloned()
+            .unwrap_or_else(|| json!([]));
+        assert_eq!(
+            diagnostics,
+            Value::Array(suppressed),
+            "unfinished tool calls must be preserved as diagnostics"
+        );
+    }
     let content = completed
         .get("response")
         .and_then(|response| response.get("content"))

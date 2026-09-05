@@ -20,7 +20,8 @@ use lithos_llm::middleware::{
 use lithos_llm::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, ImageContent,
     MediaSource, Message, RequestBuildError, Response, ResponseLimits, ResponseStream,
-    RetryClassification, Role, StreamEvent, TokenCounts, ToolChoice, ToolDefinition,
+    RetryClassification, Role, StreamEvent, TokenCounts, ToolArguments, ToolCall, ToolChoice,
+    ToolDefinition, ToolInput,
 };
 use lithos_llm::{Client, Request};
 use serde_json::json;
@@ -1869,4 +1870,241 @@ async fn unknown_transcript_content_is_rejected_before_dispatch() -> Result<(), 
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_eq!(streams.load(Ordering::SeqCst), 0);
     Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn incomplete_retry_returns_the_partial_response_when_backoff_exceeds_deadline()
+-> Result<(), Box<dyn StdError>> {
+    for streaming in [false, true] {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observations = Arc::new(RetryRecorder::default());
+        let client = Client::builder()
+            .catalog(catalog()?)
+            .adapter("test", UnfinishedAdapter {
+                calls:               calls.clone(),
+                unfinished_attempts: usize::MAX,
+                reason:              FinishReason::Incomplete,
+                visible:             false,
+                id:                  AdapterId::new("test-adapter"),
+            })
+            .middleware(
+                RetryMiddleware::new(RetryPolicy::default()).observer_arc(observations.clone()),
+            )
+            .build()?
+            .client;
+        let start = Instant::now();
+        let mut context = CallContext::new();
+        context.set_deadline((start + Duration::from_millis(50)).into_std());
+        let response = if streaming {
+            let events = client
+                .stream_with_context(request()?, context)
+                .await?
+                .collect::<Vec<_>>()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()?;
+            let Some(StreamEvent::Ended { response }) = events.into_iter().last() else {
+                panic!("missing terminal response")
+            };
+            response
+        } else {
+            Box::new(client.complete_with_context(request()?, context).await?)
+        };
+        assert_eq!(response.finish_reason, FinishReason::Incomplete);
+        assert_eq!(response.text(), "partial");
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert!(observations.retries().is_empty());
+        assert_eq!(start.elapsed(), Duration::ZERO);
+    }
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn cancellation_during_incomplete_backoff_prevents_another_attempt()
+-> Result<(), Box<dyn StdError>> {
+    for streaming in [false, true] {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observations = Arc::new(RetryRecorder::default());
+        let client = Client::builder()
+            .catalog(catalog()?)
+            .adapter("test", UnfinishedAdapter {
+                calls:               calls.clone(),
+                unfinished_attempts: usize::MAX,
+                reason:              FinishReason::Incomplete,
+                visible:             false,
+                id:                  AdapterId::new("test-adapter"),
+            })
+            .middleware(
+                RetryMiddleware::new(RetryPolicy::default()).observer_arc(observations.clone()),
+            )
+            .build()?
+            .client;
+        let context = CallContext::new();
+        let cancellation = context.cancellation().clone();
+        let request = request()?;
+        let task = spawn(async move {
+            if streaming {
+                let mut stream = client.stream_with_context(request, context).await?;
+                let result = stream
+                    .next()
+                    .await
+                    .expect("terminal cancellation")
+                    .map(|_| ());
+                assert!(stream.next().await.is_none());
+                result
+            } else {
+                client
+                    .complete_with_context(request, context)
+                    .await
+                    .map(|_| ())
+            }
+        });
+        yield_now().await;
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(observations.retries().len(), 1);
+        cancellation.cancel();
+        assert_eq!(
+            task.await?.expect_err("cancelled backoff").kind(),
+            ErrorKind::Cancelled
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+    Ok(())
+}
+
+/// Models a cache or response-transforming middleware returning tool calls
+/// on an unfinished turn. The public response policy must still suppress them.
+struct UnfinishedToolsMiddleware {
+    reason:        FinishReason,
+    payload_bytes: usize,
+}
+
+fn diagnostic_calls(payload_bytes: usize) -> Vec<ToolCall> {
+    let mut partial = ToolCall::function("partial", "lookup", json!({}));
+    partial.input = ToolInput::Function(ToolArguments::from_raw(format!(
+        "{{\"query\":\"{}",
+        "x".repeat(payload_bytes)
+    )));
+    partial
+        .provider_metadata
+        .insert("openai".to_owned(), json!({"id":"fc_1"}));
+    vec![
+        ToolCall::function("valid", "lookup", json!({"query":"ok"})),
+        partial,
+    ]
+}
+
+#[async_trait]
+impl Middleware for UnfinishedToolsMiddleware {
+    async fn handle(&self, call: Call, _next: Next) -> Result<Output, Error> {
+        let mut response = Response::new(
+            call.route().provider().id().clone(),
+            call.route().model().id().clone(),
+            vec![ContentPart::Text {
+                text: "partial".to_owned(),
+            }],
+        );
+        response.finish_reason = self.reason.clone();
+        response.content.extend(
+            diagnostic_calls(self.payload_bytes)
+                .into_iter()
+                .map(ContentPart::ToolCall),
+        );
+        response.raw = Some(json!({"provider_payload":"discard"}));
+        Ok(if call.operation() == Operation::Stream {
+            Output::Stream(ResponseStream::new(iter([Ok(StreamEvent::Ended {
+                response: Box::new(response),
+            })])))
+        } else {
+            Output::Complete(response)
+        })
+    }
+}
+
+#[tokio::test]
+async fn unfinished_call_diagnostics_survive_raw_removal_and_obey_output_limits()
+-> Result<(), Box<dyn StdError>> {
+    for reason in [FinishReason::Length, FinishReason::Incomplete] {
+        for payload_bytes in [8, 4096] {
+            let client = Client::builder()
+                .catalog(catalog()?)
+                .adapter("test", FakeAdapter::successful())
+                .retain_raw_response(false)
+                .response_limits(ResponseLimits::default().max_output_bytes(2048))
+                .middleware(UnfinishedToolsMiddleware {
+                    reason: reason.clone(),
+                    payload_bytes,
+                })
+                .build()?
+                .client;
+            for streaming in [false, true] {
+                let result = if streaming {
+                    let mut stream = client.stream(request()?).await?;
+                    let result = stream
+                        .next()
+                        .await
+                        .expect("terminal response")
+                        .map(|event| {
+                            let StreamEvent::Ended { response } = event else {
+                                panic!("expected Ended")
+                            };
+                            *response
+                        });
+                    assert!(stream.next().await.is_none());
+                    result
+                } else {
+                    client.complete(request()?).await
+                };
+                if payload_bytes == 4096 {
+                    assert_eq!(
+                        result.expect_err("diagnostics exceed output limit").kind(),
+                        ErrorKind::ResourceLimit
+                    );
+                    continue;
+                }
+                let response = result?;
+                assert_eq!(response.finish_reason, reason);
+                assert_eq!(response.tool_calls().count(), 0);
+                assert_eq!(
+                    response.suppressed_tool_calls,
+                    diagnostic_calls(payload_bytes)
+                );
+                assert_eq!(response.warnings.len(), 2);
+                assert!(
+                    response
+                        .warnings
+                        .iter()
+                        .all(|warning| warning.message.contains("unfinished"))
+                );
+                assert!(response.raw.is_none());
+                let stored: Response = serde_json::from_value(serde_json::to_value(&response)?)?;
+                assert_eq!(stored, response);
+                assert!(
+                    stored
+                        .into_message()
+                        .content()
+                        .iter()
+                        .all(|part| !matches!(part, ContentPart::ToolCall(_)))
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn unfamiliar_error_categories_never_authorize_automatic_retries() {
+    for hint in [
+        RetryClassification::Never,
+        RetryClassification::Safe,
+        RetryClassification::after(Duration::from_secs(1)),
+    ] {
+        let error = Error::new(
+            ErrorKind::Unknown("future_error".to_owned()),
+            "new category",
+        )
+        .with_retry(hint)
+        .with_provider_retry_after(Duration::from_secs(1));
+        assert_eq!(RetryPolicy::default().next_delay(1, &error), None);
+    }
 }
