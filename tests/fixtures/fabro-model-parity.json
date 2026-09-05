@@ -1,0 +1,1090 @@
+{
+  "source_revision": "775b62b500c957fe319710fe34e6327ae1eb1bbf",
+  "providers": {
+    "anthropic": {
+      "fabro_default": "claude-sonnet-5",
+      "lithos_default": "claude-sonnet-5",
+      "fabro_priority": 100,
+      "fabro_enabled": true
+    },
+    "bedrock-openai": {
+      "fabro_default": "gpt-5.5",
+      "lithos_default": "gpt-5.5",
+      "fabro_priority": 19,
+      "fabro_enabled": false
+    },
+    "bedrock": {
+      "fabro_default": "claude-sonnet-5",
+      "lithos_default": "anthropic.claude-sonnet-4-6",
+      "fabro_priority": 20,
+      "fabro_enabled": false
+    },
+    "deepseek": {
+      "fabro_default": "deepseek-v4-flash",
+      "lithos_default": "deepseek-v4-flash",
+      "fabro_priority": 75,
+      "fabro_enabled": true
+    },
+    "fireworks": {
+      "fabro_default": "kimi-k2.7-code",
+      "lithos_default": "kimi-k2.7-code",
+      "fabro_priority": 30,
+      "fabro_enabled": false
+    },
+    "gemini": {
+      "fabro_default": "gemini-3.5-flash",
+      "lithos_default": "gemini-3.5-flash",
+      "fabro_priority": 80,
+      "fabro_enabled": true
+    },
+    "inception": {
+      "fabro_default": "mercury-2",
+      "lithos_default": "mercury-2",
+      "fabro_priority": 40,
+      "fabro_enabled": true
+    },
+    "litellm": {
+      "fabro_default": null,
+      "lithos_default": null,
+      "fabro_priority": 50,
+      "fabro_enabled": false
+    },
+    "minimax": {
+      "fabro_default": "minimax-m2.5",
+      "lithos_default": "minimax-m2.5",
+      "fabro_priority": 50,
+      "fabro_enabled": true
+    },
+    "modal": {
+      "fabro_default": "kimi-k3",
+      "lithos_default": null,
+      "fabro_priority": 75,
+      "fabro_enabled": false
+    },
+    "moonshot": {
+      "fabro_default": "kimi-k3",
+      "lithos_default": "kimi-k3",
+      "fabro_priority": 70,
+      "fabro_enabled": true
+    },
+    "ollama": {
+      "fabro_default": null,
+      "lithos_default": null,
+      "fabro_priority": 30,
+      "fabro_enabled": false
+    },
+    "openai": {
+      "fabro_default": "gpt-5.6-sol",
+      "lithos_default": "gpt-5.6-sol",
+      "fabro_priority": 90,
+      "fabro_enabled": true
+    },
+    "openrouter": {
+      "fabro_default": "claude-sonnet-5",
+      "lithos_default": "claude-sonnet-5",
+      "fabro_priority": 25,
+      "fabro_enabled": false
+    },
+    "poolside": {
+      "fabro_default": "laguna-s-2.1",
+      "lithos_default": "laguna-s-2.1",
+      "fabro_priority": 65,
+      "fabro_enabled": true
+    },
+    "venice": {
+      "fabro_default": "deepseek-v4-flash",
+      "lithos_default": "deepseek-v4-flash",
+      "fabro_priority": 35,
+      "fabro_enabled": true
+    },
+    "zai": {
+      "fabro_default": "glm-5.2",
+      "lithos_default": "glm-5.2",
+      "fabro_priority": 60,
+      "fabro_enabled": true
+    }
+  },
+  "routes": [
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-fable-5",
+      "fabro_aliases": [
+        "fable",
+        "claude-fable"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-fable-5",
+      "api_model": "claude-fable-5"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-opus-5",
+      "fabro_aliases": [
+        "opus",
+        "claude-opus"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-opus-5",
+      "api_model": "claude-opus-5"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-sonnet-5",
+      "fabro_aliases": [
+        "sonnet",
+        "claude-sonnet"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-sonnet-5",
+      "api_model": "claude-sonnet-5"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-opus-4-8",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-opus-4.8",
+      "api_model": "claude-opus-4-8"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-opus-4-7",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-opus-4.7",
+      "api_model": "claude-opus-4-7"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-opus-4-6",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-opus-4.6",
+      "api_model": "claude-opus-4-6"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-sonnet-4-5",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-sonnet-4.5",
+      "api_model": "claude-sonnet-4-5-20250929"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-sonnet-4-6",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-sonnet-4.6",
+      "api_model": "claude-sonnet-4-6"
+    },
+    {
+      "provider": "anthropic",
+      "fabro_model": "claude-haiku-4-5",
+      "fabro_aliases": [
+        "haiku",
+        "claude-haiku"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-haiku-4.5",
+      "api_model": "claude-haiku-4-5-20251001"
+    },
+    {
+      "provider": "bedrock-openai",
+      "fabro_model": "gpt-5.5",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "gpt-5.5",
+      "api_model": "openai.gpt-5.5"
+    },
+    {
+      "provider": "bedrock-openai",
+      "fabro_model": "gpt-5.4",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "gpt-5.4",
+      "api_model": "openai.gpt-5.4"
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "claude-sonnet-4-6",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "anthropic.claude-sonnet-4-6",
+      "api_model": "us.anthropic.claude-sonnet-4-6"
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "claude-opus-4-8",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "claude-opus-4-8",
+      "api_model": "us.anthropic.claude-opus-4-8",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "claude-haiku-4-5",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "claude-haiku-4-5",
+      "api_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "gpt-oss-120b",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "gpt-oss-120b",
+      "api_model": "openai.gpt-oss-120b-1:0",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "gpt-oss-20b",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "gpt-oss-20b",
+      "api_model": "openai.gpt-oss-20b-1:0",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "nova-2-lite",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "nova-2-lite",
+      "api_model": "global.amazon.nova-2-lite-v1:0",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "llama-4-maverick",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "llama-4-maverick",
+      "api_model": "us.meta.llama4-maverick-17b-instruct-v1:0",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "mistral-large-3",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "mistral-large-3",
+      "api_model": "mistral.mistral-large-3-675b-instruct",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "devstral-2",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "devstral-2",
+      "api_model": "mistral.devstral-2-123b",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "deepseek-v3.2",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "deepseek-v3.2",
+      "api_model": "deepseek.v3.2",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "kimi-k2.5",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "kimi-k2.5",
+      "api_model": "moonshotai.kimi-k2.5",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "glm-5",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "glm-5",
+      "api_model": "zai.glm-5",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "minimax-m2.5",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "minimax-m2.5",
+      "api_model": "minimax.minimax-m2.5",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "nemotron-3-super",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "nemotron-3-super",
+      "api_model": "nvidia.nemotron-super-3-120b",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "claude-fable-5",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "claude-fable-5",
+      "api_model": "us.anthropic.claude-fable-5",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "bedrock",
+      "fabro_model": "claude-sonnet-5",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "claude-sonnet-5",
+      "api_model": "us.anthropic.claude-sonnet-5",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "deepseek",
+      "fabro_model": "deepseek-v4-flash",
+      "fabro_aliases": [
+        "deepseek-v4",
+        "deepseek",
+        "deepseek-flash"
+      ],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-flash",
+      "api_model": "deepseek-v4-flash"
+    },
+    {
+      "provider": "deepseek",
+      "fabro_model": "deepseek-v4-pro",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-pro",
+      "api_model": "deepseek-v4-pro"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "kimi-k3",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "kimi-k3",
+      "api_model": "accounts/fireworks/models/kimi-k3"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "kimi-k3-fast",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "kimi-k3-fast",
+      "api_model": "accounts/fireworks/routers/kimi-k3-fast"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "kimi-k2.7-code",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "kimi-k2.7-code",
+      "api_model": "accounts/fireworks/models/kimi-k2p7-code"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "kimi-k2.6",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "kimi-k2.6",
+      "api_model": "accounts/fireworks/models/kimi-k2p6"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "deepseek-v4-pro",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-pro",
+      "api_model": "accounts/fireworks/models/deepseek-v4-pro-0813"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "deepseek-v4-flash",
+      "fabro_aliases": [
+        "deepseek-v4",
+        "deepseek",
+        "deepseek-flash"
+      ],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-flash",
+      "api_model": "accounts/fireworks/models/deepseek-v4-flash-0731"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "glm-5.2",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "glm-5.2",
+      "api_model": "accounts/fireworks/models/glm-5p2"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "minimax-m2.7",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "minimax-m2.7",
+      "api_model": "accounts/fireworks/models/minimax-m2p7",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "qwen3.7-plus",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "qwen3.7-plus",
+      "api_model": "accounts/fireworks/models/qwen3p7-plus"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "gpt-oss-120b",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "gpt-oss-120b",
+      "api_model": "accounts/fireworks/models/gpt-oss-120b"
+    },
+    {
+      "provider": "fireworks",
+      "fabro_model": "gpt-oss-20b",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "gpt-oss-20b",
+      "api_model": "accounts/fireworks/models/gpt-oss-20b",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "gemini",
+      "fabro_model": "gemini-3.1-pro-preview",
+      "fabro_aliases": [
+        "gemini-pro"
+      ],
+      "status": "catalog",
+      "canonical_model": "gemini-3.1-pro-preview",
+      "api_model": "gemini-3.1-pro-preview"
+    },
+    {
+      "provider": "gemini",
+      "fabro_model": "gemini-3.1-pro-preview-customtools",
+      "fabro_aliases": [
+        "gemini-customtools"
+      ],
+      "status": "catalog",
+      "canonical_model": "gemini-3.1-pro-preview-customtools",
+      "api_model": "gemini-3.1-pro-preview-customtools"
+    },
+    {
+      "provider": "gemini",
+      "fabro_model": "gemini-3.5-flash",
+      "fabro_aliases": [
+        "gemini-35-flash"
+      ],
+      "status": "catalog",
+      "canonical_model": "gemini-3.5-flash",
+      "api_model": "gemini-3.5-flash"
+    },
+    {
+      "provider": "gemini",
+      "fabro_model": "gemini-3-flash-preview",
+      "fabro_aliases": [
+        "gemini-flash"
+      ],
+      "status": "catalog",
+      "canonical_model": "gemini-3-flash-preview",
+      "api_model": "gemini-3-flash-preview"
+    },
+    {
+      "provider": "gemini",
+      "fabro_model": "gemini-3.1-flash-lite",
+      "fabro_aliases": [
+        "gemini-flash-lite",
+        "gemini-3.1-flash-lite-preview"
+      ],
+      "status": "catalog",
+      "canonical_model": "gemini-3.1-flash-lite",
+      "api_model": "gemini-3.1-flash-lite"
+    },
+    {
+      "provider": "inception",
+      "fabro_model": "mercury-2",
+      "fabro_aliases": [
+        "mercury"
+      ],
+      "status": "catalog",
+      "canonical_model": "mercury-2",
+      "api_model": "mercury-2"
+    },
+    {
+      "provider": "minimax",
+      "fabro_model": "minimax-m2.5",
+      "fabro_aliases": [
+        "minimax"
+      ],
+      "status": "catalog",
+      "canonical_model": "minimax-m2.5",
+      "api_model": "MiniMax-M2.5"
+    },
+    {
+      "provider": "modal",
+      "fabro_model": "kimi-k3",
+      "fabro_aliases": [],
+      "status": "deployment",
+      "canonical_model": "kimi-k3",
+      "reason": "The actual endpoint and wire model ID must come from the Modal deployment."
+    },
+    {
+      "provider": "moonshot",
+      "fabro_model": "kimi-k2.5",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "kimi-k2.5",
+      "api_model": "kimi-k2.5",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "moonshot",
+      "fabro_model": "kimi-k3",
+      "fabro_aliases": [
+        "kimi"
+      ],
+      "status": "catalog",
+      "canonical_model": "kimi-k3",
+      "api_model": "kimi-k3"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.6-sol",
+      "fabro_aliases": [
+        "sol",
+        "gpt-sol",
+        "gpt56-sol",
+        "gpt-56-sol",
+        "gpt-5.6",
+        "gpt56",
+        "gpt-56"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.6-sol",
+      "api_model": "gpt-5.6-sol"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.6-terra",
+      "fabro_aliases": [
+        "terra",
+        "gpt-terra",
+        "gpt56-terra",
+        "gpt-56-terra"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.6-terra",
+      "api_model": "gpt-5.6-terra"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.6-luna",
+      "fabro_aliases": [
+        "luna",
+        "gpt-luna",
+        "gpt56-luna",
+        "gpt-56-luna"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.6-luna",
+      "api_model": "gpt-5.6-luna"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.4",
+      "fabro_aliases": [
+        "gpt54",
+        "gpt-54",
+        "gpt-5.2",
+        "gpt5",
+        "gpt-5.3-codex",
+        "codex"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.4",
+      "api_model": "gpt-5.4"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.5",
+      "fabro_aliases": [
+        "gpt55",
+        "gpt-55"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.5",
+      "api_model": "gpt-5.5"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.5-pro",
+      "fabro_aliases": [
+        "gpt55-pro",
+        "gpt-55-pro"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.5-pro",
+      "api_model": "gpt-5.5-pro"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.4-pro",
+      "fabro_aliases": [
+        "gpt54-pro",
+        "gpt-54-pro"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.4-pro",
+      "api_model": "gpt-5.4-pro"
+    },
+    {
+      "provider": "openai",
+      "fabro_model": "gpt-5.4-mini",
+      "fabro_aliases": [
+        "gpt54-mini",
+        "gpt-54-mini",
+        "gpt-5.3-codex-spark",
+        "codex-spark"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.4-mini",
+      "api_model": "gpt-5.4-mini"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "claude-fable-5",
+      "fabro_aliases": [
+        "fable",
+        "claude-fable"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-fable-5",
+      "api_model": "anthropic/claude-fable-5"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "claude-opus-5",
+      "fabro_aliases": [
+        "opus",
+        "claude-opus"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-opus-5",
+      "api_model": "anthropic/claude-opus-5"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "claude-sonnet-5",
+      "fabro_aliases": [
+        "sonnet",
+        "claude-sonnet"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-sonnet-5",
+      "api_model": "anthropic/claude-sonnet-5"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "claude-opus-4-8",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-opus-4.8",
+      "api_model": "anthropic/claude-opus-4.8"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "claude-opus-4-7",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-opus-4.7",
+      "api_model": "anthropic/claude-opus-4.7"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "claude-sonnet-4-6",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "claude-sonnet-4.6",
+      "api_model": "anthropic/claude-sonnet-4.6"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "claude-haiku-4-5",
+      "fabro_aliases": [
+        "haiku",
+        "claude-haiku"
+      ],
+      "status": "catalog",
+      "canonical_model": "claude-haiku-4.5",
+      "api_model": "anthropic/claude-haiku-4.5"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "gpt-5.6-sol",
+      "fabro_aliases": [
+        "sol",
+        "gpt-sol",
+        "gpt56-sol",
+        "gpt-56-sol",
+        "gpt-5.6",
+        "gpt56",
+        "gpt-56"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.6-sol",
+      "api_model": "openai/gpt-5.6-sol"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "gpt-5.6-terra",
+      "fabro_aliases": [
+        "terra",
+        "gpt-terra",
+        "gpt56-terra",
+        "gpt-56-terra"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.6-terra",
+      "api_model": "openai/gpt-5.6-terra"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "gpt-5.6-luna",
+      "fabro_aliases": [
+        "luna",
+        "gpt-luna",
+        "gpt56-luna",
+        "gpt-56-luna"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.6-luna",
+      "api_model": "openai/gpt-5.6-luna"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "gpt-5.4",
+      "fabro_aliases": [
+        "gpt54",
+        "gpt-54",
+        "gpt-5.2",
+        "gpt5",
+        "gpt-5.3-codex",
+        "codex"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.4",
+      "api_model": "openai/gpt-5.4"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "gpt-5.5",
+      "fabro_aliases": [
+        "gpt55",
+        "gpt-55"
+      ],
+      "status": "catalog",
+      "canonical_model": "gpt-5.5",
+      "api_model": "openai/gpt-5.5"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "gemini-3.1-pro-preview",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "gemini-3.1-pro-preview",
+      "api_model": "google/gemini-3.1-pro-preview"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "gemini-3.5-flash",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "gemini-3.5-flash",
+      "api_model": "google/gemini-3.5-flash"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "mimo-v2.5-pro",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "mimo-v2.5-pro",
+      "api_model": "xiaomi/mimo-v2.5-pro"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "minimax-m2.7",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "minimax-m2.7",
+      "api_model": "minimax/minimax-m2.7"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "deepseek-v4-pro",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-pro",
+      "api_model": "deepseek/deepseek-v4-pro"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "deepseek-v4-flash",
+      "fabro_aliases": [
+        "deepseek-v4",
+        "deepseek",
+        "deepseek-flash"
+      ],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-flash",
+      "api_model": "deepseek/deepseek-v4-flash-0731"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "kimi-k2.6",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "kimi-k2.6",
+      "api_model": "moonshotai/kimi-k2.6",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "kimi-k3",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "kimi-k3",
+      "api_model": "moonshotai/kimi-k3"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "laguna-s-2.1",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "laguna-s-2.1",
+      "api_model": "poolside/laguna-s-2.1"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "laguna-xs-2.1",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "laguna-xs-2.1",
+      "api_model": "poolside/laguna-xs-2.1"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "qwen3-coder",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "qwen3-coder",
+      "api_model": "qwen/qwen3-coder"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "qwen3.6-flash",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "qwen3.6-flash",
+      "api_model": "qwen/qwen3.6-flash"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "qwen3.8-max",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "qwen3.8-max",
+      "api_model": "qwen/qwen3.8-max"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "glm-5.2",
+      "fabro_aliases": [
+        "glm",
+        "glm5",
+        "glm52",
+        "glm5.2"
+      ],
+      "status": "catalog",
+      "canonical_model": "glm-5.2",
+      "api_model": "z-ai/glm-5.2"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "glm-4.6",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "glm-4.6",
+      "api_model": "z-ai/glm-4.6"
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "nemotron-3-super-120b-a12b",
+      "fabro_aliases": [],
+      "status": "pending",
+      "canonical_model": "nemotron-3-super-120b-a12b",
+      "api_model": "nvidia/nemotron-3-super-120b-a12b",
+      "reason": "Pending model parity import and documentation review."
+    },
+    {
+      "provider": "openrouter",
+      "fabro_model": "devstral-2512",
+      "fabro_aliases": [],
+      "status": "catalog",
+      "canonical_model": "devstral-2512",
+      "api_model": "mistralai/devstral-2512"
+    },
+    {
+      "provider": "poolside",
+      "fabro_model": "laguna-s-2.1",
+      "fabro_aliases": [
+        "laguna",
+        "laguna-s"
+      ],
+      "status": "catalog",
+      "canonical_model": "laguna-s-2.1",
+      "api_model": "poolside/laguna-s-2.1"
+    },
+    {
+      "provider": "poolside",
+      "fabro_model": "laguna-xs-2.1",
+      "fabro_aliases": [
+        "laguna-xs"
+      ],
+      "status": "catalog",
+      "canonical_model": "laguna-xs-2.1",
+      "api_model": "poolside/laguna-xs-2.1"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "kimi-k3",
+      "fabro_aliases": [
+        "kimi"
+      ],
+      "status": "catalog",
+      "canonical_model": "kimi-k3",
+      "api_model": "kimi-k3"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "kimi-k3-fast",
+      "fabro_aliases": [
+        "kimi-fast"
+      ],
+      "status": "catalog",
+      "canonical_model": "kimi-k3-fast",
+      "api_model": "kimi-k3-fast-api"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "grok-4.6",
+      "fabro_aliases": [
+        "grok",
+        "grok46",
+        "grok-46"
+      ],
+      "status": "catalog",
+      "canonical_model": "grok-4.6",
+      "api_model": "grok-4-6"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "glm-5.3",
+      "fabro_aliases": [
+        "glm",
+        "glm5",
+        "glm53",
+        "glm5.3",
+        "glm-5-3"
+      ],
+      "status": "catalog",
+      "canonical_model": "glm-5.3",
+      "api_model": "z-ai-glm-5-3"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "deepseek-v4-flash",
+      "fabro_aliases": [
+        "deepseek-v4",
+        "deepseek",
+        "deepseek-flash"
+      ],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-flash",
+      "api_model": "deepseek-v4-flash-0731"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "deepseek-v4-pro",
+      "fabro_aliases": [
+        "deepseek-pro"
+      ],
+      "status": "catalog",
+      "canonical_model": "deepseek-v4-pro",
+      "api_model": "deepseek-v4-pro-0813"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "qwen3.8-max",
+      "fabro_aliases": [
+        "qwen",
+        "qwen-max",
+        "qwen3.8",
+        "qwen-3.8",
+        "qwen38",
+        "qwen-3.8-max",
+        "qwen38-max"
+      ],
+      "status": "catalog",
+      "canonical_model": "qwen3.8-max",
+      "api_model": "qwen-3-8-max"
+    },
+    {
+      "provider": "venice",
+      "fabro_model": "qwen3.8-27b",
+      "fabro_aliases": [
+        "qwen-27b",
+        "qwen-3.8-27b",
+        "qwen38-27b"
+      ],
+      "status": "catalog",
+      "canonical_model": "qwen3.8-27b",
+      "api_model": "qwen-3-8-27b"
+    },
+    {
+      "provider": "zai",
+      "fabro_model": "glm-5.2",
+      "fabro_aliases": [
+        "glm",
+        "glm5",
+        "glm52",
+        "glm5.2"
+      ],
+      "status": "catalog",
+      "canonical_model": "glm-5.2",
+      "api_model": "glm-5.2"
+    },
+    {
+      "provider": "zai",
+      "fabro_model": "glm-4.7",
+      "fabro_aliases": [
+        "glm4"
+      ],
+      "status": "catalog",
+      "canonical_model": "glm-4.7",
+      "api_model": "glm-4.7"
+    }
+  ]
+}

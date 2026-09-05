@@ -23,7 +23,7 @@ profile = "anthropic"
 
 [providers.bedrock.models."anthropic.claude-sonnet-4-6"]
 display_name = "Claude Sonnet 4.6 on Bedrock"
-aliases = ["bedrock-sonnet"]
+aliases = ["bedrock-sonnet", "claude-sonnet-4-6"]
 # The `us.` cross-region inference profile: Bedrock on-demand access to this
 # model needs the profile rather than the bare model id.
 api_model = "us.anthropic.claude-sonnet-4-6"

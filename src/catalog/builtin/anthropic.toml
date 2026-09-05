@@ -190,6 +190,7 @@ api_key_url = "https://console.anthropic.com/settings/keys"
 profile = "claude-5"
 
 [providers.anthropic.models."claude-sonnet-4.5"]
+aliases = ["claude-sonnet-4-5"]
 display_name = "Claude Sonnet 4.5"
 api_model = "claude-sonnet-4-5-20250929"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
@@ -232,7 +233,7 @@ profile = "claude-5"
 
 [providers.anthropic.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5"
-aliases = ["haiku", "claude-haiku"]
+aliases = ["haiku", "claude-haiku", "claude-haiku-4-5"]
 api_model = "claude-haiku-4-5-20251001"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # The live listing corrects fabro's stale 8,192-token output limit and says

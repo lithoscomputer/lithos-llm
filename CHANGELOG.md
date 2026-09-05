@@ -31,6 +31,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Preserve seven Fabro model selectors as catalog aliases. A pinned 99-route
+  inventory checks full model resolution and records the remaining imports.
+
 - Import DeepSeek, Inception, MiniMax, Z.ai, Poolside, LiteLLM, Ollama, and
   Bedrock OpenAI provider entries from Fabro, with Lithos catalog fields,
   credential mappings, and offline HTTP coverage. Z.ai uses the new compatible

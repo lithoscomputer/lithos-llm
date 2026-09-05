@@ -91,6 +91,7 @@ pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_millio
 profile = "claude-5"
 
 [providers.openrouter.models."claude-opus-4.8"]
+aliases = ["claude-opus-4-8"]
 display_name = "Claude Opus 4.8 (via OpenRouter)"
 api_model = "anthropic/claude-opus-4.8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
@@ -102,6 +103,7 @@ pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_millio
 profile = "claude-5"
 
 [providers.openrouter.models."claude-opus-4.7"]
+aliases = ["claude-opus-4-7"]
 display_name = "Claude Opus 4.7 (via OpenRouter)"
 api_model = "anthropic/claude-opus-4.7"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
@@ -113,6 +115,7 @@ pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_millio
 profile = "claude-5"
 
 [providers.openrouter.models."claude-sonnet-4.6"]
+aliases = ["claude-sonnet-4-6"]
 display_name = "Claude Sonnet 4.6 (via OpenRouter)"
 api_model = "anthropic/claude-sonnet-4.6"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
@@ -125,7 +128,7 @@ profile = "claude-5"
 
 [providers.openrouter.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5 (via OpenRouter)"
-aliases = ["haiku", "claude-haiku"]
+aliases = ["haiku", "claude-haiku", "claude-haiku-4-5"]
 api_model = "anthropic/claude-haiku-4.5"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
