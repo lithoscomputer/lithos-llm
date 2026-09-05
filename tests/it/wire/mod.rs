@@ -48,5 +48,7 @@ mod gemini;
     feature = "openai"
 ))]
 mod imported_providers;
+#[cfg(all(feature = "builtin-catalog", feature = "openai-compatible"))]
+mod modal_parity;
 mod openai_chat;
 mod openai_responses;

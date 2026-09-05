@@ -31,6 +31,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Add dedicated and shared-router Modal overlay templates for `modal/kimi-k3`,
+  with explicit deployment placeholders, offline tests, and live-test TODOs.
+
 - Add OpenRouter Kimi K2.6 and Nemotron 3 Super, Fireworks MiniMax M2.7,
   and Moonshot Kimi K2.5. Drop GPT-OSS from the built-in catalog and
   model parity scope at user request.

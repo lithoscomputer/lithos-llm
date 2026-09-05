@@ -168,3 +168,13 @@ GPT-OSS was dropped from the catalog and parity scope at user request on
 selectors remain in the inventory as explicit exclusions. No deployment or
 migration work is pending for this family. Historical E2E fixtures remain to
 check codec behavior against the recorded responses.
+
+## Modal deployment mapping
+
+- [ ] Configure either the dedicated endpoint or shared-router
+      [template](model-parity.md#modal-deployment) with the real endpoint and
+      accepted model ID. Verify proxy-token access and both response paths.
+- [ ] Verify Kimi K3 images, tools, adaptive reasoning, low/high/max effort,
+      sampling restrictions, cache usage, limits and deployment prices.
+- [ ] Record a tool round trip and interrupted stream for the selected
+      deployment. A local template test does not prove deployment access.

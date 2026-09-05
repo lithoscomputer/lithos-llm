@@ -1,0 +1,27 @@
+# Deployment template: replace every REPLACE_WITH value before use.
+# Apply after Catalog::builder().with_builtin(). No credentials belong here.
+# Fabro Kimi K3 facts, 775b62b500c957fe319710fe34e6327ae1eb1bbf, 2026-09-05.
+# All capabilities, prices, and limits require deployment-specific live checks.
+schema_version = 1
+
+[providers.modal]
+base_url = "https://inference.us-west.modal.direct/v1"
+default_model = "kimi-k3"
+
+[providers.modal.models."kimi-k3"]
+display_name = "Kimi K3 (via Modal)"
+# Replace with the model ID this deployment accepts; never assume a HF ID.
+api_model = "REPLACE_WITH_SHARED_ENDPOINT_HOSTNAME"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+# Provisional Fabro estimates; replace with the deployment's billing policy.
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
+
+[providers.modal.models."kimi-k3".metadata.fabro]
+family = "kimi-k3"
+estimated_output_tps = 460
+
+[providers.modal.models."kimi-k3".metadata.pebble]
+profile = "kimi"
+reasoning_by_default = true
