@@ -102,3 +102,44 @@ These probes do not replace the full suite.
   Converse credentials or the AWS default chain. The current
   [AWS Responses guide](https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html)
   supplies the `/v1` Mantle base path; confirm it live before rollout.
+
+## Bedrock model parity imports
+
+The 15 rows below use Converse and ConverseStream. Local tests cover both
+operations for every row, native usage buckets, cache placement, and rejection
+of unmapped effort. Receiving reasoning does not enable an effort control.
+All imported rows explicitly reject portable effort until the endpoint mapping
+has been established. Claude 5 also rejects sampling controls before dispatch.
+Prices copied from Fabro remain provisional regional estimates. Missing prices
+and cache-write rates stay unknown.
+
+- [ ] `claude-opus-4-8`: verify the US inference profile, tools and cache buckets.
+- [ ] `claude-haiku-4-5`: verify the dated US profile and small-model selection.
+- [ ] `gpt-oss-120b`: verify reasoning and tool replay; establish native effort.
+- [ ] `gpt-oss-20b`: verify reasoning and tool replay; establish native effort.
+- [ ] `nova-2-lite`: verify global routing and the 65,535-token output cap.
+- [ ] `llama-4-maverick`: verify the US profile, images, tools and missing prices.
+- [ ] `mistral-large-3`: verify images, tools and regional prices.
+- [ ] `devstral-2`: verify tools, limits and missing prices.
+- [ ] `deepseek-v3.2`: verify reasoning and tool replay; establish native effort.
+- [ ] `kimi-k2.5`: verify vision, tools and the Kimi agent profile.
+- [ ] `glm-5`: verify tools and the 128,000-token output limit.
+- [ ] `minimax-m2.5`: verify tools and whether reasoning is exposed by Converse.
+- [ ] `nemotron-3-super`: verify the model ID, limits and missing prices.
+- [ ] `claude-fable-5`: verify account `provider_data_share` opt-in, adaptive
+      thinking, tools, cache writes and the future effort mapping.
+- [ ] `claude-sonnet-5`: verify adaptive thinking, tools, current cache prices
+      and the future effort mapping. The old introductory cache rate is omitted.
+
+Two documentation decisions were made on 2026-09-05:
+
+- Sonnet 5 uses standard $3/$15 per million input/output tokens after the
+  August 31 promotion. See [AWS pricing](https://aws.amazon.com/bedrock/pricing/).
+  Confirm regional rates and cache rates on the account before cost reporting.
+- Sonnet 4.6 keeps the existing 200K context limit. The
+  [model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-4-6.html)
+  advertises 1M, while the
+  [request documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-anthropic-claude-messages-request-response.html)
+  lists a compatible `context-1m-2025-08-07` opt-in. The import does not silently
+  enable that opt-in. Verify account/region behavior above 200K before applying
+  a 1M overlay. This is a conservative catalog policy, not a model maximum claim.

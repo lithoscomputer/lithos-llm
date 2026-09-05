@@ -97,7 +97,7 @@ fn fabro_names_resolve_to_full_catalog_models() -> Result<(), Box<dyn StdError>>
         }
     }
     // Removed as imports land; a growing exception list is a regression.
-    assert_eq!(pending, 20);
+    assert_eq!(pending, 5);
     assert_eq!(deployments, 1);
     Ok(())
 }

@@ -39,6 +39,8 @@
 mod anthropic;
 #[cfg(feature = "bedrock")]
 mod bedrock;
+#[cfg(all(feature = "bedrock", feature = "builtin-catalog"))]
+mod bedrock_parity;
 mod gemini;
 #[cfg(all(
     feature = "builtin-catalog",

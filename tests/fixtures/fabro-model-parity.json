@@ -217,136 +217,121 @@
       "provider": "bedrock",
       "fabro_model": "claude-opus-4-8",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "claude-opus-4-8",
-      "api_model": "us.anthropic.claude-opus-4-8",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "us.anthropic.claude-opus-4-8"
     },
     {
       "provider": "bedrock",
       "fabro_model": "claude-haiku-4-5",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "claude-haiku-4-5",
-      "api_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     },
     {
       "provider": "bedrock",
       "fabro_model": "gpt-oss-120b",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "gpt-oss-120b",
-      "api_model": "openai.gpt-oss-120b-1:0",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "openai.gpt-oss-120b-1:0"
     },
     {
       "provider": "bedrock",
       "fabro_model": "gpt-oss-20b",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "gpt-oss-20b",
-      "api_model": "openai.gpt-oss-20b-1:0",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "openai.gpt-oss-20b-1:0"
     },
     {
       "provider": "bedrock",
       "fabro_model": "nova-2-lite",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "nova-2-lite",
-      "api_model": "global.amazon.nova-2-lite-v1:0",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "global.amazon.nova-2-lite-v1:0"
     },
     {
       "provider": "bedrock",
       "fabro_model": "llama-4-maverick",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "llama-4-maverick",
-      "api_model": "us.meta.llama4-maverick-17b-instruct-v1:0",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "us.meta.llama4-maverick-17b-instruct-v1:0"
     },
     {
       "provider": "bedrock",
       "fabro_model": "mistral-large-3",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "mistral-large-3",
-      "api_model": "mistral.mistral-large-3-675b-instruct",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "mistral.mistral-large-3-675b-instruct"
     },
     {
       "provider": "bedrock",
       "fabro_model": "devstral-2",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "devstral-2",
-      "api_model": "mistral.devstral-2-123b",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "mistral.devstral-2-123b"
     },
     {
       "provider": "bedrock",
       "fabro_model": "deepseek-v3.2",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "deepseek-v3.2",
-      "api_model": "deepseek.v3.2",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "deepseek.v3.2"
     },
     {
       "provider": "bedrock",
       "fabro_model": "kimi-k2.5",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "kimi-k2.5",
-      "api_model": "moonshotai.kimi-k2.5",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "moonshotai.kimi-k2.5"
     },
     {
       "provider": "bedrock",
       "fabro_model": "glm-5",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "glm-5",
-      "api_model": "zai.glm-5",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "zai.glm-5"
     },
     {
       "provider": "bedrock",
       "fabro_model": "minimax-m2.5",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "minimax-m2.5",
-      "api_model": "minimax.minimax-m2.5",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "minimax.minimax-m2.5"
     },
     {
       "provider": "bedrock",
       "fabro_model": "nemotron-3-super",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "nemotron-3-super",
-      "api_model": "nvidia.nemotron-super-3-120b",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "nvidia.nemotron-super-3-120b"
     },
     {
       "provider": "bedrock",
       "fabro_model": "claude-fable-5",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "claude-fable-5",
-      "api_model": "us.anthropic.claude-fable-5",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "us.anthropic.claude-fable-5"
     },
     {
       "provider": "bedrock",
       "fabro_model": "claude-sonnet-5",
       "fabro_aliases": [],
-      "status": "pending",
+      "status": "catalog",
       "canonical_model": "claude-sonnet-5",
-      "api_model": "us.anthropic.claude-sonnet-5",
-      "reason": "Pending model parity import and documentation review."
+      "api_model": "us.anthropic.claude-sonnet-5"
     },
     {
       "provider": "deepseek",
