@@ -61,6 +61,11 @@ layer retries only until a stream delivers visible output; an application that
 must replay a turn after that point can drive its own loop with
 `RetryPolicy::next_delay`, the same decision the middleware uses.
 
+An `Incomplete` response also retries while no content has reached the caller.
+Closing blocks that precede any content are held until the terminal outcome.
+When the attempt or deadline budget prevents a retry, the partial response is
+returned with its original finish reason. `Length` does not trigger a retry.
+
 Use `ClientBuilder::http` to inject an application-configured
 `reqwest::Client`, and `ClientBuilder::enabled_providers` to build adapters for
 only the providers a deployment has configured. The complete catalog stays

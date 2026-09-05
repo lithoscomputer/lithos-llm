@@ -18,9 +18,9 @@ use lithos_llm::middleware::{
     ObserverMiddleware, Operation, Output, RetryMiddleware, RetryPolicy, RetryStage, map_stream,
 };
 use lithos_llm::types::{
-    ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, ImageContent, MediaSource,
-    Message, RequestBuildError, Response, ResponseLimits, ResponseStream, RetryClassification,
-    Role, StreamEvent, TokenCounts, ToolChoice, ToolDefinition,
+    ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, ImageContent,
+    MediaSource, Message, RequestBuildError, Response, ResponseLimits, ResponseStream,
+    RetryClassification, Role, StreamEvent, TokenCounts, ToolChoice, ToolDefinition,
 };
 use lithos_llm::{Client, Request};
 use tokio::spawn;
@@ -1646,5 +1646,185 @@ async fn timeout_stream_emits_one_terminal_error() -> Result<(), Box<dyn StdErro
 
     assert_eq!(error.kind(), ErrorKind::Timeout);
     assert!(stream.next().await.is_none());
+    Ok(())
+}
+
+/// Supplies unfinished turns, including block ends synthesized at EOF.
+struct UnfinishedAdapter {
+    calls:               Arc<AtomicUsize>,
+    unfinished_attempts: usize,
+    reason:              FinishReason,
+    visible:             bool,
+    id:                  AdapterId,
+}
+
+#[async_trait]
+impl ProviderAdapter for UnfinishedAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        let attempt = self.calls.fetch_add(1, Ordering::SeqCst);
+        let mut response = success_response(call, "partial");
+        if attempt < self.unfinished_attempts {
+            response.finish_reason = self.reason.clone();
+        } else {
+            response = success_response(call, "done");
+        }
+        Ok(response)
+    }
+
+    async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        let response = self.complete(call).await?;
+        let id = ContentBlockId::new("unfinished");
+        let mut events = vec![Ok(StreamEvent::Started { id: None })];
+        if self.visible {
+            events.push(Ok(StreamEvent::TextDelta {
+                id:   id.clone(),
+                text: response.text(),
+            }));
+        }
+        events.push(Ok(StreamEvent::ContentBlockEnd {
+            id,
+            part: ContentPart::Text {
+                text: response.text(),
+            },
+        }));
+        events.push(Ok(StreamEvent::Ended { response }));
+        Ok(ResponseStream::new(iter(events)))
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn incomplete_turns_retry_only_before_delivery() -> Result<(), Box<dyn StdError>> {
+    for (streaming, visible, reason, failures, expected_calls, expected_reason) in [
+        (
+            true,
+            false,
+            FinishReason::Incomplete,
+            1,
+            2,
+            FinishReason::Stop,
+        ),
+        (
+            false,
+            false,
+            FinishReason::Incomplete,
+            1,
+            2,
+            FinishReason::Stop,
+        ),
+        (
+            true,
+            true,
+            FinishReason::Incomplete,
+            1,
+            1,
+            FinishReason::Incomplete,
+        ),
+        (
+            true,
+            false,
+            FinishReason::Incomplete,
+            10,
+            3,
+            FinishReason::Incomplete,
+        ),
+        (
+            false,
+            false,
+            FinishReason::Incomplete,
+            10,
+            3,
+            FinishReason::Incomplete,
+        ),
+        (
+            true,
+            false,
+            FinishReason::Length,
+            10,
+            1,
+            FinishReason::Length,
+        ),
+        (
+            false,
+            false,
+            FinishReason::Length,
+            10,
+            1,
+            FinishReason::Length,
+        ),
+    ] {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observer = RetryRecorder::default();
+        let observations = Arc::new(observer);
+        let client = Client::builder()
+            .catalog(catalog()?)
+            .adapter("test", UnfinishedAdapter {
+                calls: calls.clone(),
+                unfinished_attempts: failures,
+                reason,
+                visible,
+                id: AdapterId::new("test-adapter"),
+            })
+            .middleware(
+                RetryMiddleware::new(RetryPolicy::exponential().max_attempts(3))
+                    .observer_arc(observations.clone()),
+            )
+            .middleware(ConcurrencyLimitMiddleware::new(NonZeroUsize::MIN))
+            .build()?
+            .client;
+        let start = Instant::now();
+        let response = if streaming {
+            let events = client
+                .stream(request()?)
+                .await?
+                .collect::<Vec<_>>()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()?;
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|e| matches!(e, StreamEvent::Started { .. }))
+                    .count(),
+                1
+            );
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|e| matches!(e, StreamEvent::Ended { .. }))
+                    .count(),
+                1
+            );
+            let Some(StreamEvent::Ended { response }) = events.into_iter().last() else {
+                panic!("terminal response missing")
+            };
+            response
+        } else {
+            client.complete(request()?).await?
+        };
+        assert_eq!(response.finish_reason, expected_reason);
+        assert_eq!(calls.load(Ordering::SeqCst), expected_calls);
+        let retries = observations.retries();
+        assert_eq!(retries.len(), expected_calls - 1);
+        for (index, retry) in retries.iter().enumerate() {
+            assert_eq!(retry.attempt, u32::try_from(index + 1)?);
+            assert_eq!(
+                retry.stage,
+                if streaming {
+                    RetryStage::Stream
+                } else {
+                    RetryStage::Request
+                }
+            );
+        }
+        assert_eq!(start.elapsed(), match expected_calls {
+            1 => Duration::ZERO,
+            2 => Duration::from_millis(100),
+            _ => Duration::from_millis(300),
+        });
+    }
     Ok(())
 }

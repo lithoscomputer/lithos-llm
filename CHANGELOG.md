@@ -6,6 +6,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Retry middleware now retries incomplete responses before content reaches
+  the caller, including blocking calls. It preserves the final partial response
+  when no retry fits the attempt or deadline budget, and never retries `Length`.
+
 - Breaking: rename the terminal `StreamEvent::Completed` to `Ended`, with
   JSON type `ended`. The terminal response can be incomplete or length-limited;
   callers must inspect its finish reason before accepting a turn.

@@ -11,7 +11,9 @@ use futures_util::stream::{empty, unfold};
 use tokio::time::sleep;
 
 use super::{Call, CallGuard, Middleware, Next, Observer, Operation, Output, RetryStage};
-use crate::types::{Error, ErrorKind, ResponseStream, RetryClassification, StreamEvent};
+use crate::types::{
+    Error, ErrorKind, FinishReason, ResponseStream, RetryClassification, StreamEvent,
+};
 
 /// The longest `Retry-After` this policy honors by default.
 const DEFAULT_RETRY_AFTER_CAP: Duration = Duration::from_secs(60);
@@ -202,7 +204,17 @@ impl Middleware for RetryMiddleware {
         let mut current = call.clone();
         loop {
             current.context.set_attempt(attempt);
-            match next.clone().run(current.clone()).await {
+            let mut incomplete = None;
+            let outcome = match next.clone().run(current.clone()).await {
+                Ok(Output::Complete(response))
+                    if response.finish_reason == FinishReason::Incomplete =>
+                {
+                    incomplete = Some(response);
+                    Err(incomplete_error(&current))
+                }
+                outcome => outcome,
+            };
+            match outcome {
                 Ok(Output::Stream(stream)) if call.mode == Operation::Stream => {
                     return Ok(Output::Stream(retry_stream(
                         stream,
@@ -214,12 +226,12 @@ impl Middleware for RetryMiddleware {
                 }
                 Ok(output) => return Ok(output),
                 Err(error) => {
-                    let Some(delay) = self.policy.next_delay(attempt, &error) else {
-                        return Err(error);
+                    let delay = self.policy.next_delay(attempt, &error).filter(|delay| {
+                        CallGuard::new(current.context()).permits_retry_after(*delay)
+                    });
+                    let Some(delay) = delay else {
+                        return incomplete.map(Output::Complete).ok_or(error);
                     };
-                    if !CallGuard::new(current.context()).permits_retry_after(delay) {
-                        return Err(error);
-                    }
                     report_retry(
                         self.observer.as_ref(),
                         &current,
@@ -236,7 +248,17 @@ impl Middleware for RetryMiddleware {
     }
 }
 
-/// Retries a stream that fails before it produces visible output.
+fn incomplete_error(call: &Call) -> Error {
+    Error::new(
+        ErrorKind::StreamDecode,
+        "the provider ended without a complete response",
+    )
+    .with_provider(call.route().provider().id().clone())
+    .with_provider_code("incomplete_response")
+    .with_retry(RetryClassification::Safe)
+}
+
+/// Retries a stream that fails or ends incomplete before it delivers content.
 ///
 /// Protocol bookkeeping — `Started`, `RateLimits`, `ContentBlockStart` — is
 /// held back until the stream produces its first visible event. A reconnect
@@ -294,8 +316,24 @@ fn retry_stream(
             if state.ended {
                 return None;
             }
-            match state.stream.next().await {
-                Some(Ok(event)) if !state.visible && !event.is_visible() => {
+            let mut incomplete = None;
+            let item = match state.stream.next().await {
+                Some(Ok(StreamEvent::Ended { response }))
+                    if !state.visible && response.finish_reason == FinishReason::Incomplete =>
+                {
+                    incomplete = Some(response);
+                    Some(Err(incomplete_error(&state.call)))
+                }
+                item => item,
+            };
+            match item {
+                // A decoder may synthesize closing blocks at EOF. Hold those
+                // until actual deltas or the terminal outcome reach the caller.
+                Some(Ok(event))
+                    if !state.visible
+                        && (!event.is_visible()
+                            || matches!(event, StreamEvent::ContentBlockEnd { .. })) =>
+                {
                     state.held.push(event);
                 }
                 Some(Ok(event)) => {
@@ -323,6 +361,9 @@ fn retry_stream(
                             RetryStage::Stream,
                         );
                         sleep(delay).await;
+                        // A new attempt supersedes the abandoned response,
+                        // including when opening that attempt fails.
+                        incomplete = None;
                         state.attempt = state.attempt.saturating_add(1);
                         state.call.context.set_attempt(state.attempt);
                         match state.next.clone().run(state.call.clone()).await {
@@ -345,7 +386,11 @@ fn retry_stream(
                         }
                     }
                     state.release_held();
-                    state.ready.push_back(Err(error));
+                    state.ready.push_back(
+                        incomplete
+                            .map(|response| StreamEvent::Ended { response })
+                            .ok_or(error),
+                    );
                     state.ended = true;
                 }
                 Some(Err(error)) => {
