@@ -31,6 +31,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Add an optional Fabro policy overlay for provider priorities, defaults,
+  enablement metadata, and model selection metadata. Core defaults stay intact.
+
 - Add dedicated and shared-router Modal overlay templates for `modal/kimi-k3`,
   with explicit deployment placeholders, offline tests, and live-test TODOs.
 

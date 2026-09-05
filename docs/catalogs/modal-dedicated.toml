@@ -20,6 +20,9 @@ pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_millio
 
 [providers.modal.models."kimi-k3".metadata.fabro]
 family = "kimi-k3"
+agent_profile = "kimi"
+small_default = false
+probe = false
 estimated_output_tps = 460
 
 [providers.modal.models."kimi-k3".metadata.pebble]

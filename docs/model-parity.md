@@ -29,3 +29,45 @@ Keep proxy credentials in a `CredentialProvider`, such as
 or stores secrets. Local tests replace both endpoints and IDs with mock values.
 
 See [live-test TODOs](provider-live-tests.md) before deploying these mappings.
+
+## Fabro defaults and application policy
+
+Apply [fabro-policy.toml](catalogs/fabro-policy.toml) after the built-ins when
+integrating with Fabro. The layer sets Fabro's provider priorities and model
+defaults. Bedrock then defaults to Sonnet 5. Without this layer, Lithos keeps
+Sonnet 4.6 as its Bedrock default. Apply the chosen Modal deployment template
+as a separate layer to supply its model and default.
+
+The layer preserves each source model's `family`, effective `agent_profile`,
+`small_default`, and `probe` in `metadata.fabro`. It keeps Lithos's verified
+capabilities, limits, prices, API IDs, and Pebble profiles. All source aliases
+resolve through the built-in catalog. The inventory retains the four excluded
+GPT-OSS rows for provenance; the overlay does not add them or their policies.
+
+Provider `metadata.fabro.enabled` is application policy. The library does not
+interpret it automatically. Pass the enabled IDs to `ClientBuilder`, after
+applying the operator's overrides and supplying a credential provider:
+
+```rust,ignore
+let enabled: Vec<_> = catalog.providers().filter_map(|provider| {
+    let enabled = provider.metadata().get("fabro")?
+        .get("enabled")?.as_bool()?;
+    enabled.then(|| provider.id().clone())
+}).collect();
+let build = Client::builder()
+    .catalog(catalog)
+    .enabled_providers(enabled)
+    .credentials(credentials)
+    .build()?;
+```
+
+Fabro must also interpret `small_default` and `probe` when choosing a model for
+those tasks. Catalog resolution does not apply those flags. For a provider
+with no usable flagged model, retain Fabro's fallback policy or require an
+explicit choice. In particular, the dropped Fireworks GPT-OSS 20B model is no
+longer a small-model or probe candidate.
+
+Provider presence does not establish credentials or account access. Inspect
+`build.issues` when enabling adapters. Enabling Bedrock also requires the
+Bedrock feature and region/auth configuration. The imported Bedrock models
+remain provisional even when the Fabro layer selects Sonnet 5 by default.

@@ -1,0 +1,685 @@
+# Optional Fabro integration policy, pinned at 775b62b500c957fe319710fe34e6327ae1eb1bbf.
+# Apply after built-ins. Explicitly select enabled providers in ClientBuilder.
+# Modal's default/model comes from a deployment template, not this layer.
+# GPT-OSS is excluded at user request. This layer cannot restore that family.
+schema_version = 1
+
+[providers."anthropic"]
+priority = 100
+default_model = "claude-sonnet-5"
+
+[providers."anthropic".metadata.fabro]
+enabled = true
+
+[providers."anthropic".models."claude-fable-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-opus-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-sonnet-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-opus-4.8".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-opus-4.7".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-opus-4.6".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-sonnet-4.5".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-sonnet-4.6".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = false
+probe = false
+
+[providers."anthropic".models."claude-haiku-4.5".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = true
+probe = true
+
+[providers."bedrock-openai"]
+priority = 19
+default_model = "gpt-5.5"
+
+[providers."bedrock-openai".metadata.fabro]
+enabled = false
+
+[providers."bedrock-openai".models."gpt-5.5".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock-openai".models."gpt-5.4".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock"]
+priority = 20
+default_model = "claude-sonnet-5"
+
+[providers."bedrock".metadata.fabro]
+enabled = false
+
+[providers."bedrock".models."anthropic.claude-sonnet-4-6".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = false
+probe = false
+
+[providers."bedrock".models."claude-opus-4-8".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = false
+probe = false
+
+[providers."bedrock".models."claude-haiku-4-5".metadata.fabro]
+family = "claude-4"
+agent_profile = "anthropic"
+small_default = true
+probe = false
+
+[providers."bedrock".models."nova-2-lite".metadata.fabro]
+family = "nova-2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."llama-4-maverick".metadata.fabro]
+family = "llama-4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."mistral-large-3".metadata.fabro]
+family = "mistral-large"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."devstral-2".metadata.fabro]
+family = "devstral"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."deepseek-v3.2".metadata.fabro]
+family = "deepseek-v3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."kimi-k2.5".metadata.fabro]
+family = "kimi-k2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."glm-5".metadata.fabro]
+family = "glm"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."minimax-m2.5".metadata.fabro]
+family = "minimax-m2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."nemotron-3-super".metadata.fabro]
+family = "nemotron-3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."bedrock".models."claude-fable-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."bedrock".models."claude-sonnet-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."deepseek"]
+priority = 75
+default_model = "deepseek-v4-flash"
+
+[providers."deepseek".metadata.fabro]
+enabled = true
+
+[providers."deepseek".models."deepseek-v4-flash".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = true
+probe = true
+
+[providers."deepseek".models."deepseek-v4-pro".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."fireworks"]
+priority = 30
+default_model = "kimi-k2.7-code"
+
+[providers."fireworks".metadata.fabro]
+enabled = false
+
+[providers."fireworks".models."kimi-k3".metadata.fabro]
+family = "kimi-k3"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."fireworks".models."kimi-k3-fast".metadata.fabro]
+family = "kimi-k3"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."fireworks".models."kimi-k2.7-code".metadata.fabro]
+family = "kimi-k2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."fireworks".models."kimi-k2.6".metadata.fabro]
+family = "kimi-k2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."fireworks".models."deepseek-v4-pro".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."fireworks".models."deepseek-v4-flash".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."fireworks".models."glm-5.2".metadata.fabro]
+family = "glm-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."fireworks".models."minimax-m2.7".metadata.fabro]
+family = "minimax-m2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."fireworks".models."qwen3.7-plus".metadata.fabro]
+family = "qwen3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."gemini"]
+priority = 80
+default_model = "gemini-3.5-flash"
+
+[providers."gemini".metadata.fabro]
+enabled = true
+
+[providers."gemini".models."gemini-3.1-pro-preview".metadata.fabro]
+family = "gemini-3"
+agent_profile = "gemini"
+small_default = false
+probe = false
+
+[providers."gemini".models."gemini-3.1-pro-preview-customtools".metadata.fabro]
+family = "gemini-3"
+agent_profile = "gemini"
+small_default = false
+probe = false
+
+[providers."gemini".models."gemini-3.5-flash".metadata.fabro]
+family = "gemini-3"
+agent_profile = "gemini"
+small_default = false
+probe = false
+
+[providers."gemini".models."gemini-3-flash-preview".metadata.fabro]
+family = "gemini-3"
+agent_profile = "gemini"
+small_default = false
+probe = false
+
+[providers."gemini".models."gemini-3.1-flash-lite".metadata.fabro]
+family = "gemini-3"
+agent_profile = "gemini"
+small_default = true
+probe = false
+
+[providers."inception"]
+priority = 40
+default_model = "mercury-2"
+
+[providers."inception".metadata.fabro]
+enabled = true
+
+[providers."inception".models."mercury-2".metadata.fabro]
+family = "mercury"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."litellm"]
+priority = 50
+
+[providers."litellm".metadata.fabro]
+enabled = false
+
+[providers."minimax"]
+priority = 50
+default_model = "minimax-m2.5"
+
+[providers."minimax".metadata.fabro]
+enabled = true
+
+[providers."minimax".models."minimax-m2.5".metadata.fabro]
+family = "minimax-m2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."modal"]
+priority = 75
+
+[providers."modal".metadata.fabro]
+enabled = false
+
+[providers."moonshot"]
+priority = 70
+default_model = "kimi-k3"
+
+[providers."moonshot".metadata.fabro]
+enabled = true
+
+[providers."moonshot".models."kimi-k2.5".metadata.fabro]
+family = "kimi-k2"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."moonshot".models."kimi-k3".metadata.fabro]
+family = "kimi-k3"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."ollama"]
+priority = 30
+
+[providers."ollama".metadata.fabro]
+enabled = false
+
+[providers."openai"]
+priority = 90
+default_model = "gpt-5.6-sol"
+
+[providers."openai".metadata.fabro]
+enabled = true
+
+[providers."openai".models."gpt-5.6-sol".metadata.fabro]
+family = "gpt-5"
+agent_profile = "gpt56"
+small_default = false
+probe = false
+
+[providers."openai".models."gpt-5.6-terra".metadata.fabro]
+family = "gpt-5"
+agent_profile = "gpt56"
+small_default = false
+probe = false
+
+[providers."openai".models."gpt-5.6-luna".metadata.fabro]
+family = "gpt-5"
+agent_profile = "gpt56"
+small_default = false
+probe = false
+
+[providers."openai".models."gpt-5.4".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openai".models."gpt-5.5".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openai".models."gpt-5.5-pro".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openai".models."gpt-5.4-pro".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openai".models."gpt-5.4-mini".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = true
+probe = true
+
+[providers."openrouter"]
+priority = 25
+default_model = "claude-sonnet-5"
+
+[providers."openrouter".metadata.fabro]
+enabled = false
+
+[providers."openrouter".models."claude-fable-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."openrouter".models."claude-opus-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."openrouter".models."claude-sonnet-5".metadata.fabro]
+family = "claude-5"
+agent_profile = "claude-5"
+small_default = false
+probe = false
+
+[providers."openrouter".models."claude-opus-4.8".metadata.fabro]
+family = "claude-4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."claude-opus-4.7".metadata.fabro]
+family = "claude-4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."claude-sonnet-4.6".metadata.fabro]
+family = "claude-4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."claude-haiku-4.5".metadata.fabro]
+family = "claude-4"
+agent_profile = "openai"
+small_default = true
+probe = false
+
+[providers."openrouter".models."gpt-5.6-sol".metadata.fabro]
+family = "gpt-5"
+agent_profile = "gpt56"
+small_default = false
+probe = false
+
+[providers."openrouter".models."gpt-5.6-terra".metadata.fabro]
+family = "gpt-5"
+agent_profile = "gpt56"
+small_default = false
+probe = false
+
+[providers."openrouter".models."gpt-5.6-luna".metadata.fabro]
+family = "gpt-5"
+agent_profile = "gpt56"
+small_default = false
+probe = false
+
+[providers."openrouter".models."gpt-5.4".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."gpt-5.5".metadata.fabro]
+family = "gpt-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."gemini-3.1-pro-preview".metadata.fabro]
+family = "gemini-3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."gemini-3.5-flash".metadata.fabro]
+family = "gemini-3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."mimo-v2.5-pro".metadata.fabro]
+family = "mimo-v2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."minimax-m2.7".metadata.fabro]
+family = "minimax-m2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."deepseek-v4-pro".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."deepseek-v4-flash".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."kimi-k2.6".metadata.fabro]
+family = "kimi-k2"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."openrouter".models."kimi-k3".metadata.fabro]
+family = "kimi-k3"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."openrouter".models."laguna-s-2.1".metadata.fabro]
+family = "laguna-2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."laguna-xs-2.1".metadata.fabro]
+family = "laguna-2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."qwen3-coder".metadata.fabro]
+family = "qwen3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."qwen3.6-flash".metadata.fabro]
+family = "qwen3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."qwen3.8-max".metadata.fabro]
+family = "qwen3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."glm-5.2".metadata.fabro]
+family = "glm-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."glm-4.6".metadata.fabro]
+family = "glm-4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."nemotron-3-super-120b-a12b".metadata.fabro]
+family = "nemotron-3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."openrouter".models."devstral-2512".metadata.fabro]
+family = "devstral"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."poolside"]
+priority = 65
+default_model = "laguna-s-2.1"
+
+[providers."poolside".metadata.fabro]
+enabled = true
+
+[providers."poolside".models."laguna-s-2.1".metadata.fabro]
+family = "laguna-2"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."poolside".models."laguna-xs-2.1".metadata.fabro]
+family = "laguna-2"
+agent_profile = "openai"
+small_default = true
+probe = true
+
+[providers."venice"]
+priority = 35
+default_model = "deepseek-v4-flash"
+
+[providers."venice".metadata.fabro]
+enabled = true
+
+[providers."venice".models."kimi-k3".metadata.fabro]
+family = "kimi-k3"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."venice".models."kimi-k3-fast".metadata.fabro]
+family = "kimi-k3"
+agent_profile = "kimi"
+small_default = false
+probe = false
+
+[providers."venice".models."grok-4.6".metadata.fabro]
+family = "grok-4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."venice".models."glm-5.3".metadata.fabro]
+family = "glm-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."venice".models."deepseek-v4-flash".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."venice".models."deepseek-v4-pro".metadata.fabro]
+family = "deepseek-v4"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."venice".models."qwen3.8-max".metadata.fabro]
+family = "qwen3"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."venice".models."qwen3.8-27b".metadata.fabro]
+family = "qwen3.8"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."zai"]
+priority = 60
+default_model = "glm-5.2"
+
+[providers."zai".metadata.fabro]
+enabled = true
+
+[providers."zai".models."glm-5.2".metadata.fabro]
+family = "glm-5"
+agent_profile = "openai"
+small_default = false
+probe = false
+
+[providers."zai".models."glm-4.7".metadata.fabro]
+family = "glm-4"
+agent_profile = "openai"
+small_default = false
+probe = false

@@ -114,7 +114,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-fable-5",
-      "api_model": "claude-fable-5"
+      "api_model": "claude-fable-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -125,7 +131,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-opus-5",
-      "api_model": "claude-opus-5"
+      "api_model": "claude-opus-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -136,7 +148,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-sonnet-5",
-      "api_model": "claude-sonnet-5"
+      "api_model": "claude-sonnet-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -144,7 +162,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-opus-4.8",
-      "api_model": "claude-opus-4-8"
+      "api_model": "claude-opus-4-8",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -152,7 +176,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-opus-4.7",
-      "api_model": "claude-opus-4-7"
+      "api_model": "claude-opus-4-7",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -160,7 +190,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-opus-4.6",
-      "api_model": "claude-opus-4-6"
+      "api_model": "claude-opus-4-6",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -168,7 +204,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-sonnet-4.5",
-      "api_model": "claude-sonnet-4-5-20250929"
+      "api_model": "claude-sonnet-4-5-20250929",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -176,7 +218,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-sonnet-4.6",
-      "api_model": "claude-sonnet-4-6"
+      "api_model": "claude-sonnet-4-6",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "anthropic",
@@ -187,7 +235,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-haiku-4.5",
-      "api_model": "claude-haiku-4-5-20251001"
+      "api_model": "claude-haiku-4-5-20251001",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": true,
+        "probe": true
+      }
     },
     {
       "provider": "bedrock-openai",
@@ -195,7 +249,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "gpt-5.5",
-      "api_model": "openai.gpt-5.5"
+      "api_model": "openai.gpt-5.5",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock-openai",
@@ -203,7 +263,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "gpt-5.4",
-      "api_model": "openai.gpt-5.4"
+      "api_model": "openai.gpt-5.4",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -211,7 +277,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "anthropic.claude-sonnet-4-6",
-      "api_model": "us.anthropic.claude-sonnet-4-6"
+      "api_model": "us.anthropic.claude-sonnet-4-6",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -219,7 +291,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-opus-4-8",
-      "api_model": "us.anthropic.claude-opus-4-8"
+      "api_model": "us.anthropic.claude-opus-4-8",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -227,7 +305,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-haiku-4-5",
-      "api_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+      "api_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "anthropic",
+        "small_default": true,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -236,7 +320,13 @@
       "status": "excluded",
       "canonical_model": "gpt-oss-120b",
       "api_model": "openai.gpt-oss-120b-1:0",
-      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05.",
+      "fabro_metadata": {
+        "family": "gpt-oss",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -245,7 +335,13 @@
       "status": "excluded",
       "canonical_model": "gpt-oss-20b",
       "api_model": "openai.gpt-oss-20b-1:0",
-      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05.",
+      "fabro_metadata": {
+        "family": "gpt-oss",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -253,7 +349,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "nova-2-lite",
-      "api_model": "global.amazon.nova-2-lite-v1:0"
+      "api_model": "global.amazon.nova-2-lite-v1:0",
+      "fabro_metadata": {
+        "family": "nova-2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -261,7 +363,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "llama-4-maverick",
-      "api_model": "us.meta.llama4-maverick-17b-instruct-v1:0"
+      "api_model": "us.meta.llama4-maverick-17b-instruct-v1:0",
+      "fabro_metadata": {
+        "family": "llama-4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -269,7 +377,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "mistral-large-3",
-      "api_model": "mistral.mistral-large-3-675b-instruct"
+      "api_model": "mistral.mistral-large-3-675b-instruct",
+      "fabro_metadata": {
+        "family": "mistral-large",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -277,7 +391,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "devstral-2",
-      "api_model": "mistral.devstral-2-123b"
+      "api_model": "mistral.devstral-2-123b",
+      "fabro_metadata": {
+        "family": "devstral",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -285,7 +405,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "deepseek-v3.2",
-      "api_model": "deepseek.v3.2"
+      "api_model": "deepseek.v3.2",
+      "fabro_metadata": {
+        "family": "deepseek-v3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -293,7 +419,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k2.5",
-      "api_model": "moonshotai.kimi-k2.5"
+      "api_model": "moonshotai.kimi-k2.5",
+      "fabro_metadata": {
+        "family": "kimi-k2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -301,7 +433,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "glm-5",
-      "api_model": "zai.glm-5"
+      "api_model": "zai.glm-5",
+      "fabro_metadata": {
+        "family": "glm",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -309,7 +447,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "minimax-m2.5",
-      "api_model": "minimax.minimax-m2.5"
+      "api_model": "minimax.minimax-m2.5",
+      "fabro_metadata": {
+        "family": "minimax-m2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -317,7 +461,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "nemotron-3-super",
-      "api_model": "nvidia.nemotron-super-3-120b"
+      "api_model": "nvidia.nemotron-super-3-120b",
+      "fabro_metadata": {
+        "family": "nemotron-3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -325,7 +475,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-fable-5",
-      "api_model": "us.anthropic.claude-fable-5"
+      "api_model": "us.anthropic.claude-fable-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "bedrock",
@@ -333,7 +489,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-sonnet-5",
-      "api_model": "us.anthropic.claude-sonnet-5"
+      "api_model": "us.anthropic.claude-sonnet-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "deepseek",
@@ -345,7 +507,13 @@
       ],
       "status": "catalog",
       "canonical_model": "deepseek-v4-flash",
-      "api_model": "deepseek-v4-flash"
+      "api_model": "deepseek-v4-flash",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": true,
+        "probe": true
+      }
     },
     {
       "provider": "deepseek",
@@ -353,7 +521,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "deepseek-v4-pro",
-      "api_model": "deepseek-v4-pro"
+      "api_model": "deepseek-v4-pro",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -361,7 +535,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k3",
-      "api_model": "accounts/fireworks/models/kimi-k3"
+      "api_model": "accounts/fireworks/models/kimi-k3",
+      "fabro_metadata": {
+        "family": "kimi-k3",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -369,7 +549,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k3-fast",
-      "api_model": "accounts/fireworks/routers/kimi-k3-fast"
+      "api_model": "accounts/fireworks/routers/kimi-k3-fast",
+      "fabro_metadata": {
+        "family": "kimi-k3",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -377,7 +563,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k2.7-code",
-      "api_model": "accounts/fireworks/models/kimi-k2p7-code"
+      "api_model": "accounts/fireworks/models/kimi-k2p7-code",
+      "fabro_metadata": {
+        "family": "kimi-k2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -385,7 +577,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k2.6",
-      "api_model": "accounts/fireworks/models/kimi-k2p6"
+      "api_model": "accounts/fireworks/models/kimi-k2p6",
+      "fabro_metadata": {
+        "family": "kimi-k2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -393,7 +591,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "deepseek-v4-pro",
-      "api_model": "accounts/fireworks/models/deepseek-v4-pro-0813"
+      "api_model": "accounts/fireworks/models/deepseek-v4-pro-0813",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -405,7 +609,13 @@
       ],
       "status": "catalog",
       "canonical_model": "deepseek-v4-flash",
-      "api_model": "accounts/fireworks/models/deepseek-v4-flash-0731"
+      "api_model": "accounts/fireworks/models/deepseek-v4-flash-0731",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -413,7 +623,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "glm-5.2",
-      "api_model": "accounts/fireworks/models/glm-5p2"
+      "api_model": "accounts/fireworks/models/glm-5p2",
+      "fabro_metadata": {
+        "family": "glm-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -421,7 +637,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "minimax-m2.7",
-      "api_model": "accounts/fireworks/models/minimax-m2p7"
+      "api_model": "accounts/fireworks/models/minimax-m2p7",
+      "fabro_metadata": {
+        "family": "minimax-m2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -429,7 +651,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "qwen3.7-plus",
-      "api_model": "accounts/fireworks/models/qwen3p7-plus"
+      "api_model": "accounts/fireworks/models/qwen3p7-plus",
+      "fabro_metadata": {
+        "family": "qwen3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -438,7 +666,13 @@
       "status": "excluded",
       "canonical_model": "gpt-oss-120b",
       "api_model": "accounts/fireworks/models/gpt-oss-120b",
-      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05.",
+      "fabro_metadata": {
+        "family": "gpt-oss",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "fireworks",
@@ -447,7 +681,13 @@
       "status": "excluded",
       "canonical_model": "gpt-oss-20b",
       "api_model": "accounts/fireworks/models/gpt-oss-20b",
-      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05."
+      "reason": "GPT-OSS family dropped from the built-in catalog and parity scope at user request, 2026-09-05.",
+      "fabro_metadata": {
+        "family": "gpt-oss",
+        "agent_profile": "openai",
+        "small_default": true,
+        "probe": true
+      }
     },
     {
       "provider": "gemini",
@@ -457,7 +697,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gemini-3.1-pro-preview",
-      "api_model": "gemini-3.1-pro-preview"
+      "api_model": "gemini-3.1-pro-preview",
+      "fabro_metadata": {
+        "family": "gemini-3",
+        "agent_profile": "gemini",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "gemini",
@@ -467,7 +713,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gemini-3.1-pro-preview-customtools",
-      "api_model": "gemini-3.1-pro-preview-customtools"
+      "api_model": "gemini-3.1-pro-preview-customtools",
+      "fabro_metadata": {
+        "family": "gemini-3",
+        "agent_profile": "gemini",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "gemini",
@@ -477,7 +729,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gemini-3.5-flash",
-      "api_model": "gemini-3.5-flash"
+      "api_model": "gemini-3.5-flash",
+      "fabro_metadata": {
+        "family": "gemini-3",
+        "agent_profile": "gemini",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "gemini",
@@ -487,7 +745,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gemini-3-flash-preview",
-      "api_model": "gemini-3-flash-preview"
+      "api_model": "gemini-3-flash-preview",
+      "fabro_metadata": {
+        "family": "gemini-3",
+        "agent_profile": "gemini",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "gemini",
@@ -498,7 +762,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gemini-3.1-flash-lite",
-      "api_model": "gemini-3.1-flash-lite"
+      "api_model": "gemini-3.1-flash-lite",
+      "fabro_metadata": {
+        "family": "gemini-3",
+        "agent_profile": "gemini",
+        "small_default": true,
+        "probe": false
+      }
     },
     {
       "provider": "inception",
@@ -508,7 +778,13 @@
       ],
       "status": "catalog",
       "canonical_model": "mercury-2",
-      "api_model": "mercury-2"
+      "api_model": "mercury-2",
+      "fabro_metadata": {
+        "family": "mercury",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "minimax",
@@ -518,7 +794,13 @@
       ],
       "status": "catalog",
       "canonical_model": "minimax-m2.5",
-      "api_model": "MiniMax-M2.5"
+      "api_model": "MiniMax-M2.5",
+      "fabro_metadata": {
+        "family": "minimax-m2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "modal",
@@ -526,7 +808,13 @@
       "fabro_aliases": [],
       "status": "deployment",
       "canonical_model": "kimi-k3",
-      "reason": "The actual endpoint and wire model ID must come from the Modal deployment."
+      "reason": "The actual endpoint and wire model ID must come from the Modal deployment.",
+      "fabro_metadata": {
+        "family": "kimi-k3",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "moonshot",
@@ -534,7 +822,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k2.5",
-      "api_model": "kimi-k2.5"
+      "api_model": "kimi-k2.5",
+      "fabro_metadata": {
+        "family": "kimi-k2",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "moonshot",
@@ -544,7 +838,13 @@
       ],
       "status": "catalog",
       "canonical_model": "kimi-k3",
-      "api_model": "kimi-k3"
+      "api_model": "kimi-k3",
+      "fabro_metadata": {
+        "family": "kimi-k3",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -560,7 +860,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.6-sol",
-      "api_model": "gpt-5.6-sol"
+      "api_model": "gpt-5.6-sol",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "gpt56",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -573,7 +879,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.6-terra",
-      "api_model": "gpt-5.6-terra"
+      "api_model": "gpt-5.6-terra",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "gpt56",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -586,7 +898,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.6-luna",
-      "api_model": "gpt-5.6-luna"
+      "api_model": "gpt-5.6-luna",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "gpt56",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -601,7 +919,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.4",
-      "api_model": "gpt-5.4"
+      "api_model": "gpt-5.4",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -612,7 +936,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.5",
-      "api_model": "gpt-5.5"
+      "api_model": "gpt-5.5",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -623,7 +953,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.5-pro",
-      "api_model": "gpt-5.5-pro"
+      "api_model": "gpt-5.5-pro",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -634,7 +970,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.4-pro",
-      "api_model": "gpt-5.4-pro"
+      "api_model": "gpt-5.4-pro",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openai",
@@ -647,7 +989,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.4-mini",
-      "api_model": "gpt-5.4-mini"
+      "api_model": "gpt-5.4-mini",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": true,
+        "probe": true
+      }
     },
     {
       "provider": "openrouter",
@@ -658,7 +1006,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-fable-5",
-      "api_model": "anthropic/claude-fable-5"
+      "api_model": "anthropic/claude-fable-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -669,7 +1023,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-opus-5",
-      "api_model": "anthropic/claude-opus-5"
+      "api_model": "anthropic/claude-opus-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -680,7 +1040,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-sonnet-5",
-      "api_model": "anthropic/claude-sonnet-5"
+      "api_model": "anthropic/claude-sonnet-5",
+      "fabro_metadata": {
+        "family": "claude-5",
+        "agent_profile": "claude-5",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -688,7 +1054,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-opus-4.8",
-      "api_model": "anthropic/claude-opus-4.8"
+      "api_model": "anthropic/claude-opus-4.8",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -696,7 +1068,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-opus-4.7",
-      "api_model": "anthropic/claude-opus-4.7"
+      "api_model": "anthropic/claude-opus-4.7",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -704,7 +1082,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "claude-sonnet-4.6",
-      "api_model": "anthropic/claude-sonnet-4.6"
+      "api_model": "anthropic/claude-sonnet-4.6",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -715,7 +1099,13 @@
       ],
       "status": "catalog",
       "canonical_model": "claude-haiku-4.5",
-      "api_model": "anthropic/claude-haiku-4.5"
+      "api_model": "anthropic/claude-haiku-4.5",
+      "fabro_metadata": {
+        "family": "claude-4",
+        "agent_profile": "openai",
+        "small_default": true,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -731,7 +1121,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.6-sol",
-      "api_model": "openai/gpt-5.6-sol"
+      "api_model": "openai/gpt-5.6-sol",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "gpt56",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -744,7 +1140,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.6-terra",
-      "api_model": "openai/gpt-5.6-terra"
+      "api_model": "openai/gpt-5.6-terra",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "gpt56",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -757,7 +1159,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.6-luna",
-      "api_model": "openai/gpt-5.6-luna"
+      "api_model": "openai/gpt-5.6-luna",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "gpt56",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -772,7 +1180,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.4",
-      "api_model": "openai/gpt-5.4"
+      "api_model": "openai/gpt-5.4",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -783,7 +1197,13 @@
       ],
       "status": "catalog",
       "canonical_model": "gpt-5.5",
-      "api_model": "openai/gpt-5.5"
+      "api_model": "openai/gpt-5.5",
+      "fabro_metadata": {
+        "family": "gpt-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -791,7 +1211,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "gemini-3.1-pro-preview",
-      "api_model": "google/gemini-3.1-pro-preview"
+      "api_model": "google/gemini-3.1-pro-preview",
+      "fabro_metadata": {
+        "family": "gemini-3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -799,7 +1225,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "gemini-3.5-flash",
-      "api_model": "google/gemini-3.5-flash"
+      "api_model": "google/gemini-3.5-flash",
+      "fabro_metadata": {
+        "family": "gemini-3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -807,7 +1239,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "mimo-v2.5-pro",
-      "api_model": "xiaomi/mimo-v2.5-pro"
+      "api_model": "xiaomi/mimo-v2.5-pro",
+      "fabro_metadata": {
+        "family": "mimo-v2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -815,7 +1253,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "minimax-m2.7",
-      "api_model": "minimax/minimax-m2.7"
+      "api_model": "minimax/minimax-m2.7",
+      "fabro_metadata": {
+        "family": "minimax-m2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -823,7 +1267,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "deepseek-v4-pro",
-      "api_model": "deepseek/deepseek-v4-pro"
+      "api_model": "deepseek/deepseek-v4-pro",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -835,7 +1285,13 @@
       ],
       "status": "catalog",
       "canonical_model": "deepseek-v4-flash",
-      "api_model": "deepseek/deepseek-v4-flash-0731"
+      "api_model": "deepseek/deepseek-v4-flash-0731",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -843,7 +1299,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k2.6",
-      "api_model": "moonshotai/kimi-k2.6"
+      "api_model": "moonshotai/kimi-k2.6",
+      "fabro_metadata": {
+        "family": "kimi-k2",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -851,7 +1313,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "kimi-k3",
-      "api_model": "moonshotai/kimi-k3"
+      "api_model": "moonshotai/kimi-k3",
+      "fabro_metadata": {
+        "family": "kimi-k3",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -859,7 +1327,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "laguna-s-2.1",
-      "api_model": "poolside/laguna-s-2.1"
+      "api_model": "poolside/laguna-s-2.1",
+      "fabro_metadata": {
+        "family": "laguna-2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -867,7 +1341,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "laguna-xs-2.1",
-      "api_model": "poolside/laguna-xs-2.1"
+      "api_model": "poolside/laguna-xs-2.1",
+      "fabro_metadata": {
+        "family": "laguna-2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -875,7 +1355,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "qwen3-coder",
-      "api_model": "qwen/qwen3-coder"
+      "api_model": "qwen/qwen3-coder",
+      "fabro_metadata": {
+        "family": "qwen3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -883,7 +1369,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "qwen3.6-flash",
-      "api_model": "qwen/qwen3.6-flash"
+      "api_model": "qwen/qwen3.6-flash",
+      "fabro_metadata": {
+        "family": "qwen3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -891,7 +1383,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "qwen3.8-max",
-      "api_model": "qwen/qwen3.8-max"
+      "api_model": "qwen/qwen3.8-max",
+      "fabro_metadata": {
+        "family": "qwen3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -904,7 +1402,13 @@
       ],
       "status": "catalog",
       "canonical_model": "glm-5.2",
-      "api_model": "z-ai/glm-5.2"
+      "api_model": "z-ai/glm-5.2",
+      "fabro_metadata": {
+        "family": "glm-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -912,7 +1416,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "glm-4.6",
-      "api_model": "z-ai/glm-4.6"
+      "api_model": "z-ai/glm-4.6",
+      "fabro_metadata": {
+        "family": "glm-4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -920,7 +1430,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "nemotron-3-super-120b-a12b",
-      "api_model": "nvidia/nemotron-3-super-120b-a12b"
+      "api_model": "nvidia/nemotron-3-super-120b-a12b",
+      "fabro_metadata": {
+        "family": "nemotron-3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "openrouter",
@@ -928,7 +1444,13 @@
       "fabro_aliases": [],
       "status": "catalog",
       "canonical_model": "devstral-2512",
-      "api_model": "mistralai/devstral-2512"
+      "api_model": "mistralai/devstral-2512",
+      "fabro_metadata": {
+        "family": "devstral",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "poolside",
@@ -939,7 +1461,13 @@
       ],
       "status": "catalog",
       "canonical_model": "laguna-s-2.1",
-      "api_model": "poolside/laguna-s-2.1"
+      "api_model": "poolside/laguna-s-2.1",
+      "fabro_metadata": {
+        "family": "laguna-2",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "poolside",
@@ -949,7 +1477,13 @@
       ],
       "status": "catalog",
       "canonical_model": "laguna-xs-2.1",
-      "api_model": "poolside/laguna-xs-2.1"
+      "api_model": "poolside/laguna-xs-2.1",
+      "fabro_metadata": {
+        "family": "laguna-2",
+        "agent_profile": "openai",
+        "small_default": true,
+        "probe": true
+      }
     },
     {
       "provider": "venice",
@@ -959,7 +1493,13 @@
       ],
       "status": "catalog",
       "canonical_model": "kimi-k3",
-      "api_model": "kimi-k3"
+      "api_model": "kimi-k3",
+      "fabro_metadata": {
+        "family": "kimi-k3",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "venice",
@@ -969,7 +1509,13 @@
       ],
       "status": "catalog",
       "canonical_model": "kimi-k3-fast",
-      "api_model": "kimi-k3-fast-api"
+      "api_model": "kimi-k3-fast-api",
+      "fabro_metadata": {
+        "family": "kimi-k3",
+        "agent_profile": "kimi",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "venice",
@@ -981,7 +1527,13 @@
       ],
       "status": "catalog",
       "canonical_model": "grok-4.6",
-      "api_model": "grok-4-6"
+      "api_model": "grok-4-6",
+      "fabro_metadata": {
+        "family": "grok-4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "venice",
@@ -995,7 +1547,13 @@
       ],
       "status": "catalog",
       "canonical_model": "glm-5.3",
-      "api_model": "z-ai-glm-5-3"
+      "api_model": "z-ai-glm-5-3",
+      "fabro_metadata": {
+        "family": "glm-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "venice",
@@ -1007,7 +1565,13 @@
       ],
       "status": "catalog",
       "canonical_model": "deepseek-v4-flash",
-      "api_model": "deepseek-v4-flash-0731"
+      "api_model": "deepseek-v4-flash-0731",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "venice",
@@ -1017,7 +1581,13 @@
       ],
       "status": "catalog",
       "canonical_model": "deepseek-v4-pro",
-      "api_model": "deepseek-v4-pro-0813"
+      "api_model": "deepseek-v4-pro-0813",
+      "fabro_metadata": {
+        "family": "deepseek-v4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "venice",
@@ -1033,7 +1603,13 @@
       ],
       "status": "catalog",
       "canonical_model": "qwen3.8-max",
-      "api_model": "qwen-3-8-max"
+      "api_model": "qwen-3-8-max",
+      "fabro_metadata": {
+        "family": "qwen3",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "venice",
@@ -1045,7 +1621,13 @@
       ],
       "status": "catalog",
       "canonical_model": "qwen3.8-27b",
-      "api_model": "qwen-3-8-27b"
+      "api_model": "qwen-3-8-27b",
+      "fabro_metadata": {
+        "family": "qwen3.8",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "zai",
@@ -1058,7 +1640,13 @@
       ],
       "status": "catalog",
       "canonical_model": "glm-5.2",
-      "api_model": "glm-5.2"
+      "api_model": "glm-5.2",
+      "fabro_metadata": {
+        "family": "glm-5",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     },
     {
       "provider": "zai",
@@ -1068,7 +1656,13 @@
       ],
       "status": "catalog",
       "canonical_model": "glm-4.7",
-      "api_model": "glm-4.7"
+      "api_model": "glm-4.7",
+      "fabro_metadata": {
+        "family": "glm-4",
+        "agent_profile": "openai",
+        "small_default": false,
+        "probe": false
+      }
     }
   ]
 }
