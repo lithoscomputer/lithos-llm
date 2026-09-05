@@ -582,7 +582,9 @@ impl StreamAssembler {
         // completed response is the contract a consumer acts on.
         response.suppress_unfinished_tool_calls();
 
-        events.push(StreamEvent::Ended { response });
+        events.push(StreamEvent::Ended {
+            response: Box::new(response),
+        });
         events
     }
 

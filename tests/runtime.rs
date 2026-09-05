@@ -107,7 +107,7 @@ impl ProviderAdapter for FakeAdapter {
                     text: "done".to_owned(),
                 }),
                 Ok(StreamEvent::Ended {
-                    response: success_response(call, "done"),
+                    response: Box::new(success_response(call, "done")),
                 }),
             ]
         };
@@ -289,7 +289,9 @@ impl Middleware for ResponsePolicyMiddleware {
                         id:   ContentBlockId::new("text"),
                         text: String::new(),
                     }),
-                    Ok(StreamEvent::Ended { response }),
+                    Ok(StreamEvent::Ended {
+                        response: Box::new(response),
+                    }),
                 ])))
             } else {
                 Output::Complete(response)
@@ -316,7 +318,7 @@ impl Middleware for ResponsePolicyMiddleware {
                             text: "x".repeat(delta_bytes),
                         },
                         StreamEvent::Ended { response } => StreamEvent::Ended {
-                            response: rewrite(response),
+                            response: Box::new(rewrite(*response)),
                         },
                         event => event,
                     })
@@ -534,7 +536,7 @@ impl ProviderAdapter for UsageThenFailAdapter {
                     text: "done".to_owned(),
                 }),
                 Ok(StreamEvent::Ended {
-                    response: success_response(_call, "done"),
+                    response: Box::new(success_response(_call, "done")),
                 }),
             ]
         };
@@ -966,7 +968,7 @@ impl ProviderAdapter for BookkeepingAdapter {
                 text: "done".to_owned(),
             }));
             events.push(Ok(StreamEvent::Ended {
-                response: success_response(_call, "done"),
+                response: Box::new(success_response(_call, "done")),
             }));
         }
         Ok(ResponseStream::new(iter(events)))
@@ -1691,7 +1693,9 @@ impl ProviderAdapter for UnfinishedAdapter {
                 text: response.text(),
             },
         }));
-        events.push(Ok(StreamEvent::Ended { response }));
+        events.push(Ok(StreamEvent::Ended {
+            response: Box::new(response),
+        }));
         Ok(ResponseStream::new(iter(events)))
     }
 }
@@ -1803,7 +1807,7 @@ async fn incomplete_turns_retry_only_before_delivery() -> Result<(), Box<dyn Std
             };
             response
         } else {
-            client.complete(request()?).await?
+            Box::new(client.complete(request()?).await?)
         };
         assert_eq!(response.finish_reason, expected_reason);
         assert_eq!(calls.load(Ordering::SeqCst), expected_calls);

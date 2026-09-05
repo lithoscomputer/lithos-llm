@@ -1203,7 +1203,7 @@ mod tests {
         events
             .iter()
             .filter_map(|event| match event {
-                StreamEvent::Ended { response } => Some(response),
+                StreamEvent::Ended { response } => Some(response.as_ref()),
                 _ => None,
             })
             .collect()

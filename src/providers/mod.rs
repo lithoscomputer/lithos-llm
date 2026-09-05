@@ -185,7 +185,7 @@ pub(super) mod http {
                     StreamEvent::RateLimits {
                         rate_limits: limits,
                     } => rate_limits = Some(limits),
-                    StreamEvent::Ended { response } => completed = Some(response),
+                    StreamEvent::Ended { response } => completed = Some(*response),
                     _ => {}
                 }
             }
@@ -442,7 +442,7 @@ pub(super) mod http {
                     return Ok(Vec::new());
                 }
                 Ok(vec![StreamEvent::Ended {
-                    response: self.response.clone(),
+                    response: Box::new(self.response.clone()),
                 }])
             }
         }

@@ -552,7 +552,7 @@ mod tests {
                     },
                 }),
                 Ok(StreamEvent::Ended {
-                    response: response(),
+                    response: Box::new(response()),
                 }),
             ])),
             trace,

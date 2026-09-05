@@ -189,7 +189,7 @@ mod tests {
         let mut events = guard.stream(ResponseStream::new(stream::iter([
             Ok(StreamEvent::Started { id: None }),
             Ok(StreamEvent::Ended {
-                response: Response::new("test".into(), "model".into(), Vec::new()),
+                response: Box::new(Response::new("test".into(), "model".into(), Vec::new())),
             }),
         ])));
         advance(Duration::from_secs(9)).await;

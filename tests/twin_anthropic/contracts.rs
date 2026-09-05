@@ -340,7 +340,7 @@ async fn output_truncation_never_returns_tools_for_execution() {
                 })
                 .expect("completion")
         } else {
-            client.complete(request()).await.expect("complete")
+            Box::new(client.complete(request()).await.expect("complete"))
         };
         assert_eq!(response.finish_reason, FinishReason::Length);
         assert_eq!(response.tool_calls().count(), 0);
@@ -442,7 +442,7 @@ async fn exact_contract_detects_corrupted_tool_signature_usage_and_stop_state() 
                     })
                     .expect("completion")
             } else {
-                client.complete(request()).await.expect("complete")
+                Box::new(client.complete(request()).await.expect("complete"))
             };
             assert_ne!(
                 semantic(&response),

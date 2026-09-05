@@ -128,7 +128,7 @@ pub enum StreamEvent {
     /// outcome: an ended stream can carry an incomplete or length-limited
     /// answer. This event does not authorize tool execution.
     Ended {
-        response: Response,
+        response: Box<Response>,
     },
 }
 
@@ -226,7 +226,11 @@ mod tests {
     async fn terminal_events_release_resources_and_fuse() {
         for terminal in [
             Ok(StreamEvent::Ended {
-                response: Response::new(ProviderId::new("p"), ModelId::new("m"), vec![]),
+                response: Box::new(Response::new(
+                    ProviderId::new("p"),
+                    ModelId::new("m"),
+                    vec![],
+                )),
             }),
             Err(Error::new(ErrorKind::Network, "failed")),
         ] {
@@ -327,11 +331,13 @@ mod tests {
                 },
             },
             StreamEvent::Ended {
-                response: Response::new(ProviderId::new("openai"), ModelId::new("gpt-5"), vec![
-                    ContentPart::Text {
+                response: Box::new(Response::new(
+                    ProviderId::new("openai"),
+                    ModelId::new("gpt-5"),
+                    vec![ContentPart::Text {
                         text: "hello".to_owned(),
-                    },
-                ]),
+                    }],
+                )),
             },
         ]
     }

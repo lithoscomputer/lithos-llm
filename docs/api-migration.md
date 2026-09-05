@@ -6,7 +6,9 @@ The terminal stream event is now `StreamEvent::Ended` (JSON `type: "ended"`),
 replacing `Completed` (`"completed"`). It means the response stream ended,
 not that the model finished its answer. Inspect `response.finish_reason`,
 including `Incomplete` and `Length`, before accepting the turn or executing
-tools. Update stream consumers and stored event readers together.
+tools. Its response is boxed to keep ordinary stream events compact; use
+`*response` when an owned `Response` is needed. The box does not change JSON.
+Update stream consumers and stored event readers together.
 
 `Length` and `Incomplete` responses withhold all tool calls. Their
 `suppressed_tool_calls` field preserves the calls, raw arguments, and provider

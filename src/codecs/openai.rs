@@ -1560,7 +1560,7 @@ mod tests {
         if responses.next().is_some() {
             return Err("the stream emitted more than one completed event".into());
         }
-        Ok(response)
+        Ok(*response)
     }
 
     /// Checks one start, then deltas, then one end for every block.

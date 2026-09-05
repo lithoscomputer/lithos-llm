@@ -250,7 +250,7 @@ fn every_stream_event() -> Vec<StreamEvent> {
             },
         },
         StreamEvent::Ended {
-            response: complete_response(),
+            response: Box::new(complete_response()),
         },
     ]
 }
