@@ -236,3 +236,59 @@ fn application_enablement_excludes_opt_in_providers() -> Result<(), Box<dyn StdE
     }
     Ok(())
 }
+
+#[test]
+fn all_in_scope_routes_resolve_after_deployment_configuration() -> Result<(), Box<dyn StdError>> {
+    for template in [
+        include_str!("../docs/catalogs/modal-dedicated.toml"),
+        include_str!("../docs/catalogs/modal-shared.toml"),
+    ] {
+        let overlay = template
+            .replace(
+                "https://REPLACE_WITH_DEDICATED_ENDPOINT.invalid/v1",
+                "https://example.invalid/v1",
+            )
+            .replace("REPLACE_WITH_ACCEPTED_MODEL_ID", "deployed/kimi-k3")
+            .replace(
+                "REPLACE_WITH_SHARED_ENDPOINT_HOSTNAME",
+                "deployed-kimi.example.invalid",
+            );
+        let catalog = Catalog::builder()
+            .with_builtin()
+            .overlay_toml(include_str!("../docs/catalogs/fabro-policy.toml"))?
+            .overlay_toml(&overlay)?
+            .build()?;
+        let available = AvailableProviders::all(&catalog);
+        let mut resolved_count = 0;
+        for route in inventory()?.routes {
+            if matches!(route.status, Status::Excluded) {
+                assert!(
+                    catalog
+                        .provider(&route.provider)?
+                        .model(&route.canonical_model)
+                        .is_none()
+                );
+                continue;
+            }
+            let request = Request::builder()
+                .model(format!("{}/{}", route.provider, route.fabro_model))
+                .user("Ping")
+                .build()?;
+            let resolved = CatalogResolver.resolve(&request, &catalog, &available)?;
+            assert!(!resolved.model().is_passthrough());
+            let metadata = resolved
+                .model()
+                .metadata()
+                .get("fabro")
+                .ok_or("missing policy")?;
+            for (key, value) in route.fabro_metadata {
+                assert_eq!(metadata[&key], value);
+            }
+            assert!(resolved.model().limits().is_some());
+            resolved_count += 1;
+        }
+        assert_eq!(resolved_count, 95);
+        assert_eq!(catalog.provider("modal")?.default_model(), Some("kimi-k3"));
+    }
+    Ok(())
+}

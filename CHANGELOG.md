@@ -41,13 +41,14 @@ This project follows [Semantic Versioning](https://semver.org/).
   and Moonshot Kimi K2.5. Drop GPT-OSS from the built-in catalog and
   model parity scope at user request.
 
-- Add 15 provisional Bedrock models with native Converse IDs, family profiles,
+- Add 13 provisional Bedrock models with native Converse IDs, family profiles,
   limits, and prices. Reject unmapped effort controls and Claude 5 sampling.
   Sonnet 5 uses standard post-promotion input/output prices; Sonnet 4.6 stays
   the default. Each imported model has offline coverage and a live-test TODO.
 
 - Preserve seven Fabro model selectors as catalog aliases. A pinned 99-route
-  inventory checks full model resolution and records the remaining imports.
+  inventory verifies 94 built-in mappings, one Modal deployment mapping, and
+  four GPT-OSS exclusions, including catalog-only builds and policy overlays.
 
 - Import DeepSeek, Inception, MiniMax, Z.ai, Poolside, LiteLLM, Ollama, and
   Bedrock OpenAI provider entries from Fabro, with Lithos catalog fields,

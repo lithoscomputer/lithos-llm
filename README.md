@@ -48,6 +48,10 @@ Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
 configuration notes, and pending live checks are in
 [provider live-test TODOs](docs/provider-live-tests.md).
 
+The [Fabro model parity guide](docs/model-parity.md) documents model mappings,
+the optional Fabro policy overlay, and Modal deployment templates. GPT-OSS
+models are excluded from the built-in catalog.
+
 Building a client returns a `ClientBuild`, which carries the client together
 with one issue for every provider that could not be constructed. A provider
 that fails does not remove the providers that succeeded, so an application can

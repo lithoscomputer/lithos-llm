@@ -71,3 +71,23 @@ Provider presence does not establish credentials or account access. Inspect
 `build.issues` when enabling adapters. Enabling Bedrock also requires the
 Bedrock feature and region/auth configuration. The imported Bedrock models
 remain provisional even when the Fabro layer selects Sonnet 5 by default.
+
+## Verification status
+
+Verified offline on 2026-09-05:
+
+- 962 routine tests and 785 default-feature tests pass.
+- All five parity tests pass in a catalog-only build.
+- The complete configured catalog resolves all 95 in-scope source routes as
+  described models. Four GPT-OSS source routes are explicit exclusions.
+- Bedrock family tests and Modal template tests exercise completion, streaming,
+  model paths, native usage and supported request controls against local mocks.
+- Formatting, Clippy, rustdoc, feature checks, catalog-only dependency checks,
+  the normal development check and MSRV pass.
+- The full routine gate still fails replay: 544 tests pass and 1,250 fail with
+  `scenario_not_found`. The failing test names match the provider-import
+  baseline exactly. No new replay failures were introduced.
+
+Live provider calls and new recordings remain pending in
+[provider-live-tests.md](provider-live-tests.md). Model parity does not complete
+Fabro's client integration or establish live access to imported models.
