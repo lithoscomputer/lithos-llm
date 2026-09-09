@@ -14,7 +14,6 @@ include = [
   "/tests/**",
   "/docs/cli.md",
   "/docs/catalogs/**",
-  "/docs/model-parity.md",
   "/docs/provider-live-tests.md",
   "/Cargo.toml",
   "/README.md",

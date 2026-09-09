@@ -1,6 +1,6 @@
 # Deployment template: replace every REPLACE_WITH value before use.
 # Apply after Catalog::builder().with_builtin(). No credentials belong here.
-# Fabro Kimi K3 facts, 775b62b500c957fe319710fe34e6327ae1eb1bbf, 2026-09-05.
+# Kimi K3 facts imported 2026-09-05 from an application catalog that predates lithos.
 # All capabilities, prices, and limits require deployment-specific live checks.
 schema_version = 1
 
@@ -15,15 +15,8 @@ api_model = "REPLACE_WITH_ACCEPTED_MODEL_ID"
 limits = { context_tokens = 1048576, max_output_tokens = 131072 }
 capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
 protocol_options = { reasoning_effort_levels = true }
-# Provisional Fabro estimates; replace with the deployment's billing policy.
+# Provisional estimates; replace with the deployment's billing policy.
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
-
-[providers.modal.models."kimi-k3".metadata.fabro]
-family = "kimi-k3"
-agent_profile = "kimi"
-small_default = false
-probe = false
-estimated_output_tps = 460
 
 [providers.modal.models."kimi-k3".metadata.pebble]
 profile = "kimi"

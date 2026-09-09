@@ -1,4 +1,4 @@
-//! Provisional Fabro imports: verify our translation against local HTTP mocks.
+//! Provisional provider imports: verify our translation against local HTTP mocks.
 //! Live acceptance remains tracked in docs/provider-live-tests.md.
 
 use std::error::Error as StdError;

@@ -100,7 +100,7 @@ Gemini tool signatures belong under provider_metadata.gemini.thoughtSignature.
 Signed reasoning needs an explicit matching signature_origin.
 Unrecognized historical replay fields are ignored, not converted.
 
-Fabro will implement conversion of its records when it integrates Lithos.
+Applications convert their own historical records when they adopt Lithos.
 
 `ProbeOutcome::Failed` now contains `Box<ErrorData>` to keep the enum compact.
 Use `Box::new(data)` when constructing this variant. Its JSON shape is unchanged.
