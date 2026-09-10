@@ -9,9 +9,14 @@ aliases = ["aws-bedrock"]
 adapter = "bedrock"
 codec = "bedrock-converse"
 base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
-priority = 50
+# Below the direct providers and above the local ones: Bedrock is the route
+# for AWS shops, not a first choice when a direct key is present.
+priority = 20
 allow_passthrough = true
-default_model = "anthropic.claude-sonnet-4-6"
+# Sonnet 5 is the default everywhere else that serves it. The vendor-prefixed
+# `anthropic.claude-sonnet-4-6` row stays for the legacy id and the `us.`
+# inference-profile example.
+default_model = "claude-sonnet-5"
 # Opt-in: operators enable this provider in their own catalog overlay.
 enabled = false
 

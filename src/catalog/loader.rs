@@ -1069,6 +1069,11 @@ mod tests {
 
         // Bedrock on-demand access needs the `us.` inference profile, and the
         // model caches, which the codec gates on.
+        assert_eq!(
+            catalog.provider("bedrock")?.default_model(),
+            Some("claude-sonnet-5")
+        );
+        assert_eq!(catalog.provider("bedrock")?.priority(), 20);
         let bedrock = catalog.model("bedrock", "anthropic.claude-sonnet-4-6")?;
         assert_eq!(bedrock.api_model(), "us.anthropic.claude-sonnet-4-6");
         assert!(bedrock.capabilities().caching().is_supported());

@@ -44,6 +44,10 @@ This project follows [Semantic Versioning](https://semver.org/).
   were `unknown` before, so a request for `medium` reached the provider and
   failed there.
 
+- Bedrock defaults to `claude-sonnet-5` at priority 20, matching the other
+  providers that serve Sonnet 5 and placing Bedrock below the direct
+  providers as a fallback route rather than a first choice.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;
@@ -81,8 +85,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Add 13 provisional Bedrock models with native Converse IDs, family profiles,
   limits, and prices. Reject unmapped effort controls and Claude 5 sampling.
-  Sonnet 5 uses standard post-promotion input/output prices; Sonnet 4.6 stays
-  the default. Each imported model has offline coverage and a live-test TODO.
+  Sonnet 5 uses standard post-promotion input/output prices and, as of the
+  catalog convergence above, is the default. Each imported model has offline coverage and a live-test TODO.
 
 - Preserve seven Fabro model selectors as catalog aliases. A pinned 99-route
   inventory verifies 94 built-in mappings, one Modal deployment mapping, and
