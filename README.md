@@ -43,6 +43,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 `Client::from_env()` uses the built-in catalog, the default HTTP client, and
 conventional provider environment variables such as `OPENAI_API_KEY`.
 
+`ConventionalCredentials` is the table behind that: which named secrets each
+provider expects and how they shape into its authentication. Where a named
+secret lives is the application's decision. The default reads the process
+environment; `with_lookup` reads the same names from any other store, and
+`ChainedCredentials` tries several stores in order:
+
+```rust
+use lithos_llm::credentials::{ChainedCredentials, ConventionalCredentials};
+
+fn credentials(vault: impl Fn(&str) -> Option<String> + Send + Sync + 'static) -> ChainedCredentials {
+    ChainedCredentials::new()
+        .then(ConventionalCredentials::new().with_lookup(vault))
+        .then(ConventionalCredentials::new())
+}
+```
+
+`ConventionalCredentials::secret_names` lists the names a provider reads, so
+an install flow can tell an operator what to set and write under the first.
+
 The catalog also includes provisional imports for DeepSeek, Inception, MiniMax,
 Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
 configuration notes, and pending live checks are in

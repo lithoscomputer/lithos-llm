@@ -59,6 +59,16 @@ This project follows [Semantic Versioning](https://semver.org/).
   `ALL`, so applications stop keeping their own copies of the vocabulary for
   flags and settings. A misspelling parses to `UnknownControlValue`.
 
+- Breaking: `EnvironmentCredentials` is now `ConventionalCredentials`. The
+  table of which named secrets each provider expects is the library's; where
+  a secret lives is the application's. `ConventionalCredentials::new()` reads
+  the process environment, `with_lookup` reads the same names from any other
+  store, `secret_names` lists a provider's names for install flows, and the
+  new `ChainedCredentials` tries several providers in order. The
+  `CredentialError::Environment` variant becomes `MissingSecret { provider,
+  name }` with no source, since a store other than the environment has no
+  `VarError` to report.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;

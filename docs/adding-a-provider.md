@@ -11,7 +11,7 @@ feeds.
 ## What you will produce
 
 1. `src/catalog/builtin/<provider>.toml` — the catalog rows.
-2. A `<PROVIDER>_API_KEY` entry in `EnvironmentCredentials::conventional()`
+2. A `<PROVIDER>_API_KEY` entry in `ConventionalCredentials::new()`
    (`src/credentials.rs`), with a test.
 3. Loader tests for provider-specific resolution and behavior
    (`src/catalog/loader.rs`).
@@ -46,7 +46,7 @@ Field mapping:
 | `costs.cache_input_cost_per_mtok` | `pricing.cached_input_usd_micros_per_million` |
 | `costs.speed.<name>` sub-tables | `pricing.speed` (`fast`/`balanced`/`economical` rates) |
 | `features.cache_control_breakpoints` | `capabilities.cache_breakpoints` |
-| `auth.credentials = ["env:NAME", ...]` | `auth` scheme + a `conventional()` env mapping |
+| `auth.credentials = ["env:NAME", ...]` | `auth` scheme + a `ConventionalCredentials` mapping |
 | `extra_headers` (non-secret values only) | `default_headers` |
 | `default = true` | provider `default_model` |
 | `aliases`, `priority`, `base_url` | same names |

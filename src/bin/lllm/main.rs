@@ -11,7 +11,7 @@ mod runner_tests;
 use app::{CliEnvironment, ExitStatus, ProcessIo, TerminalState, args, format_error_chain};
 use lithos_llm::catalog::{AuthScheme, Catalog, CatalogBuilder, CatalogError};
 use lithos_llm::client::ClientBuildError;
-use lithos_llm::credentials::{CredentialProvider as _, EnvironmentCredentials};
+use lithos_llm::credentials::{ConventionalCredentials, CredentialProvider as _};
 use lithos_llm::middleware::{CancellationToken, TracingMiddleware};
 use lithos_llm::{Client, ClientBuild};
 use thiserror::Error;
@@ -99,7 +99,7 @@ async fn build_client(
         builder = add_catalog_file(builder, path)?;
     }
     let catalog = builder.build().map_err(StartupError::Catalog)?;
-    let credentials = EnvironmentCredentials::conventional();
+    let credentials = ConventionalCredentials::new();
     let mut configured = Vec::new();
     for provider in catalog.providers() {
         if matches!(provider.auth(), AuthScheme::None)

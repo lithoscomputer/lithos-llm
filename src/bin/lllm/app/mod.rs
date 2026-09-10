@@ -244,10 +244,9 @@ fn render_error(error: &CliError) -> String {
         let _ignored = write!(rendered, " retry_after={}", duration_text(delay));
     }
     append_sources(&mut rendered, error);
-    if let Some(CredentialError::Environment { variable, .. }) =
-        find_source::<CredentialError>(error)
+    if let Some(CredentialError::MissingSecret { name, .. }) = find_source::<CredentialError>(error)
     {
-        let _ignored = write!(rendered, "\n  hint: set {variable}");
+        let _ignored = write!(rendered, "\n  hint: set {name}");
     }
     rendered
 }

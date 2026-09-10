@@ -26,7 +26,7 @@ use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
         feature = "bedrock"
     )
 ))]
-use crate::credentials::EnvironmentCredentials;
+use crate::credentials::ConventionalCredentials;
 use crate::credentials::{CredentialProvider, NoCredentials};
 use crate::middleware::{Call, CallContext, CallGuard, Middleware, Operation, Output, Pipeline};
 use crate::providers::register_builtin;
@@ -98,7 +98,7 @@ impl Client {
             .map_err(|source| ClientBuildError::BuiltInCatalog { source })?;
         Self::builder()
             .catalog(catalog)
-            .credentials(EnvironmentCredentials::conventional())
+            .credentials(ConventionalCredentials::new())
             .build()
     }
 
