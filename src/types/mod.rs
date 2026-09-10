@@ -4,6 +4,7 @@ mod content;
 mod error;
 #[cfg(feature = "runtime")]
 mod limits;
+mod reasoning;
 mod request;
 mod response;
 #[cfg(feature = "runtime")]
@@ -29,6 +30,10 @@ pub(crate) use limits::ResponsePolicy;
     feature = "bedrock"
 ))]
 pub(crate) use limits::limit_error;
+pub use reasoning::{
+    OPENAI_COMPAT_REASONING_DETAILS_KIND, OPENAI_MESSAGE_KIND, OPENAI_REASONING_KIND,
+    ReasoningOutput,
+};
 pub use request::{
     CacheHint, ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
     UnknownControlValue,

@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Readable reasoning, normalized. `types::ReasoningOutput` reduces a
+  response's reasoning to a summary and a verbatim trace across every channel
+  the codecs store: `ReasoningContent` blocks, OpenAI Responses `reasoning`
+  items, and OpenAI-compatible `reasoning_details`. Structured channels win and
+  a flattened duplicate of the summary is dropped. At least one field is
+  always present: deserialization rejects an empty object and absent fields
+  are omitted on the wire. `Response::reasoning()` applies it;
+  `ContentPart::is_replay_material()` (every reasoning and opaque part, so
+  paired OpenAI items stay together) and `is_opaque_openai()` name the parts a
+  conversation keeps for replay. Fabro and Pebble each carried a copy of this.
+
+
 - Local files as media. Behind the new `local-files` feature,
   `middleware::InlineLocalFiles` rewrites an image, document, or audio part
   whose source is a local path (`/…`, `./…`, `~/…`, or `file://`) to inline

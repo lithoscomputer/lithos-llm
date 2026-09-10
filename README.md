@@ -195,6 +195,19 @@ Use `ResponseStream::new` for custom adapter streams. Completion or an error
 releases the inner stream immediately. Ending without a terminal event is an
 error. Block-end content is provisional; the final response is authoritative.
 
+## Readable reasoning
+
+Providers return readable reasoning through unrelated channels: Anthropic and
+Gemini as `ReasoningContent` blocks, the OpenAI Responses protocol as
+`reasoning` items with a summary and sometimes a verbatim trace, and
+OpenAI-compatible gateways as `reasoning_details`. `Response::reasoning()`
+reduces whichever arrived to one `ReasoningOutput` with a `summary` and a
+`trace`, at least one of them present, without reading signatures, item ids, or
+encrypted payloads. Keep the original parts for the next request:
+`ContentPart::is_replay_material()` marks every reasoning and opaque part a
+conversation replays, and `is_opaque_openai()` marks the OpenAI items that stop
+being valid once compaction replaces the turn they belong to.
+
 ## Tool calling
 
 `ToolCall::input` is either `ToolInput::Function(ToolArguments)` or
