@@ -26,6 +26,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   default route onto the available provider that `stands_in_for` the one
   asked for. `AvailableProviders::all` leaves disabled providers out.
 
+- Breaking: the `metadata.pebble` and `metadata.fabro` namespaces are gone
+  from the built-in catalog. Agent runtimes read one shared `metadata.agent`
+  namespace with `profile` and `reasoning_by_default`. Claude 4.x rows take
+  the `anthropic` profile and only Claude 5 rows take `claude-5`; Kimi rows
+  take `kimi` wherever they are served, including Bedrock.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;

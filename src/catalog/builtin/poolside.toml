@@ -21,7 +21,7 @@ api_key_url = "https://platform.poolside.ai"
 [providers.poolside.auth]
 type = "bearer"
 
-[providers.poolside.metadata.pebble]
+[providers.poolside.metadata.agent]
 profile = "openai"
 
 [providers.poolside.models."laguna-s-2.1"]

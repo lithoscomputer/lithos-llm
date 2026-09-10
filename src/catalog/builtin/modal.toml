@@ -35,9 +35,7 @@ enabled = false
 # shape without constructing a new secret string.
 type = "headers"
 
-[providers.modal.metadata.fabro]
-agent_profile = "kimi"
+[providers.modal.metadata.agent]
+profile = "kimi"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.modal.metadata.pebble]
-profile = "kimi"

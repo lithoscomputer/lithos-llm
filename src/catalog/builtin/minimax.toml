@@ -23,7 +23,7 @@ api_key_url = "https://platform.minimaxi.com/user-center/basic-information/inter
 [providers.minimax.auth]
 type = "bearer"
 
-[providers.minimax.metadata.pebble]
+[providers.minimax.metadata.agent]
 profile = "openai"
 
 [providers.minimax.models."minimax-m2.5"]

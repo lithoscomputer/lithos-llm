@@ -96,7 +96,7 @@ api_key_url = "https://platform.openai.com/api-keys"
 type = "bearer"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.openai.metadata.pebble]
+[providers.openai.metadata.agent]
 profile = "openai"
 
 [providers.openai.models."gpt-6-astra"]
@@ -113,7 +113,7 @@ family = "gpt-6"
 training_cutoff = "2026-04-30"
 knowledge_cutoff = "April 30, 2026"
 
-[providers.openai.models."gpt-6-astra".metadata.pebble]
+[providers.openai.models."gpt-6-astra".metadata.agent]
 profile = "gpt6"
 
 [providers.openai.models."gpt-5.6-sol"]
@@ -128,10 +128,7 @@ family = "gpt-5"
 training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
 
-[providers.openai.models."gpt-5.6-sol".metadata.fabro]
-agent_profile = "gpt56"
-
-[providers.openai.models."gpt-5.6-sol".metadata.pebble]
+[providers.openai.models."gpt-5.6-sol".metadata.agent]
 profile = "gpt56"
 
 [providers.openai.models."gpt-5.6-terra"]
@@ -146,10 +143,7 @@ family = "gpt-5"
 training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
 
-[providers.openai.models."gpt-5.6-terra".metadata.fabro]
-agent_profile = "gpt56"
-
-[providers.openai.models."gpt-5.6-terra".metadata.pebble]
+[providers.openai.models."gpt-5.6-terra".metadata.agent]
 profile = "gpt56"
 
 [providers.openai.models."gpt-5.6-luna"]
@@ -166,10 +160,7 @@ family = "gpt-5"
 training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
 
-[providers.openai.models."gpt-5.6-luna".metadata.fabro]
-agent_profile = "gpt56"
-
-[providers.openai.models."gpt-5.6-luna".metadata.pebble]
+[providers.openai.models."gpt-5.6-luna".metadata.agent]
 profile = "gpt56"
 
 [providers.openai.models."gpt-5.4"]

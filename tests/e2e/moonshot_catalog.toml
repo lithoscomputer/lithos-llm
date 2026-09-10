@@ -35,5 +35,5 @@ protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
 family = "kimi-k3"
 
-[providers.moonshot.models."kimi-k3".metadata.fabro]
-agent_profile = "kimi"
+[providers.moonshot.models."kimi-k3".metadata.agent]
+profile = "kimi"

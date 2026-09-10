@@ -23,5 +23,5 @@ enabled = false
 [providers.litellm.auth]
 type = "bearer"
 
-[providers.litellm.metadata.pebble]
+[providers.litellm.metadata.agent]
 profile = "openai"

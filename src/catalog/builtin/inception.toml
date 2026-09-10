@@ -22,7 +22,7 @@ api_key_url = "https://console.inceptionlabs.ai/api-keys"
 [providers.inception.auth]
 type = "bearer"
 
-[providers.inception.metadata.pebble]
+[providers.inception.metadata.agent]
 profile = "openai"
 
 [providers.inception.models."mercury-2"]

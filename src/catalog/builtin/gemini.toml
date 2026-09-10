@@ -42,7 +42,7 @@ type = "header"
 name = "x-goog-api-key"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.gemini.metadata.pebble]
+[providers.gemini.metadata.agent]
 profile = "gemini"
 
 [providers.gemini.models."gemini-3.1-pro-preview"]

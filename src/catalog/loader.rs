@@ -198,11 +198,11 @@ mod tests {
     use crate::types::Speed;
     use crate::types::{ResponseFormat, ToolChoice};
 
-    /// The agent profiles a catalog row may name.
+    /// The agent profiles a catalog row may name under `metadata.agent`.
     ///
     /// An agent runtime picks one prompting and tool convention per route from
     /// this value, so an unknown string is a build failure there rather than a
-    /// fallback. The set matches fabro's `AgentProfileKind`.
+    /// fallback. Every consumer of the namespace shares this vocabulary.
     #[cfg(feature = "builtin-catalog")]
     const AGENT_PROFILES: [&str; 7] = [
         "anthropic",
@@ -241,10 +241,11 @@ mod tests {
         count:   u64,
     }
 
-    /// The `pebble` metadata namespace, read the way its application reads it.
+    /// The shared `agent` metadata namespace, read the way its consumers
+    /// read it.
     #[cfg(feature = "builtin-catalog")]
     #[derive(Debug, Deserialize)]
-    struct PebbleMetadata {
+    struct AgentMetadata {
         profile: Option<String>,
     }
 
@@ -252,8 +253,8 @@ mod tests {
     #[cfg(feature = "builtin-catalog")]
     fn agent_profile(metadata: &Metadata) -> Result<Option<String>, Box<dyn StdError>> {
         Ok(metadata
-            .namespace::<PebbleMetadata>("pebble")?
-            .and_then(|pebble| pebble.profile))
+            .namespace::<AgentMetadata>("agent")?
+            .and_then(|agent| agent.profile))
     }
 
     #[test]
@@ -797,12 +798,11 @@ mod tests {
         assert!(modal.allows_passthrough());
         assert!(modal.default_model().is_none());
         assert_eq!(modal.models().len(), 0);
+        assert_eq!(agent_profile(modal.metadata())?.as_deref(), Some("kimi"));
+        assert!(!modal.is_enabled(), "modal ships as an opt-in provider");
         assert_eq!(
-            modal
-                .metadata()
-                .get("fabro")
-                .and_then(|value| value["agent_profile"].as_str()),
-            Some("kimi")
+            modal.api_key_url(),
+            Some("https://modal.com/docs/guide/webhook-proxy-auth")
         );
         Ok(())
     }
@@ -1013,7 +1013,9 @@ mod tests {
         let catalog = Catalog::builder().with_builtin().build()?;
 
         // The Anthropic provider row carries the profile a passthrough model
-        // gets; every catalogued Claude row names the current one instead.
+        // and every Claude 4.x row get; the Claude 5 rows name the current
+        // harness instead, because that profile is scoped to the models
+        // trained against it.
         assert_eq!(
             agent_profile(catalog.provider("anthropic")?.metadata())?.as_deref(),
             Some("anthropic")
@@ -1021,6 +1023,20 @@ mod tests {
         assert_eq!(
             agent_profile(catalog.model("anthropic", "sonnet")?.metadata())?.as_deref(),
             Some("claude-5")
+        );
+        assert_eq!(
+            agent_profile(catalog.model("anthropic", "claude-sonnet-4.6")?.metadata())?,
+            None
+        );
+        // Kimi is profiled per model wherever it is served, so a Kimi row on
+        // an Anthropic-profiled or OpenAI-profiled provider still says `kimi`.
+        assert_eq!(
+            agent_profile(catalog.model("bedrock", "kimi-k2.5")?.metadata())?.as_deref(),
+            Some("kimi")
+        );
+        assert_eq!(
+            agent_profile(catalog.model("openrouter", "kimi-k3")?.metadata())?.as_deref(),
+            Some("kimi")
         );
         assert_eq!(
             agent_profile(catalog.model("openai", "astra")?.metadata())?.as_deref(),

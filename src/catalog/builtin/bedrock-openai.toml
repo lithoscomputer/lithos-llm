@@ -28,7 +28,7 @@ enabled = false
 [providers.bedrock-openai.auth]
 type = "bearer"
 
-[providers.bedrock-openai.metadata.pebble]
+[providers.bedrock-openai.metadata.agent]
 profile = "openai"
 
 [providers.bedrock-openai.models."gpt-5.5"]

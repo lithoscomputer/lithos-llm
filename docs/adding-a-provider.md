@@ -64,11 +64,12 @@ Source fields with no lithos-llm equivalent fall into two groups:
   `reasoning_by_default` (use it to decide which rows assert reasoning
   evidence in the E2E suite, then drop it), `enabled` (a lithos-llm
   provider is usable whenever credentials resolve).
-- **Preserve in `metadata`**: fields the application layer reads but
-  the catalog does not act on — `agent_profile`, `family`, `training`,
-  `knowledge_cutoff`, `estimated_output_tps`, `probe`, `small_default`,
-  `api_key_url`. Put them under the application's own metadata namespace
-  on the row so they survive the move to this catalog.
+- **Core display and policy fields**: `family`, `training_cutoff`,
+  `knowledge_cutoff`, `estimated_output_tps`, `probe`, and `small_default`
+  on the model row; `api_key_url`, `enabled`, and `stands_in_for` on the
+  provider row. A source `agent_profile` becomes `metadata.agent.profile`
+  (see below). Anything else an application reads but the catalog does not
+  act on goes under that application's own metadata namespace.
 
 Fields lithos-llm has that a source catalog may lack: set `text = true` on every row;
 decide `structured_output`, `documents`, `audio`, and `cache_routing`
@@ -86,17 +87,22 @@ into the top-level system field, which keeps the preserved-thinking prefix
 intact. A model that rejects the turn answers `role 'system' is not
 supported on this model`; leave the flag off and the codec hoists.
 
-Agent profile: give the provider row a `metadata.pebble.profile`, and give
+Agent profile: give the provider row a `metadata.agent.profile`, and give
 a model row its own value whenever the model's family differs from the
-provider default. An agent runtime picks one prompting and tool convention
+provider default. The `agent` namespace is shared by every agent runtime
+that consumes this catalog; each picks one prompting and tool convention
 per route from this value, and a route that resolves none is a build
-failure there, so a new provider without one breaks that application. The
-six values are `anthropic`, `claude-5`, `openai`, `gemini`, `kimi`, and
-`gpt56`; the profile follows the model, not the provider that serves it, so
-a Claude row on an OpenAI-compatible provider still says `claude-5`. Use
-the provider's own adapter family for the provider default: Anthropic and
-Bedrock `anthropic`, Gemini `gemini`, OpenAI and OpenAI-compatible
-`openai`. `every_builtin_row_resolves_a_known_agent_profile` in
+failure there, so a new provider without one breaks those applications.
+The seven values are `anthropic`, `claude-5`, `openai`, `gemini`, `kimi`,
+`gpt56`, and `gpt6`; the profile follows the model, not the provider that
+serves it, so a Claude 5 row on an OpenAI-compatible provider still says
+`claude-5` and a Kimi row on Bedrock still says `kimi`. `claude-5` is
+scoped to the Claude 5 models trained against that harness; Claude 4.x rows
+take `anthropic`. Use the provider's own adapter family for the provider
+default: Anthropic and Bedrock `anthropic`, Gemini `gemini`, OpenAI and
+OpenAI-compatible `openai`. A row that reasons without being asked, where
+its capabilities alone cannot say so, adds `reasoning_by_default = true`
+in the same namespace. `every_builtin_row_resolves_a_known_agent_profile` in
 `src/catalog/loader.rs` enforces the coverage.
 
 Roster policy: include every source row, then add any model another

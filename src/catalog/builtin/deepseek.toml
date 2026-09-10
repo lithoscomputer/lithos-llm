@@ -22,7 +22,7 @@ api_key_url = "https://platform.deepseek.com/api_keys"
 [providers.deepseek.auth]
 type = "bearer"
 
-[providers.deepseek.metadata.pebble]
+[providers.deepseek.metadata.agent]
 profile = "openai"
 
 [providers.deepseek.models."deepseek-v4-flash"]
@@ -37,9 +37,6 @@ family = "deepseek-v4"
 small_default = true
 probe = true
 
-[providers.deepseek.models."deepseek-v4-flash".metadata.fabro]
-agent_profile = "openai"
-
 [providers.deepseek.models."deepseek-v4-pro"]
 display_name = "DeepSeek V4 Pro"
 api_model = "deepseek-v4-pro"
@@ -48,6 +45,3 @@ capabilities = { text = true, images = false, tools = true, reasoning = true, ca
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 435000, output_usd_micros_per_million = 870000, cached_input_usd_micros_per_million = 3625 }
 family = "deepseek-v4"
-
-[providers.deepseek.models."deepseek-v4-pro".metadata.fabro]
-agent_profile = "openai"

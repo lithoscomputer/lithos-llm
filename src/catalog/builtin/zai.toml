@@ -24,7 +24,7 @@ api_key_url = "https://open.bigmodel.cn/usercenter/apikeys"
 [providers.zai.auth]
 type = "bearer"
 
-[providers.zai.metadata.pebble]
+[providers.zai.metadata.agent]
 profile = "openai"
 
 [providers.zai.models."glm-5.2"]

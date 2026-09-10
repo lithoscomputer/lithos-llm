@@ -24,5 +24,5 @@ api_key_url = "https://modal.com/docs/guide/webhook-proxy-auth"
 [providers.modal.auth]
 type = "headers"
 
-[providers.modal.metadata.fabro]
-agent_profile = "kimi"
+[providers.modal.metadata.agent]
+profile = "kimi"

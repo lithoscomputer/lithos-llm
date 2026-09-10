@@ -27,7 +27,7 @@ enabled = false
 type = "bearer"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.fireworks.metadata.pebble]
+[providers.fireworks.metadata.agent]
 profile = "openai"
 
 [providers.fireworks.models."kimi-k3"]
@@ -39,10 +39,7 @@ protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
 family = "kimi-k3"
 
-[providers.fireworks.models."kimi-k3".metadata.fabro]
-agent_profile = "kimi"
-
-[providers.fireworks.models."kimi-k3".metadata.pebble]
+[providers.fireworks.models."kimi-k3".metadata.agent]
 profile = "kimi"
 
 [providers.fireworks.models."kimi-k3-fast"]
@@ -55,10 +52,7 @@ protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 450000 }
 family = "kimi-k3"
 
-[providers.fireworks.models."kimi-k3-fast".metadata.fabro]
-agent_profile = "kimi"
-
-[providers.fireworks.models."kimi-k3-fast".metadata.pebble]
+[providers.fireworks.models."kimi-k3-fast".metadata.agent]
 profile = "kimi"
 
 [providers.fireworks.models."kimi-k2.7-code"]
@@ -69,7 +63,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 190000 }
 family = "kimi-k2"
 
-[providers.fireworks.models."kimi-k2.7-code".metadata.pebble]
+[providers.fireworks.models."kimi-k2.7-code".metadata.agent]
 profile = "kimi"
 
 [providers.fireworks.models."kimi-k2.6"]
@@ -81,7 +75,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 160000 }
 family = "kimi-k2"
 
-[providers.fireworks.models."kimi-k2.6".metadata.pebble]
+[providers.fireworks.models."kimi-k2.6".metadata.agent]
 profile = "kimi"
 
 [providers.fireworks.models."deepseek-v4-pro"]
@@ -94,12 +88,6 @@ protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1320000, output_usd_micros_per_million = 3960000, cached_input_usd_micros_per_million = 44000 }
 family = "deepseek-v4"
 
-[providers.fireworks.models."deepseek-v4-pro".metadata.fabro]
-agent_profile = "openai"
-
-[providers.fireworks.models."deepseek-v4-pro".metadata.pebble]
-profile = "openai"
-
 [providers.fireworks.models."deepseek-v4-flash"]
 display_name = "DeepSeek V4 Flash"
 aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
@@ -110,12 +98,6 @@ capabilities = { text = true, tools = true, response_format = { json_object = tr
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 220000, output_usd_micros_per_million = 660000, cached_input_usd_micros_per_million = 7000 }
 family = "deepseek-v4"
-
-[providers.fireworks.models."deepseek-v4-flash".metadata.fabro]
-agent_profile = "openai"
-
-[providers.fireworks.models."deepseek-v4-flash".metadata.pebble]
-profile = "openai"
 
 [providers.fireworks.models."glm-5.2"]
 display_name = "GLM 5.2 (via Fireworks)"
@@ -159,7 +141,7 @@ pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_millio
 
 # Qwen 3.8 Max reasons on every call whoever serves it; it takes a thinking
 # budget rather than a named effort level, so no capability records it.
-[providers.fireworks.models."qwen3.8-max".metadata.pebble]
+[providers.fireworks.models."qwen3.8-max".metadata.agent]
 reasoning_by_default = true
 
 # Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
@@ -171,6 +153,3 @@ limits = { context_tokens = 196608, max_output_tokens = 16384 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 59000 }
 family = "minimax-m2"
-
-[providers.fireworks.models."minimax-m2.7".metadata.pebble]
-profile = "openai"

@@ -35,7 +35,7 @@ type = "header"
 name = "x-api-key"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.anthropic.metadata.pebble]
+[providers.anthropic.metadata.agent]
 profile = "anthropic"
 
 [providers.anthropic.models."claude-fable-5.1"]
@@ -55,10 +55,7 @@ protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
 family = "claude-5"
 
-[providers.anthropic.models."claude-fable-5.1".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-fable-5.1".metadata.pebble]
+[providers.anthropic.models."claude-fable-5.1".metadata.agent]
 profile = "claude-5"
 
 [providers.anthropic.models."claude-fable-5"]
@@ -73,10 +70,7 @@ protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
 family = "claude-5"
 
-[providers.anthropic.models."claude-fable-5".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-fable-5".metadata.pebble]
+[providers.anthropic.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
 
 [providers.anthropic.models."claude-opus-5"]
@@ -93,10 +87,7 @@ family = "claude-5"
 training_cutoff = "2026-05-01"
 knowledge_cutoff = "May 2026"
 
-[providers.anthropic.models."claude-opus-5".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-opus-5".metadata.pebble]
+[providers.anthropic.models."claude-opus-5".metadata.agent]
 profile = "claude-5"
 
 [providers.anthropic.models."claude-sonnet-5"]
@@ -114,10 +105,7 @@ family = "claude-5"
 training_cutoff = "2026-01-01"
 knowledge_cutoff = "Jan 2026"
 
-[providers.anthropic.models."claude-sonnet-5".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-sonnet-5".metadata.pebble]
+[providers.anthropic.models."claude-sonnet-5".metadata.agent]
 profile = "claude-5"
 
 [providers.anthropic.models."claude-opus-4.8"]
@@ -133,12 +121,6 @@ family = "claude-4"
 training_cutoff = "2026-01-01"
 knowledge_cutoff = "Jan 2026"
 estimated_output_tps = 25
-
-[providers.anthropic.models."claude-opus-4.8".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-opus-4.8".metadata.pebble]
-profile = "claude-5"
 
 [providers.anthropic.models."claude-opus-4.7"]
 display_name = "Claude Opus 4.7"
@@ -156,12 +138,6 @@ training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
 estimated_output_tps = 25
 
-[providers.anthropic.models."claude-opus-4.7".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-opus-4.7".metadata.pebble]
-profile = "claude-5"
-
 [providers.anthropic.models."claude-opus-4.6"]
 display_name = "Claude Opus 4.6"
 api_model = "claude-opus-4-6"
@@ -177,12 +153,6 @@ training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
 estimated_output_tps = 25
 
-[providers.anthropic.models."claude-opus-4.6".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-opus-4.6".metadata.pebble]
-profile = "claude-5"
-
 [providers.anthropic.models."claude-sonnet-4.5"]
 aliases = ["claude-sonnet-4-5"]
 display_name = "Claude Sonnet 4.5"
@@ -195,12 +165,6 @@ family = "claude-4"
 training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
 estimated_output_tps = 50
-
-[providers.anthropic.models."claude-sonnet-4.5".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-sonnet-4.5".metadata.pebble]
-profile = "claude-5"
 
 [providers.anthropic.models."claude-sonnet-4.6"]
 display_name = "Claude Sonnet 4.6"
@@ -216,12 +180,6 @@ family = "claude-4"
 training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
 estimated_output_tps = 50
-
-[providers.anthropic.models."claude-sonnet-4.6".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-sonnet-4.6".metadata.pebble]
-profile = "claude-5"
 
 [providers.anthropic.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5"
@@ -239,9 +197,3 @@ knowledge_cutoff = "May 2025"
 estimated_output_tps = 100
 small_default = true
 probe = true
-
-[providers.anthropic.models."claude-haiku-4.5".metadata.fabro]
-agent_profile = "claude-5"
-
-[providers.anthropic.models."claude-haiku-4.5".metadata.pebble]
-profile = "claude-5"

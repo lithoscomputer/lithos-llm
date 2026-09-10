@@ -16,8 +16,8 @@ remain provisional unless a catalog comment identifies a documentation correctio
   `/chat/completions` to its `/api/coding/paas/v4` root without adding `/v1`.
   Other compatible providers retain the existing versioned-path behavior.
 - USD per million tokens becomes integer USD micros per million tokens.
-  Application-owned fields live in a namespaced `metadata` table. Each provider supplies
-  `metadata.pebble.profile = "openai"`.
+  The agent profile lives in the shared `metadata.agent` namespace. Each provider supplies
+  `metadata.agent.profile`, `"openai"` for OpenAI-compatible providers.
 - Unverified forced-tool and structured-output support is `"unknown"`.
   Lithos permits these requests so the live tests can establish support.
 - A provider that needs deployment-specific setup ships `enabled = false`;

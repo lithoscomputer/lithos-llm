@@ -24,7 +24,7 @@ api_key_url = "https://platform.kimi.ai/console/api-keys"
 type = "bearer"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.moonshot.metadata.pebble]
+[providers.moonshot.metadata.agent]
 profile = "kimi"
 
 [providers.moonshot.models."kimi-k3"]
@@ -40,11 +40,9 @@ protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
 family = "kimi-k3"
 
-[providers.moonshot.models."kimi-k3".metadata.fabro]
-agent_profile = "kimi"
-
 # Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
 # https://platform.kimi.ai/docs/models
+
 [providers.moonshot.models."kimi-k2.5"]
 display_name = "Kimi K2.5"
 api_model = "kimi-k2.5"
@@ -56,9 +54,5 @@ training_cutoff = "2025-10-01"
 knowledge_cutoff = "October 2025"
 estimated_output_tps = 50
 
-[providers.moonshot.models."kimi-k2.5".metadata.fabro]
-reasoning_by_default = true
-
-[providers.moonshot.models."kimi-k2.5".metadata.pebble]
-profile = "kimi"
+[providers.moonshot.models."kimi-k2.5".metadata.agent]
 reasoning_by_default = true
