@@ -1,5 +1,5 @@
-//! Provisional provider imports: verify our translation against local HTTP mocks.
-//! Live acceptance remains tracked in docs/provider-live-tests.md.
+//! Provisional provider imports: verify our translation against local HTTP
+//! mocks. Live acceptance remains tracked in docs/provider-live-tests.md.
 
 use std::error::Error as StdError;
 
