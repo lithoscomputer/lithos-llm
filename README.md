@@ -141,7 +141,9 @@ including cancellation and dropped futures or streams.
 
 Capability queries return `Support::Supported`, `Unsupported`, or `Unknown`.
 Use `tool_choice`, `response_format`, `reasoning_effort`, and `speed` to check
-a specific setting. Unknown support does not reject a request locally.
+a specific setting; `closest_supported_effort` picks the nearest supported
+reasoning level when a request written for one model goes to another. Unknown
+support does not reject a request locally.
 Protocol flags live in `CatalogModel::protocol_options()`. Pricing does not
 determine capability support.
 

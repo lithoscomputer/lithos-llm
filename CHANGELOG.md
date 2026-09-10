@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `ModelCapabilities::closest_supported_effort` picks the supported reasoning
+  level nearest to a requested one, ties to the higher level, for sending a
+  request written for one model to another.
+
+
 - Readable reasoning, normalized. `types::ReasoningOutput` reduces a
   response's reasoning to a summary and a verbatim trace across every channel
   the codecs store: `ReasoningContent` blocks, OpenAI Responses `reasoning`
