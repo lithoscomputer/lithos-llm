@@ -78,6 +78,15 @@ that fails does not remove the providers that succeeded, so an application can
 start in a degraded state and report why. Client construction never reads
 credentials.
 
+`ClientBuilder::build_ready` is the alternative for applications that want to
+know up front which providers they can serve: it resolves credentials once for
+every selected provider and builds adapters only for the ones that resolved.
+Providers the store holds nothing for are left out silently; providers whose
+stored material cannot be used (an expired token with no refresh token, an
+entry of the wrong type) come back in `ClientBuild::credential_issues` with an
+operator-facing reason. `credentials::readiness` answers the same question
+without building a client, for listings and diagnostics.
+
 Applications own the Tokio runtime and tracing subscriber. Credential lookup
 runs for each provider attempt, so tokens can refresh without rebuilding the
 client. Retry and tracing middleware remain opt-in.

@@ -14,7 +14,7 @@ use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, AdapterRegistry,
     DEFAULT_STREAM_IDLE_TIMEOUT, InputTokenCount, ProviderAdapter,
 };
-use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
+use crate::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, ProviderId, adapter_ids};
 #[cfg(all(
     feature = "builtin-catalog",
     feature = "environment-credentials",
@@ -27,7 +27,7 @@ use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
     )
 ))]
 use crate::credentials::ConventionalCredentials;
-use crate::credentials::{CredentialProvider, NoCredentials};
+use crate::credentials::{self, CredentialError, CredentialProvider, NoCredentials};
 use crate::middleware::{Call, CallContext, CallGuard, Middleware, Operation, Output, Pipeline};
 use crate::providers::register_builtin;
 use crate::resolver::{
@@ -479,6 +479,60 @@ impl ClientBuilder {
     /// a missing catalog, a default HTTP client that cannot be built, or an
     /// enabled provider id that is not a canonical catalog provider.
     pub fn build(self) -> Result<ClientBuild, ClientBuildError> {
+        self.build_with_credential_issues(Vec::new())
+    }
+
+    /// Builds a client over the providers whose credentials resolve right now.
+    ///
+    /// Resolves credentials once for every provider in the builder's
+    /// selection (the [`enabled_providers`](Self::enabled_providers) set when
+    /// one was given, else every enabled provider in the catalog) and builds
+    /// adapters only for the ones that resolved. The selection is narrowed,
+    /// never widened: a provider left out of `enabled_providers` stays out
+    /// however good its credentials are. A provider with an explicit
+    /// [`adapter`](Self::adapter) counts as ready without a lookup, because
+    /// that adapter owns its own authentication.
+    ///
+    /// Providers the store holds nothing for are left out silently. Providers
+    /// with material that cannot be used come back in
+    /// [`ClientBuild::credential_issues`]. Providers that resolved but whose
+    /// adapter could not be constructed come back in
+    /// [`ClientBuild::issues`], as they do from [`build`](Self::build).
+    ///
+    /// # Errors
+    ///
+    /// The same failures as [`build`](Self::build).
+    pub async fn build_ready(mut self) -> Result<ClientBuild, ClientBuildError> {
+        let catalog = self
+            .catalog
+            .as_ref()
+            .ok_or(ClientBuildError::MissingCatalog)?;
+        let selection: Vec<&CatalogProvider> = catalog
+            .providers()
+            .filter(|provider| provider.is_enabled())
+            .filter(|provider| {
+                self.enabled
+                    .as_ref()
+                    .is_none_or(|enabled| enabled.contains(provider.id()))
+            })
+            .collect();
+        let (with_adapter, needs_credentials): (Vec<_>, Vec<_>) = selection
+            .into_iter()
+            .partition(|provider| self.registry.explicit(provider.id()).is_some());
+        let readiness = credentials::readiness(needs_credentials, self.credentials.as_ref()).await;
+        let ready: BTreeSet<ProviderId> = with_adapter
+            .into_iter()
+            .map(|provider| provider.id().clone())
+            .chain(readiness.ready)
+            .collect();
+        self.enabled = Some(ready);
+        self.build_with_credential_issues(readiness.issues)
+    }
+
+    fn build_with_credential_issues(
+        self,
+        credential_issues: Vec<(ProviderId, CredentialError)>,
+    ) -> Result<ClientBuild, ClientBuildError> {
         let catalog = self.catalog.ok_or(ClientBuildError::MissingCatalog)?;
         let http = if let Some(http) = self.http {
             http
@@ -506,6 +560,7 @@ impl ClientBuilder {
             .with_application(self.application);
         let mut adapters = BTreeMap::new();
         let mut issues = Vec::new();
+        let mut ready = Vec::new();
         for provider in catalog.providers() {
             // A catalog-disabled provider builds no adapter, whether or not
             // the application named it. `enabled_providers` narrows the
@@ -518,6 +573,7 @@ impl ClientBuilder {
             {
                 continue;
             }
+            ready.push(provider.id().clone());
             let outcome = if let Some(adapter) = self.registry.explicit(provider.id()) {
                 Ok(adapter)
             } else if let Some(factory) = self.registry.factory(provider.adapter()) {
@@ -546,6 +602,8 @@ impl ClientBuilder {
         }
         let available = AvailableProviders::new(adapters.keys().cloned());
         Ok(ClientBuild {
+            ready,
+            credential_issues,
             client: Client {
                 default_timeout: self.default_timeout,
                 catalog,
@@ -581,8 +639,19 @@ fn is_disabled_builtin_adapter(adapter: &AdapterId) -> bool {
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct ClientBuild {
-    pub client: Client,
-    pub issues: Vec<ProviderBuildIssue>,
+    pub client:            Client,
+    /// The providers the build attempted, in catalog order: the builder's
+    /// selection, narrowed to credential-ready providers by
+    /// [`ClientBuilder::build_ready`]. A provider here that also appears in
+    /// `issues` has credentials but no adapter, so
+    /// [`Client::available_providers`] is this list minus `issues`.
+    pub ready:             Vec<ProviderId>,
+    /// Providers [`ClientBuilder::build_ready`] left out because their stored
+    /// credential material could not be used. Always empty after
+    /// [`ClientBuilder::build`], which reads no credentials.
+    pub credential_issues: Vec<(ProviderId, CredentialError)>,
+    /// Providers that could not be constructed.
+    pub issues:            Vec<ProviderBuildIssue>,
 }
 
 /// One provider that could not be constructed.
@@ -641,6 +710,7 @@ mod tests {
         AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter, ResolvedCall,
     };
     use crate::catalog::{AdapterId, Catalog, CatalogProvider, ProviderId};
+    use crate::credentials::{CredentialError, CredentialProvider, Credentials, StaticCredentials};
     use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
     use crate::types::{
         ContentPart, Error, Request, Response, ResponseStream, Speed, ToolDefinition,
@@ -1204,6 +1274,140 @@ mod tests {
                 text: route.api_model().to_owned(),
             }]);
         }
+        Ok(())
+    }
+
+    /// Credentials for exactly the named providers; every other lookup says
+    /// the store holds nothing.
+    fn credentials_for(providers: &[&str]) -> StaticCredentials {
+        providers
+            .iter()
+            .fold(StaticCredentials::new(), |store, id| {
+                store.with(*id, Credentials::none())
+            })
+    }
+
+    /// A store whose material for one provider is present but unusable.
+    struct UnusableFor(&'static str);
+
+    #[async_trait]
+    impl CredentialProvider for UnusableFor {
+        async fn credentials(
+            &self,
+            provider: &CatalogProvider,
+        ) -> Result<Credentials, CredentialError> {
+            if provider.id().as_str() == self.0 {
+                Err(CredentialError::Unusable {
+                    provider: provider.id().clone(),
+                    reason:   "the stored token has expired and has no refresh token".to_owned(),
+                    source:   None,
+                })
+            } else {
+                Ok(Credentials::none())
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn build_ready_keeps_only_credentialed_providers() -> Result<(), Box<dyn StdError>> {
+        let factory = CountingFactory::default();
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .credentials(credentials_for(&["alpha", "gamma"]))
+            .adapter_factory("alpha-adapter", factory.clone())
+            .adapter_factory("beta-adapter", factory.clone())
+            .adapter_factory("gamma-adapter", factory.clone())
+            .build_ready()
+            .await?;
+
+        assert_eq!(available_ids(&build.client), ["alpha", "gamma"]);
+        assert_eq!(build.ready, ["alpha", "gamma"].map(ProviderId::new));
+        assert!(
+            build.credential_issues.is_empty(),
+            "unconfigured is silence"
+        );
+        assert!(build.issues.is_empty());
+        assert_eq!(
+            factory.created.load(Ordering::SeqCst),
+            2,
+            "no adapter is built for a provider without credentials"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn build_ready_never_widens_the_enabled_selection() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .credentials(credentials_for(&["alpha", "beta", "gamma"]))
+            .enabled_providers(["alpha"])
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .adapter_factory("beta-adapter", CountingFactory::default())
+            .adapter_factory("gamma-adapter", CountingFactory::default())
+            .build_ready()
+            .await?;
+
+        assert_eq!(available_ids(&build.client), ["alpha"]);
+        assert_eq!(build.ready, [ProviderId::new("alpha")]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn build_ready_counts_an_explicit_adapter_as_ready_without_credentials()
+    -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .credentials(credentials_for(&[]))
+            .adapter("beta", FakeAdapter {
+                id: AdapterId::new("beta-adapter"),
+            })
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .build_ready()
+            .await?;
+
+        assert_eq!(available_ids(&build.client), ["beta"]);
+        assert_eq!(build.ready, [ProviderId::new("beta")]);
+        assert!(build.credential_issues.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn build_ready_separates_credential_issues_from_build_issues()
+    -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .credentials(UnusableFor("beta"))
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .adapter_factory("beta-adapter", CountingFactory::default())
+            .adapter_factory("gamma-adapter", FailingFactory)
+            .build_ready()
+            .await?;
+
+        assert_eq!(available_ids(&build.client), ["alpha"]);
+        assert_eq!(build.ready, ["alpha", "gamma"].map(ProviderId::new));
+        assert_eq!(build.credential_issues.len(), 1);
+        assert_eq!(build.credential_issues[0].0.as_str(), "beta");
+        assert!(matches!(
+            build.credential_issues[0].1,
+            CredentialError::Unusable { .. }
+        ));
+        assert_eq!(build.issues.len(), 1);
+        assert_eq!(build.issues[0].provider.as_str(), "gamma");
+        Ok(())
+    }
+
+    #[test]
+    fn build_reads_no_credentials_and_reports_the_attempted_set() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(catalog()?)
+            .credentials(UnusableFor("beta"))
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .adapter_factory("beta-adapter", CountingFactory::default())
+            .adapter_factory("gamma-adapter", CountingFactory::default())
+            .build()?;
+
+        assert_eq!(build.ready, ["alpha", "beta", "gamma"].map(ProviderId::new));
+        assert!(build.credential_issues.is_empty());
         Ok(())
     }
 }

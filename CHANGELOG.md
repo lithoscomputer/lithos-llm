@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Provider readiness. `credentials::readiness` resolves a set of providers once
+  and separates the ones that resolved from the ones whose stored material
+  cannot be used; a store that holds nothing for a provider is silence, not an
+  issue. `ClientBuilder::build_ready` runs it over the builder's own selection
+  and builds adapters only for ready providers, never widening the selection; a
+  provider with an explicit adapter counts as ready without a lookup.
+  `ClientBuild` gains `ready` and `credential_issues` beside `issues`.
+  `CredentialError::Unusable` names present-but-unusable material, with an
+  operator-facing reason and an optional source. `CredentialProvider` gains
+  `is_configured`, a presence check stores can answer without refreshing.
+  `CredentialError::provider` and `is_not_configured` are new.
+
 - Breaking: the catalog owns the facts applications used to keep under
   `metadata.fabro`. Model rows gain optional `family`, `training_cutoff`,
   `knowledge_cutoff`, and `estimated_output_tps`, plus `small_default` and
