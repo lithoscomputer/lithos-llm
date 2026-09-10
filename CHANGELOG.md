@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Structured output in one call. `Client::complete_object` attaches a JSON
+  schema as the request's response format, completes it, and parses the reply
+  into a `StructuredCompletion` holding the response and the document.
+  `Response::json_object` does the parsing on its own: a `Json` part is taken
+  as is, otherwise the text is parsed, and anything else is a `ResponseDecode`
+  error.
+
 - Error policy predicates. `Error` and `ErrorData` both answer `is_retryable`,
   `is_auth_error`, `is_cancelled`, and `failover_eligible` (retryable, or local
   to this provider: credentials, access, model inventory, quota, rate limit,

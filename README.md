@@ -303,9 +303,13 @@ async fn extract_city(client: &Client) -> Result<Value, Box<dyn Error>> {
 ```
 
 The built-in adapters return the JSON document as response text. The
-application parses it into `serde_json::Value` or its own type. Lithos rejects
-structured-output requests before dispatch when the selected model does not
-declare that capability.
+application parses it into `serde_json::Value` or its own type, or lets
+`Response::json_object` do it: a `Json` part is taken as is, otherwise the text
+is parsed. `Client::complete_object(request, "location", schema)` does the
+whole exchange, attaching the schema and returning a `StructuredCompletion`
+with the response and the parsed document. Lithos rejects structured-output
+requests before dispatch when the selected model does not declare that
+capability.
 
 ## Multimodal input
 

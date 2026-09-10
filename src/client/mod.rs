@@ -34,7 +34,8 @@ use crate::resolver::{
     AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
 };
 use crate::types::{
-    Error, ErrorKind, Request, Response, ResponseLimits, ResponsePolicy, ResponseStream,
+    Error, ErrorKind, Request, Response, ResponseFormat, ResponseLimits, ResponsePolicy,
+    ResponseStream,
 };
 
 /// How long the default HTTP client waits to establish a connection.
@@ -42,6 +43,15 @@ use crate::types::{
 /// A provider whose endpoint accepts no connection fails here rather than
 /// waiting for the operating system's own limit.
 const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// A completion whose reply parsed as the requested JSON document.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct StructuredCompletion {
+    pub response: Response,
+    /// The parsed document, from a JSON part or the reply text.
+    pub object:   serde_json::Value,
+}
 
 /// An immutable provider-neutral client.
 #[derive(Clone)]
@@ -154,6 +164,56 @@ impl Client {
                 "complete middleware returned an incompatible output",
             )),
         }
+    }
+
+    /// Completes `request` under a JSON schema and parses the reply.
+    ///
+    /// The schema is attached as the request's response format, so a provider
+    /// with native structured output enforces it, and the selected model must
+    /// declare that capability. The reply is read with
+    /// [`Response::json_object`], so a document the provider returns as text
+    /// is parsed and one it returns as a JSON part is taken as is.
+    ///
+    /// # Errors
+    ///
+    /// Every error [`complete`](Self::complete) returns, plus `ResponseDecode`
+    /// when the reply is not a JSON document.
+    pub async fn complete_object(
+        &self,
+        request: Request,
+        schema_name: impl Into<String>,
+        schema: serde_json::Value,
+    ) -> Result<StructuredCompletion, Error> {
+        self.complete_object_with_context(request, schema_name, schema, CallContext::new())
+            .await
+    }
+
+    /// [`complete_object`](Self::complete_object) with an application call
+    /// context.
+    pub async fn complete_object_with_context(
+        &self,
+        request: Request,
+        schema_name: impl Into<String>,
+        schema: serde_json::Value,
+        context: CallContext,
+    ) -> Result<StructuredCompletion, Error> {
+        let request = request
+            .into_builder()
+            .response_format(ResponseFormat::JsonSchema {
+                name: schema_name.into(),
+                schema,
+            })
+            .build()
+            .map_err(|source| {
+                Error::new(
+                    ErrorKind::InvalidRequest,
+                    "the structured output request is invalid",
+                )
+                .with_source(source)
+            })?;
+        let response = self.complete_with_context(request, context).await?;
+        let object = response.json_object()?;
+        Ok(StructuredCompletion { response, object })
     }
 
     pub async fn stream(&self, request: Request) -> Result<ResponseStream, Error> {
@@ -698,8 +758,8 @@ pub enum ClientBuildError {
 #[cfg(test)]
 mod tests {
     use std::error::Error as StdError;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, LazyLock};
 
     use async_trait::async_trait;
     use futures_util::stream::empty;
@@ -713,7 +773,8 @@ mod tests {
     use crate::credentials::{CredentialError, CredentialProvider, Credentials, StaticCredentials};
     use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
     use crate::types::{
-        ContentPart, Error, Request, Response, ResponseStream, Speed, ToolDefinition,
+        ContentPart, Error, Request, Response, ResponseFormat, ResponseStream, Speed,
+        ToolDefinition,
     };
 
     const TEST_CATALOG: &str = r#"
@@ -1408,6 +1469,80 @@ mod tests {
 
         assert_eq!(build.ready, ["alpha", "beta", "gamma"].map(ProviderId::new));
         assert!(build.credential_issues.is_empty());
+        Ok(())
+    }
+
+    /// Answers every request with a fixed JSON document as text.
+    struct JsonTextAdapter;
+
+    #[async_trait]
+    impl ProviderAdapter for JsonTextAdapter {
+        fn id(&self) -> &AdapterId {
+            static ID: LazyLock<AdapterId> = LazyLock::new(|| AdapterId::new("json-adapter"));
+            &ID
+        }
+
+        async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+            assert!(
+                matches!(
+                    call.request().response_format(),
+                    Some(ResponseFormat::JsonSchema { name, .. }) if name == "answer"
+                ),
+                "the schema rides on the request"
+            );
+            Ok(Response::new(
+                call.route().provider().id().clone(),
+                call.route().model().id().clone(),
+                vec![ContentPart::Text {
+                    text: json!({"answer": 42}).to_string(),
+                }],
+            ))
+        }
+
+        async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+            Ok(ResponseStream::new(empty()))
+        }
+    }
+
+    /// A provider whose one model declares structured output, so the schema
+    /// passes capability validation.
+    const STRUCTURED_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.delta]
+        display_name = "Delta"
+        adapter = "json-adapter"
+        codec = "test-codec"
+        base_url = "http://127.0.0.1"
+        auth = { type = "none" }
+
+        [providers.delta.models.four]
+        display_name = "Four"
+        api_model = "four"
+        capabilities = { text = true, response_format = { json_schema = true } }
+    "#;
+
+    #[tokio::test]
+    async fn complete_object_attaches_the_schema_and_parses_the_reply()
+    -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(
+                Catalog::builder()
+                    .overlay_toml(STRUCTURED_CATALOG)?
+                    .build()?,
+            )
+            .adapter("delta", JsonTextAdapter)
+            .build()?;
+        let request = Request::builder()
+            .model("delta/four")
+            .user("How many?")
+            .build()?;
+        let completion = build
+            .client
+            .complete_object(request, "answer", json!({"type": "object"}))
+            .await?;
+        assert_eq!(completion.object, json!({"answer": 42}));
+        assert_eq!(completion.response.text(), r#"{"answer":42}"#);
         Ok(())
     }
 }
