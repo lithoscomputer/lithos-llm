@@ -2939,6 +2939,7 @@ dependencies = [
 [[package]]
 name = "twin-anthropic"
 version = "0.1.5"
+source = "git+https://github.com/lithoscomputer/twins?rev=ca45f0e50a6716d716aa2f638ca3cf767e88f613#ca45f0e50a6716d716aa2f638ca3cf767e88f613"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2956,6 +2957,7 @@ dependencies = [
 [[package]]
 name = "twin-core"
 version = "0.1.5"
+source = "git+https://github.com/lithoscomputer/twins?rev=ca45f0e50a6716d716aa2f638ca3cf767e88f613#ca45f0e50a6716d716aa2f638ca3cf767e88f613"
 dependencies = [
  "anyhow",
  "async-stream",
