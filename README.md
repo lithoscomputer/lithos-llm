@@ -456,6 +456,17 @@ deployment-specific setup ship with `enabled = false`; an overlay turns one on:
 enabled = true
 ```
 
+Before it has a request, an application asks the catalog which providers are
+on and which model to pick for a job. `Catalog::enabled_providers` lists them
+in priority order and `listed_providers` drops the ones that stand in for
+another; `offerings_matching` ranks every enabled offering of a selector the
+way the resolver would; `default_offering_for` and `small_default_for` pick the
+default and the cheap utility model across the providers that are ready;
+`CatalogProvider::probe_offering` names the row to probe with and
+`closest_offering` the nearest model to one on another provider. Each returns
+an `Offering`, the borrowed provider-and-model pair, with `handle`,
+`into_route`, and `estimate_cost`.
+
 An application can supply its whole catalog and use none of the built-in
 entries. Building from external TOML never adds built-in providers implicitly;
 only `with_builtin()` does that.

@@ -3,6 +3,7 @@
 mod capabilities;
 mod loader;
 mod model;
+mod offering;
 mod overlay;
 mod provider;
 
@@ -15,6 +16,7 @@ pub use capabilities::{
 };
 pub use loader::CatalogBuilder;
 pub use model::{CatalogModel, LongContextPricing, ModelLimits, Pricing, SpeedPricing, SpeedRates};
+pub use offering::Offering;
 pub use provider::{
     AdapterId, AuthScheme, CatalogProvider, CodecId, Metadata, MetadataError, ModelHandle, ModelId,
     ProviderId, adapter_ids, codec_ids,

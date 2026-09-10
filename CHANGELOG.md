@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Catalog queries. `Offering` is the borrowed provider-and-model pair a listing
+  or a picker works with; `ResolvedRoute` stays the owned form a request
+  carries. `Catalog` gains `enabled_providers` (priority order),
+  `listed_providers` (enabled and not a stand-in), `enabled_provider`,
+  `enabled_provider_ids`, `offerings_matching` (ranked as the resolver ranks),
+  `is_model_selector`, `canonical_model_id`, `default_offering_for` and
+  `small_default_for` (over a set of ready providers), and `estimate_cost` by
+  model handle. `CatalogProvider` gains `offering`, `offerings`,
+  `default_offering`, `probe_offering`, and `closest_offering` (same tool,
+  image, and reasoning support, nearest input price). Every query skips
+  disabled providers.
+
 - Provider readiness. `credentials::readiness` resolves a set of providers once
   and separates the ones that resolved from the ones whose stored material
   cannot be used; a store that holds nothing for a provider is silence, not an
