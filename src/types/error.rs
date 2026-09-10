@@ -413,8 +413,8 @@ impl From<Error> for ErrorData {
 /// The same readers [`Error`] has, so code that classifies a failure can take
 /// either the live error or its stored projection.
 impl ErrorData {
-    pub fn kind(&self) -> &ErrorKind {
-        &self.kind
+    pub fn kind(&self) -> ErrorKind {
+        self.kind.clone()
     }
 
     pub fn message(&self) -> &str {
@@ -762,7 +762,7 @@ mod tests {
         let error = sample_error();
         let data = error.data();
         assert_eq!(data.to_string(), error.to_string());
-        assert_eq!(data.kind(), &error.kind());
+        assert_eq!(data.kind(), error.kind());
         assert_eq!(data.message(), error.message());
         assert_eq!(data.provider(), error.provider());
         assert_eq!(data.status(), error.status());
