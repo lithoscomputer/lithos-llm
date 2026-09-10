@@ -196,7 +196,7 @@ mod tests {
     use crate::catalog::{AuthScheme, Metadata, ProviderId};
     #[cfg(feature = "builtin-catalog")]
     use crate::types::Speed;
-    use crate::types::{ResponseFormat, ToolChoice};
+    use crate::types::{ReasoningEffort, ResponseFormat, ToolChoice};
 
     /// The agent profiles a catalog row may name under `metadata.agent`.
     ///
@@ -825,6 +825,26 @@ mod tests {
         );
         assert!(k3.protocol_options().reasoning_effort_levels);
         assert!(!k3.capabilities().sampling().is_supported());
+        // Official docs and the live listing agree on the three levels K3
+        // accepts; the same row is served on Fireworks, OpenRouter, and
+        // Venice, so every copy claims the same levels.
+        for provider in ["moonshot", "fireworks", "openrouter", "venice"] {
+            let capabilities = catalog.model(provider, "kimi-k3")?.capabilities();
+            for (effort, expected) in [
+                (ReasoningEffort::Minimal, false),
+                (ReasoningEffort::Low, true),
+                (ReasoningEffort::Medium, false),
+                (ReasoningEffort::High, true),
+                (ReasoningEffort::Xhigh, false),
+                (ReasoningEffort::Max, true),
+            ] {
+                assert_eq!(
+                    capabilities.reasoning_effort(effort).is_supported(),
+                    expected,
+                    "{provider}/kimi-k3 {effort:?}"
+                );
+            }
+        }
 
         assert_eq!(k3.family(), Some("kimi-k3"));
         assert_eq!(

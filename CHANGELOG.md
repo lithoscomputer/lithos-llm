@@ -39,6 +39,11 @@ This project follows [Semantic Versioning](https://semver.org/).
   a client with a ChatGPT credential but no platform key still serves
   `openai/<model>` routes.
 
+- Kimi K3 declares its reasoning effort levels on every provider that serves
+  it: `low`, `high`, and `max` are supported, the rest are not. The levels
+  were `unknown` before, so a request for `medium` reached the provider and
+  failed there.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;

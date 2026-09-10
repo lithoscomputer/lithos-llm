@@ -49,7 +49,7 @@ display_name = "Kimi K3"
 aliases = ["kimi"]
 api_model = "kimi-k3"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
-capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3750000, output_usd_micros_per_million = 18750000, cached_input_usd_micros_per_million = 375000 }
 
