@@ -1,0 +1,142 @@
+# The OpenAI Codex deployment: OpenAI's ChatGPT-subscription access path,
+# verified live against `chatgpt.com/backend-api/codex` with a Codex CLI
+# credential on 2026-08-30. It speaks the same Responses protocol as the
+# platform `openai` provider with a different envelope and roster, so it is
+# its own provider row rather than an option on that one.
+#
+# Codex mode forces streaming, posts to the unversioned `<base>/responses`
+# path (the deployment's `/v1/responses` is an HTML 403), hoists system
+# messages into `instructions`, drops `temperature`, `top_p`, and
+# `max_output_tokens` with warnings, and reports no native token count (the
+# deployment serves no `/responses/input_tokens`). The seat served the GPT-5
+# roster minus the pro rows (gpt-5.5-pro and gpt-5.4-pro answer 400 "not
+# supported when using Codex with a ChatGPT account", as do older ids),
+# rejected `stop` like the platform API, spelled error detail as `detail`
+# (handled in transport::classify), and sent a terminal `response.completed`
+# whose `output` array was empty; the streamed items were the only content.
+# Astra's Codex-deployment availability is not yet verified.
+#
+# Differences from the platform rows, all observed live:
+#
+# - `temperature`, `max_output_tokens`, and `stop` are rejected outright
+#   ("Unsupported parameter"), so no row claims sampling.
+# - Requests are seat-billed: there is no per-token price, so the rows carry
+#   no pricing and a response carries no cost estimate.
+# - No speed tiers: `service_tier` is accepted but silently ignored on a
+#   seat, so no row prices one and the local gate refuses fast/economical.
+# - Caching stays unclaimed: usage reports the same cache buckets as the
+#   platform (`cache_write_tokens` included), but `prompt_cache_key` routing
+#   is unprobed on this deployment.
+#
+# Authentication is a ChatGPT OAuth access token as the bearer secret plus
+# the seat's `ChatGPT-Account-Id` header, both per-user application state,
+# so no environment convention resolves them; the application's credential
+# provider supplies both. The deployment also expects every client to name
+# itself in an `originator` header, which `ClientBuilder::application` sets.
+#
+# This provider stands in for `openai`: a client that holds a ChatGPT
+# credential but no platform API key still serves `openai/<model>` routes
+# through the seat. The live cells are `tests/e2e/openai/codex.rs`, gated on
+# `OPENAI_CODEX_TOKEN` and `CHATGPT_ACCOUNT_ID`.
+
+schema_version = 1
+
+[providers.openai-codex]
+display_name = "OpenAI (ChatGPT)"
+adapter = "openai"
+codec = "openai-responses"
+base_url = "https://chatgpt.com/backend-api/codex"
+# Just below the platform provider, so a bare model selector both serve
+# prefers the platform when both have adapters.
+priority = 89
+allow_passthrough = true
+stands_in_for = "openai"
+default_model = "gpt-5.6-sol"
+adapter_options = { mode = "codex" }
+
+[providers.openai-codex.auth]
+type = "bearer"
+
+# The agent profile for this provider's models; a model row overrides it.
+[providers.openai-codex.metadata.agent]
+profile = "openai"
+
+[providers.openai-codex.models."gpt-5.6-sol"]
+display_name = "GPT-5.6 Sol"
+aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
+api_model = "gpt-5.6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+family = "gpt-5"
+training_cutoff = "2026-02-16"
+knowledge_cutoff = "February 16, 2026"
+
+[providers.openai-codex.models."gpt-5.6-sol".metadata.agent]
+profile = "gpt56"
+
+[providers.openai-codex.models."gpt-5.6-terra"]
+display_name = "GPT-5.6 Terra"
+aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
+api_model = "gpt-5.6-terra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+family = "gpt-5"
+training_cutoff = "2026-02-16"
+knowledge_cutoff = "February 16, 2026"
+
+[providers.openai-codex.models."gpt-5.6-terra".metadata.agent]
+profile = "gpt56"
+
+[providers.openai-codex.models."gpt-5.6-luna"]
+display_name = "GPT-5.6 Luna"
+aliases = ["luna", "gpt-luna", "gpt56-luna", "gpt-56-luna"]
+api_model = "gpt-5.6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+family = "gpt-5"
+training_cutoff = "2026-02-16"
+knowledge_cutoff = "February 16, 2026"
+
+[providers.openai-codex.models."gpt-5.6-luna".metadata.agent]
+profile = "gpt56"
+
+[providers.openai-codex.models."gpt-5.4"]
+display_name = "GPT-5.4"
+aliases = ["gpt54", "gpt-54", "gpt-5.2", "gpt5", "gpt-5.3-codex", "codex"]
+api_model = "gpt-5.4"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+family = "gpt-5"
+training_cutoff = "2025-08-31"
+knowledge_cutoff = "August 31, 2025"
+estimated_output_tps = 70
+
+[providers.openai-codex.models."gpt-5.5"]
+display_name = "GPT-5.5"
+aliases = ["gpt55", "gpt-55"]
+api_model = "gpt-5.5"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+family = "gpt-5"
+training_cutoff = "2025-12-01"
+knowledge_cutoff = "December 2025"
+estimated_output_tps = 70
+
+[providers.openai-codex.models."gpt-5.4-mini"]
+display_name = "GPT-5.4 Mini"
+aliases = ["gpt54-mini", "gpt-54-mini", "gpt-5.3-codex-spark", "codex-spark"]
+api_model = "gpt-5.4-mini"
+limits = { context_tokens = 400000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+family = "gpt-5"
+training_cutoff = "2025-08-31"
+knowledge_cutoff = "August 31, 2025"
+estimated_output_tps = 140
+small_default = true
+probe = true

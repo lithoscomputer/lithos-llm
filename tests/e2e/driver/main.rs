@@ -20,9 +20,8 @@ use lithos_llm::catalog::{
 };
 use lithos_llm::client::ClientBuildError;
 use lithos_llm::credentials::{
-    CredentialHeader, CredentialProvider, Credentials, EnvironmentCredentials,
-    EnvironmentCredentialsBuilder, HttpAuthentication, NoCredentials, SecretValue,
-    StaticCredentials,
+    ConventionalCredentials, ConventionalCredentialsBuilder, CredentialHeader, CredentialProvider,
+    Credentials, HttpAuthentication, NoCredentials, SecretValue, StaticCredentials,
 };
 use lithos_llm::estimate::{EstimateWarning, request_tokens};
 use lithos_llm::middleware::{
@@ -913,12 +912,12 @@ async fn exercise_credentials(exercise: CredentialsExercise) -> Result<Value, Bo
     let catalog = Catalog::builder()
         .toml_layer("credentials", &source)?
         .build()?;
-    let mut builder = EnvironmentCredentials::builder();
+    let mut builder = ConventionalCredentials::builder();
     for operation in exercise.operations {
         builder = apply_credential_operation(builder, operation);
     }
     let environment = builder.build();
-    let conventional = EnvironmentCredentials::conventional();
+    let conventional = ConventionalCredentials::new();
     let mut results = Vec::new();
     for resolution in exercise.resolutions {
         let (provider_name, result) = match resolution {
@@ -982,9 +981,9 @@ async fn exercise_credentials(exercise: CredentialsExercise) -> Result<Value, Bo
 }
 
 fn apply_credential_operation(
-    builder: EnvironmentCredentialsBuilder,
+    builder: ConventionalCredentialsBuilder,
     operation: CredentialOperation,
-) -> EnvironmentCredentialsBuilder {
+) -> ConventionalCredentialsBuilder {
     match operation {
         CredentialOperation::Bearer { provider, variable } => builder.bearer(provider, variable),
         CredentialOperation::Header {
@@ -1084,7 +1083,7 @@ async fn count(catalog_path: &Path, request: Request) -> Result<Value, Box<dyn S
         .build()?;
     let build = Client::builder()
         .catalog(catalog)
-        .credentials(EnvironmentCredentials::conventional())
+        .credentials(ConventionalCredentials::new())
         .build()?;
     match build.client.count_input_tokens(request).await {
         Ok(Some(count)) => Ok(json!({
@@ -1110,7 +1109,7 @@ async fn call(
         .build()?;
     let mut builder = Client::builder()
         .catalog(catalog)
-        .credentials(EnvironmentCredentials::conventional());
+        .credentials(ConventionalCredentials::new());
     if let Some(timeout_ms) = options.stream_idle_timeout_ms {
         builder = builder.stream_idle_timeout(Some(Duration::from_millis(timeout_ms)));
     }

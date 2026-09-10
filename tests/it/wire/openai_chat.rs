@@ -1250,7 +1250,7 @@ async fn streaming_always_asks_for_usage() {
 
 #[tokio::test]
 async fn streams_reasoning_text_and_interleaved_tool_calls() {
-    // INTENTIONAL DIFFERENCE from the reference implementation. Fabro emits no
+    // INTENTIONAL DIFFERENCE from the reference implementation, which emits no
     // reasoning stream events for this dialect at all: it accumulates
     // `delta.reasoning` and `delta.reasoning_content` silently and only
     // reveals them on the final response, so a caller streaming a reasoning

@@ -683,6 +683,33 @@ $ E2E_FIRST=first E2E_BEARER=bearer E2E_EXTRA=extra E2E_FALLBACK=fallback E2E_BE
       }
     },
     {
+      "provider": "unconfigured",
+      "result": {
+        "error": "credentials are not configured for provider unconfigured",
+        "source": null
+      }
+    },
+    {
+      "provider": "open",
+      "result": {
+        "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::None, extra_header_names: [] })",
+        "detail": {
+          "type": "http",
+          "auth": {
+            "type": "none"
+          },
+          "extra_headers": []
+        }
+      }
+    },
+    {
+      "provider": "acme",
+      "result": {
+        "error": "secret `ACME_API_KEY` for provider acme is unavailable",
+        "source": null
+      }
+    },
+    {
       "provider": "openai",
       "result": {
         "debug": "Credentials::Http(HttpCredentials { auth: HttpAuthentication::Bearer(<redacted>), extra_header_names: [] })",

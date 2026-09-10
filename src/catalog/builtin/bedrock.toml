@@ -9,16 +9,23 @@ aliases = ["aws-bedrock"]
 adapter = "bedrock"
 codec = "bedrock-converse"
 base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
-priority = 50
+# Below the direct providers and above the local ones: Bedrock is the route
+# for AWS shops, not a first choice when a direct key is present.
+priority = 20
 allow_passthrough = true
-default_model = "anthropic.claude-sonnet-4-6"
+# Sonnet 5 is the default everywhere else that serves it. The vendor-prefixed
+# `anthropic.claude-sonnet-4-6` row stays for the legacy id and the `us.`
+# inference-profile example.
+default_model = "claude-sonnet-5"
+# Opt-in: operators enable this provider in their own catalog overlay.
+enabled = false
 
 [providers.bedrock.auth]
 type = "aws"
 region = "us-east-1"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.bedrock.metadata.pebble]
+[providers.bedrock.metadata.agent]
 profile = "anthropic"
 
 [providers.bedrock.models."anthropic.claude-sonnet-4-6"]
@@ -32,9 +39,6 @@ capabilities = { text = true, images = true, documents = true, tools = true, rea
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
 
-[providers.bedrock.models."anthropic.claude-sonnet-4-6".metadata.pebble]
-profile = "claude-5"
-
 # Provisional Fabro import at 775b62b500c957fe319710fe34e6327ae1eb1bbf, 2026-09-05.
 # Account access, regions, capabilities and prices need live verification.
 # See docs/provider-live-tests.md. Effort is disabled until endpoint mappings
@@ -46,12 +50,7 @@ api_model = "us.anthropic.claude-opus-4-8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000 }
-
-[providers.bedrock.models."claude-opus-4-8".metadata.fabro]
 family = "claude-4"
-
-[providers.bedrock.models."claude-opus-4-8".metadata.pebble]
-profile = "anthropic"
 
 [providers.bedrock.models."claude-haiku-4-5"]
 display_name = "Claude Haiku 4.5 (Bedrock)"
@@ -59,13 +58,8 @@ api_model = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 capabilities = { text = true, images = true, tools = true, reasoning = false, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000 }
-
-[providers.bedrock.models."claude-haiku-4-5".metadata.fabro]
 family = "claude-4"
 small_default = true
-
-[providers.bedrock.models."claude-haiku-4-5".metadata.pebble]
-profile = "anthropic"
 
 [providers.bedrock.models."nova-2-lite"]
 display_name = "Nova 2 Lite (Bedrock)"
@@ -73,12 +67,9 @@ api_model = "global.amazon.nova-2-lite-v1:0"
 limits = { context_tokens = 1000000, max_output_tokens = 65535 }
 capabilities = { text = true, images = true, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 2500000 }
-
-[providers.bedrock.models."nova-2-lite".metadata.fabro]
 family = "nova-2"
-agent_profile = "openai"
 
-[providers.bedrock.models."nova-2-lite".metadata.pebble]
+[providers.bedrock.models."nova-2-lite".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."llama-4-maverick"]
@@ -86,12 +77,9 @@ display_name = "Llama 4 Maverick (Bedrock)"
 api_model = "us.meta.llama4-maverick-17b-instruct-v1:0"
 limits = { context_tokens = 1000000, max_output_tokens = 8192 }
 capabilities = { text = true, images = true, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
-
-[providers.bedrock.models."llama-4-maverick".metadata.fabro]
 family = "llama-4"
-agent_profile = "openai"
 
-[providers.bedrock.models."llama-4-maverick".metadata.pebble]
+[providers.bedrock.models."llama-4-maverick".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."mistral-large-3"]
@@ -100,12 +88,9 @@ api_model = "mistral.mistral-large-3-675b-instruct"
 limits = { context_tokens = 256000, max_output_tokens = 32768 }
 capabilities = { text = true, images = true, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 1500000 }
-
-[providers.bedrock.models."mistral-large-3".metadata.fabro]
 family = "mistral-large"
-agent_profile = "openai"
 
-[providers.bedrock.models."mistral-large-3".metadata.pebble]
+[providers.bedrock.models."mistral-large-3".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."devstral-2"]
@@ -113,12 +98,9 @@ display_name = "Devstral 2 (Bedrock)"
 api_model = "mistral.devstral-2-123b"
 limits = { context_tokens = 256000, max_output_tokens = 32768 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
-
-[providers.bedrock.models."devstral-2".metadata.fabro]
 family = "devstral"
-agent_profile = "openai"
 
-[providers.bedrock.models."devstral-2".metadata.pebble]
+[providers.bedrock.models."devstral-2".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."deepseek-v3.2"]
@@ -127,12 +109,9 @@ api_model = "deepseek.v3.2"
 limits = { context_tokens = 164000, max_output_tokens = 8192 }
 capabilities = { text = true, images = false, tools = true, reasoning = true, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 620000, output_usd_micros_per_million = 1850000 }
-
-[providers.bedrock.models."deepseek-v3.2".metadata.fabro]
 family = "deepseek-v3"
-agent_profile = "openai"
 
-[providers.bedrock.models."deepseek-v3.2".metadata.pebble]
+[providers.bedrock.models."deepseek-v3.2".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."kimi-k2.5"]
@@ -141,12 +120,9 @@ api_model = "moonshotai.kimi-k2.5"
 limits = { context_tokens = 262144, max_output_tokens = 16384 }
 capabilities = { text = true, images = true, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 600000, output_usd_micros_per_million = 3000000 }
-
-[providers.bedrock.models."kimi-k2.5".metadata.fabro]
 family = "kimi-k2"
-agent_profile = "openai"
 
-[providers.bedrock.models."kimi-k2.5".metadata.pebble]
+[providers.bedrock.models."kimi-k2.5".metadata.agent]
 profile = "kimi"
 
 [providers.bedrock.models."glm-5"]
@@ -155,12 +131,9 @@ api_model = "zai.glm-5"
 limits = { context_tokens = 200000, max_output_tokens = 128000 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 3200000 }
-
-[providers.bedrock.models."glm-5".metadata.fabro]
 family = "glm"
-agent_profile = "openai"
 
-[providers.bedrock.models."glm-5".metadata.pebble]
+[providers.bedrock.models."glm-5".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."minimax-m2.5"]
@@ -169,12 +142,9 @@ api_model = "minimax.minimax-m2.5"
 limits = { context_tokens = 196000, max_output_tokens = 8192 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000 }
-
-[providers.bedrock.models."minimax-m2.5".metadata.fabro]
 family = "minimax-m2"
-agent_profile = "openai"
 
-[providers.bedrock.models."minimax-m2.5".metadata.pebble]
+[providers.bedrock.models."minimax-m2.5".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."nemotron-3-super"]
@@ -182,12 +152,9 @@ display_name = "Nemotron 3 Super (Bedrock)"
 api_model = "nvidia.nemotron-super-3-120b"
 limits = { context_tokens = 256000, max_output_tokens = 32768 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
-
-[providers.bedrock.models."nemotron-3-super".metadata.fabro]
 family = "nemotron-3"
-agent_profile = "openai"
 
-[providers.bedrock.models."nemotron-3-super".metadata.pebble]
+[providers.bedrock.models."nemotron-3-super".metadata.agent]
 profile = "openai"
 
 [providers.bedrock.models."claude-fable-5"]
@@ -196,14 +163,11 @@ api_model = "us.anthropic.claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = "unknown", named = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000 }
-
-[providers.bedrock.models."claude-fable-5".metadata.fabro]
 family = "claude-5"
-agent_profile = "claude-5"
-reasoning_by_default = true
 
-[providers.bedrock.models."claude-fable-5".metadata.pebble]
+[providers.bedrock.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
+reasoning_by_default = true
 
 [providers.bedrock.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5 (Bedrock)"
@@ -213,11 +177,8 @@ capabilities = { text = true, images = true, tools = true, reasoning = true, cac
 # Standard rates after 2026-08-31: https://aws.amazon.com/bedrock/pricing/
 # The expired promotional cache rate is not carried forward.
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000 }
-
-[providers.bedrock.models."claude-sonnet-5".metadata.fabro]
 family = "claude-5"
-agent_profile = "claude-5"
-reasoning_by_default = true
 
-[providers.bedrock.models."claude-sonnet-5".metadata.pebble]
+[providers.bedrock.models."claude-sonnet-5".metadata.agent]
 profile = "claude-5"
+reasoning_by_default = true

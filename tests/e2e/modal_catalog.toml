@@ -19,10 +19,10 @@ codec = "openai-chat"
 base_url = "https://inference.us-west.modal.direct/v1"
 priority = 75
 allow_passthrough = true
+api_key_url = "https://modal.com/docs/guide/webhook-proxy-auth"
 
 [providers.modal.auth]
 type = "headers"
 
-[providers.modal.metadata.fabro]
-agent_profile = "kimi"
-api_key_url = "https://modal.com/docs/guide/webhook-proxy-auth"
+[providers.modal.metadata.agent]
+profile = "kimi"

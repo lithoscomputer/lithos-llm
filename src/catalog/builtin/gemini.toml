@@ -35,13 +35,14 @@ base_url = "https://generativelanguage.googleapis.com"
 priority = 80
 allow_passthrough = true
 default_model = "gemini-3.5-flash"
+api_key_url = "https://aistudio.google.com/apikey"
 
 [providers.gemini.auth]
 type = "header"
 name = "x-goog-api-key"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.gemini.metadata.pebble]
+[providers.gemini.metadata.agent]
 profile = "gemini"
 
 [providers.gemini.models."gemini-3.1-pro-preview"]
@@ -56,13 +57,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000 } }
-
-[providers.gemini.models."gemini-3.1-pro-preview".metadata.fabro]
 family = "gemini-3"
-training = "2025-01-01"
+training_cutoff = "2025-01-01"
 knowledge_cutoff = "January 2025"
 estimated_output_tps = 85
-api_key_url = "https://aistudio.google.com/apikey"
 
 [providers.gemini.models."gemini-3.1-pro-preview-customtools"]
 display_name = "Gemini 3.1 Pro Custom Tools Preview"
@@ -76,13 +74,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, long_context = { above_input_tokens = 200000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000 } }
-
-[providers.gemini.models."gemini-3.1-pro-preview-customtools".metadata.fabro]
 family = "gemini-3"
-training = "2025-01-01"
+training_cutoff = "2025-01-01"
 knowledge_cutoff = "January 2025"
 estimated_output_tps = 85
-api_key_url = "https://aistudio.google.com/apikey"
 
 [providers.gemini.models."gemini-3.5-flash"]
 display_name = "Gemini 3.5 Flash"
@@ -95,13 +90,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1500000, output_usd_micros_per_million = 9000000, cached_input_usd_micros_per_million = 150000 }
-
-[providers.gemini.models."gemini-3.5-flash".metadata.fabro]
 family = "gemini-3"
-training = "2025-01-01"
+training_cutoff = "2025-01-01"
 knowledge_cutoff = "January 2025"
 estimated_output_tps = 150
-api_key_url = "https://aistudio.google.com/apikey"
 
 [providers.gemini.models."gemini-3-flash-preview"]
 display_name = "Gemini 3 Flash Preview"
@@ -114,13 +106,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 3000000, cached_input_usd_micros_per_million = 50000 }
-
-[providers.gemini.models."gemini-3-flash-preview".metadata.fabro]
 family = "gemini-3"
-training = "2025-01-01"
+training_cutoff = "2025-01-01"
 knowledge_cutoff = "January 2025"
 estimated_output_tps = 150
-api_key_url = "https://aistudio.google.com/apikey"
 
 [providers.gemini.models."gemini-3.1-flash-lite"]
 display_name = "Gemini 3.1 Flash-Lite"
@@ -133,11 +122,8 @@ limits = { context_tokens = 1048576, max_output_tokens = 65536 }
 capabilities = { text = true, images = true, audio = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 250000, output_usd_micros_per_million = 1500000, cached_input_usd_micros_per_million = 25000 }
-
-[providers.gemini.models."gemini-3.1-flash-lite".metadata.fabro]
 family = "gemini-3"
-training = "2025-01-01"
+training_cutoff = "2025-01-01"
 knowledge_cutoff = "January 2025"
 estimated_output_tps = 200
 small_default = true
-api_key_url = "https://aistudio.google.com/apikey"

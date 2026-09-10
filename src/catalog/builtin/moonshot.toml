@@ -18,12 +18,13 @@ base_url = "https://api.moonshot.ai/v1"
 priority = 70
 allow_passthrough = true
 default_model = "kimi-k3"
+api_key_url = "https://platform.kimi.ai/console/api-keys"
 
 [providers.moonshot.auth]
 type = "bearer"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.moonshot.metadata.pebble]
+[providers.moonshot.metadata.agent]
 profile = "kimi"
 
 [providers.moonshot.models."kimi-k3"]
@@ -34,31 +35,24 @@ limits = { context_tokens = 1048576, max_output_tokens = 1048576 }
 # Official docs and the live listing agree that K3 always reasons and accepts
 # low, high, and max effort. Moonshot documents strict structured output and
 # fixes its sampling values, so sampling controls remain unclaimed.
-capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
-
-[providers.moonshot.models."kimi-k3".metadata.fabro]
-agent_profile = "kimi"
 family = "kimi-k3"
-api_key_url = "https://platform.kimi.ai/console/api-keys"
 
 # Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
 # https://platform.kimi.ai/docs/models
+
 [providers.moonshot.models."kimi-k2.5"]
 display_name = "Kimi K2.5"
 api_model = "kimi-k2.5"
 limits = { context_tokens = 262144, max_output_tokens = 32768 }
 capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 600000, output_usd_micros_per_million = 3000000, cached_input_usd_micros_per_million = 100000 }
-
-[providers.moonshot.models."kimi-k2.5".metadata.fabro]
 family = "kimi-k2"
-training = "2025-10-01"
+training_cutoff = "2025-10-01"
 knowledge_cutoff = "October 2025"
 estimated_output_tps = 50
-reasoning_by_default = true
 
-[providers.moonshot.models."kimi-k2.5".metadata.pebble]
-profile = "kimi"
+[providers.moonshot.models."kimi-k2.5".metadata.agent]
 reasoning_by_default = true

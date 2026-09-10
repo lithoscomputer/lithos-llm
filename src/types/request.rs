@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
+use std::str::FromStr;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -26,6 +28,51 @@ pub enum ReasoningEffort {
     Max,
 }
 
+impl ReasoningEffort {
+    /// Every level, from least to most reasoning.
+    pub const ALL: [Self; 6] = [
+        Self::Minimal,
+        Self::Low,
+        Self::Medium,
+        Self::High,
+        Self::Xhigh,
+        Self::Max,
+    ];
+
+    /// The canonical spelling, matching serialization and the catalog's
+    /// `capabilities.reasoning_effort` keys.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Minimal => "minimal",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+            Self::Xhigh => "xhigh",
+            Self::Max => "max",
+        }
+    }
+}
+
+impl fmt::Display for ReasoningEffort {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ReasoningEffort {
+    type Err = UnknownControlValue;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|effort| effort.as_str() == value)
+            .ok_or_else(|| UnknownControlValue {
+                control: "reasoning effort",
+                value:   value.to_owned(),
+            })
+    }
+}
+
 /// Requested latency or cost preference.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,14 +84,57 @@ pub enum Speed {
 }
 
 impl Speed {
-    /// The canonical catalog spelling, matching serialization.
-    #[cfg(feature = "runtime")]
-    pub(crate) fn as_str(self) -> &'static str {
+    /// Every tier, from fastest to cheapest.
+    pub const ALL: [Self; 3] = [Self::Fast, Self::Balanced, Self::Economical];
+
+    /// The canonical spelling, matching serialization and the catalog's
+    /// `capabilities.speed` and `pricing.speed` keys.
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Fast => "fast",
             Self::Balanced => "balanced",
             Self::Economical => "economical",
         }
+    }
+}
+
+impl fmt::Display for Speed {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl FromStr for Speed {
+    type Err = UnknownControlValue;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|speed| speed.as_str() == value)
+            .ok_or_else(|| UnknownControlValue {
+                control: "speed",
+                value:   value.to_owned(),
+            })
+    }
+}
+
+/// A request control was spelled in a way no variant matches.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[error("unknown {control} `{value}`")]
+pub struct UnknownControlValue {
+    control: &'static str,
+    value:   String,
+}
+
+impl UnknownControlValue {
+    /// The control that was being parsed, such as `reasoning effort`.
+    pub fn control(&self) -> &'static str {
+        self.control
+    }
+
+    /// The spelling that matched nothing.
+    pub fn value(&self) -> &str {
+        &self.value
     }
 }
 
@@ -559,9 +649,36 @@ mod tests {
 
     use serde_json::{Map, json};
 
-    use super::{ReasoningEffort, Request, RequestBuildError, RequestBuilder};
+    use super::{ReasoningEffort, Request, RequestBuildError, RequestBuilder, Speed};
     use crate::catalog::ProviderId;
     use crate::types::{ContentPart, ReasoningContent, ToolChoice, ToolDefinition};
+
+    #[test]
+    fn controls_round_trip_through_their_canonical_spelling() -> Result<(), Box<dyn StdError>> {
+        for effort in ReasoningEffort::ALL {
+            assert_eq!(effort.to_string().parse::<ReasoningEffort>()?, effort);
+            // The spelling is the serde spelling, so a value read from JSON
+            // and one parsed from a flag agree.
+            assert_eq!(
+                serde_json::to_value(effort)?,
+                serde_json::Value::String(effort.as_str().to_owned())
+            );
+        }
+        for speed in Speed::ALL {
+            assert_eq!(speed.to_string().parse::<Speed>()?, speed);
+            assert_eq!(
+                serde_json::to_value(speed)?,
+                serde_json::Value::String(speed.as_str().to_owned())
+            );
+        }
+        let error = "extreme"
+            .parse::<ReasoningEffort>()
+            .expect_err("no such level");
+        assert_eq!(error.control(), "reasoning effort");
+        assert_eq!(error.value(), "extreme");
+        assert_eq!(error.to_string(), "unknown reasoning effort `extreme`");
+        Ok(())
+    }
 
     #[test]
     fn signatures_are_checked_across_request_messages() -> Result<(), Box<dyn StdError>> {

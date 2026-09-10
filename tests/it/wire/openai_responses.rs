@@ -12,6 +12,7 @@
 //! body bytes, and what a caller observes coming back.
 
 use httpmock::{Method, MockServer};
+use lithos_llm::credentials::StaticCredentials;
 use lithos_llm::types::{
     ContentPart, DocumentContent, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
     ReasoningEffort, ResponseFormat, RetryClassification, Role, ToolCall, ToolChoice,
@@ -752,8 +753,56 @@ async fn codex_mode_streams_a_complete_call_and_drops_sampling_controls() {
     );
     assert_eq!(captured.body.get("top_p"), None);
     assert_eq!(response.text(), "Hello there.");
+    assert!(
+        !captured
+            .headers
+            .iter()
+            .any(|(name, _)| name == "originator"),
+        "a client with no application name sends no originator: {:?}",
+        captured.headers
+    );
     crate::json_snapshot!(captured);
     crate::json_snapshot!(response);
+}
+
+/// The Codex deployment expects every client to name itself in an
+/// `originator` header. The name comes from `ClientBuilder::application`,
+/// not from the catalog, because it identifies the caller rather than the
+/// provider.
+#[tokio::test]
+async fn codex_mode_names_the_application_in_the_originator_header() {
+    let server = MockServer::start_async().await;
+    let source = format!(
+        "{}\n[providers.\"{PROVIDER}\".adapter_options]\nmode = \"codex\"\n",
+        provider().toml(&server.base_url())
+    );
+    let build = Client::builder()
+        .catalog(support::catalog_from_toml("wire-codex", &source))
+        .credentials(StaticCredentials::new().with(PROVIDER, support::bearer_credentials()))
+        .application("wire-tests")
+        .build()
+        .expect("the codex client should build");
+    assert!(build.issues.is_empty(), "{:?}", build.issues);
+    let completed =
+        json!({ "type": "response.completed", "response": text_document() }).to_string();
+    let transcript = support::sse_transcript(&[("response.completed", &completed)]);
+    let (_mock, slot) = support::mount_capture_sse(&server, "/responses", &transcript);
+
+    build
+        .client
+        .complete(support::sampling_request(&selector()))
+        .await
+        .expect("the codex call should complete");
+
+    let captured = support::captured(&slot);
+    assert!(
+        captured
+            .headers
+            .iter()
+            .any(|(name, value)| name == "originator" && value == "wire-tests"),
+        "{:?}",
+        captured.headers
+    );
 }
 
 /// A codex-mode client for the dialect tests below.

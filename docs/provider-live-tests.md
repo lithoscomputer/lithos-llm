@@ -1,8 +1,6 @@
-# TODO: Live tests for providers imported from Fabro
+# TODO: Live tests for imported providers
 
-Imported on 2026-09-05 from Fabro commit
-`775b62b500c957fe319710fe34e6327ae1eb1bbf`, under
-`lib/foundation/fabro-model/src/catalog/providers/`.
+Imported on 2026-09-05 from an application catalog that predates lithos.
 
 All eight provider entries are translated into Lithos's catalog. Local mock
 HTTP tests cover their request paths, model IDs, authentication shapes, and
@@ -18,20 +16,20 @@ remain provisional unless a catalog comment identifies a documentation correctio
   `/chat/completions` to its `/api/coding/paas/v4` root without adding `/v1`.
   Other compatible providers retain the existing versioned-path behavior.
 - USD per million tokens becomes integer USD micros per million tokens.
-  Fabro application fields remain in `metadata.fabro`. Each provider supplies
-  `metadata.pebble.profile = "openai"`.
+  The agent profile lives in the shared `metadata.agent` namespace. Each provider supplies
+  `metadata.agent.profile`, `"openai"` for OpenAI-compatible providers.
 - Unverified forced-tool and structured-output support is `"unknown"`.
   Lithos permits these requests so the live tests can establish support.
-- Fabro's `enabled = false` has no catalog equivalent. Applications preserve
-  opt-in policy with `ClientBuilder::enabled_providers`. Catalog presence does
-  not check account access or service availability.
+- A provider that needs deployment-specific setup ships `enabled = false`;
+  an overlay turns it on with `enabled = true`. Catalog presence does not
+  check account access or service availability.
 - LiteLLM and Ollama have no universal model roster or default. Select an
   actual deployment or installed model with a qualified selector. Add model
   limits, capabilities, and pricing through an application catalog overlay.
 - Ollama needs no authentication. Its local compute cost belongs to the
   application. A passthrough route has unknown cost, not a fabricated zero rate.
   Set explicit zero token rates on an overlay model if that is the desired policy.
-- The Fabro server gateway remains a Fabro-owned adapter. Its application auth
+- An application's own gateway adapter stays in that application. Its auth
   and server protocol do not belong in this provider-neutral catalog import.
 
 ## TODO for every provider
@@ -63,7 +61,7 @@ These probes do not replace the full suite.
   counters, output reasoning accounting, and low/high/max effort on both models.
   Check that medium/xhigh map to high and sampling is ignored in thinking mode.
   The current [thinking-mode documentation](https://api-docs.deepseek.com/guides/thinking_mode/)
-  replaces Fabro's older restriction of Pro to high/max.
+  replaces the source catalog's older restriction of Pro to high/max.
 - [ ] **Inception** — `INCEPTION_API_KEY`; `mercury-2`.
   Verify ordinary append-only SSE and usage. The optional diffusion mode may
   revise earlier text and needs separate evaluation before use with our delta
@@ -110,7 +108,7 @@ operations for every row, native usage buckets, cache placement, and rejection
 of unmapped effort. Receiving reasoning does not enable an effort control.
 All imported rows explicitly reject portable effort until the endpoint mapping
 has been established. Claude 5 also rejects sampling controls before dispatch.
-Prices copied from Fabro remain provisional regional estimates. Missing prices
+Prices copied from the source catalog remain provisional regional estimates. Missing prices
 and cache-write rates stay unknown.
 
 - [ ] `claude-opus-4-8`: verify the US inference profile, tools and cache buckets.
@@ -150,18 +148,18 @@ Four rows are imported provisionally:
 
 - [ ] OpenRouter `kimi-k2.6`: verify images, reasoning, structured output, cache
       reads and tools. The [current model page](https://openrouter.ai/moonshotai/kimi-k2.6)
-      corrects Fabro's text-only claim, output cap and prices. Router prices
+      corrects the source catalog's text-only claim, output cap and prices. Router prices
       vary with the selected upstream; the row records the displayed estimate.
 - [ ] OpenRouter `nemotron-3-super-120b-a12b`: verify tools, reasoning behavior
       and limits. The [model page](https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b)
       supports the route and updates the displayed input/output rates.
 - [ ] Fireworks `minimax-m2.7`: verify tools, reasoning exposure and caching.
       The [model page](https://fireworks.ai/models/fireworks/minimax-m2p7) lists
-      serverless support and agrees with Fabro's wire ID and token prices.
+      serverless support and agrees with the source catalog's wire ID and token prices.
 - [ ] Moonshot `kimi-k2.5`: verify current account availability, thinking/tool
       replay, images, caching and fixed sampling. The
       [model documentation](https://platform.kimi.ai/docs/models) lists K2.5;
-      Fabro's limits and prices remain provisional. K3 remains the default.
+      The source catalog's limits and prices remain provisional. K3 remains the default.
 
 GPT-OSS was dropped from the catalog and parity scope at user request on
 2026-09-05. This covers both sizes on Bedrock and Fireworks. The four source
@@ -172,7 +170,7 @@ check codec behavior against the recorded responses.
 ## Modal deployment mapping
 
 - [ ] Configure either the dedicated endpoint or shared-router
-      [template](model-parity.md#modal-deployment) with the real endpoint and
+      [template](catalogs/modal-shared.toml) with the real endpoint and
       accepted model ID. Verify proxy-token access and both response paths.
 - [ ] Verify Kimi K3 images, tools, adaptive reasoning, low/high/max effort,
       sampling restrictions, cache usage, limits and deployment prices.

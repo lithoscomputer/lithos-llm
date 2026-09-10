@@ -6,6 +6,72 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: the catalog owns the facts applications used to keep under
+  `metadata.fabro`. Model rows gain optional `family`, `training_cutoff`,
+  `knowledge_cutoff`, and `estimated_output_tps`, plus `small_default` and
+  `probe` booleans that name the provider's model for cheap utility calls and
+  for connectivity probes. Provider rows gain optional `api_key_url`, a
+  `stands_in_for` provider the resolver reroutes to when the named provider
+  has no adapter, and `enabled` (default `true`). A disabled provider stays
+  visible in the catalog but builds no adapter and resolves no route; an
+  overlay turns it on with `enabled = true`. The built-in bedrock,
+  bedrock-openai, fireworks, litellm, modal, ollama, and openrouter providers
+  ship disabled because each needs deployment-specific setup.
+
+- The client builds no adapter for a catalog-disabled provider, reports no
+  issue for it, and `ClientBuilder::enabled_providers` can only narrow that
+  set. `CatalogResolver` refuses every route to a disabled provider with the
+  new `ModelSelectionError::ProviderDisabled`, skips it for the `default`
+  selector and bare model selectors, and reroutes an explicit or provider
+  default route onto the available provider that `stands_in_for` the one
+  asked for. `AvailableProviders::all` leaves disabled providers out.
+
+- Breaking: the `metadata.pebble` and `metadata.fabro` namespaces are gone
+  from the built-in catalog. Agent runtimes read one shared `metadata.agent`
+  namespace with `profile` and `reasoning_by_default`. Claude 4.x rows take
+  the `anthropic` profile and only Claude 5 rows take `claude-5`; Kimi rows
+  take `kimi` wherever they are served, including Bedrock.
+
+- Add the OpenAI Codex deployment as the built-in `openai-codex` provider.
+  It serves the platform GPT-5 roster minus the pro rows through
+  `chatgpt.com/backend-api/codex` in codex mode, carries no per-token
+  pricing because requests are seat-billed, and stands in for `openai`, so
+  a client with a ChatGPT credential but no platform key still serves
+  `openai/<model>` routes.
+
+- Kimi K3 declares its reasoning effort levels on every provider that serves
+  it: `low`, `high`, and `max` are supported, the rest are not. The levels
+  were `unknown` before, so a request for `medium` reached the provider and
+  failed there.
+
+- Bedrock defaults to `claude-sonnet-5` at priority 20, matching the other
+  providers that serve Sonnet 5 and placing Bedrock below the direct
+  providers as a fallback route rather than a first choice.
+
+- Add `ClientBuilder::application`, which names the calling application to
+  providers that expect a client to identify itself. The OpenAI adapter sends
+  it as the `originator` header in codex mode, so the name no longer has to
+  be written into the catalog as a default header. Custom adapters read it
+  through `AdapterContext::application`.
+
+- `ReasoningEffort` and `Speed` implement `Display` and `FromStr` using their
+  serde spelling, expose that spelling as `as_str`, and list every variant in
+  `ALL`, so applications stop keeping their own copies of the vocabulary for
+  flags and settings. A misspelling parses to `UnknownControlValue`.
+
+- Breaking: `EnvironmentCredentials` is now `ConventionalCredentials`. The
+  table of which named secrets each provider expects is the library's; where
+  a secret lives is the application's. `ConventionalCredentials::new()` reads
+  the process environment, `with_lookup` reads the same names from any other
+  store, `secret_names` lists a provider's names for install flows, and the
+  new `ChainedCredentials` tries several providers in order. A provider the
+  table does not list, such as one added through a catalog overlay, reads a
+  name derived from its id (`acme` reads `ACME_API_KEY`) shaped into its
+  `auth` scheme, so an application no longer declares where each custom
+  provider's key lives. The `CredentialError::Environment` variant becomes
+  `MissingSecret { provider, name }` with no source, since a store other than
+  the environment has no `VarError` to report.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;
@@ -43,8 +109,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Add 13 provisional Bedrock models with native Converse IDs, family profiles,
   limits, and prices. Reject unmapped effort controls and Claude 5 sampling.
-  Sonnet 5 uses standard post-promotion input/output prices; Sonnet 4.6 stays
-  the default. Each imported model has offline coverage and a live-test TODO.
+  Sonnet 5 uses standard post-promotion input/output prices and, as of the
+  catalog convergence above, is the default. Each imported model has offline coverage and a live-test TODO.
 
 - Preserve seven Fabro model selectors as catalog aliases. A pinned 99-route
   inventory verifies 94 built-in mappings, one Modal deployment mapping, and

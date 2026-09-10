@@ -25,6 +25,9 @@ codec = "openai-chat"
 base_url = "https://inference.us-west.modal.direct/v1"
 priority = 75
 allow_passthrough = true
+api_key_url = "https://modal.com/docs/guide/webhook-proxy-auth"
+# Opt-in: operators enable this provider in their own catalog overlay.
+enabled = false
 
 [providers.modal.auth]
 # Modal accepts either this separate proxy-token pair or the pair joined with
@@ -32,10 +35,7 @@ allow_passthrough = true
 # shape without constructing a new secret string.
 type = "headers"
 
-[providers.modal.metadata.fabro]
-agent_profile = "kimi"
-api_key_url = "https://modal.com/docs/guide/webhook-proxy-auth"
+[providers.modal.metadata.agent]
+profile = "kimi"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.modal.metadata.pebble]
-profile = "kimi"

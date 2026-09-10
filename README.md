@@ -43,13 +43,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
 `Client::from_env()` uses the built-in catalog, the default HTTP client, and
 conventional provider environment variables such as `OPENAI_API_KEY`.
 
+`ConventionalCredentials` is the table behind that: which named secrets each
+provider expects and how they shape into its authentication. Where a named
+secret lives is the application's decision. The default reads the process
+environment; `with_lookup` reads the same names from any other store, and
+`ChainedCredentials` tries several stores in order:
+
+```rust
+use lithos_llm::credentials::{ChainedCredentials, ConventionalCredentials};
+
+fn credentials(vault: impl Fn(&str) -> Option<String> + Send + Sync + 'static) -> ChainedCredentials {
+    ChainedCredentials::new()
+        .then(ConventionalCredentials::new().with_lookup(vault))
+        .then(ConventionalCredentials::new())
+}
+```
+
+`ConventionalCredentials::secret_names` lists the names a provider reads, so
+an install flow can tell an operator what to set and write under the first. A
+provider the table does not list reads a name derived from its id: a catalog
+overlay that adds `acme` with bearer auth is served by `ACME_API_KEY`.
+
 The catalog also includes provisional imports for DeepSeek, Inception, MiniMax,
 Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
 configuration notes, and pending live checks are in
 [provider live-test TODOs](docs/provider-live-tests.md).
 
-The [Fabro model parity guide](docs/model-parity.md) documents model mappings,
-the optional Fabro policy overlay, and Modal deployment templates. GPT-OSS
+Modal deployment templates live in [docs/catalogs](docs/catalogs). GPT-OSS
 models are excluded from the built-in catalog.
 
 Building a client returns a `ClientBuild`, which carries the client together
@@ -75,10 +95,14 @@ Closing blocks that precede any content are held until the terminal outcome.
 When the attempt or deadline budget prevents a retry, the partial response is
 returned with its original finish reason. `Length` does not trigger a retry.
 
-Use `ClientBuilder::http` to inject an application-configured
-`reqwest::Client`, and `ClientBuilder::enabled_providers` to build adapters for
-only the providers a deployment has configured. The complete catalog stays
-available for inspection either way.
+`ClientBuilder::application` names the calling application to providers that
+expect a client to identify itself; the OpenAI Codex deployment reads it from
+an `originator` header. Use `ClientBuilder::http` to inject an
+application-configured `reqwest::Client`, and `ClientBuilder::enabled_providers`
+to build adapters for only the providers a deployment has configured. That selection narrows the
+catalog; a provider the catalog marks `enabled = false` builds no adapter
+either way, and a catalog overlay is what turns it on. The complete catalog
+stays available for inspection.
 
 `Client::resolve_route` reports the provider and model a request would use
 without dispatching it, which is the same resolution `complete`, `stream`, and
@@ -405,6 +429,23 @@ errors, which matters when a catalog is assembled from several fragments.
 Unknown core provider and model fields are rejected. Application extensions
 belong under a namespaced `metadata` table, which Lithos preserves without
 interpreting.
+
+Provider rows carry routing facts (`adapter`, `codec`, `base_url`, `auth`,
+`priority`, `default_model`, `allow_passthrough`, `default_headers`,
+`adapter_options`, `default_options`) and offering policy: `enabled` (default
+`true`; a disabled provider stays in the catalog but builds no adapter and
+resolves no route), `stands_in_for` (a provider this one answers for when that
+provider has no adapter), and `api_key_url`. Model rows carry the wire id,
+limits, capabilities, protocol options, pricing, and display facts (`family`,
+`training_cutoff`, `knowledge_cutoff`, `estimated_output_tps`), plus
+`small_default` and `probe`, which name the provider's model for cheap utility
+calls and for connectivity probes. Built-in providers that need
+deployment-specific setup ship with `enabled = false`; an overlay turns one on:
+
+```toml
+[providers.openrouter]
+enabled = true
+```
 
 An application can supply its whole catalog and use none of the built-in
 entries. Building from external TOML never adds built-in providers implicitly;

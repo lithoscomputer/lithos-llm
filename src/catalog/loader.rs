@@ -193,16 +193,16 @@ mod tests {
 
     use super::{Catalog, CatalogError};
     #[cfg(feature = "builtin-catalog")]
-    use crate::catalog::{AuthScheme, Metadata};
+    use crate::catalog::{AuthScheme, Metadata, ProviderId};
     #[cfg(feature = "builtin-catalog")]
     use crate::types::Speed;
-    use crate::types::{ResponseFormat, ToolChoice};
+    use crate::types::{ReasoningEffort, ResponseFormat, ToolChoice};
 
-    /// The agent profiles a catalog row may name.
+    /// The agent profiles a catalog row may name under `metadata.agent`.
     ///
     /// An agent runtime picks one prompting and tool convention per route from
     /// this value, so an unknown string is a build failure there rather than a
-    /// fallback. The set matches fabro's `AgentProfileKind`.
+    /// fallback. Every consumer of the namespace shares this vocabulary.
     #[cfg(feature = "builtin-catalog")]
     const AGENT_PROFILES: [&str; 7] = [
         "anthropic",
@@ -241,10 +241,11 @@ mod tests {
         count:   u64,
     }
 
-    /// The `pebble` metadata namespace, read the way its application reads it.
+    /// The shared `agent` metadata namespace, read the way its consumers
+    /// read it.
     #[cfg(feature = "builtin-catalog")]
     #[derive(Debug, Deserialize)]
-    struct PebbleMetadata {
+    struct AgentMetadata {
         profile: Option<String>,
     }
 
@@ -252,8 +253,8 @@ mod tests {
     #[cfg(feature = "builtin-catalog")]
     fn agent_profile(metadata: &Metadata) -> Result<Option<String>, Box<dyn StdError>> {
         Ok(metadata
-            .namespace::<PebbleMetadata>("pebble")?
-            .and_then(|pebble| pebble.profile))
+            .namespace::<AgentMetadata>("agent")?
+            .and_then(|agent| agent.profile))
     }
 
     #[test]
@@ -797,12 +798,11 @@ mod tests {
         assert!(modal.allows_passthrough());
         assert!(modal.default_model().is_none());
         assert_eq!(modal.models().len(), 0);
+        assert_eq!(agent_profile(modal.metadata())?.as_deref(), Some("kimi"));
+        assert!(!modal.is_enabled(), "modal ships as an opt-in provider");
         assert_eq!(
-            modal
-                .metadata()
-                .get("fabro")
-                .and_then(|value| value["agent_profile"].as_str()),
-            Some("kimi")
+            modal.api_key_url(),
+            Some("https://modal.com/docs/guide/webhook-proxy-auth")
         );
         Ok(())
     }
@@ -825,12 +825,32 @@ mod tests {
         );
         assert!(k3.protocol_options().reasoning_effort_levels);
         assert!(!k3.capabilities().sampling().is_supported());
+        // Official docs and the live listing agree on the three levels K3
+        // accepts; the same row is served on Fireworks, OpenRouter, and
+        // Venice, so every copy claims the same levels.
+        for provider in ["moonshot", "fireworks", "openrouter", "venice"] {
+            let capabilities = catalog.model(provider, "kimi-k3")?.capabilities();
+            for (effort, expected) in [
+                (ReasoningEffort::Minimal, false),
+                (ReasoningEffort::Low, true),
+                (ReasoningEffort::Medium, false),
+                (ReasoningEffort::High, true),
+                (ReasoningEffort::Xhigh, false),
+                (ReasoningEffort::Max, true),
+            ] {
+                assert_eq!(
+                    capabilities.reasoning_effort(effort).is_supported(),
+                    expected,
+                    "{provider}/kimi-k3 {effort:?}"
+                );
+            }
+        }
 
-        let fabro = k3
-            .metadata()
-            .get("fabro")
-            .ok_or("Kimi K3 should preserve fabro metadata")?;
-        assert_eq!(fabro["family"], "kimi-k3");
+        assert_eq!(k3.family(), Some("kimi-k3"));
+        assert_eq!(
+            moonshot.api_key_url(),
+            Some("https://platform.kimi.ai/console/api-keys")
+        );
         Ok(())
     }
 
@@ -903,12 +923,76 @@ mod tests {
                 .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
             Some((400_000, 128_000))
         );
-        let fabro = mini
-            .metadata()
-            .get("fabro")
-            .ok_or("gpt-5.4-mini should preserve fabro metadata")?;
-        assert_eq!(fabro["probe"], true);
-        assert_eq!(fabro["small_default"], true);
+        assert!(mini.is_probe());
+        assert!(mini.is_small_default());
+        assert_eq!(mini.family(), Some("gpt-5"));
+        assert_eq!(mini.training_cutoff(), Some("2025-08-31"));
+        assert_eq!(mini.knowledge_cutoff(), Some("August 31, 2025"));
+        assert_eq!(mini.estimated_output_tps(), Some(140.0));
+        assert!(
+            !catalog.model("openai", "gpt-5.5")?.is_probe(),
+            "only the mini row is the probe model"
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_codex_provider_mirrors_the_platform_roster() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let codex = catalog.provider("openai-codex")?;
+        assert!(codex.is_enabled());
+        assert_eq!(
+            codex.stands_in_for().map(ProviderId::as_str),
+            Some("openai")
+        );
+        assert_eq!(codex.default_model(), Some("gpt-5.6-sol"));
+        assert!(codex.allows_passthrough());
+        assert!(codex.priority() < catalog.provider("openai")?.priority());
+        assert_eq!(
+            codex.adapter_options()["mode"].as_str(),
+            Some("codex"),
+            "the codex adapter mode selects the deployment's dialect"
+        );
+
+        // The platform roster minus the pro rows, under the same ids and
+        // aliases so a stand-in route resolves the same selector.
+        let platform = catalog.provider("openai")?;
+        let mut expected: Vec<_> = platform
+            .models()
+            .map(|model| model.id().as_str())
+            .filter(|id| !id.ends_with("-pro") && *id != "gpt-6-astra")
+            .collect();
+        expected.sort_unstable();
+        let mut actual: Vec<_> = codex.models().map(|model| model.id().as_str()).collect();
+        actual.sort_unstable();
+        assert_eq!(actual, expected);
+        for model in codex.models() {
+            let twin = platform
+                .model(model.id().as_str())
+                .ok_or_else(|| format!("{} should exist on the platform", model.id()))?;
+            assert_eq!(model.aliases(), twin.aliases(), "{}", model.id());
+            assert_eq!(model.limits(), twin.limits(), "{}", model.id());
+            assert_eq!(model.family(), twin.family(), "{}", model.id());
+            // Seat-billed: no per-token price, no sampling, no speed tiers.
+            assert!(model.pricing().is_none(), "{}", model.id());
+            assert!(
+                !model.capabilities().sampling().is_supported(),
+                "{}",
+                model.id()
+            );
+            assert!(
+                !model.capabilities().speed(Speed::Fast).is_supported(),
+                "{}",
+                model.id()
+            );
+        }
+        assert_eq!(
+            catalog.model("openai-codex", "sol")?.api_model(),
+            "gpt-5.6-sol"
+        );
+        assert!(catalog.model("openai-codex", "gpt-5.4-mini")?.is_probe());
         Ok(())
     }
 
@@ -985,6 +1069,11 @@ mod tests {
 
         // Bedrock on-demand access needs the `us.` inference profile, and the
         // model caches, which the codec gates on.
+        assert_eq!(
+            catalog.provider("bedrock")?.default_model(),
+            Some("claude-sonnet-5")
+        );
+        assert_eq!(catalog.provider("bedrock")?.priority(), 20);
         let bedrock = catalog.model("bedrock", "anthropic.claude-sonnet-4-6")?;
         assert_eq!(bedrock.api_model(), "us.anthropic.claude-sonnet-4-6");
         assert!(bedrock.capabilities().caching().is_supported());
@@ -1009,7 +1098,9 @@ mod tests {
         let catalog = Catalog::builder().with_builtin().build()?;
 
         // The Anthropic provider row carries the profile a passthrough model
-        // gets; every catalogued Claude row names the current one instead.
+        // and every Claude 4.x row get; the Claude 5 rows name the current
+        // harness instead, because that profile is scoped to the models
+        // trained against it.
         assert_eq!(
             agent_profile(catalog.provider("anthropic")?.metadata())?.as_deref(),
             Some("anthropic")
@@ -1017,6 +1108,20 @@ mod tests {
         assert_eq!(
             agent_profile(catalog.model("anthropic", "sonnet")?.metadata())?.as_deref(),
             Some("claude-5")
+        );
+        assert_eq!(
+            agent_profile(catalog.model("anthropic", "claude-sonnet-4.6")?.metadata())?,
+            None
+        );
+        // Kimi is profiled per model wherever it is served, so a Kimi row on
+        // an Anthropic-profiled or OpenAI-profiled provider still says `kimi`.
+        assert_eq!(
+            agent_profile(catalog.model("bedrock", "kimi-k2.5")?.metadata())?.as_deref(),
+            Some("kimi")
+        );
+        assert_eq!(
+            agent_profile(catalog.model("openrouter", "kimi-k3")?.metadata())?.as_deref(),
+            Some("kimi")
         );
         assert_eq!(
             agent_profile(catalog.model("openai", "astra")?.metadata())?.as_deref(),
@@ -1160,10 +1265,7 @@ mod tests {
             xs.pricing().ok_or("prices")?.input_usd_micros_per_million,
             Some(100_000)
         );
-        assert_eq!(
-            xs.metadata().get("fabro").ok_or("metadata")?["small_default"],
-            true
-        );
+        assert!(xs.is_small_default());
         for provider in ["ollama", "litellm"] {
             let provider = catalog.provider(provider)?;
             assert!(provider.default_model().is_none());

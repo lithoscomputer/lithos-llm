@@ -28,12 +28,14 @@ base_url = "https://openrouter.ai/api/v1"
 priority = 25
 allow_passthrough = true
 default_model = "claude-sonnet-5"
+# Opt-in: operators enable this provider in their own catalog overlay.
+enabled = false
 
 [providers.openrouter.auth]
 type = "bearer"
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.openrouter.metadata.pebble]
+[providers.openrouter.metadata.agent]
 profile = "openai"
 
 # ---------- Anthropic via OpenRouter ----------
@@ -51,7 +53,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
 
-[providers.openrouter.models."claude-fable-5.1".metadata.pebble]
+[providers.openrouter.models."claude-fable-5.1".metadata.agent]
 profile = "claude-5"
 
 [providers.openrouter.models."claude-fable-5"]
@@ -63,7 +65,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
 
-[providers.openrouter.models."claude-fable-5".metadata.pebble]
+[providers.openrouter.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
 
 [providers.openrouter.models."claude-opus-5"]
@@ -75,7 +77,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
 
-[providers.openrouter.models."claude-opus-5".metadata.pebble]
+[providers.openrouter.models."claude-opus-5".metadata.agent]
 profile = "claude-5"
 
 [providers.openrouter.models."claude-sonnet-5"]
@@ -87,7 +89,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
 
-[providers.openrouter.models."claude-sonnet-5".metadata.pebble]
+[providers.openrouter.models."claude-sonnet-5".metadata.agent]
 profile = "claude-5"
 
 [providers.openrouter.models."claude-opus-4.8"]
@@ -99,8 +101,8 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
 
-[providers.openrouter.models."claude-opus-4.8".metadata.pebble]
-profile = "claude-5"
+[providers.openrouter.models."claude-opus-4.8".metadata.agent]
+profile = "anthropic"
 
 [providers.openrouter.models."claude-opus-4.7"]
 aliases = ["claude-opus-4-7"]
@@ -111,8 +113,8 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
 
-[providers.openrouter.models."claude-opus-4.7".metadata.pebble]
-profile = "claude-5"
+[providers.openrouter.models."claude-opus-4.7".metadata.agent]
+profile = "anthropic"
 
 [providers.openrouter.models."claude-sonnet-4.6"]
 aliases = ["claude-sonnet-4-6"]
@@ -123,8 +125,8 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
 
-[providers.openrouter.models."claude-sonnet-4.6".metadata.pebble]
-profile = "claude-5"
+[providers.openrouter.models."claude-sonnet-4.6".metadata.agent]
+profile = "anthropic"
 
 [providers.openrouter.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5 (via OpenRouter)"
@@ -135,8 +137,8 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 }
 
-[providers.openrouter.models."claude-haiku-4.5".metadata.pebble]
-profile = "claude-5"
+[providers.openrouter.models."claude-haiku-4.5".metadata.agent]
+profile = "anthropic"
 
 # ---------- OpenAI via OpenRouter ----------
 # The long-context rates start at 272k prompt tokens. The listing expresses
@@ -152,7 +154,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 } }
 
-[providers.openrouter.models."gpt-5.6-sol".metadata.pebble]
+[providers.openrouter.models."gpt-5.6-sol".metadata.agent]
 profile = "gpt56"
 
 [providers.openrouter.models."gpt-5.6-terra"]
@@ -164,7 +166,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 } }
 
-[providers.openrouter.models."gpt-5.6-terra".metadata.pebble]
+[providers.openrouter.models."gpt-5.6-terra".metadata.agent]
 profile = "gpt56"
 
 [providers.openrouter.models."gpt-5.6-luna"]
@@ -176,7 +178,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1800000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 } }
 
-[providers.openrouter.models."gpt-5.6-luna".metadata.pebble]
+[providers.openrouter.models."gpt-5.6-luna".metadata.agent]
 profile = "gpt56"
 
 [providers.openrouter.models."gpt-5.4"]
@@ -210,7 +212,7 @@ protocol_options = { reasoning_effort_levels = true }
 # no override in the >=200k tier, so the base write rate applies there too.
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 375000, long_context = { above_input_tokens = 199999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 375000 } }
 
-[providers.openrouter.models."gemini-3.1-pro-preview".metadata.pebble]
+[providers.openrouter.models."gemini-3.1-pro-preview".metadata.agent]
 profile = "gemini"
 
 [providers.openrouter.models."gemini-3.5-flash"]
@@ -221,7 +223,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1500000, output_usd_micros_per_million = 9000000, cached_input_usd_micros_per_million = 150000, cache_write_usd_micros_per_million = 83333 }
 
-[providers.openrouter.models."gemini-3.5-flash".metadata.pebble]
+[providers.openrouter.models."gemini-3.5-flash".metadata.agent]
 profile = "gemini"
 
 # ---------- Open-weights models ----------
@@ -250,9 +252,6 @@ capabilities = { text = true, tools = true, response_format = { json_object = tr
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 579420, output_usd_micros_per_million = 1158840, cached_input_usd_micros_per_million = 48285 }
 
-[providers.openrouter.models."deepseek-v4-pro".metadata.pebble]
-profile = "openai"
-
 [providers.openrouter.models."deepseek-v4-flash"]
 display_name = "DeepSeek V4 Flash"
 aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
@@ -262,18 +261,15 @@ capabilities = { text = true, tools = true, response_format = { json_object = tr
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 45000, output_usd_micros_per_million = 90000, cached_input_usd_micros_per_million = 9000 }
 
-[providers.openrouter.models."deepseek-v4-flash".metadata.pebble]
-profile = "openai"
-
 [providers.openrouter.models."kimi-k3"]
 display_name = "Kimi K3 (via OpenRouter)"
 api_model = "moonshotai/kimi-k3"
 limits = { context_tokens = 1048576, max_output_tokens = 943718 }
-capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
 
-[providers.openrouter.models."kimi-k3".metadata.pebble]
+[providers.openrouter.models."kimi-k3".metadata.agent]
 profile = "kimi"
 
 [providers.openrouter.models."laguna-s-2.1"]
@@ -374,12 +370,9 @@ api_model = "moonshotai/kimi-k2.6"
 limits = { context_tokens = 262144, max_output_tokens = 262144 }
 capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 510000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 100000 }
-
-[providers.openrouter.models."kimi-k2.6".metadata.fabro]
 family = "kimi-k2"
-agent_profile = "kimi"
 
-[providers.openrouter.models."kimi-k2.6".metadata.pebble]
+[providers.openrouter.models."kimi-k2.6".metadata.agent]
 profile = "kimi"
 
 # Provisional Fabro parity import, 2026-09-05; live checks are TODOs.
@@ -390,9 +383,4 @@ api_model = "nvidia/nemotron-3-super-120b-a12b"
 limits = { context_tokens = 1000000, max_output_tokens = 16384 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 85000, output_usd_micros_per_million = 400000 }
-
-[providers.openrouter.models."nemotron-3-super-120b-a12b".metadata.fabro]
 family = "nemotron-3"
-
-[providers.openrouter.models."nemotron-3-super-120b-a12b".metadata.pebble]
-profile = "openai"

@@ -23,8 +23,8 @@ fn catalog_declares_a_portable_passthrough_provider() -> TestResult {
     assert_eq!(
         provider
             .metadata()
-            .get("fabro")
-            .and_then(|value| value["agent_profile"].as_str()),
+            .get("agent")
+            .and_then(|value| value["profile"].as_str()),
         Some("kimi")
     );
     Ok(())

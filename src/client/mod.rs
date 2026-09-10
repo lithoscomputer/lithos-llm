@@ -26,7 +26,7 @@ use crate::catalog::{AdapterId, Catalog, CatalogError, ProviderId, adapter_ids};
         feature = "bedrock"
     )
 ))]
-use crate::credentials::EnvironmentCredentials;
+use crate::credentials::ConventionalCredentials;
 use crate::credentials::{CredentialProvider, NoCredentials};
 use crate::middleware::{Call, CallContext, CallGuard, Middleware, Operation, Output, Pipeline};
 use crate::providers::register_builtin;
@@ -98,7 +98,7 @@ impl Client {
             .map_err(|source| ClientBuildError::BuiltInCatalog { source })?;
         Self::builder()
             .catalog(catalog)
-            .credentials(EnvironmentCredentials::conventional())
+            .credentials(ConventionalCredentials::new())
             .build()
     }
 
@@ -279,6 +279,7 @@ pub struct ClientBuilder {
     middleware:          Vec<Arc<dyn Middleware>>,
     registry:            AdapterRegistry,
     enabled:             Option<BTreeSet<ProviderId>>,
+    application:         Option<String>,
 }
 
 impl Default for ClientBuilder {
@@ -297,6 +298,7 @@ impl Default for ClientBuilder {
             middleware: Vec::new(),
             registry,
             enabled: None,
+            application: None,
         }
     }
 }
@@ -354,6 +356,18 @@ impl ClientBuilder {
         self
     }
 
+    /// Names the application to providers that expect a client to identify
+    /// itself.
+    ///
+    /// The OpenAI Codex deployment expects every client to send an
+    /// `originator` header naming the calling application; its adapter sends
+    /// this value there. Other built-in adapters ignore it. Custom adapters
+    /// read it through [`AdapterContext::application`].
+    pub fn application(mut self, name: impl Into<String>) -> Self {
+        self.application = Some(name.into());
+        self
+    }
+
     /// Injects an application-configured HTTP client.
     ///
     /// Every built-in adapter uses this client. Without it the builder creates
@@ -396,7 +410,11 @@ impl ClientBuilder {
     ///
     /// Ids must be canonical [`ProviderId`] values; provider aliases are not
     /// accepted. The last call replaces any earlier selection. Without a
-    /// selection the builder attempts every provider in the catalog.
+    /// selection the builder attempts every enabled provider in the catalog.
+    ///
+    /// This selection narrows the catalog and never widens it: a provider the
+    /// catalog marks `enabled = false` builds no adapter even when named
+    /// here. Turn such a provider on with a catalog overlay instead.
     ///
     /// The client keeps the complete catalog either way, so unselected
     /// providers stay visible through [`Client::catalog`] even though they
@@ -449,7 +467,8 @@ impl ClientBuilder {
 
     /// Builds the client and reports every provider that could not be built.
     ///
-    /// Each enabled provider is attempted in catalog order. Successful
+    /// Each enabled provider is attempted in catalog order; a provider the
+    /// catalog disables is skipped without an issue. Successful
     /// adapters go to the client and provider-local failures go to
     /// [`ClientBuild::issues`] in that same order. A client with no available
     /// provider is a valid outcome. Credentials are never read here.
@@ -483,14 +502,19 @@ impl ClientBuilder {
         let context = AdapterContext::new(http, self.credentials)
             .with_stream_idle_timeout(self.stream_idle_timeout)
             .with_response_limits(self.policy.limits)
-            .with_retain_raw_response(self.policy.retain_raw);
+            .with_retain_raw_response(self.policy.retain_raw)
+            .with_application(self.application);
         let mut adapters = BTreeMap::new();
         let mut issues = Vec::new();
         for provider in catalog.providers() {
-            if self
-                .enabled
-                .as_ref()
-                .is_some_and(|enabled| !enabled.contains(provider.id()))
+            // A catalog-disabled provider builds no adapter, whether or not
+            // the application named it. `enabled_providers` narrows the
+            // catalog; it does not override the catalog.
+            if !provider.is_enabled()
+                || self
+                    .enabled
+                    .as_ref()
+                    .is_some_and(|enabled| !enabled.contains(provider.id()))
             {
                 continue;
             }
@@ -770,6 +794,35 @@ mod tests {
             .iter()
             .map(ToString::to_string)
             .collect()
+    }
+
+    #[test]
+    fn a_catalog_disabled_provider_builds_no_adapter() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .overlay_toml(TEST_CATALOG)?
+            .overlay_toml("[providers.beta]\nenabled = false\n")?
+            .build()?;
+        let factory = CountingFactory::default();
+        let build = Client::builder()
+            .catalog(catalog.clone())
+            .adapter_factory("alpha-adapter", factory.clone())
+            .adapter_factory("beta-adapter", factory.clone())
+            .adapter_factory("gamma-adapter", factory.clone())
+            .build()?;
+
+        assert!(build.issues.is_empty(), "disabled is not an issue");
+        assert_eq!(available_ids(&build.client), ["alpha", "gamma"]);
+        assert_eq!(factory.created.load(Ordering::SeqCst), 2);
+
+        // Naming it in the allow-list does not resurrect it.
+        let build = Client::builder()
+            .catalog(catalog)
+            .adapter_factory("beta-adapter", CountingFactory::default())
+            .enabled_providers(["beta"])
+            .build()?;
+        assert!(build.issues.is_empty());
+        assert!(available_ids(&build.client).is_empty());
+        Ok(())
     }
 
     #[test]

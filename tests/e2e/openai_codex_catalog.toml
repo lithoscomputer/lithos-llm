@@ -1,8 +1,7 @@
 # The Codex E2E catalog: OpenAI's ChatGPT-subscription access path, verified
 # live against `chatgpt.com/backend-api/codex` with a Codex CLI credential on
-# 2026-08-30. This is the overlay shape the built-in `openai.toml` header
-# documents; it has no built-in entry because the OAuth token and account id
-# are application state, not environment convention.
+# 2026-08-30. The built-in `openai-codex.toml` carries the same rows; this
+# standalone copy keeps the E2E suite pinned to what was verified.
 #
 # Differences from the platform catalog, all observed live:
 #
@@ -19,9 +18,8 @@
 # - Caching stays unclaimed: usage reports the same cache buckets as the
 #   platform (`cache_write_tokens` included), but `prompt_cache_key` routing
 #   is unprobed on this deployment.
-# - The `ChatGPT-Account-Id` and `originator` headers ride on
-#   `default_headers`; the account id is injected as a runtime overlay by
-#   the suite because it is per-user state.
+# - The `ChatGPT-Account-Id` header rides on `default_headers`, injected as
+#   a runtime overlay by the suite because it is per-user state.
 
 schema_version = 1
 

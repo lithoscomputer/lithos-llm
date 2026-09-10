@@ -173,6 +173,10 @@ fn bearer_prefix() -> String {
     "Bearer ".to_owned()
 }
 
+fn enabled_by_default() -> bool {
+    true
+}
+
 /// Parsing record whose models and provider identity are not yet validated.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -188,6 +192,12 @@ pub(super) struct ProviderRecord {
     priority:          i32,
     #[serde(default)]
     allow_passthrough: bool,
+    #[serde(default = "enabled_by_default", skip_serializing_if = "Clone::clone")]
+    enabled:           bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stands_in_for:     Option<ProviderId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    api_key_url:       Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     default_model:     Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -219,6 +229,12 @@ pub struct CatalogProvider {
     priority:          i32,
     #[serde(default)]
     allow_passthrough: bool,
+    #[serde(default = "enabled_by_default", skip_serializing_if = "Clone::clone")]
+    enabled:           bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    stands_in_for:     Option<ProviderId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    api_key_url:       Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     default_model:     Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -268,6 +284,34 @@ impl CatalogProvider {
 
     pub fn allows_passthrough(&self) -> bool {
         self.allow_passthrough
+    }
+
+    /// Whether the catalog offers this provider at all.
+    ///
+    /// A disabled provider stays in the catalog for inspection, but the
+    /// client builds no adapter for it and the resolver refuses every route
+    /// to it. Built-in providers that need deployment-specific setup ship
+    /// disabled; an application or operator overlay turns one on with
+    /// `enabled = true`.
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Another provider this one answers for when that provider is not
+    /// available.
+    ///
+    /// The resolver reroutes an explicit or default route for the named
+    /// provider onto this one when the named provider has no adapter. The
+    /// OpenAI Codex deployment stands in for `openai`, so a request for
+    /// `openai/gpt-5.6-sol` reaches the ChatGPT-subscription path when the
+    /// application holds an OAuth credential but no platform API key.
+    pub fn stands_in_for(&self) -> Option<&ProviderId> {
+        self.stands_in_for.as_ref()
+    }
+
+    /// Where an operator obtains an API key for this provider.
+    pub fn api_key_url(&self) -> Option<&str> {
+        self.api_key_url.as_deref()
     }
 
     pub fn default_model(&self) -> Option<&str> {
@@ -388,6 +432,11 @@ impl CatalogProvider {
                 model:    default_model.clone(),
             });
         }
+        if record.stands_in_for.as_ref() == Some(&id) {
+            return Err(CatalogError::StandsInForItself {
+                provider: id.clone(),
+            });
+        }
         Ok(Self {
             id,
             models,
@@ -399,6 +448,9 @@ impl CatalogProvider {
             auth: record.auth,
             priority: record.priority,
             allow_passthrough: record.allow_passthrough,
+            enabled: record.enabled,
+            stands_in_for: record.stands_in_for,
+            api_key_url: record.api_key_url,
             default_model: record.default_model,
             default_headers: record.default_headers,
             adapter_options: record.adapter_options,

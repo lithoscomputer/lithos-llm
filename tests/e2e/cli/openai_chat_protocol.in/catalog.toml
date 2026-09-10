@@ -1,6 +1,7 @@
 schema_version = 1
 
 [providers.openrouter]
+enabled = true
 base_url = "http://127.0.0.1:3931/v1"
 
 [providers.openrouter.models.fixture]

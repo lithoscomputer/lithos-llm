@@ -17,14 +17,12 @@ base_url = "https://api.inceptionlabs.ai/v1"
 priority = 40
 allow_passthrough = true
 default_model = "mercury-2"
+api_key_url = "https://console.inceptionlabs.ai/api-keys"
 
 [providers.inception.auth]
 type = "bearer"
 
-[providers.inception.metadata.fabro]
-api_key_url = "https://console.inceptionlabs.ai/api-keys"
-
-[providers.inception.metadata.pebble]
+[providers.inception.metadata.agent]
 profile = "openai"
 
 [providers.inception.models."mercury-2"]
@@ -35,7 +33,5 @@ limits = { context_tokens = 131072, max_output_tokens = 50000 }
 capabilities = { text = true, images = false, tools = true, reasoning = true, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = false, max = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 250000, output_usd_micros_per_million = 750000 }
-
-[providers.inception.models."mercury-2".metadata.fabro]
 family = "mercury"
 estimated_output_tps = 1000

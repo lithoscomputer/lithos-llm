@@ -155,10 +155,9 @@ fn provider_error() -> Error {
 fn credential_error() -> Error {
     Error::new(ErrorKind::Authentication, "credentials are unavailable")
         .with_provider(ProviderId::new("alpha"))
-        .with_source(CredentialError::Environment {
+        .with_source(CredentialError::MissingSecret {
             provider: ProviderId::new("alpha"),
-            variable: "ALPHA_API_KEY".to_owned(),
-            source:   env::VarError::NotPresent,
+            name:     "ALPHA_API_KEY".to_owned(),
         })
 }
 

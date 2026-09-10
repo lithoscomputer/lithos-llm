@@ -11,7 +11,7 @@ feeds.
 ## What you will produce
 
 1. `src/catalog/builtin/<provider>.toml` — the catalog rows.
-2. A `<PROVIDER>_API_KEY` entry in `EnvironmentCredentials::conventional()`
+2. A `<PROVIDER>_API_KEY` entry in `ConventionalCredentials::new()`
    (`src/credentials.rs`), with a test.
 3. Loader tests for provider-specific resolution and behavior
    (`src/catalog/loader.rs`).
@@ -21,16 +21,16 @@ feeds.
 6. A changelog entry, and comments in the catalog that record where each
    fact came from and the date you verified it.
 
-## Phase 1 — translate the fabro catalog
+## Phase 1 — translate the source catalog
 
-The source file is
-`~/p/fabro-sh/fabro/lib/foundation/fabro-model/src/catalog/providers/<provider>.toml`.
-Translate each row into the lithos-llm schema. Do not copy blindly: fabro
-is a starting claim, not the truth. Phase 2 verifies every fact.
+Start from whatever catalog the application already trusts for this
+provider. Translate each row into the lithos-llm schema. Do not copy
+blindly: the source is a starting claim, not the truth. Phase 2 verifies
+every fact.
 
 Field mapping:
 
-| fabro | lithos-llm |
+| source field | lithos-llm |
 | --- | --- |
 | `api_id` | `api_model` (defaults to the row id when absent) |
 | `limits.context_window` | `limits.context_tokens` |
@@ -46,34 +46,32 @@ Field mapping:
 | `costs.cache_input_cost_per_mtok` | `pricing.cached_input_usd_micros_per_million` |
 | `costs.speed.<name>` sub-tables | `pricing.speed` (`fast`/`balanced`/`economical` rates) |
 | `features.cache_control_breakpoints` | `capabilities.cache_breakpoints` |
-| `auth.credentials = ["env:NAME", ...]` | `auth` scheme + a `conventional()` env mapping |
+| `auth.credentials = ["env:NAME", ...]` | `auth` scheme + a `ConventionalCredentials` mapping |
 | `extra_headers` (non-secret values only) | `default_headers` |
 | `default = true` | provider `default_model` |
 | `aliases`, `priority`, `base_url` | same names |
 
-The full fabro schema lives in
-`~/p/fabro-sh/fabro/lib/foundation/fabro-model/src/catalog.rs`. Fields
-with no lithos-llm equivalent fall into two groups:
+Source fields with no lithos-llm equivalent fall into two groups:
 
 - **Drop**: `billing_policy` — its behavior came over, decomposed, so
   the knob itself is redundant: each codec normalizes its protocol's
   counters into disjoint token buckets at decode time, and the catalog
   prices each bucket at its own rate (`cache_write_usd_micros_per_million`
   carries Anthropic's cache-write premium; `pricing.long_context` and
-  `pricing.speed` carry the tiering). A fabro row with
+  `pricing.speed` carry the tiering). A source row with
   `billing_policy = "anthropic"` translates to cache-write and
   cached-input rates on the row, nothing more. Also drop
   `reasoning_by_default` (use it to decide which rows assert reasoning
   evidence in the E2E suite, then drop it), `enabled` (a lithos-llm
   provider is usable whenever credentials resolve).
-- **Preserve in `metadata`**: fields fabro's application layer reads but
-  the catalog does not act on — `agent_profile`, `family`, `training`,
-  `knowledge_cutoff`, `estimated_output_tps`, `probe`, `small_default`,
-  `api_key_url`. Put them under a `fabro` metadata namespace on the row.
-  The end goal is for fabro to consume this catalog instead of its own,
-  and these fields must survive the move.
+- **Core display and policy fields**: `family`, `training_cutoff`,
+  `knowledge_cutoff`, `estimated_output_tps`, `probe`, and `small_default`
+  on the model row; `api_key_url`, `enabled`, and `stands_in_for` on the
+  provider row. A source `agent_profile` becomes `metadata.agent.profile`
+  (see below). Anything else an application reads but the catalog does not
+  act on goes under that application's own metadata namespace.
 
-Fields lithos-llm has that fabro lacks: set `text = true` on every row;
+Fields lithos-llm has that a source catalog may lack: set `text = true` on every row;
 decide `structured_output`, `documents`, `audio`, and `cache_routing`
 from Phase 2 evidence, not from guesses. `forced_tool_choice` is the one
 capability that defaults to true: leave it alone unless the provider
@@ -89,25 +87,30 @@ into the top-level system field, which keeps the preserved-thinking prefix
 intact. A model that rejects the turn answers `role 'system' is not
 supported on this model`; leave the flag off and the codec hoists.
 
-Agent profile: give the provider row a `metadata.pebble.profile`, and give
+Agent profile: give the provider row a `metadata.agent.profile`, and give
 a model row its own value whenever the model's family differs from the
-provider default. An agent runtime picks one prompting and tool convention
+provider default. The `agent` namespace is shared by every agent runtime
+that consumes this catalog; each picks one prompting and tool convention
 per route from this value, and a route that resolves none is a build
-failure there, so a new provider without one breaks that application. The
-six values are `anthropic`, `claude-5`, `openai`, `gemini`, `kimi`, and
-`gpt56`; the profile follows the model, not the provider that serves it, so
-a Claude row on an OpenAI-compatible provider still says `claude-5`. Use
-the provider's own adapter family for the provider default: Anthropic and
-Bedrock `anthropic`, Gemini `gemini`, OpenAI and OpenAI-compatible
-`openai`. `every_builtin_row_resolves_a_known_agent_profile` in
+failure there, so a new provider without one breaks those applications.
+The seven values are `anthropic`, `claude-5`, `openai`, `gemini`, `kimi`,
+`gpt56`, and `gpt6`; the profile follows the model, not the provider that
+serves it, so a Claude 5 row on an OpenAI-compatible provider still says
+`claude-5` and a Kimi row on Bedrock still says `kimi`. `claude-5` is
+scoped to the Claude 5 models trained against that harness; Claude 4.x rows
+take `anthropic`. Use the provider's own adapter family for the provider
+default: Anthropic and Bedrock `anthropic`, Gemini `gemini`, OpenAI and
+OpenAI-compatible `openai`. A row that reasons without being asked, where
+its capabilities alone cannot say so, adds `reasoning_by_default = true`
+in the same namespace. `every_builtin_row_resolves_a_known_agent_profile` in
 `src/catalog/loader.rs` enforces the coverage.
 
-Roster policy: include every fabro row, then add any model another
+Roster policy: include every source row, then add any model another
 provider's lithos-llm roster carries that this provider also serves. For
 example, Venice's Claude and GPT rows belong on OpenRouter too if
 OpenRouter serves those models. The live listing in Phase 2 tells you.
 
-Catalog ids: keep the short id from fabro (`claude-opus-5`), and put the
+Catalog ids: keep the short human id (`claude-opus-5`), and put the
 provider's wire id in `api_model` (`anthropic/claude-opus-5`). Never put a
 `/` in a catalog model id: the resolver splits a request selector on the
 first `/`, so a bare id with a slash would be read as `provider/model`.
@@ -128,7 +131,7 @@ here is one red test you will not have to debug later.
    curl -sS <models-endpoint> -H "Authorization: Bearer $KEY" | jq '...'
    ```
 
-3. When fabro and the listing disagree, the listing wins. When the listing
+3. When the source and the listing disagree, the listing wins. When the listing
    and observed behavior disagree, behavior wins — listings lie. Venice's
    listing was wrong about reasoning-effort support in both directions.
    Record every conflict as a comment on the row, with the date.
@@ -227,14 +230,14 @@ tiny; a full run costs a few dollars.
 - [ ] The live run is green, or every remaining failure is a documented,
       dated pin with a repro report.
 - [ ] Every capability claim in the catalog was verified against live
-      behavior, and every conflict with fabro or the listing is a dated
+      behavior, and every conflict with the source or the listing is a dated
       comment.
 - [ ] Provider bugs are written up and handed off.
 - [ ] The changelog has an entry.
 
 ## Appendix: OpenRouter notes
 
-- Source: fabro's `openrouter.toml` — models across the claude, gpt,
+- Source: the application's `openrouter.toml` — models across the claude, gpt,
   gemini, deepseek, kimi, qwen, glm, minimax, mimo, laguna, and devstral
   families. `base_url = "https://openrouter.ai/api/v1"`, bearer
   auth from `OPENROUTER_API_KEY`, priority 25. Seven Claude rows already
@@ -243,7 +246,7 @@ tiny; a full run costs a few dollars.
 - Roster: apply the union policy against the Venice roster — check the
   live listing for Venice-only models (grok is the notable one; the
   Claude, GPT, kimi, glm, deepseek, and qwen families are already in
-  fabro's 29) and add rows for the ones OpenRouter serves.
+  the source's 29) and add rows for the ones OpenRouter serves.
 - Wire ids are namespaced (`anthropic/claude-opus-5`). Short catalog id,
   namespaced `api_model`. Selectors then read
   `openrouter/anthropic/claude-opus-5`, which the resolver splits
@@ -258,7 +261,7 @@ tiny; a full run costs a few dollars.
   `cache_routing`, and probe one cache write-then-read pair per upstream
   family — caching semantics differ per underlying provider.
 - OpenRouter routes one model across several upstream hosts, and prompt
-  caching only lands when consecutive requests hit the same host. Fabro's
+  caching only lands when consecutive requests hit the same host. Earlier
   measurements showed that pinning the upstream (the `provider.only`
   request field) cut a 20k-token repeat prompt's cost by 81%. If probe
   results look inconsistent between calls, pin the routing through

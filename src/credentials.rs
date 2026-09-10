@@ -1,13 +1,16 @@
 //! Secret-safe credential resolution.
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::sync::Arc;
 #[cfg(feature = "environment-credentials")]
-use std::mem;
-use std::{env, fmt};
+use std::{env, mem};
 
 use async_trait::async_trait;
 use thiserror::Error;
 
+#[cfg(feature = "environment-credentials")]
+use crate::catalog::AuthScheme;
 use crate::catalog::{CatalogProvider, ProviderId};
 
 /// A secret string whose debug output is always redacted.
@@ -256,24 +259,54 @@ impl CredentialProvider for StaticCredentials {
     }
 }
 
-#[cfg(feature = "environment-credentials")]
-/// Resolves secrets from environment variables for every attempt.
+/// Resolves the secrets each provider conventionally expects from a
+/// name-to-value store.
+///
+/// The table says which named secrets a provider wants and how they shape into
+/// its authentication: OpenAI takes a bearer token from `OPENAI_API_KEY`,
+/// Anthropic an `x-api-key` header from `ANTHROPIC_API_KEY`, Modal two headers
+/// from `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`. That knowledge belongs to
+/// the library. Where a named secret lives belongs to the application: the
+/// default lookup reads the process environment, and
+/// [`with_lookup`](Self::with_lookup) swaps in any other store keyed by the
+/// same names, such as an encrypted vault.
 ///
 /// A provider holds an ordered chain of mappings. The first mapping that
-/// resolves wins, so a provider can name a preferred variable, one or more
-/// fallback variables, and a final mapping that needs no variable at all.
-#[derive(Clone, Debug)]
-pub struct EnvironmentCredentials {
-    specs: BTreeMap<ProviderId, Vec<EnvironmentSpec>>,
+/// resolves wins, so a provider can name a preferred secret, one or more
+/// fallback secrets, and a final mapping that needs no secret at all.
+///
+/// A provider the table does not list, such as one an application adds
+/// through a catalog overlay, reads a name derived from its id: `acme` reads
+/// `ACME_API_KEY`, and `my-gateway` reads `MY_GATEWAY_API_KEY`. The derived
+/// secret shapes into whatever the provider's `auth` scheme takes. A provider
+/// whose scheme is `none` needs no secret, and one whose scheme is `headers`
+/// or `aws` has no single secret to derive, so those stay not configured
+/// unless the table names them.
+#[cfg(feature = "environment-credentials")]
+#[derive(Clone)]
+pub struct ConventionalCredentials {
+    specs:  BTreeMap<ProviderId, Vec<EnvironmentSpec>>,
+    lookup: Arc<SecretStore>,
+}
+
+/// A name-to-value secret store. `None` means the store holds no such secret.
+#[cfg(feature = "environment-credentials")]
+type SecretStore = dyn Fn(&str) -> Option<String> + Send + Sync;
+
+#[cfg(feature = "environment-credentials")]
+impl fmt::Debug for ConventionalCredentials {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ConventionalCredentials")
+            .field("specs", &self.specs)
+            .finish_non_exhaustive()
+    }
 }
 
 #[cfg(feature = "environment-credentials")]
-impl EnvironmentCredentials {
-    pub fn builder() -> EnvironmentCredentialsBuilder {
-        EnvironmentCredentialsBuilder::default()
-    }
-
-    /// Conventional environment variable mappings for built-in providers.
+impl ConventionalCredentials {
+    /// The conventional mappings for every built-in provider, read from the
+    /// process environment.
     ///
     /// Gemini reads `GEMINI_API_KEY` and falls back to `GOOGLE_API_KEY`.
     /// Bedrock reads `AWS_BEARER_TOKEN_BEDROCK`, the name the AWS tools use,
@@ -282,8 +315,8 @@ impl EnvironmentCredentials {
     /// host with only an instance role or a profile still resolves.
     /// `bedrock-openai` reads the same key variables as plain HTTP bearer
     /// credentials and has no AWS default-chain fallback. Ollama needs no key.
-    pub fn conventional() -> Self {
-        let builder = EnvironmentCredentialsBuilder::default()
+    pub fn new() -> Self {
+        let builder = ConventionalCredentialsBuilder::default()
             .bearer("openai", "OPENAI_API_KEY")
             .header("anthropic", "x-api-key", "ANTHROPIC_API_KEY")
             .bearer("fireworks", "FIREWORKS_API_KEY")
@@ -314,26 +347,112 @@ impl EnvironmentCredentials {
         builder.build()
     }
 
-    /// Resolves one provider's chain against `read`.
+    /// A table with no mappings, to be filled through the builder.
+    pub fn builder() -> ConventionalCredentialsBuilder {
+        ConventionalCredentialsBuilder::default()
+    }
+
+    /// Reads every named secret through `lookup` instead of the process
+    /// environment.
+    ///
+    /// The names stay the conventional ones, so a vault that stores a key
+    /// under `OPENAI_API_KEY` serves the same table the environment would.
+    /// `None` means the store holds no such secret; a store that cannot be
+    /// read should return `None` too and report its own failure elsewhere.
+    #[must_use]
+    pub fn with_lookup(
+        mut self,
+        lookup: impl Fn(&str) -> Option<String> + Send + Sync + 'static,
+    ) -> Self {
+        self.lookup = Arc::new(lookup);
+        self
+    }
+
+    /// The secret names `provider` reads, preferred name first, with no
+    /// repeats.
+    ///
+    /// An install flow shows these to an operator and writes under the first
+    /// one. A provider the table does not list yields its derived name when
+    /// its `auth` scheme takes one secret, and nothing otherwise. A provider
+    /// that needs no secret yields an empty list.
+    pub fn secret_names(&self, provider: &CatalogProvider) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        for spec in self.specs_for(provider) {
+            for name in spec.secret_names() {
+                if !names.iter().any(|known| known == name) {
+                    names.push(name.to_owned());
+                }
+            }
+        }
+        names
+    }
+
+    /// Whether the table lists `provider` itself, as opposed to deriving a
+    /// name for it.
+    pub fn knows(&self, provider: &ProviderId) -> bool {
+        self.specs
+            .get(provider)
+            .is_some_and(|specs| !specs.is_empty())
+    }
+
+    /// The conventional secret name for a provider the table does not list:
+    /// the provider id in upper case with `-` and `.` as `_`, then
+    /// `_API_KEY`.
+    pub fn derived_secret_name(provider: &ProviderId) -> String {
+        let mut name: String = provider
+            .as_str()
+            .chars()
+            .map(|character| match character {
+                '-' | '.' => '_',
+                other => other.to_ascii_uppercase(),
+            })
+            .collect();
+        name.push_str("_API_KEY");
+        name
+    }
+
+    /// The mappings for `provider`: the table's when it lists the provider,
+    /// otherwise one derived from the provider's auth scheme.
+    fn specs_for(&self, provider: &CatalogProvider) -> Vec<EnvironmentSpec> {
+        if let Some(specs) = self
+            .specs
+            .get(provider.id())
+            .filter(|specs| !specs.is_empty())
+        {
+            return specs.clone();
+        }
+        let name = Self::derived_secret_name(provider.id());
+        match provider.auth() {
+            AuthScheme::Bearer { .. } => vec![EnvironmentSpec::Http(HttpSpec {
+                auth:          HttpAuthSpec::Bearer(name),
+                extra_headers: Vec::new(),
+            })],
+            AuthScheme::Header { name: header } => vec![EnvironmentSpec::Http(HttpSpec {
+                auth:          HttpAuthSpec::Header(header.clone(), name),
+                extra_headers: Vec::new(),
+            })],
+            AuthScheme::BedrockBearer => vec![EnvironmentSpec::BedrockBearer(name)],
+            AuthScheme::None => vec![EnvironmentSpec::Http(HttpSpec::default())],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Resolves one provider's chain.
     ///
     /// The first mapping that resolves wins. When every mapping fails, the
     /// failure of the first one is reported, because that mapping names the
-    /// variable the provider expects.
-    fn resolve(
-        &self,
-        provider: &ProviderId,
-        read: SecretLookup<'_>,
-    ) -> Result<Credentials, CredentialError> {
-        let specs = self
-            .specs
-            .get(provider)
-            .filter(|specs| !specs.is_empty())
-            .ok_or_else(|| CredentialError::NotConfigured {
-                provider: provider.clone(),
-            })?;
+    /// secret the provider expects.
+    fn resolve(&self, provider: &CatalogProvider) -> Result<Credentials, CredentialError> {
+        let specs = self.specs_for(provider);
+        if specs.is_empty() {
+            return Err(CredentialError::NotConfigured {
+                provider: provider.id().clone(),
+            });
+        }
+        let read: SecretLookup<'_> = &|name| (self.lookup)(name);
         let mut first_error = None;
-        for spec in specs {
-            match spec.resolve(provider, read) {
+        for spec in &specs {
+            match spec.resolve(provider.id(), read) {
                 Ok(credentials) => return Ok(credentials),
                 Err(error) => {
                     first_error.get_or_insert(error);
@@ -342,29 +461,36 @@ impl EnvironmentCredentials {
         }
         Err(
             first_error.unwrap_or_else(|| CredentialError::NotConfigured {
-                provider: provider.clone(),
+                provider: provider.id().clone(),
             }),
         )
     }
 }
 
 #[cfg(feature = "environment-credentials")]
+impl Default for ConventionalCredentials {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "environment-credentials")]
 #[async_trait]
-impl CredentialProvider for EnvironmentCredentials {
+impl CredentialProvider for ConventionalCredentials {
     async fn credentials(
         &self,
         provider: &CatalogProvider,
     ) -> Result<Credentials, CredentialError> {
-        self.resolve(provider.id(), &|variable| env::var(variable))
+        self.resolve(provider)
     }
 }
 
-/// Reads one environment variable by name.
+/// Reads one named secret.
 ///
 /// Every lookup goes through one of these, so a test can resolve a chain
-/// against a fixed environment.
+/// against a fixed store.
 #[cfg(feature = "environment-credentials")]
-type SecretLookup<'a> = &'a dyn Fn(&str) -> Result<String, env::VarError>;
+type SecretLookup<'a> = &'a dyn Fn(&str) -> Option<String>;
 
 #[cfg(feature = "environment-credentials")]
 #[derive(Clone, Debug)]
@@ -386,17 +512,35 @@ impl EnvironmentSpec {
             Self::AwsDefaultChain(region) => Ok(Credentials::AwsDefaultChain {
                 region: region.clone(),
             }),
-            Self::BedrockBearer(variable) => {
-                read_secret(provider, variable, read).map(Credentials::BedrockBearer)
+            Self::BedrockBearer(name) => {
+                read_secret(provider, name, read).map(Credentials::BedrockBearer)
             }
+        }
+    }
+
+    /// The secret names this mapping reads, in the order it reads them.
+    fn secret_names(&self) -> Vec<&str> {
+        match self {
+            Self::Http(spec) => {
+                let mut names = match &spec.auth {
+                    HttpAuthSpec::None => Vec::new(),
+                    HttpAuthSpec::Bearer(name) | HttpAuthSpec::Header(_, name) => {
+                        vec![name.as_str()]
+                    }
+                };
+                names.extend(spec.extra_headers.iter().map(|(_, name)| name.as_str()));
+                names
+            }
+            Self::AwsDefaultChain(_) => Vec::new(),
+            Self::BedrockBearer(name) => vec![name.as_str()],
         }
     }
 }
 
-/// The environment mapping for one HTTP provider.
+/// The mapping for one HTTP provider.
 ///
-/// Every header is stored as a header name paired with the environment
-/// variable that holds its value.
+/// Every header is stored as a header name paired with the secret name that
+/// holds its value.
 #[cfg(feature = "environment-credentials")]
 #[derive(Clone, Debug, Default)]
 struct HttpSpec {
@@ -422,20 +566,20 @@ impl HttpSpec {
     ) -> Result<HttpCredentials, CredentialError> {
         let auth = match &self.auth {
             HttpAuthSpec::None => HttpAuthentication::None,
-            HttpAuthSpec::Bearer(variable) => {
-                HttpAuthentication::Bearer(read_secret(provider, variable, read)?)
+            HttpAuthSpec::Bearer(name) => {
+                HttpAuthentication::Bearer(read_secret(provider, name, read)?)
             }
-            HttpAuthSpec::Header(name, variable) => HttpAuthentication::Header(
-                CredentialHeader::new(name.clone(), read_secret(provider, variable, read)?),
+            HttpAuthSpec::Header(header, name) => HttpAuthentication::Header(
+                CredentialHeader::new(header.clone(), read_secret(provider, name, read)?),
             ),
         };
         let extra_headers = self
             .extra_headers
             .iter()
-            .map(|(name, variable)| {
+            .map(|(header, name)| {
                 Ok(CredentialHeader::new(
-                    name.clone(),
-                    read_secret(provider, variable, read)?,
+                    header.clone(),
+                    read_secret(provider, name, read)?,
                 ))
             })
             .collect::<Result<Vec<_>, CredentialError>>()?;
@@ -449,48 +593,49 @@ impl HttpSpec {
 #[cfg(feature = "environment-credentials")]
 fn read_secret(
     provider: &ProviderId,
-    variable: &str,
+    name: &str,
     read: SecretLookup<'_>,
 ) -> Result<SecretValue, CredentialError> {
-    read(variable)
+    read(name)
         .map(SecretValue::new)
-        .map_err(|source| CredentialError::Environment {
+        .ok_or_else(|| CredentialError::MissingSecret {
             provider: provider.clone(),
-            variable: variable.to_owned(),
-            source,
+            name:     name.to_owned(),
         })
 }
 
-#[cfg(feature = "environment-credentials")]
-/// Builds environment-backed provider mappings.
+/// Builds the per-provider secret mappings of a [`ConventionalCredentials`].
 ///
 /// The `bearer`, `header`, `bearer_header`, `aws_default_chain`, and
 /// `bedrock_bearer` methods write the provider's primary mapping. The `or_`
 /// methods append a fallback mapping, tried in the order it was added when
-/// every earlier mapping finds no environment variable.
+/// every earlier mapping finds no secret. Names are secret names: environment
+/// variables under the default lookup, keys of whatever store
+/// [`ConventionalCredentials::with_lookup`] installs otherwise.
+#[cfg(feature = "environment-credentials")]
 #[derive(Default)]
 #[must_use]
-pub struct EnvironmentCredentialsBuilder {
+pub struct ConventionalCredentialsBuilder {
     specs: BTreeMap<ProviderId, Vec<EnvironmentSpec>>,
 }
 
 #[cfg(feature = "environment-credentials")]
-impl EnvironmentCredentialsBuilder {
-    /// Reads the provider's bearer secret from `variable`.
+impl ConventionalCredentialsBuilder {
+    /// Reads the provider's bearer secret from `name`.
     ///
     /// A header already registered as the provider's primary authentication
     /// header becomes an extra header, so header and bearer registrations can
     /// be made in either order.
-    pub fn bearer(self, provider: impl Into<ProviderId>, variable: impl Into<String>) -> Self {
+    pub fn bearer(self, provider: impl Into<ProviderId>, name: impl Into<String>) -> Self {
         self.with_http(provider.into(), |spec| {
-            if let HttpAuthSpec::Header(name, source) = mem::take(&mut spec.auth) {
-                spec.extra_headers.insert(0, (name, source));
+            if let HttpAuthSpec::Header(header, source) = mem::take(&mut spec.auth) {
+                spec.extra_headers.insert(0, (header, source));
             }
-            spec.auth = HttpAuthSpec::Bearer(variable.into());
+            spec.auth = HttpAuthSpec::Bearer(name.into());
         })
     }
 
-    /// Reads one provider header from `variable`.
+    /// Reads one provider header from `name`.
     ///
     /// The first header registered for a provider becomes its primary
     /// authentication header. Later headers become extra headers, as do all
@@ -498,20 +643,20 @@ impl EnvironmentCredentialsBuilder {
     pub fn header(
         self,
         provider: impl Into<ProviderId>,
+        header: impl Into<String>,
         name: impl Into<String>,
-        variable: impl Into<String>,
     ) -> Self {
         self.with_http(provider.into(), |spec| {
-            let header = (name.into(), variable.into());
+            let pair = (header.into(), name.into());
             if matches!(spec.auth, HttpAuthSpec::None) {
-                spec.auth = HttpAuthSpec::Header(header.0, header.1);
+                spec.auth = HttpAuthSpec::Header(pair.0, pair.1);
             } else {
-                spec.extra_headers.push(header);
+                spec.extra_headers.push(pair);
             }
         })
     }
 
-    /// Reads one extra provider header from `variable`.
+    /// Reads one extra provider header from `name`.
     ///
     /// The header is always an extra header, so it accompanies a bearer secret
     /// registered through [`Self::bearer`] rather than replacing it. Provider
@@ -520,39 +665,39 @@ impl EnvironmentCredentialsBuilder {
     pub fn bearer_header(
         self,
         provider: impl Into<ProviderId>,
+        header: impl Into<String>,
         name: impl Into<String>,
-        variable: impl Into<String>,
     ) -> Self {
         self.with_http(provider.into(), |spec| {
-            spec.extra_headers.push((name.into(), variable.into()));
+            spec.extra_headers.push((header.into(), name.into()));
         })
     }
 
-    /// Reads one fallback provider header from `variable`.
+    /// Reads one fallback provider header from `name`.
     ///
     /// The header is the provider's authentication header for that attempt,
-    /// which is tried only when every earlier mapping finds no variable.
+    /// which is tried only when every earlier mapping finds no secret.
     pub fn or_header(
         self,
         provider: impl Into<ProviderId>,
+        header: impl Into<String>,
         name: impl Into<String>,
-        variable: impl Into<String>,
     ) -> Self {
         self.push(
             provider.into(),
             EnvironmentSpec::Http(HttpSpec {
-                auth:          HttpAuthSpec::Header(name.into(), variable.into()),
+                auth:          HttpAuthSpec::Header(header.into(), name.into()),
                 extra_headers: Vec::new(),
             }),
         )
     }
 
-    /// Reads a fallback bearer secret from `variable`.
-    pub fn or_bearer(self, provider: impl Into<ProviderId>, variable: impl Into<String>) -> Self {
+    /// Reads a fallback bearer secret from `name`.
+    pub fn or_bearer(self, provider: impl Into<ProviderId>, name: impl Into<String>) -> Self {
         self.push(
             provider.into(),
             EnvironmentSpec::Http(HttpSpec {
-                auth:          HttpAuthSpec::Bearer(variable.into()),
+                auth:          HttpAuthSpec::Bearer(name.into()),
                 extra_headers: Vec::new(),
             }),
         )
@@ -570,7 +715,7 @@ impl EnvironmentCredentialsBuilder {
     /// Falls back to the AWS default credential chain.
     ///
     /// The chain resolves from an instance role, a profile, or the AWS
-    /// environment variables, so it needs no variable of its own and always
+    /// environment variables, so it needs no secret of its own and always
     /// ends the provider's fallbacks.
     pub fn or_aws_default_chain(
         self,
@@ -580,32 +725,26 @@ impl EnvironmentCredentialsBuilder {
         self.push(provider.into(), EnvironmentSpec::AwsDefaultChain(region))
     }
 
-    /// Reads the provider's Bedrock API key from `variable`.
-    pub fn bedrock_bearer(
-        self,
-        provider: impl Into<ProviderId>,
-        variable: impl Into<String>,
-    ) -> Self {
-        self.replace(
-            provider.into(),
-            EnvironmentSpec::BedrockBearer(variable.into()),
-        )
+    /// Reads the provider's Bedrock API key from `name`.
+    pub fn bedrock_bearer(self, provider: impl Into<ProviderId>, name: impl Into<String>) -> Self {
+        self.replace(provider.into(), EnvironmentSpec::BedrockBearer(name.into()))
     }
 
-    /// Reads a fallback Bedrock API key from `variable`.
+    /// Reads a fallback Bedrock API key from `name`.
     pub fn or_bedrock_bearer(
         self,
         provider: impl Into<ProviderId>,
-        variable: impl Into<String>,
+        name: impl Into<String>,
     ) -> Self {
-        self.push(
-            provider.into(),
-            EnvironmentSpec::BedrockBearer(variable.into()),
-        )
+        self.push(provider.into(), EnvironmentSpec::BedrockBearer(name.into()))
     }
 
-    pub fn build(self) -> EnvironmentCredentials {
-        EnvironmentCredentials { specs: self.specs }
+    /// The table, reading secrets from the process environment.
+    pub fn build(self) -> ConventionalCredentials {
+        ConventionalCredentials {
+            specs:  self.specs,
+            lookup: Arc::new(|name| env::var(name).ok()),
+        }
     }
 
     /// Edits the provider's HTTP mapping, replacing any non-HTTP mapping.
@@ -640,18 +779,84 @@ impl EnvironmentCredentialsBuilder {
     }
 }
 
+/// Tries several credential providers in order.
+///
+/// The first provider that resolves wins, so an application can look in its
+/// own store before the process environment, or keep an OAuth path beside an
+/// API-key path. When none resolves, the error reported is the first one
+/// that says more than "not configured", because that is the one an operator
+/// can act on; otherwise the provider is simply not configured.
+#[derive(Clone, Default)]
+pub struct ChainedCredentials {
+    links: Vec<Arc<dyn CredentialProvider>>,
+}
+
+impl fmt::Debug for ChainedCredentials {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ChainedCredentials")
+            .field("links", &self.links.len())
+            .finish()
+    }
+}
+
+impl ChainedCredentials {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Appends a provider to try after every earlier one.
+    #[must_use]
+    pub fn then(mut self, provider: impl CredentialProvider + 'static) -> Self {
+        self.links.push(Arc::new(provider));
+        self
+    }
+
+    #[must_use]
+    pub fn then_arc(mut self, provider: Arc<dyn CredentialProvider>) -> Self {
+        self.links.push(provider);
+        self
+    }
+}
+
+#[async_trait]
+impl CredentialProvider for ChainedCredentials {
+    async fn credentials(
+        &self,
+        provider: &CatalogProvider,
+    ) -> Result<Credentials, CredentialError> {
+        let mut reported = None;
+        for link in &self.links {
+            match link.credentials(provider).await {
+                Ok(credentials) => return Ok(credentials),
+                Err(error) => {
+                    let informative = !matches!(error, CredentialError::NotConfigured { .. });
+                    match &reported {
+                        None => reported = Some(error),
+                        Some(CredentialError::NotConfigured { .. }) if informative => {
+                            reported = Some(error);
+                        }
+                        Some(_) => {}
+                    }
+                }
+            }
+        }
+        Err(reported.unwrap_or_else(|| CredentialError::NotConfigured {
+            provider: provider.id().clone(),
+        }))
+    }
+}
+
 /// Credential lookup failed without exposing secret content.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum CredentialError {
     #[error("credentials are not configured for provider {provider}")]
     NotConfigured { provider: ProviderId },
-    #[error("environment variable `{variable}` for provider {provider} is unavailable")]
-    Environment {
+    #[error("secret `{name}` for provider {provider} is unavailable")]
+    MissingSecret {
         provider: ProviderId,
-        variable: String,
-        #[source]
-        source:   env::VarError,
+        name:     String,
     },
     #[error("credentials for provider {provider} do not match its authentication scheme")]
     SchemeMismatch { provider: ProviderId },
@@ -659,25 +864,72 @@ pub enum CredentialError {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "environment-credentials")]
-    use std::env::VarError;
 
+    #[cfg(feature = "environment-credentials")]
+    use super::{ConventionalCredentials, CredentialError, ProviderId};
     use super::{CredentialHeader, Credentials, HttpAuthentication, HttpCredentials, SecretValue};
     #[cfg(feature = "environment-credentials")]
-    use super::{EnvironmentCredentials, ProviderId};
+    use crate::catalog::{Catalog, CatalogProvider};
 
-    /// Resolves one provider against a fixed environment.
+    /// A table reading from a fixed store.
     #[cfg(feature = "environment-credentials")]
-    fn resolve(provider: &str, environment: &[(&str, &str)]) -> Result<Credentials, String> {
-        EnvironmentCredentials::conventional()
-            .resolve(&ProviderId::new(provider), &|variable| {
-                environment
-                    .iter()
-                    .find(|(name, _)| *name == variable)
-                    .map(|(_, value)| (*value).to_owned())
-                    .ok_or(VarError::NotPresent)
-            })
+    fn table(store: &[(&str, &str)]) -> ConventionalCredentials {
+        let store: Vec<(String, String)> = store
+            .iter()
+            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+            .collect();
+        ConventionalCredentials::new().with_lookup(move |name| {
+            store
+                .iter()
+                .find(|(stored, _)| stored == name)
+                .map(|(_, value)| value.clone())
+        })
+    }
+
+    /// A built-in provider row, so the table's own mappings apply.
+    #[cfg(feature = "environment-credentials")]
+    fn builtin(provider: &str) -> CatalogProvider {
+        Catalog::builder()
+            .with_builtin()
+            .build()
+            .expect("the built-in catalog builds")
+            .provider(provider)
+            .unwrap_or_else(|_| panic!("built-in provider {provider}"))
+            .clone()
+    }
+
+    /// Resolves one built-in provider against a fixed store.
+    #[cfg(feature = "environment-credentials")]
+    fn resolve(provider: &str, store: &[(&str, &str)]) -> Result<Credentials, String> {
+        table(store)
+            .resolve(&builtin(provider))
             .map_err(|error| error.to_string())
+    }
+
+    /// A provider the table does not list, with the given auth scheme.
+    #[cfg(feature = "environment-credentials")]
+    fn custom(id: &str, auth: &str) -> CatalogProvider {
+        Catalog::builder()
+            .toml_layer(
+                "custom",
+                &format!(
+                    r#"
+                    schema_version = 1
+                    [providers."{id}"]
+                    display_name = "Custom"
+                    adapter = "openai-compatible"
+                    codec = "openai-chat"
+                    base_url = "http://127.0.0.1"
+                    auth = {auth}
+                    "#
+                ),
+            )
+            .expect("the custom catalog parses")
+            .build()
+            .expect("the custom catalog builds")
+            .provider(id)
+            .expect("the custom provider")
+            .clone()
     }
 
     /// The secret behind a provider's primary authentication header.
@@ -886,6 +1138,171 @@ mod tests {
         }
         assert_eq!(resolve("ollama", &[])?, Credentials::none());
         Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn secret_names_list_the_preferred_name_first_without_repeats() {
+        let table = ConventionalCredentials::new();
+        assert_eq!(table.secret_names(&builtin("openai")), ["OPENAI_API_KEY"]);
+        assert_eq!(table.secret_names(&builtin("gemini")), [
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY"
+        ]);
+        assert_eq!(table.secret_names(&builtin("modal")), [
+            "MODAL_TOKEN_ID",
+            "MODAL_TOKEN_SECRET"
+        ]);
+        assert_eq!(table.secret_names(&builtin("bedrock")), [
+            "AWS_BEARER_TOKEN_BEDROCK",
+            "BEDROCK_API_KEY"
+        ]);
+        assert!(table.secret_names(&builtin("ollama")).is_empty());
+        assert!(table.knows(&ProviderId::new("ollama")));
+        assert!(!table.knows(&ProviderId::new("acme")));
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn an_unlisted_provider_reads_a_name_derived_from_its_id() -> Result<(), String> {
+        assert_eq!(
+            ConventionalCredentials::derived_secret_name(&ProviderId::new("my-gateway.v2")),
+            "MY_GATEWAY_V2_API_KEY"
+        );
+
+        let bearer = custom("acme", r#"{ type = "bearer" }"#);
+        assert_eq!(ConventionalCredentials::new().secret_names(&bearer), [
+            "ACME_API_KEY"
+        ]);
+        assert_eq!(
+            table(&[("ACME_API_KEY", "acme-key")])
+                .resolve(&bearer)
+                .map_err(|error| error.to_string())?,
+            Credentials::bearer(SecretValue::new("acme-key"))
+        );
+        let message = table(&[]).resolve(&bearer).expect_err("no key").to_string();
+        assert_eq!(
+            message,
+            "secret `ACME_API_KEY` for provider acme is unavailable"
+        );
+
+        // The derived secret shapes into the provider's own header.
+        let header = custom("acme", r#"{ type = "header", name = "x-acme-key" }"#);
+        let credentials = table(&[("ACME_API_KEY", "acme-key")])
+            .resolve(&header)
+            .map_err(|error| error.to_string())?;
+        assert!(matches!(
+            &credentials,
+            Credentials::Http(HttpCredentials { auth: HttpAuthentication::Header(header), .. })
+                if header.name == "x-acme-key" && header.value.expose_secret() == "acme-key"
+        ));
+
+        // No secret to derive: `none` needs nothing, `headers` cannot be
+        // derived from one name.
+        let open = custom("acme", r#"{ type = "none" }"#);
+        assert_eq!(
+            table(&[])
+                .resolve(&open)
+                .map_err(|error| error.to_string())?,
+            Credentials::none()
+        );
+        assert!(
+            ConventionalCredentials::new()
+                .secret_names(&open)
+                .is_empty()
+        );
+        let headers = custom("acme", r#"{ type = "headers" }"#);
+        assert!(matches!(
+            table(&[("ACME_API_KEY", "acme-key")]).resolve(&headers),
+            Err(CredentialError::NotConfigured { .. })
+        ));
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn a_missing_secret_names_the_secret_and_carries_no_source() {
+        let message = resolve("openai", &[]).expect_err("no key");
+        assert_eq!(
+            message,
+            "secret `OPENAI_API_KEY` for provider openai is unavailable"
+        );
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[tokio::test]
+    async fn a_chain_takes_the_first_store_that_has_the_secret() {
+        use std::error::Error as StdError;
+
+        use super::{ChainedCredentials, CredentialError, CredentialProvider as _};
+        use crate::catalog::Catalog;
+
+        let catalog = Catalog::builder()
+            .toml_layer(
+                "test",
+                r#"
+                schema_version = 1
+                [providers.openai]
+                display_name = "OpenAI"
+                adapter = "openai"
+                codec = "openai-responses"
+                base_url = "http://127.0.0.1"
+                auth = { type = "bearer" }
+                [providers.anthropic]
+                display_name = "Anthropic"
+                adapter = "anthropic"
+                codec = "anthropic-messages"
+                base_url = "http://127.0.0.1"
+                auth = { type = "header", name = "x-api-key" }
+                "#,
+            )
+            .expect("parses")
+            .build()
+            .expect("validates");
+        let vault = ConventionalCredentials::new()
+            .with_lookup(|name| (name == "OPENAI_API_KEY").then(|| "from-vault".to_owned()));
+        let environment = ConventionalCredentials::new().with_lookup(|name| {
+            (name == "OPENAI_API_KEY" || name == "ANTHROPIC_API_KEY").then(|| "from-env".to_owned())
+        });
+        let chain = ChainedCredentials::new().then(vault).then(environment);
+
+        // The vault holds an OpenAI key, so it wins over the environment.
+        let openai = chain
+            .credentials(catalog.provider("openai").expect("provider"))
+            .await
+            .expect("resolves");
+        assert!(matches!(
+            openai,
+            Credentials::Http(HttpCredentials { auth: HttpAuthentication::Bearer(secret), .. })
+                if secret.expose_secret() == "from-vault"
+        ));
+        // The vault has no Anthropic key, so the chain falls through.
+        let anthropic = chain
+            .credentials(catalog.provider("anthropic").expect("provider"))
+            .await
+            .expect("resolves");
+        assert_eq!(header_secret(&anthropic), Some("from-env"));
+
+        // With nothing anywhere, the first link's error is reported; it names
+        // the secret the provider expects.
+        let empty = ChainedCredentials::new()
+            .then(ConventionalCredentials::new().with_lookup(|_| None))
+            .then(ConventionalCredentials::new().with_lookup(|_| None));
+        let error = empty
+            .credentials(catalog.provider("openai").expect("provider"))
+            .await
+            .expect_err("nothing resolves");
+        assert!(
+            matches!(&error, CredentialError::MissingSecret { name, .. } if name == "OPENAI_API_KEY")
+        );
+        assert!(StdError::source(&error).is_none());
+
+        // An empty chain is simply not configured.
+        let error = ChainedCredentials::new()
+            .credentials(catalog.provider("openai").expect("provider"))
+            .await
+            .expect_err("nothing to try");
+        assert!(matches!(error, CredentialError::NotConfigured { .. }));
     }
 
     #[cfg(feature = "environment-credentials")]

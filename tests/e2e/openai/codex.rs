@@ -69,12 +69,11 @@ fn twin_url() -> String {
     env::var("LITHOS_CODEX_E2E_TWIN_URL").unwrap_or_else(|_| "http://127.0.0.1:3926/v1".to_owned())
 }
 
-/// The Codex catalog with the per-user headers overlaid at runtime.
+/// The Codex catalog with the per-user header overlaid at runtime.
 ///
 /// The account id is per-user state, so it rides a runtime overlay rather
-/// than the checked-in file. The `originator` header names this suite, as
-/// the deployment expects every client to identify itself. Under record and
-/// replay a second overlay points the provider at the sixth twin.
+/// than the checked-in file. Under record and replay a second overlay points
+/// the provider at the sixth twin.
 fn catalog(account_id: &str) -> Catalog {
     let base = Catalog::builder()
         .toml_layer("openai-codex-e2e", CATALOG_TOML)
@@ -83,7 +82,7 @@ fn catalog(account_id: &str) -> Catalog {
             "codex-headers",
             &format!(
                 "[providers.openai-codex]\ndefault_headers = {{ \"ChatGPT-Account-Id\" = \
-                 \"{account_id}\", originator = \"lithos-llm-e2e\" }}\n"
+                 \"{account_id}\" }}\n"
             ),
         )
         .expect("the Codex header overlay should parse");
@@ -126,11 +125,14 @@ fn missing_credential() -> TestResult {
 }
 
 fn client_with(token: &str, account_id: &str) -> Client {
+    // The deployment expects every client to identify itself; this suite
+    // does so through the client, the way an application would.
     let build = Client::builder()
         .catalog(catalog(account_id))
         .credentials(
             StaticCredentials::new().with(PROVIDER, Credentials::bearer(SecretValue::new(token))),
         )
+        .application("lithos-llm-e2e")
         .build()
         .expect("the Codex E2E client should build");
     assert!(

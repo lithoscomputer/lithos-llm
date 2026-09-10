@@ -41,7 +41,7 @@ type = "bearer"
 venice_parameters = { include_venice_system_prompt = false }
 
 # The agent profile for this provider's models; a model row overrides it.
-[providers.venice.metadata.pebble]
+[providers.venice.metadata.agent]
 profile = "openai"
 
 [providers.venice.models."kimi-k3"]
@@ -49,11 +49,11 @@ display_name = "Kimi K3"
 aliases = ["kimi"]
 api_model = "kimi-k3"
 limits = { context_tokens = 1000000, max_output_tokens = 131072 }
-capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3750000, output_usd_micros_per_million = 18750000, cached_input_usd_micros_per_million = 375000 }
 
-[providers.venice.models."kimi-k3".metadata.pebble]
+[providers.venice.models."kimi-k3".metadata.agent]
 profile = "kimi"
 
 [providers.venice.models."kimi-k3-fast"]
@@ -65,7 +65,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 450000 }
 
-[providers.venice.models."kimi-k3-fast".metadata.pebble]
+[providers.venice.models."kimi-k3-fast".metadata.agent]
 profile = "kimi"
 
 [providers.venice.models."grok-4.6"]
@@ -89,7 +89,7 @@ pricing = { input_usd_micros_per_million = 1750000, output_usd_micros_per_millio
 # no capability records: it takes a thinking budget, not a named effort
 # level. Pebble reads this to size a summarization budget that has to cover
 # the thinking as well as the answer.
-[providers.venice.models."glm-5.3".metadata.pebble]
+[providers.venice.models."glm-5.3".metadata.agent]
 reasoning_by_default = true
 
 [providers.venice.models."deepseek-v4-flash"]
@@ -101,9 +101,6 @@ capabilities = { text = true, tools = true, response_format = { json_object = tr
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 175000, output_usd_micros_per_million = 350000, cached_input_usd_micros_per_million = 35000 }
 
-[providers.venice.models."deepseek-v4-flash".metadata.pebble]
-profile = "openai"
-
 [providers.venice.models."deepseek-v4-pro"]
 display_name = "DeepSeek V4 Pro"
 aliases = ["deepseek-pro"]
@@ -114,8 +111,7 @@ pricing = { input_usd_micros_per_million = 1650000, output_usd_micros_per_millio
 
 # DeepSeek V4 Pro reasons on every call; the flash row takes a named effort
 # level, this one only a thinking budget, so no capability records it.
-[providers.venice.models."deepseek-v4-pro".metadata.pebble]
-profile = "openai"
+[providers.venice.models."deepseek-v4-pro".metadata.agent]
 reasoning_by_default = true
 
 [providers.venice.models."qwen3.8-max"]
@@ -128,7 +124,7 @@ pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_millio
 
 # Qwen 3.8 Max reasons on every call; it takes a thinking budget rather than
 # a named effort level, so no capability records it.
-[providers.venice.models."qwen3.8-max".metadata.pebble]
+[providers.venice.models."qwen3.8-max".metadata.agent]
 reasoning_by_default = true
 
 [providers.venice.models."qwen3.8-27b"]
@@ -154,7 +150,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
 
-[providers.venice.models."claude-fable-5.1".metadata.pebble]
+[providers.venice.models."claude-fable-5.1".metadata.agent]
 profile = "claude-5"
 
 [providers.venice.models."claude-fable-5"]
@@ -165,7 +161,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 12000000, output_usd_micros_per_million = 60000000, cached_input_usd_micros_per_million = 1200000, cache_write_usd_micros_per_million = 15000000 }
 
-[providers.venice.models."claude-fable-5".metadata.pebble]
+[providers.venice.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
 
 [providers.venice.models."claude-opus-5"]
@@ -176,7 +172,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 6000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 600000, cache_write_usd_micros_per_million = 7500000 }
 
-[providers.venice.models."claude-opus-5".metadata.pebble]
+[providers.venice.models."claude-opus-5".metadata.agent]
 profile = "claude-5"
 
 [providers.venice.models."claude-sonnet-5"]
@@ -187,7 +183,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
 
-[providers.venice.models."claude-sonnet-5".metadata.pebble]
+[providers.venice.models."claude-sonnet-5".metadata.agent]
 profile = "claude-5"
 
 [providers.venice.models."claude-opus-4.8"]
@@ -198,8 +194,8 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 6000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 600000, cache_write_usd_micros_per_million = 7500000 }
 
-[providers.venice.models."claude-opus-4.8".metadata.pebble]
-profile = "claude-5"
+[providers.venice.models."claude-opus-4.8".metadata.agent]
+profile = "anthropic"
 
 [providers.venice.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"
@@ -209,7 +205,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 6250000, output_usd_micros_per_million = 37500000, cached_input_usd_micros_per_million = 625000, cache_write_usd_micros_per_million = 7812500 }
 
-[providers.venice.models."gpt-5.6-sol".metadata.pebble]
+[providers.venice.models."gpt-5.6-sol".metadata.agent]
 profile = "gpt56"
 
 [providers.venice.models."gpt-5.6-terra"]
@@ -220,7 +216,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3125000, output_usd_micros_per_million = 18750000, cached_input_usd_micros_per_million = 312500, cache_write_usd_micros_per_million = 3906250 }
 
-[providers.venice.models."gpt-5.6-terra".metadata.pebble]
+[providers.venice.models."gpt-5.6-terra".metadata.agent]
 profile = "gpt56"
 
 # Luna's listed rates are repeating decimals (0.26666667 USD per million);
@@ -233,7 +229,7 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 266667, output_usd_micros_per_million = 1600000, cached_input_usd_micros_per_million = 26667, cache_write_usd_micros_per_million = 333333 }
 
-[providers.venice.models."gpt-5.6-luna".metadata.pebble]
+[providers.venice.models."gpt-5.6-luna".metadata.agent]
 profile = "gpt56"
 
 [providers.venice.models."gpt-5.5"]

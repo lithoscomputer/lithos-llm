@@ -12,7 +12,7 @@ use crate::support;
 
 fn client_for(server: &MockServer) -> Result<Client, Box<dyn StdError>> {
     let catalog = Catalog::builder().with_builtin().overlay_toml(&format!(
-        "schema_version = 1\n[providers.bedrock]\nbase_url = {:?}\nauth = {{ type = \"bedrock_bearer\" }}", server.base_url()
+        "schema_version = 1\n[providers.bedrock]\nenabled = true\nbase_url = {:?}\nauth = {{ type = \"bedrock_bearer\" }}", server.base_url()
     ))?.build()?;
     let build = Client::builder()
         .catalog(catalog)

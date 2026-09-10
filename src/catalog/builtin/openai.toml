@@ -46,35 +46,9 @@
 #
 # Access paths: this provider entry is the API-key platform
 # (`platform.openai.com`, bearer `OPENAI_API_KEY`). OpenAI also serves a
-# ChatGPT-subscription path through the Codex deployment, which fabro
-# drives with an OAuth device flow. That path speaks the same Responses
-# protocol with a different envelope and roster, so an overlay entry
-# selects it explicitly:
-#
-#   [providers.openai-codex]
-#   adapter = "openai"
-#   codec = "openai-responses"
-#   base_url = "https://chatgpt.com/backend-api/codex"
-#   auth = { type = "bearer" }                  # the OAuth access token
-#   adapter_options = { mode = "codex" }
-#   default_headers = { "ChatGPT-Account-Id" = "<account id>", originator = "<app>" }
-#
-# Codex mode forces streaming, posts to the unversioned `<base>/responses`
-# path (the deployment's `/v1/responses` is an HTML 403), hoists system
-# messages into `instructions`, drops `temperature`, `top_p`, and
-# `max_output_tokens` with warnings, and reports no native token count
-# (the deployment serves no `/responses/input_tokens`). Verified against
-# the live deployment with a Codex CLI credential on 2026-08-30: the seat
-# served the GPT-5 roster minus the pro rows (gpt-5.5-pro and gpt-5.4-pro
-# answer 400 "not supported when using Codex with a ChatGPT account"),
-# rejected `stop` like the platform API, spelled error detail as `detail`
-# (handled in transport::classify), and sent a terminal `response.completed`
-# whose `output` array was empty — the streamed items were the only content.
-# Astra's Codex-deployment availability is not yet verified. The live cells
-# are `tests/e2e/openai/codex.rs`, gated on `OPENAI_CODEX_TOKEN` and
-# `CHATGPT_ACCOUNT_ID`. The built-in catalog carries no codex entry because
-# the OAuth token and account id are application state, not environment
-# convention.
+# ChatGPT-subscription path through the Codex deployment, which is the
+# built-in `openai-codex` provider (`openai-codex.toml`). That provider
+# stands in for this one when this one has no adapter.
 
 schema_version = 1
 
@@ -90,15 +64,13 @@ base_url = "https://api.openai.com"
 priority = 90
 allow_passthrough = true
 default_model = "gpt-5.6-sol"
+api_key_url = "https://platform.openai.com/api-keys"
 
 [providers.openai.auth]
 type = "bearer"
 
-[providers.openai.metadata.fabro]
-api_key_url = "https://platform.openai.com/api-keys"
-
 # The agent profile for this provider's models; a model row overrides it.
-[providers.openai.metadata.pebble]
+[providers.openai.metadata.agent]
 profile = "openai"
 
 [providers.openai.models."gpt-6-astra"]
@@ -111,13 +83,11 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 20000000, output_usd_micros_per_million = 75000000, cached_input_usd_micros_per_million = 2000000, cache_write_usd_micros_per_million = 25000000 }, speed = { fast = { input_usd_micros_per_million = 20000000, output_usd_micros_per_million = 100000000, cached_input_usd_micros_per_million = 2000000, cache_write_usd_micros_per_million = 25000000 }, economical = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 } } }
-
-[providers.openai.models."gpt-6-astra".metadata.fabro]
 family = "gpt-6"
-training = "2026-04-30"
+training_cutoff = "2026-04-30"
 knowledge_cutoff = "April 30, 2026"
 
-[providers.openai.models."gpt-6-astra".metadata.pebble]
+[providers.openai.models."gpt-6-astra".metadata.agent]
 profile = "gpt6"
 
 [providers.openai.models."gpt-5.6-sol"]
@@ -128,14 +98,11 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000 }, speed = { fast = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000 }, economical = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 } } }
-
-[providers.openai.models."gpt-5.6-sol".metadata.fabro]
-agent_profile = "gpt56"
 family = "gpt-5"
-training = "2026-02-16"
+training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
 
-[providers.openai.models."gpt-5.6-sol".metadata.pebble]
+[providers.openai.models."gpt-5.6-sol".metadata.agent]
 profile = "gpt56"
 
 [providers.openai.models."gpt-5.6-terra"]
@@ -146,14 +113,11 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 24000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 } } }
-
-[providers.openai.models."gpt-5.6-terra".metadata.fabro]
-agent_profile = "gpt56"
 family = "gpt-5"
-training = "2026-02-16"
+training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
 
-[providers.openai.models."gpt-5.6-terra".metadata.pebble]
+[providers.openai.models."gpt-5.6-terra".metadata.agent]
 profile = "gpt56"
 
 [providers.openai.models."gpt-5.6-luna"]
@@ -166,14 +130,11 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1800000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 }, speed = { fast = { input_usd_micros_per_million = 400000, output_usd_micros_per_million = 2400000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 }, economical = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 600000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000 } } }
-
-[providers.openai.models."gpt-5.6-luna".metadata.fabro]
-agent_profile = "gpt56"
 family = "gpt-5"
-training = "2026-02-16"
+training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
 
-[providers.openai.models."gpt-5.6-luna".metadata.pebble]
+[providers.openai.models."gpt-5.6-luna".metadata.agent]
 profile = "gpt56"
 
 [providers.openai.models."gpt-5.4"]
@@ -187,10 +148,8 @@ protocol_options = { reasoning_effort_levels = true }
 # exactly half of standard everywhere else on the page, so the rate below
 # is the unrounded 0.5 x $0.25.
 pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 500000 }, speed = { fast = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 500000 }, economical = { input_usd_micros_per_million = 1250000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 125000 } } }
-
-[providers.openai.models."gpt-5.4".metadata.fabro]
 family = "gpt-5"
-training = "2025-08-31"
+training_cutoff = "2025-08-31"
 # fabro carried "April 2025", but the developer docs date the 5.4 family's
 # cutoff August 31, 2025.
 knowledge_cutoff = "August 31, 2025"
@@ -206,10 +165,8 @@ protocol_options = { reasoning_effort_levels = true }
 # Priority on this row is 2.5x standard, not the 2x every other fast tier
 # uses — the pricing page lists $12.50/$75.00 against $5.00/$30.00.
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 45000000, cached_input_usd_micros_per_million = 1000000 }, speed = { fast = { input_usd_micros_per_million = 12500000, output_usd_micros_per_million = 75000000, cached_input_usd_micros_per_million = 1250000 }, economical = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000 } } }
-
-[providers.openai.models."gpt-5.5".metadata.fabro]
 family = "gpt-5"
-training = "2025-12-01"
+training_cutoff = "2025-12-01"
 knowledge_cutoff = "December 2025"
 estimated_output_tps = 70
 
@@ -225,10 +182,8 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000 } }
-
-[providers.openai.models."gpt-5.5-pro".metadata.fabro]
 family = "gpt-5"
-training = "2025-12-01"
+training_cutoff = "2025-12-01"
 knowledge_cutoff = "December 2025"
 estimated_output_tps = 20
 
@@ -242,10 +197,8 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000 } }
-
-[providers.openai.models."gpt-5.4-pro".metadata.fabro]
 family = "gpt-5"
-training = "2025-08-31"
+training_cutoff = "2025-08-31"
 knowledge_cutoff = "August 31, 2025"
 estimated_output_tps = 20
 
@@ -259,11 +212,9 @@ limits = { context_tokens = 400000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 750000, output_usd_micros_per_million = 4500000, cached_input_usd_micros_per_million = 75000, speed = { fast = { input_usd_micros_per_million = 1500000, output_usd_micros_per_million = 9000000, cached_input_usd_micros_per_million = 150000 }, economical = { input_usd_micros_per_million = 375000, output_usd_micros_per_million = 2250000, cached_input_usd_micros_per_million = 37500 } } }
-
-[providers.openai.models."gpt-5.4-mini".metadata.fabro]
 family = "gpt-5"
-training = "2025-08-31"
+training_cutoff = "2025-08-31"
 knowledge_cutoff = "August 31, 2025"
 estimated_output_tps = 140
-probe = true
 small_default = true
+probe = true

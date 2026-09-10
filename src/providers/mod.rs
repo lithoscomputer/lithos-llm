@@ -69,7 +69,7 @@ pub(super) mod http {
     use crate::catalog::{AdapterId, CatalogProvider};
     use crate::codecs::{Codec, StreamDecoder};
     use crate::credentials::{CredentialProvider, Credentials};
-    use crate::transport::{HttpTransport, SseEvent};
+    use crate::transport::{EncodedRequest, HttpTransport, SseEvent};
     use crate::types::{
         Error, ErrorKind, RateLimits, Response, ResponsePolicy, ResponseStream, StreamEvent,
     };
@@ -85,7 +85,16 @@ pub(super) mod http {
         /// The OpenAI Codex endpoint accepts streaming requests only, so its
         /// factory sets this and completion never sends `stream: false`.
         pub force_streaming_complete: bool,
+        /// Every request names the application in an `originator` header,
+        /// when the client was given a name.
+        ///
+        /// The OpenAI Codex deployment expects its clients to identify
+        /// themselves this way; the platform API does not read the header.
+        pub identify_application:     bool,
     }
+
+    /// The header the OpenAI Codex deployment reads the application name from.
+    const ORIGINATOR_HEADER: &str = "originator";
 
     /// Deserializes a provider's raw `adapter_options` into a factory's shape.
     ///
@@ -140,6 +149,10 @@ pub(super) mod http {
                 .with_response_limits(context.response_limits()),
             policy: context.response_policy(),
             credentials: context.credentials().clone(),
+            application: options
+                .identify_application
+                .then(|| context.application().map(str::to_owned))
+                .flatten(),
             options,
         }))
     }
@@ -151,9 +164,21 @@ pub(super) mod http {
         transport:   HttpTransport,
         credentials: Arc<dyn CredentialProvider>,
         options:     HttpAdapterOptions,
+        /// The `originator` value, when this adapter identifies its
+        /// application.
+        application: Option<String>,
     }
 
     impl HttpProviderAdapter {
+        /// Adds the application header the provider expects, if any.
+        fn identify(&self, encoded: &mut EncodedRequest) {
+            if let Some(application) = &self.application {
+                encoded
+                    .headers
+                    .push((ORIGINATOR_HEADER.to_owned(), application.clone()));
+            }
+        }
+
         async fn resolve_credentials(&self, call: &ResolvedCall) -> Result<Credentials, Error> {
             self.credentials
                 .credentials(call.route().provider())
@@ -218,6 +243,7 @@ pub(super) mod http {
             }
             let credentials = self.resolve_credentials(call).await?;
             let mut encoded = self.codec.encode(call, false)?;
+            self.identify(&mut encoded);
             let warnings = take(&mut encoded.warnings);
             // Cost estimation uses the speed the codec put on the wire, not
             // the requested one, so a protocol without a speed control is
@@ -237,6 +263,7 @@ pub(super) mod http {
         async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
             let credentials = self.resolve_credentials(call).await?;
             let mut encoded = self.codec.encode(call, true)?;
+            self.identify(&mut encoded);
             let warnings = take(&mut encoded.warnings);
             let speed = encoded.applied_speed;
             let accepted = self
@@ -267,9 +294,10 @@ pub(super) mod http {
             &self,
             call: &ResolvedCall,
         ) -> Result<Option<InputTokenCount>, Error> {
-            let Some(encoded) = self.codec.encode_count_tokens(call).transpose()? else {
+            let Some(mut encoded) = self.codec.encode_count_tokens(call).transpose()? else {
                 return Ok(None);
             };
+            self.identify(&mut encoded);
             let credentials = self.resolve_credentials(call).await?;
             let result = self
                 .transport
@@ -671,6 +699,7 @@ pub(super) mod http {
             };
             let adapter = adapter_with(&catalog, codec, HttpAdapterOptions {
                 force_streaming_complete: true,
+                identify_application:     false,
             })?;
 
             let response = adapter.complete(&call(&catalog, "alpha/one")?).await?;
@@ -704,6 +733,7 @@ pub(super) mod http {
             };
             let adapter = adapter_with(&catalog, codec, HttpAdapterOptions {
                 force_streaming_complete: true,
+                identify_application:     false,
             })?;
 
             let error = match adapter.complete(&call(&catalog, "alpha/one")?).await {

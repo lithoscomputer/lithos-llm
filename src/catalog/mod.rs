@@ -88,6 +88,20 @@ impl Catalog {
             }
             providers.insert(provider_id, provider);
         }
+        for provider in providers.values() {
+            if let Some(target) = provider.stands_in_for()
+                && !providers.contains_key(target)
+            {
+                return Err(in_layer(
+                    origins,
+                    provider.id(),
+                    CatalogError::UnknownStandInTarget {
+                        provider: provider.id().clone(),
+                        target:   target.clone(),
+                    },
+                ));
+            }
+        }
 
         Ok(Self {
             inner: Arc::new(CatalogDocument {
@@ -279,6 +293,13 @@ pub enum CatalogError {
         provider: ProviderId,
         model:    String,
     },
+    #[error("provider {provider} stands in for unknown provider `{target}`")]
+    UnknownStandInTarget {
+        provider: ProviderId,
+        target:   ProviderId,
+    },
+    #[error("provider {provider} cannot stand in for itself")]
+    StandsInForItself { provider: ProviderId },
     #[error("model {model} has an output limit above its context limit")]
     InvalidModelLimits { model: ModelHandle },
     #[error("provider {provider} declares invalid default header name `{name}`")]
