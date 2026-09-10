@@ -64,6 +64,9 @@ an install flow can tell an operator what to set and write under the first. A
 provider the table does not list reads a name derived from its id: a catalog
 overlay that adds `acme` with bearer auth is served by `ACME_API_KEY`.
 
+`catalog::builtin::ids` names every provider the built-in catalog ships, so an
+install flow or a login command refers to `ids::OPENAI` rather than a string.
+
 The catalog also includes provisional imports for DeepSeek, Inception, MiniMax,
 Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
 configuration notes, and pending live checks are in
@@ -77,6 +80,15 @@ with one issue for every provider that could not be constructed. A provider
 that fails does not remove the providers that succeeded, so an application can
 start in a degraded state and report why. Client construction never reads
 credentials.
+
+`ClientBuilder::build_ready` is the alternative for applications that want to
+know up front which providers they can serve: it resolves credentials once for
+every selected provider and builds adapters only for the ones that resolved.
+Providers the store holds nothing for are left out silently; providers whose
+stored material cannot be used (an expired token with no refresh token, an
+entry of the wrong type) come back in `ClientBuild::credential_issues` with an
+operator-facing reason. `credentials::readiness` answers the same question
+without building a client, for listings and diagnostics.
 
 Applications own the Tokio runtime and tracing subscriber. Credential lookup
 runs for each provider attempt, so tokens can refresh without rebuilding the
@@ -132,7 +144,9 @@ including cancellation and dropped futures or streams.
 
 Capability queries return `Support::Supported`, `Unsupported`, or `Unknown`.
 Use `tool_choice`, `response_format`, `reasoning_effort`, and `speed` to check
-a specific setting. Unknown support does not reject a request locally.
+a specific setting; `closest_supported_effort` picks the nearest supported
+reasoning level when a request written for one model goes to another. Unknown
+support does not reject a request locally.
 Protocol flags live in `CatalogModel::protocol_options()`. Pricing does not
 determine capability support.
 
@@ -185,6 +199,19 @@ provider and transport permit.
 Use `ResponseStream::new` for custom adapter streams. Completion or an error
 releases the inner stream immediately. Ending without a terminal event is an
 error. Block-end content is provisional; the final response is authoritative.
+
+## Readable reasoning
+
+Providers return readable reasoning through unrelated channels: Anthropic and
+Gemini as `ReasoningContent` blocks, the OpenAI Responses protocol as
+`reasoning` items with a summary and sometimes a verbatim trace, and
+OpenAI-compatible gateways as `reasoning_details`. `Response::reasoning()`
+reduces whichever arrived to one `ReasoningOutput` with a `summary` and a
+`trace`, at least one of them present, without reading signatures, item ids, or
+encrypted payloads. Keep the original parts for the next request:
+`ContentPart::is_replay_material()` marks every reasoning and opaque part a
+conversation replays, and `is_opaque_openai()` marks the OpenAI items that stop
+being valid once compaction replaces the turn they belong to.
 
 ## Tool calling
 
@@ -294,14 +321,22 @@ async fn extract_city(client: &Client) -> Result<Value, Box<dyn Error>> {
 ```
 
 The built-in adapters return the JSON document as response text. The
-application parses it into `serde_json::Value` or its own type. Lithos rejects
-structured-output requests before dispatch when the selected model does not
-declare that capability.
+application parses it into `serde_json::Value` or its own type, or lets
+`Response::json_object` do it: a `Json` part is taken as is, otherwise the text
+is parsed. `Client::complete_object(request, "location", schema)` does the
+whole exchange, attaching the schema and returning a `StructuredCompletion`
+with the response and the parsed document. Lithos rejects structured-output
+requests before dispatch when the selected model does not declare that
+capability.
 
 ## Multimodal input
 
 A message can contain text, images, audio, and documents. Media can use a
-provider-accessible URL or inline base64 data.
+provider-accessible URL or inline base64 data. With the `local-files` feature,
+the `InlineLocalFiles` middleware accepts a local path as well (`/…`, `./…`,
+`~/…`, or `file://`) and reads the file into inline base64 before the request
+reaches a codec, so a caller on the same machine as its files can point at
+them directly.
 
 ```rust
 use std::error::Error;
@@ -364,6 +399,19 @@ right total. A catalog rejection — a tool probe against a model that declares
 no tools — fails before any request is sent. `Failed` carries the classified
 `ErrorData`, so an unknown model, bad credentials, a missing model, and a
 timeout are told apart by its `kind`.
+
+## Error policy
+
+Every failure is an `Error` while it is being handled and an `ErrorData` once
+it is stored or sent somewhere. Both answer the questions a retry loop, a
+failover chain, or a diagnostic asks: `is_retryable` (repeating the same call
+may succeed), `is_auth_error`, `is_cancelled`, and `failover_eligible`
+(another provider is worth trying: everything retryable, plus failures local to
+this provider such as credentials, model inventory, quota, a timeout, or a
+refusal). An invalid request or a context overflow follows the request to the
+next provider, so it is not failover-eligible. `ErrorData` prints its message,
+implements `std::error::Error`, and reads like `Error`, so an application can
+keep one code path for both forms.
 
 ## Token estimation
 
@@ -447,6 +495,17 @@ deployment-specific setup ship with `enabled = false`; an overlay turns one on:
 enabled = true
 ```
 
+Before it has a request, an application asks the catalog which providers are
+on and which model to pick for a job. `Catalog::enabled_providers` lists them
+in priority order and `listed_providers` drops the ones that stand in for
+another; `offerings_matching` ranks every enabled offering of a selector the
+way the resolver would; `default_offering_for` and `small_default_for` pick the
+default and the cheap utility model across the providers that are ready;
+`CatalogProvider::probe_offering` names the row to probe with and
+`closest_offering` the nearest model to one on another provider. Each returns
+an `Offering`, the borrowed provider-and-model pair, with `handle`,
+`into_route`, and `estimate_cost`.
+
 An application can supply its whole catalog and use none of the built-in
 entries. Building from external TOML never adds built-in providers implicitly;
 only `with_builtin()` does that.
@@ -478,6 +537,7 @@ fn build(root: &str, openai: &str, anthropic: &str) -> Result<(), Box<dyn Error>
 | `gemini` | yes | Gemini Generate Content adapter |
 | `openai-compatible` | yes | Chat Completions-compatible adapter |
 | `environment-credentials` | yes | Environment-backed credential provider |
+| `local-files` | no | Middleware that inlines local-path media as base64 |
 | `bedrock` | no | Bedrock Converse adapter with bearer-token authentication |
 | `bedrock-aws` | no | AWS credential chain and SigV4 signing for Bedrock |
 

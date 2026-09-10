@@ -1,5 +1,7 @@
 //! Model support queries, independent of pricing and protocol encoding.
 
+use std::cmp::Reverse;
+
 use serde::{Deserialize, Serialize};
 
 use crate::types::{ReasoningEffort, ResponseFormat, Speed, ToolChoice};
@@ -213,6 +215,30 @@ impl ModelCapabilities {
             Speed::Economical => self.speed.economical,
         }
     }
+
+    /// The supported reasoning effort nearest to `requested`.
+    ///
+    /// A request written for one model often names an effort the fallback
+    /// model does not offer; this picks the level to send instead. Distance
+    /// is counted in levels along [`ReasoningEffort::ALL`], and when two
+    /// supported levels are equally near, the higher one wins. `None` when no
+    /// level is known to be supported.
+    pub fn closest_supported_effort(self, requested: ReasoningEffort) -> Option<ReasoningEffort> {
+        let rank = |effort: ReasoningEffort| {
+            ReasoningEffort::ALL
+                .iter()
+                .position(|candidate| *candidate == effort)
+                .unwrap_or(ReasoningEffort::ALL.len())
+        };
+        let target = rank(requested);
+        ReasoningEffort::ALL
+            .into_iter()
+            .filter(|effort| self.reasoning_effort(*effort).is_supported())
+            .min_by_key(|effort| {
+                let position = rank(*effort);
+                (position.abs_diff(target), Reverse(position))
+            })
+    }
     pub(crate) fn unknown() -> Self {
         Self {
             text:             Support::Unknown,
@@ -314,5 +340,32 @@ mod tests {
         assert_eq!(caps.tools(), Support::Unknown);
         assert_eq!(caps.tool_choice(&ToolChoice::Required), Support::Unknown);
         assert_eq!(caps.speed(Speed::Balanced), Support::Unknown);
+    }
+
+    #[test]
+    fn closest_supported_effort_prefers_the_higher_neighbor_on_ties() {
+        let capabilities: ModelCapabilities = toml::from_str(
+            r"reasoning = true
+reasoning_effort = { low = true, high = true }",
+        )
+        .expect("parses");
+        assert_eq!(
+            capabilities.closest_supported_effort(ReasoningEffort::Medium),
+            Some(ReasoningEffort::High)
+        );
+        assert_eq!(
+            capabilities.closest_supported_effort(ReasoningEffort::Max),
+            Some(ReasoningEffort::High)
+        );
+        assert_eq!(
+            capabilities.closest_supported_effort(ReasoningEffort::Minimal),
+            Some(ReasoningEffort::Low)
+        );
+        assert_eq!(
+            capabilities.closest_supported_effort(ReasoningEffort::Low),
+            Some(ReasoningEffort::Low)
+        );
+        let none: ModelCapabilities = toml::from_str("text = true").expect("parses");
+        assert_eq!(none.closest_supported_effort(ReasoningEffort::Medium), None);
     }
 }

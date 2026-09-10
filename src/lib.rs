@@ -41,6 +41,6 @@ mod transport;
 
 #[cfg(feature = "runtime")]
 #[doc(inline)]
-pub use client::{Client, ClientBuild, ClientBuilder};
+pub use client::{Client, ClientBuild, ClientBuilder, StructuredCompletion};
 #[doc(inline)]
 pub use types::{Error, Request, Response};

@@ -1,6 +1,12 @@
 //! Secret-safe credential resolution.
+//!
+//! A [`CredentialProvider`] answers one question per provider attempt: what
+//! credentials to send. [`readiness`] asks it once for every provider up front,
+//! so an application can list which providers it can serve and report the
+//! ones whose stored material cannot be used.
 
 use std::collections::BTreeMap;
+use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 #[cfg(feature = "environment-credentials")]
@@ -209,6 +215,17 @@ pub trait CredentialProvider: Send + Sync {
     /// substitute for a failed credential lookup.
     async fn credentials(&self, provider: &CatalogProvider)
     -> Result<Credentials, CredentialError>;
+
+    /// Whether this store holds material for `provider`, without saying
+    /// whether that material works.
+    ///
+    /// The default resolves the credentials and reports success. A store
+    /// whose resolution has side effects or cost, such as refreshing an OAuth
+    /// token, should override this with a cheaper check so that listings and
+    /// startup diagnostics do not trigger a refresh.
+    async fn is_configured(&self, provider: &CatalogProvider) -> bool {
+        self.credentials(provider).await.is_ok()
+    }
 }
 
 /// A provider that supplies no authentication.
@@ -256,6 +273,10 @@ impl CredentialProvider for StaticCredentials {
             .ok_or_else(|| CredentialError::NotConfigured {
                 provider: provider.id().clone(),
             })
+    }
+
+    async fn is_configured(&self, provider: &CatalogProvider) -> bool {
+        self.credentials.contains_key(provider.id())
     }
 }
 
@@ -848,6 +869,11 @@ impl CredentialProvider for ChainedCredentials {
 }
 
 /// Credential lookup failed without exposing secret content.
+///
+/// `NotConfigured` and `MissingSecret` mean the store holds nothing for the
+/// provider; [`readiness`] treats them as silence. Every other variant means
+/// material is present but cannot be used, which is an issue an operator can
+/// act on.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum CredentialError {
@@ -860,16 +886,106 @@ pub enum CredentialError {
     },
     #[error("credentials for provider {provider} do not match its authentication scheme")]
     SchemeMismatch { provider: ProviderId },
+    /// Material is present but cannot be used: an expired token with no
+    /// refresh token, a stored entry of the wrong type, a header secret that
+    /// did not resolve. `reason` is the operator-facing explanation and must
+    /// not contain secret content.
+    #[error("credentials for provider {provider} cannot be used: {reason}")]
+    Unusable {
+        provider: ProviderId,
+        reason:   String,
+        #[source]
+        source:   Option<Box<dyn StdError + Send + Sync + 'static>>,
+    },
+}
+
+impl CredentialError {
+    /// The provider the error is about.
+    pub fn provider(&self) -> &ProviderId {
+        match self {
+            Self::NotConfigured { provider }
+            | Self::MissingSecret { provider, .. }
+            | Self::SchemeMismatch { provider }
+            | Self::Unusable { provider, .. } => provider,
+        }
+    }
+
+    /// Whether the store simply holds nothing for the provider, as opposed to
+    /// holding material that cannot be used.
+    pub fn is_not_configured(&self) -> bool {
+        matches!(
+            self,
+            Self::NotConfigured { .. } | Self::MissingSecret { .. }
+        )
+    }
+}
+
+/// Which providers a credential store can serve right now, and why the rest
+/// cannot.
+///
+/// Built by [`readiness`]. A provider the store holds nothing for is in
+/// neither list; only material that is present but unusable is an issue.
+#[derive(Debug, Default)]
+#[non_exhaustive]
+pub struct Readiness {
+    /// Providers whose credentials resolved, in the order they were given.
+    pub ready:  Vec<ProviderId>,
+    /// Providers with material that could not be used.
+    pub issues: Vec<(ProviderId, CredentialError)>,
+}
+
+impl Readiness {
+    /// Whether `provider` resolved.
+    pub fn is_ready(&self, provider: &ProviderId) -> bool {
+        self.ready.contains(provider)
+    }
+
+    /// The issue recorded for `provider`, if any.
+    pub fn issue(&self, provider: &ProviderId) -> Option<&CredentialError> {
+        self.issues
+            .iter()
+            .find(|(candidate, _)| candidate == provider)
+            .map(|(_, error)| error)
+    }
+}
+
+/// Resolves every provider in `providers` once against `credentials`.
+///
+/// This is the question a listing or a startup diagnostic asks: which
+/// providers can be served right now. Resolution runs in the order given, so
+/// callers that pass a catalog's providers get catalog order back. A store
+/// whose resolution refreshes tokens does that work here; pass
+/// [`CredentialProvider::is_configured`] results instead when only presence
+/// matters.
+pub async fn readiness<'a>(
+    providers: impl IntoIterator<Item = &'a CatalogProvider>,
+    credentials: &dyn CredentialProvider,
+) -> Readiness {
+    let mut readiness = Readiness::default();
+    for provider in providers {
+        match credentials.credentials(provider).await {
+            Ok(_) => readiness.ready.push(provider.id().clone()),
+            Err(error) if error.is_not_configured() => {}
+            Err(error) => readiness.issues.push((provider.id().clone(), error)),
+        }
+    }
+    readiness
 }
 
 #[cfg(test)]
 mod tests {
 
+    use async_trait::async_trait;
+
     #[cfg(feature = "environment-credentials")]
-    use super::{ConventionalCredentials, CredentialError, ProviderId};
-    use super::{CredentialHeader, Credentials, HttpAuthentication, HttpCredentials, SecretValue};
+    use super::ConventionalCredentials;
+    use super::{
+        CredentialError, CredentialHeader, Credentials, HttpAuthentication, HttpCredentials,
+        SecretValue,
+    };
     #[cfg(feature = "environment-credentials")]
-    use crate::catalog::{Catalog, CatalogProvider};
+    use crate::catalog::Catalog;
+    use crate::catalog::{CatalogProvider, ProviderId};
 
     /// A table reading from a fixed store.
     #[cfg(feature = "environment-credentials")]
@@ -1321,5 +1437,95 @@ mod tests {
         );
         assert!(resolve("bedrock-openai", &[]).is_err());
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn readiness_separates_silence_from_issues() {
+        use super::{CredentialProvider, Credentials, StaticCredentials, readiness};
+        use crate::catalog::Catalog;
+
+        struct Store;
+
+        #[async_trait]
+        impl CredentialProvider for Store {
+            async fn credentials(
+                &self,
+                provider: &CatalogProvider,
+            ) -> Result<Credentials, CredentialError> {
+                match provider.id().as_str() {
+                    "ready" => Ok(Credentials::none()),
+                    "broken" => Err(CredentialError::Unusable {
+                        provider: provider.id().clone(),
+                        reason:   "stored entry is not a token".to_owned(),
+                        source:   None,
+                    }),
+                    _ => Err(CredentialError::NotConfigured {
+                        provider: provider.id().clone(),
+                    }),
+                }
+            }
+        }
+
+        let catalog = Catalog::builder()
+            .toml_layer(
+                "test",
+                r#"
+                schema_version = 1
+                [providers.ready]
+                display_name = "Ready"
+                adapter = "openai-compatible"
+                codec = "openai-chat"
+                base_url = "http://127.0.0.1"
+                auth = { type = "none" }
+                [providers.broken]
+                display_name = "Broken"
+                adapter = "openai-compatible"
+                codec = "openai-chat"
+                base_url = "http://127.0.0.1"
+                auth = { type = "bearer" }
+                [providers.silent]
+                display_name = "Silent"
+                adapter = "openai-compatible"
+                codec = "openai-chat"
+                base_url = "http://127.0.0.1"
+                auth = { type = "bearer" }
+                "#,
+            )
+            .expect("parses")
+            .build()
+            .expect("validates");
+
+        let readiness = readiness(catalog.providers(), &Store).await;
+        assert_eq!(readiness.ready, [ProviderId::new("ready")]);
+        assert_eq!(readiness.issues.len(), 1);
+        assert!(readiness.is_ready(&ProviderId::new("ready")));
+        assert!(!readiness.is_ready(&ProviderId::new("silent")));
+        let issue = readiness
+            .issue(&ProviderId::new("broken"))
+            .expect("broken has an issue");
+        assert_eq!(
+            issue.to_string(),
+            "credentials for provider broken cannot be used: stored entry is not a token"
+        );
+        assert!(!issue.is_not_configured());
+        assert!(
+            CredentialError::MissingSecret {
+                provider: ProviderId::new("silent"),
+                name:     "SILENT_API_KEY".to_owned(),
+            }
+            .is_not_configured()
+        );
+
+        let fixed = StaticCredentials::new().with("ready", Credentials::none());
+        assert!(
+            fixed
+                .is_configured(catalog.provider("ready").unwrap())
+                .await
+        );
+        assert!(
+            !fixed
+                .is_configured(catalog.provider("silent").unwrap())
+                .await
+        );
     }
 }

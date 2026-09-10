@@ -4,7 +4,7 @@ use serde::de::{Error as DeError, IgnoredAny, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use super::{ContentPart, Message, Role, ToolCall};
+use super::{ContentPart, Error, ErrorKind, Message, Role, ToolCall};
 use crate::catalog::{ModelHandle, ModelId, ProviderId};
 
 /// Why a model stopped producing output.
@@ -361,6 +361,34 @@ impl Response {
             })
             .collect()
     }
+
+    /// The JSON document a structured-output request asked for.
+    ///
+    /// A provider that returns structured output as its own content type
+    /// yields a [`ContentPart::Json`] part, which is returned as is. Every
+    /// other provider returns the document as text, which is parsed here.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ResponseDecode` error when the response carries no JSON part
+    /// and its text is not a JSON document.
+    pub fn json_object(&self) -> Result<Value, Error> {
+        if let Some(value) = self.content.iter().find_map(|part| match part {
+            ContentPart::Json { value } => Some(value.clone()),
+            _ => None,
+        }) {
+            return Ok(value);
+        }
+        let text = self.text();
+        serde_json::from_str(text.trim()).map_err(|source| {
+            Error::new(
+                ErrorKind::ResponseDecode,
+                format!("the model did not return a JSON document: {source}"),
+            )
+            .with_provider(self.model.provider().clone())
+            .with_source(source)
+        })
+    }
 }
 
 #[cfg(test)]
@@ -369,7 +397,7 @@ mod tests {
 
     use serde_json::json;
 
-    use super::{FinishReason, RateLimits, Response, TokenCounts, Warning};
+    use super::{ErrorKind, FinishReason, RateLimits, Response, TokenCounts, Warning};
     use crate::catalog::{ModelId, ProviderId};
     use crate::types::{ContentPart, ToolCall};
 
@@ -656,5 +684,34 @@ mod tests {
         });
 
         assert_eq!(response.text(), "hello world");
+    }
+
+    #[test]
+    fn json_object_prefers_a_json_part_and_parses_text_otherwise() {
+        let structured = Response::new(ProviderId::new("alpha"), ModelId::new("one"), vec![
+            ContentPart::Text {
+                text: "not this".to_owned(),
+            },
+            ContentPart::Json {
+                value: json!({"city": "Paris"}),
+            },
+        ]);
+        assert_eq!(structured.json_object().unwrap(), json!({"city": "Paris"}));
+
+        let text = Response::new(ProviderId::new("alpha"), ModelId::new("one"), vec![
+            ContentPart::Text {
+                text: " {\"city\": \"Paris\"} \n".to_owned(),
+            },
+        ]);
+        assert_eq!(text.json_object().unwrap(), json!({"city": "Paris"}));
+
+        let prose = Response::new(ProviderId::new("alpha"), ModelId::new("one"), vec![
+            ContentPart::Text {
+                text: "Paris, in France.".to_owned(),
+            },
+        ]);
+        let error = prose.json_object().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+        assert_eq!(error.provider().map(ProviderId::as_str), Some("alpha"));
     }
 }

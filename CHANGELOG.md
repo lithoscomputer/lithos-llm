@@ -6,6 +6,76 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `catalog::builtin::ids` names every provider the built-in catalog ships, with
+  `anthropic()`, `openai()`, `openai_codex()`, and `gemini()` constructors for
+  the ones applications drive directly. A test keeps the list equal to the
+  shipped rows.
+
+- `ModelCapabilities::closest_supported_effort` picks the supported reasoning
+  level nearest to a requested one, ties to the higher level, for sending a
+  request written for one model to another.
+
+
+- Readable reasoning, normalized. `types::ReasoningOutput` reduces a
+  response's reasoning to a summary and a verbatim trace across every channel
+  the codecs store: `ReasoningContent` blocks, OpenAI Responses `reasoning`
+  items, and OpenAI-compatible `reasoning_details`. Structured channels win and
+  a flattened duplicate of the summary is dropped. At least one field is
+  always present: deserialization rejects an empty object and absent fields
+  are omitted on the wire. `Response::reasoning()` applies it;
+  `ContentPart::is_replay_material()` (every reasoning and opaque part, so
+  paired OpenAI items stay together) and `is_opaque_openai()` name the parts a
+  conversation keeps for replay. Fabro and Pebble each carried a copy of this.
+
+
+- Local files as media. Behind the new `local-files` feature,
+  `middleware::InlineLocalFiles` rewrites an image, document, or audio part
+  whose source is a local path (`/…`, `./…`, `~/…`, or `file://`) to inline
+  base64 with a media type inferred from the extension, inside tool results
+  too. A file that cannot be read is dropped with a warning rather than failing
+  the request. `media_type_for_path` is the inference on its own.
+
+- Structured output in one call. `Client::complete_object` attaches a JSON
+  schema as the request's response format, completes it, and parses the reply
+  into a `StructuredCompletion` holding the response and the document.
+  `Response::json_object` does the parsing on its own: a `Json` part is taken
+  as is, otherwise the text is parsed, and anything else is a `ResponseDecode`
+  error.
+
+- Error policy predicates. `Error` and `ErrorData` both answer `is_retryable`,
+  `is_auth_error`, `is_cancelled`, and `failover_eligible` (retryable, or local
+  to this provider: credentials, access, model inventory, quota, rate limit,
+  server, network, timeout, stream decode, or a `refusal` content filter).
+  `ErrorData` gains the same readers `Error` has (`kind`, `message`,
+  `provider`, `status`, `provider_code`, `retry_classification`,
+  `retry_after`, `provider_retry_after`, `raw_data`, `source_message`), prints
+  its message through `Display`, implements `std::error::Error`, and converts
+  from an owned `Error`. Its serialized shape is unchanged.
+
+- Catalog queries. `Offering` is the borrowed provider-and-model pair a listing
+  or a picker works with; `ResolvedRoute` stays the owned form a request
+  carries. `Catalog` gains `enabled_providers` (priority order),
+  `listed_providers` (enabled and not a stand-in), `enabled_provider`,
+  `enabled_provider_ids`, `offerings_matching` (ranked as the resolver ranks),
+  `is_model_selector`, `canonical_model_id`, `default_offering_for` and
+  `small_default_for` (over a set of ready providers), and `estimate_cost` by
+  model handle. `CatalogProvider` gains `offering`, `offerings`,
+  `default_offering`, `probe_offering`, and `closest_offering` (same tool,
+  image, and reasoning support, nearest input price). Every query skips
+  disabled providers.
+
+- Provider readiness. `credentials::readiness` resolves a set of providers once
+  and separates the ones that resolved from the ones whose stored material
+  cannot be used; a store that holds nothing for a provider is silence, not an
+  issue. `ClientBuilder::build_ready` runs it over the builder's own selection
+  and builds adapters only for ready providers, never widening the selection; a
+  provider with an explicit adapter counts as ready without a lookup.
+  `ClientBuild` gains `ready` and `credential_issues` beside `issues`.
+  `CredentialError::Unusable` names present-but-unusable material, with an
+  operator-facing reason and an optional source. `CredentialProvider` gains
+  `is_configured`, a presence check stores can answer without refreshing.
+  `CredentialError::provider` and `is_not_configured` are new.
+
 - Breaking: the catalog owns the facts applications used to keep under
   `metadata.fabro`. Model rows gain optional `family`, `training_cutoff`,
   `knowledge_cutoff`, and `estimated_output_tps`, plus `small_default` and
