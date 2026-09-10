@@ -193,7 +193,7 @@ mod tests {
 
     use super::{Catalog, CatalogError};
     #[cfg(feature = "builtin-catalog")]
-    use crate::catalog::{AuthScheme, Metadata};
+    use crate::catalog::{AuthScheme, Metadata, ProviderId};
     #[cfg(feature = "builtin-catalog")]
     use crate::types::Speed;
     use crate::types::{ResponseFormat, ToolChoice};
@@ -913,6 +913,66 @@ mod tests {
             !catalog.model("openai", "gpt-5.5")?.is_probe(),
             "only the mini row is the probe model"
         );
+        Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_codex_provider_mirrors_the_platform_roster() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+
+        let codex = catalog.provider("openai-codex")?;
+        assert!(codex.is_enabled());
+        assert_eq!(
+            codex.stands_in_for().map(ProviderId::as_str),
+            Some("openai")
+        );
+        assert_eq!(codex.default_model(), Some("gpt-5.6-sol"));
+        assert!(codex.allows_passthrough());
+        assert!(codex.priority() < catalog.provider("openai")?.priority());
+        assert_eq!(
+            codex.adapter_options()["mode"].as_str(),
+            Some("codex"),
+            "the codex adapter mode selects the deployment's dialect"
+        );
+
+        // The platform roster minus the pro rows, under the same ids and
+        // aliases so a stand-in route resolves the same selector.
+        let platform = catalog.provider("openai")?;
+        let mut expected: Vec<_> = platform
+            .models()
+            .map(|model| model.id().as_str())
+            .filter(|id| !id.ends_with("-pro") && *id != "gpt-6-astra")
+            .collect();
+        expected.sort_unstable();
+        let mut actual: Vec<_> = codex.models().map(|model| model.id().as_str()).collect();
+        actual.sort_unstable();
+        assert_eq!(actual, expected);
+        for model in codex.models() {
+            let twin = platform
+                .model(model.id().as_str())
+                .ok_or_else(|| format!("{} should exist on the platform", model.id()))?;
+            assert_eq!(model.aliases(), twin.aliases(), "{}", model.id());
+            assert_eq!(model.limits(), twin.limits(), "{}", model.id());
+            assert_eq!(model.family(), twin.family(), "{}", model.id());
+            // Seat-billed: no per-token price, no sampling, no speed tiers.
+            assert!(model.pricing().is_none(), "{}", model.id());
+            assert!(
+                !model.capabilities().sampling().is_supported(),
+                "{}",
+                model.id()
+            );
+            assert!(
+                !model.capabilities().speed(Speed::Fast).is_supported(),
+                "{}",
+                model.id()
+            );
+        }
+        assert_eq!(
+            catalog.model("openai-codex", "sol")?.api_model(),
+            "gpt-5.6-sol"
+        );
+        assert!(catalog.model("openai-codex", "gpt-5.4-mini")?.is_probe());
         Ok(())
     }
 

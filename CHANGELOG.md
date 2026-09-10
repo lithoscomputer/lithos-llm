@@ -32,6 +32,13 @@ This project follows [Semantic Versioning](https://semver.org/).
   the `anthropic` profile and only Claude 5 rows take `claude-5`; Kimi rows
   take `kimi` wherever they are served, including Bedrock.
 
+- Add the OpenAI Codex deployment as the built-in `openai-codex` provider.
+  It serves the platform GPT-5 roster minus the pro rows through
+  `chatgpt.com/backend-api/codex` in codex mode, carries no per-token
+  pricing because requests are seat-billed, and stands in for `openai`, so
+  a client with a ChatGPT credential but no platform key still serves
+  `openai/<model>` routes.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;

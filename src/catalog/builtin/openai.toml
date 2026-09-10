@@ -46,35 +46,9 @@
 #
 # Access paths: this provider entry is the API-key platform
 # (`platform.openai.com`, bearer `OPENAI_API_KEY`). OpenAI also serves a
-# ChatGPT-subscription path through the Codex deployment, which fabro
-# drives with an OAuth device flow. That path speaks the same Responses
-# protocol with a different envelope and roster, so an overlay entry
-# selects it explicitly:
-#
-#   [providers.openai-codex]
-#   adapter = "openai"
-#   codec = "openai-responses"
-#   base_url = "https://chatgpt.com/backend-api/codex"
-#   auth = { type = "bearer" }                  # the OAuth access token
-#   adapter_options = { mode = "codex" }
-#   default_headers = { "ChatGPT-Account-Id" = "<account id>", originator = "<app>" }
-#
-# Codex mode forces streaming, posts to the unversioned `<base>/responses`
-# path (the deployment's `/v1/responses` is an HTML 403), hoists system
-# messages into `instructions`, drops `temperature`, `top_p`, and
-# `max_output_tokens` with warnings, and reports no native token count
-# (the deployment serves no `/responses/input_tokens`). Verified against
-# the live deployment with a Codex CLI credential on 2026-08-30: the seat
-# served the GPT-5 roster minus the pro rows (gpt-5.5-pro and gpt-5.4-pro
-# answer 400 "not supported when using Codex with a ChatGPT account"),
-# rejected `stop` like the platform API, spelled error detail as `detail`
-# (handled in transport::classify), and sent a terminal `response.completed`
-# whose `output` array was empty — the streamed items were the only content.
-# Astra's Codex-deployment availability is not yet verified. The live cells
-# are `tests/e2e/openai/codex.rs`, gated on `OPENAI_CODEX_TOKEN` and
-# `CHATGPT_ACCOUNT_ID`. The built-in catalog carries no codex entry because
-# the OAuth token and account id are application state, not environment
-# convention.
+# ChatGPT-subscription path through the Codex deployment, which is the
+# built-in `openai-codex` provider (`openai-codex.toml`). That provider
+# stands in for this one when this one has no adapter.
 
 schema_version = 1
 
