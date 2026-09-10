@@ -353,6 +353,32 @@ impl Error {
         self.raw_data.as_deref()
     }
 
+    /// Whether repeating the same call on the same provider may succeed.
+    pub fn is_retryable(&self) -> bool {
+        is_retryable(self.retry)
+    }
+
+    /// Whether the failure came from a credential or access problem.
+    pub fn is_auth_error(&self) -> bool {
+        is_auth_error(&self.kind)
+    }
+
+    /// Whether the caller cancelled the call rather than the provider failing
+    /// it.
+    pub fn is_cancelled(&self) -> bool {
+        *self.kind == ErrorKind::Cancelled
+    }
+
+    /// Whether another provider is worth trying for the same request.
+    ///
+    /// Everything retryable qualifies, plus failures local to this provider:
+    /// credentials, access, model inventory, quota, a timeout, an undecodable
+    /// stream, or a model that refused. An invalid request or a context
+    /// overflow follows the request to the next provider, so it does not.
+    pub fn failover_eligible(&self) -> bool {
+        failover_eligible(&self.kind, self.retry, self.provider_code.as_deref())
+    }
+
     /// A cloneable, serializable projection of this error.
     ///
     /// The source chain is not copied. Its immediate entry is rendered into
@@ -376,6 +402,133 @@ impl From<&Error> for ErrorData {
     fn from(error: &Error) -> Self {
         error.data()
     }
+}
+
+impl From<Error> for ErrorData {
+    fn from(error: Error) -> Self {
+        error.data()
+    }
+}
+
+/// The same readers [`Error`] has, so code that classifies a failure can take
+/// either the live error or its stored projection.
+impl ErrorData {
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    pub fn provider(&self) -> Option<&ProviderId> {
+        self.provider.as_ref()
+    }
+
+    pub fn status(&self) -> Option<u16> {
+        self.status
+    }
+
+    pub fn provider_code(&self) -> Option<&str> {
+        self.provider_code.as_deref()
+    }
+
+    pub fn retry_classification(&self) -> RetryClassification {
+        self.retry
+    }
+
+    /// The delay the classification advises, when repeating is safe after a
+    /// wait.
+    pub fn retry_after(&self) -> Option<Duration> {
+        self.retry.delay()
+    }
+
+    /// The provider's advised wait, whatever the error kind.
+    pub fn provider_retry_after(&self) -> Option<Duration> {
+        self.provider_retry_after_millis.map(Duration::from_millis)
+    }
+
+    pub fn raw_data(&self) -> Option<&Value> {
+        self.raw_data.as_ref()
+    }
+
+    pub fn source_message(&self) -> Option<&str> {
+        self.source_message.as_deref()
+    }
+
+    /// Whether repeating the same call on the same provider may succeed.
+    pub fn is_retryable(&self) -> bool {
+        is_retryable(self.retry)
+    }
+
+    /// Whether the failure came from a credential or access problem.
+    pub fn is_auth_error(&self) -> bool {
+        is_auth_error(&self.kind)
+    }
+
+    /// Whether the caller cancelled the call rather than the provider failing
+    /// it.
+    pub fn is_cancelled(&self) -> bool {
+        self.kind == ErrorKind::Cancelled
+    }
+
+    /// Whether another provider is worth trying for the same request.
+    pub fn failover_eligible(&self) -> bool {
+        failover_eligible(&self.kind, self.retry, self.provider_code.as_deref())
+    }
+}
+
+/// The stored projection prints as the error itself does: the message only,
+/// so a wrapping error's `Display` reads the same whichever form it holds.
+impl fmt::Display for ErrorData {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+/// The projection has no live source chain; its immediate source is the text
+/// in [`ErrorData::source_message`].
+impl StdError for ErrorData {}
+
+/// Whether repeating the same call on the same provider may succeed.
+fn is_retryable(retry: RetryClassification) -> bool {
+    !matches!(retry, RetryClassification::Never)
+}
+
+/// Whether the failure came from a credential or access problem.
+fn is_auth_error(kind: &ErrorKind) -> bool {
+    matches!(kind, ErrorKind::Authentication | ErrorKind::AccessDenied)
+}
+
+/// Whether another provider is worth trying.
+///
+/// Everything retryable qualifies, plus failures local to this provider:
+/// credentials, access policy, model inventory, quota, a provider that ran
+/// out of time or sent a stream this crate could not decode, and a model that
+/// refused to answer. A different provider has its own credentials, models,
+/// limits, and judgement. Invalid requests, context overflow, and
+/// configuration errors follow the request to the next provider, so they do
+/// not qualify.
+fn failover_eligible(
+    kind: &ErrorKind,
+    retry: RetryClassification,
+    provider_code: Option<&str>,
+) -> bool {
+    if is_retryable(retry) {
+        return true;
+    }
+    matches!(
+        kind,
+        ErrorKind::Authentication
+            | ErrorKind::AccessDenied
+            | ErrorKind::NotFound
+            | ErrorKind::QuotaExceeded
+            | ErrorKind::RateLimit
+            | ErrorKind::Server
+            | ErrorKind::Network
+            | ErrorKind::Timeout
+            | ErrorKind::StreamDecode
+    ) || (*kind == ErrorKind::ContentFilter && provider_code == Some("refusal"))
 }
 
 impl fmt::Display for Error {
@@ -555,5 +708,70 @@ mod tests {
             serde_json::from_value(json!("quota_exceeded")).expect("deserialize");
 
         assert_eq!(decoded, ErrorKind::QuotaExceeded);
+    }
+
+    #[test]
+    fn predicates_agree_between_the_error_and_its_projection() {
+        let cases: [(Error, bool, bool, bool); 6] = [
+            (sample_error(), true, false, true),
+            (
+                Error::new(ErrorKind::Authentication, "bad key"),
+                false,
+                true,
+                true,
+            ),
+            (
+                Error::new(ErrorKind::InvalidRequest, "bad body"),
+                false,
+                false,
+                false,
+            ),
+            (
+                Error::new(ErrorKind::ContentFilter, "refused").with_provider_code("refusal"),
+                false,
+                false,
+                true,
+            ),
+            (
+                Error::new(ErrorKind::ContentFilter, "blocked"),
+                false,
+                false,
+                false,
+            ),
+            (
+                Error::new(ErrorKind::Cancelled, "stopped"),
+                false,
+                false,
+                false,
+            ),
+        ];
+        for (error, retryable, auth, failover) in cases {
+            let data = error.data();
+            assert_eq!(error.is_retryable(), retryable, "{error}");
+            assert_eq!(data.is_retryable(), retryable, "{data}");
+            assert_eq!(error.is_auth_error(), auth, "{error}");
+            assert_eq!(data.is_auth_error(), auth, "{data}");
+            assert_eq!(error.failover_eligible(), failover, "{error}");
+            assert_eq!(data.failover_eligible(), failover, "{data}");
+            assert_eq!(error.is_cancelled(), data.is_cancelled());
+        }
+    }
+
+    #[test]
+    fn the_projection_reads_and_displays_like_the_error() {
+        let error = sample_error();
+        let data = error.data();
+        assert_eq!(data.to_string(), error.to_string());
+        assert_eq!(data.kind(), &error.kind());
+        assert_eq!(data.message(), error.message());
+        assert_eq!(data.provider(), error.provider());
+        assert_eq!(data.status(), error.status());
+        assert_eq!(data.provider_code(), error.provider_code());
+        assert_eq!(data.retry_classification(), error.retry_classification());
+        assert_eq!(data.retry_after(), error.retry_after());
+        assert_eq!(data.provider_retry_after(), error.provider_retry_after());
+        assert_eq!(data.raw_data(), error.raw_data());
+        let boxed: Box<dyn StdError + Send + Sync> = Box::new(data);
+        assert!(boxed.source().is_none());
     }
 }

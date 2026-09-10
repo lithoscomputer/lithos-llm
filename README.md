@@ -374,6 +374,19 @@ no tools — fails before any request is sent. `Failed` carries the classified
 `ErrorData`, so an unknown model, bad credentials, a missing model, and a
 timeout are told apart by its `kind`.
 
+## Error policy
+
+Every failure is an `Error` while it is being handled and an `ErrorData` once
+it is stored or sent somewhere. Both answer the questions a retry loop, a
+failover chain, or a diagnostic asks: `is_retryable` (repeating the same call
+may succeed), `is_auth_error`, `is_cancelled`, and `failover_eligible`
+(another provider is worth trying: everything retryable, plus failures local to
+this provider such as credentials, model inventory, quota, a timeout, or a
+refusal). An invalid request or a context overflow follows the request to the
+next provider, so it is not failover-eligible. `ErrorData` prints its message,
+implements `std::error::Error`, and reads like `Error`, so an application can
+keep one code path for both forms.
+
 ## Token estimation
 
 `lithos_llm::estimate` sizes a request locally, before any call is made:

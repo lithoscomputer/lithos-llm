@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Error policy predicates. `Error` and `ErrorData` both answer `is_retryable`,
+  `is_auth_error`, `is_cancelled`, and `failover_eligible` (retryable, or local
+  to this provider: credentials, access, model inventory, quota, rate limit,
+  server, network, timeout, stream decode, or a `refusal` content filter).
+  `ErrorData` gains the same readers `Error` has (`kind`, `message`,
+  `provider`, `status`, `provider_code`, `retry_classification`,
+  `retry_after`, `provider_retry_after`, `raw_data`, `source_message`), prints
+  its message through `Display`, implements `std::error::Error`, and converts
+  from an owned `Error`. Its serialized shape is unchanged.
+
 - Catalog queries. `Offering` is the borrowed provider-and-model pair a listing
   or a picker works with; `ResolvedRoute` stays the owned form a request
   carries. `Catalog` gains `enabled_providers` (priority order),
