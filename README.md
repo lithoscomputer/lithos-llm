@@ -76,8 +76,10 @@ returned with its original finish reason. `Length` does not trigger a retry.
 
 Use `ClientBuilder::http` to inject an application-configured
 `reqwest::Client`, and `ClientBuilder::enabled_providers` to build adapters for
-only the providers a deployment has configured. The complete catalog stays
-available for inspection either way.
+only the providers a deployment has configured. That selection narrows the
+catalog; a provider the catalog marks `enabled = false` builds no adapter
+either way, and a catalog overlay is what turns it on. The complete catalog
+stays available for inspection.
 
 `Client::resolve_route` reports the provider and model a request would use
 without dispatching it, which is the same resolution `complete`, `stream`, and

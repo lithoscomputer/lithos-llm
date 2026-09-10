@@ -20,9 +20,9 @@ remain provisional unless a catalog comment identifies a documentation correctio
   `metadata.pebble.profile = "openai"`.
 - Unverified forced-tool and structured-output support is `"unknown"`.
   Lithos permits these requests so the live tests can establish support.
-- An application's `enabled = false` has no catalog equivalent. Applications preserve
-  opt-in policy with `ClientBuilder::enabled_providers`. Catalog presence does
-  not check account access or service availability.
+- A provider that needs deployment-specific setup ships `enabled = false`;
+  an overlay turns it on with `enabled = true`. Catalog presence does not
+  check account access or service availability.
 - LiteLLM and Ollama have no universal model roster or default. Select an
   actual deployment or installed model with a qualified selector. Add model
   limits, capabilities, and pricing through an application catalog overlay.

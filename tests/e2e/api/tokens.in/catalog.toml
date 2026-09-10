@@ -28,6 +28,7 @@ capabilities = { text = true, images = true, audio = true, documents = true, too
 protocol_options = { reasoning_effort_levels = true }
 
 [providers.openrouter]
+enabled = true
 base_url = "http://127.0.0.1:3932/v1"
 
 [providers.openrouter.models.fixture]

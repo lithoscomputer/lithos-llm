@@ -5,6 +5,8 @@
 schema_version = 1
 
 [providers.modal]
+# A deployment overlay turns the opt-in provider on.
+enabled = true
 base_url = "https://REPLACE_WITH_DEDICATED_ENDPOINT.invalid/v1"
 default_model = "kimi-k3"
 

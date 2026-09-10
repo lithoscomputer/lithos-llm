@@ -166,10 +166,34 @@ pub(crate) mod test_support {
         Ok(test_call(request)?.route().clone())
     }
 
-    /// Resolves a request against the built-in catalog.
+    /// Every opt-in built-in provider turned on, so codec tests can resolve
+    /// routes on rows the catalog ships disabled.
+    #[cfg(feature = "builtin-catalog")]
+    pub(crate) const ENABLE_OPT_IN_PROVIDERS: &str = r"
+        [providers.bedrock]
+        enabled = true
+        [providers.bedrock-openai]
+        enabled = true
+        [providers.fireworks]
+        enabled = true
+        [providers.litellm]
+        enabled = true
+        [providers.modal]
+        enabled = true
+        [providers.ollama]
+        enabled = true
+        [providers.openrouter]
+        enabled = true
+    ";
+
+    /// Resolves a request against the built-in catalog with every provider
+    /// enabled.
     #[cfg(feature = "builtin-catalog")]
     pub(crate) fn resolved(request: Request) -> Result<ResolvedCall, Box<dyn StdError>> {
-        let catalog = Catalog::builder().with_builtin().build()?;
+        let catalog = Catalog::builder()
+            .with_builtin()
+            .toml_layer("enable-opt-in", ENABLE_OPT_IN_PROVIDERS)?
+            .build()?;
         let available = AvailableProviders::all(&catalog);
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
         Ok(ResolvedCall::new(request, route, CallContext::new()))

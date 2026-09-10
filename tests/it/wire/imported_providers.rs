@@ -25,7 +25,7 @@ fn client_for(server: &MockServer, provider: &str) -> Result<Client, Box<dyn Std
     let catalog = Catalog::builder()
         .with_builtin()
         .overlay_toml(&format!(
-            "schema_version = 1\n[providers.{provider}]\nbase_url = \"{}{prefix}\"",
+            "schema_version = 1\n[providers.{provider}]\nenabled = true\nbase_url = \"{}{prefix}\"",
             server.base_url()
         ))?
         .build()?;

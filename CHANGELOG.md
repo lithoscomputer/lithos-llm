@@ -18,6 +18,14 @@ This project follows [Semantic Versioning](https://semver.org/).
   bedrock-openai, fireworks, litellm, modal, ollama, and openrouter providers
   ship disabled because each needs deployment-specific setup.
 
+- The client builds no adapter for a catalog-disabled provider, reports no
+  issue for it, and `ClientBuilder::enabled_providers` can only narrow that
+  set. `CatalogResolver` refuses every route to a disabled provider with the
+  new `ModelSelectionError::ProviderDisabled`, skips it for the `default`
+  selector and bare model selectors, and reroutes an explicit or provider
+  default route onto the available provider that `stands_in_for` the one
+  asked for. `AvailableProviders::all` leaves disabled providers out.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;
