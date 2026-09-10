@@ -9,6 +9,8 @@ use std::{env, mem};
 use async_trait::async_trait;
 use thiserror::Error;
 
+#[cfg(feature = "environment-credentials")]
+use crate::catalog::AuthScheme;
 use crate::catalog::{CatalogProvider, ProviderId};
 
 /// A secret string whose debug output is always redacted.
@@ -272,6 +274,14 @@ impl CredentialProvider for StaticCredentials {
 /// A provider holds an ordered chain of mappings. The first mapping that
 /// resolves wins, so a provider can name a preferred secret, one or more
 /// fallback secrets, and a final mapping that needs no secret at all.
+///
+/// A provider the table does not list, such as one an application adds
+/// through a catalog overlay, reads a name derived from its id: `acme` reads
+/// `ACME_API_KEY`, and `my-gateway` reads `MY_GATEWAY_API_KEY`. The derived
+/// secret shapes into whatever the provider's `auth` scheme takes. A provider
+/// whose scheme is `none` needs no secret, and one whose scheme is `headers`
+/// or `aws` has no single secret to derive, so those stay not configured
+/// unless the table names them.
 #[cfg(feature = "environment-credentials")]
 #[derive(Clone)]
 pub struct ConventionalCredentials {
@@ -362,25 +372,69 @@ impl ConventionalCredentials {
     /// repeats.
     ///
     /// An install flow shows these to an operator and writes under the first
-    /// one. A provider with no mapping, or one that needs no secret, yields
-    /// an empty list.
-    pub fn secret_names(&self, provider: &ProviderId) -> Vec<&str> {
-        let mut names = Vec::new();
-        for spec in self.specs.get(provider).into_iter().flatten() {
+    /// one. A provider the table does not list yields its derived name when
+    /// its `auth` scheme takes one secret, and nothing otherwise. A provider
+    /// that needs no secret yields an empty list.
+    pub fn secret_names(&self, provider: &CatalogProvider) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        for spec in self.specs_for(provider) {
             for name in spec.secret_names() {
-                if !names.contains(&name) {
-                    names.push(name);
+                if !names.iter().any(|known| known == name) {
+                    names.push(name.to_owned());
                 }
             }
         }
         names
     }
 
-    /// Whether the table has a mapping for `provider` at all.
+    /// Whether the table lists `provider` itself, as opposed to deriving a
+    /// name for it.
     pub fn knows(&self, provider: &ProviderId) -> bool {
         self.specs
             .get(provider)
             .is_some_and(|specs| !specs.is_empty())
+    }
+
+    /// The conventional secret name for a provider the table does not list:
+    /// the provider id in upper case with `-` and `.` as `_`, then
+    /// `_API_KEY`.
+    pub fn derived_secret_name(provider: &ProviderId) -> String {
+        let mut name: String = provider
+            .as_str()
+            .chars()
+            .map(|character| match character {
+                '-' | '.' => '_',
+                other => other.to_ascii_uppercase(),
+            })
+            .collect();
+        name.push_str("_API_KEY");
+        name
+    }
+
+    /// The mappings for `provider`: the table's when it lists the provider,
+    /// otherwise one derived from the provider's auth scheme.
+    fn specs_for(&self, provider: &CatalogProvider) -> Vec<EnvironmentSpec> {
+        if let Some(specs) = self
+            .specs
+            .get(provider.id())
+            .filter(|specs| !specs.is_empty())
+        {
+            return specs.clone();
+        }
+        let name = Self::derived_secret_name(provider.id());
+        match provider.auth() {
+            AuthScheme::Bearer { .. } => vec![EnvironmentSpec::Http(HttpSpec {
+                auth:          HttpAuthSpec::Bearer(name),
+                extra_headers: Vec::new(),
+            })],
+            AuthScheme::Header { name: header } => vec![EnvironmentSpec::Http(HttpSpec {
+                auth:          HttpAuthSpec::Header(header.clone(), name),
+                extra_headers: Vec::new(),
+            })],
+            AuthScheme::BedrockBearer => vec![EnvironmentSpec::BedrockBearer(name)],
+            AuthScheme::None => vec![EnvironmentSpec::Http(HttpSpec::default())],
+            _ => Vec::new(),
+        }
     }
 
     /// Resolves one provider's chain.
@@ -388,18 +442,17 @@ impl ConventionalCredentials {
     /// The first mapping that resolves wins. When every mapping fails, the
     /// failure of the first one is reported, because that mapping names the
     /// secret the provider expects.
-    fn resolve(&self, provider: &ProviderId) -> Result<Credentials, CredentialError> {
-        let specs = self
-            .specs
-            .get(provider)
-            .filter(|specs| !specs.is_empty())
-            .ok_or_else(|| CredentialError::NotConfigured {
-                provider: provider.clone(),
-            })?;
+    fn resolve(&self, provider: &CatalogProvider) -> Result<Credentials, CredentialError> {
+        let specs = self.specs_for(provider);
+        if specs.is_empty() {
+            return Err(CredentialError::NotConfigured {
+                provider: provider.id().clone(),
+            });
+        }
         let read: SecretLookup<'_> = &|name| (self.lookup)(name);
         let mut first_error = None;
-        for spec in specs {
-            match spec.resolve(provider, read) {
+        for spec in &specs {
+            match spec.resolve(provider.id(), read) {
                 Ok(credentials) => return Ok(credentials),
                 Err(error) => {
                     first_error.get_or_insert(error);
@@ -408,7 +461,7 @@ impl ConventionalCredentials {
         }
         Err(
             first_error.unwrap_or_else(|| CredentialError::NotConfigured {
-                provider: provider.clone(),
+                provider: provider.id().clone(),
             }),
         )
     }
@@ -428,7 +481,7 @@ impl CredentialProvider for ConventionalCredentials {
         &self,
         provider: &CatalogProvider,
     ) -> Result<Credentials, CredentialError> {
-        self.resolve(provider.id())
+        self.resolve(provider)
     }
 }
 
@@ -813,25 +866,70 @@ pub enum CredentialError {
 mod tests {
 
     #[cfg(feature = "environment-credentials")]
-    use super::{ConventionalCredentials, ProviderId};
+    use super::{ConventionalCredentials, CredentialError, ProviderId};
     use super::{CredentialHeader, Credentials, HttpAuthentication, HttpCredentials, SecretValue};
-
-    /// Resolves one provider against a fixed store.
     #[cfg(feature = "environment-credentials")]
-    fn resolve(provider: &str, store: &[(&str, &str)]) -> Result<Credentials, String> {
+    use crate::catalog::{Catalog, CatalogProvider};
+
+    /// A table reading from a fixed store.
+    #[cfg(feature = "environment-credentials")]
+    fn table(store: &[(&str, &str)]) -> ConventionalCredentials {
         let store: Vec<(String, String)> = store
             .iter()
             .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
             .collect();
-        ConventionalCredentials::new()
-            .with_lookup(move |name| {
-                store
-                    .iter()
-                    .find(|(stored, _)| stored == name)
-                    .map(|(_, value)| value.clone())
-            })
-            .resolve(&ProviderId::new(provider))
+        ConventionalCredentials::new().with_lookup(move |name| {
+            store
+                .iter()
+                .find(|(stored, _)| stored == name)
+                .map(|(_, value)| value.clone())
+        })
+    }
+
+    /// A built-in provider row, so the table's own mappings apply.
+    #[cfg(feature = "environment-credentials")]
+    fn builtin(provider: &str) -> CatalogProvider {
+        Catalog::builder()
+            .with_builtin()
+            .build()
+            .expect("the built-in catalog builds")
+            .provider(provider)
+            .unwrap_or_else(|_| panic!("built-in provider {provider}"))
+            .clone()
+    }
+
+    /// Resolves one built-in provider against a fixed store.
+    #[cfg(feature = "environment-credentials")]
+    fn resolve(provider: &str, store: &[(&str, &str)]) -> Result<Credentials, String> {
+        table(store)
+            .resolve(&builtin(provider))
             .map_err(|error| error.to_string())
+    }
+
+    /// A provider the table does not list, with the given auth scheme.
+    #[cfg(feature = "environment-credentials")]
+    fn custom(id: &str, auth: &str) -> CatalogProvider {
+        Catalog::builder()
+            .toml_layer(
+                "custom",
+                &format!(
+                    r#"
+                    schema_version = 1
+                    [providers."{id}"]
+                    display_name = "Custom"
+                    adapter = "openai-compatible"
+                    codec = "openai-chat"
+                    base_url = "http://127.0.0.1"
+                    auth = {auth}
+                    "#
+                ),
+            )
+            .expect("the custom catalog parses")
+            .build()
+            .expect("the custom catalog builds")
+            .provider(id)
+            .expect("the custom provider")
+            .clone()
     }
 
     /// The secret behind a provider's primary authentication header.
@@ -1046,25 +1144,79 @@ mod tests {
     #[test]
     fn secret_names_list_the_preferred_name_first_without_repeats() {
         let table = ConventionalCredentials::new();
-        assert_eq!(table.secret_names(&ProviderId::new("openai")), [
-            "OPENAI_API_KEY"
-        ]);
-        assert_eq!(table.secret_names(&ProviderId::new("gemini")), [
+        assert_eq!(table.secret_names(&builtin("openai")), ["OPENAI_API_KEY"]);
+        assert_eq!(table.secret_names(&builtin("gemini")), [
             "GEMINI_API_KEY",
             "GOOGLE_API_KEY"
         ]);
-        assert_eq!(table.secret_names(&ProviderId::new("modal")), [
+        assert_eq!(table.secret_names(&builtin("modal")), [
             "MODAL_TOKEN_ID",
             "MODAL_TOKEN_SECRET"
         ]);
-        assert_eq!(table.secret_names(&ProviderId::new("bedrock")), [
+        assert_eq!(table.secret_names(&builtin("bedrock")), [
             "AWS_BEARER_TOKEN_BEDROCK",
             "BEDROCK_API_KEY"
         ]);
-        assert!(table.secret_names(&ProviderId::new("ollama")).is_empty());
-        assert!(table.secret_names(&ProviderId::new("unknown")).is_empty());
+        assert!(table.secret_names(&builtin("ollama")).is_empty());
         assert!(table.knows(&ProviderId::new("ollama")));
-        assert!(!table.knows(&ProviderId::new("unknown")));
+        assert!(!table.knows(&ProviderId::new("acme")));
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn an_unlisted_provider_reads_a_name_derived_from_its_id() -> Result<(), String> {
+        assert_eq!(
+            ConventionalCredentials::derived_secret_name(&ProviderId::new("my-gateway.v2")),
+            "MY_GATEWAY_V2_API_KEY"
+        );
+
+        let bearer = custom("acme", r#"{ type = "bearer" }"#);
+        assert_eq!(ConventionalCredentials::new().secret_names(&bearer), [
+            "ACME_API_KEY"
+        ]);
+        assert_eq!(
+            table(&[("ACME_API_KEY", "acme-key")])
+                .resolve(&bearer)
+                .map_err(|error| error.to_string())?,
+            Credentials::bearer(SecretValue::new("acme-key"))
+        );
+        let message = table(&[]).resolve(&bearer).expect_err("no key").to_string();
+        assert_eq!(
+            message,
+            "secret `ACME_API_KEY` for provider acme is unavailable"
+        );
+
+        // The derived secret shapes into the provider's own header.
+        let header = custom("acme", r#"{ type = "header", name = "x-acme-key" }"#);
+        let credentials = table(&[("ACME_API_KEY", "acme-key")])
+            .resolve(&header)
+            .map_err(|error| error.to_string())?;
+        assert!(matches!(
+            &credentials,
+            Credentials::Http(HttpCredentials { auth: HttpAuthentication::Header(header), .. })
+                if header.name == "x-acme-key" && header.value.expose_secret() == "acme-key"
+        ));
+
+        // No secret to derive: `none` needs nothing, `headers` cannot be
+        // derived from one name.
+        let open = custom("acme", r#"{ type = "none" }"#);
+        assert_eq!(
+            table(&[])
+                .resolve(&open)
+                .map_err(|error| error.to_string())?,
+            Credentials::none()
+        );
+        assert!(
+            ConventionalCredentials::new()
+                .secret_names(&open)
+                .is_empty()
+        );
+        let headers = custom("acme", r#"{ type = "headers" }"#);
+        assert!(matches!(
+            table(&[("ACME_API_KEY", "acme-key")]).resolve(&headers),
+            Err(CredentialError::NotConfigured { .. })
+        ));
+        Ok(())
     }
 
     #[cfg(feature = "environment-credentials")]

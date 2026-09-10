@@ -64,10 +64,13 @@ This project follows [Semantic Versioning](https://semver.org/).
   a secret lives is the application's. `ConventionalCredentials::new()` reads
   the process environment, `with_lookup` reads the same names from any other
   store, `secret_names` lists a provider's names for install flows, and the
-  new `ChainedCredentials` tries several providers in order. The
-  `CredentialError::Environment` variant becomes `MissingSecret { provider,
-  name }` with no source, since a store other than the environment has no
-  `VarError` to report.
+  new `ChainedCredentials` tries several providers in order. A provider the
+  table does not list, such as one added through a catalog overlay, reads a
+  name derived from its id (`acme` reads `ACME_API_KEY`) shaped into its
+  `auth` scheme, so an application no longer declares where each custom
+  provider's key lives. The `CredentialError::Environment` variant becomes
+  `MissingSecret { provider, name }` with no source, since a store other than
+  the environment has no `VarError` to report.
 
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.

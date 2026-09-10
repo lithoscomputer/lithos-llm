@@ -60,7 +60,9 @@ fn credentials(vault: impl Fn(&str) -> Option<String> + Send + Sync + 'static) -
 ```
 
 `ConventionalCredentials::secret_names` lists the names a provider reads, so
-an install flow can tell an operator what to set and write under the first.
+an install flow can tell an operator what to set and write under the first. A
+provider the table does not list reads a name derived from its id: a catalog
+overlay that adds `acme` with bearer auth is served by `ACME_API_KEY`.
 
 The catalog also includes provisional imports for DeepSeek, Inception, MiniMax,
 Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
