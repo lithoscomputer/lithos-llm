@@ -31,6 +31,7 @@ pub(crate) use limits::ResponsePolicy;
 pub(crate) use limits::limit_error;
 pub use request::{
     CacheHint, ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
+    UnknownControlValue,
 };
 pub use response::{Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Warning};
 #[cfg(feature = "runtime")]

@@ -54,6 +54,11 @@ This project follows [Semantic Versioning](https://semver.org/).
   be written into the catalog as a default header. Custom adapters read it
   through `AdapterContext::application`.
 
+- `ReasoningEffort` and `Speed` implement `Display` and `FromStr` using their
+  serde spelling, expose that spelling as `as_str`, and list every variant in
+  `ALL`, so applications stop keeping their own copies of the vocabulary for
+  flags and settings. A misspelling parses to `UnknownControlValue`.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;
