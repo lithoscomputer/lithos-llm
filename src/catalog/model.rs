@@ -154,20 +154,32 @@ impl Pricing {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ModelRecord {
-    display_name:     String,
+    display_name:         String,
     #[serde(default)]
-    aliases:          Vec<String>,
-    api_model:        String,
+    aliases:              Vec<String>,
+    api_model:            String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    limits:           Option<ModelLimits>,
-    #[serde(default)]
-    capabilities:     ModelCapabilities,
-    #[serde(default)]
-    protocol_options: ModelProtocolOptions,
+    family:               Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pricing:          Option<Pricing>,
+    training_cutoff:      Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    knowledge_cutoff:     Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    estimated_output_tps: Option<f64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    small_default:        bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    probe:                bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    limits:               Option<ModelLimits>,
+    #[serde(default)]
+    capabilities:         ModelCapabilities,
+    #[serde(default)]
+    protocol_options:     ModelProtocolOptions,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pricing:              Option<Pricing>,
     #[serde(default, skip_serializing_if = "Metadata::is_empty")]
-    metadata:         Metadata,
+    metadata:             Metadata,
 }
 
 /// Model-level catalog facts.
@@ -175,25 +187,37 @@ pub(super) struct ModelRecord {
 #[serde(deny_unknown_fields)]
 pub struct CatalogModel {
     #[serde(skip)]
-    provider:         ProviderId,
+    provider:             ProviderId,
     #[serde(skip)]
-    id:               ModelId,
+    id:                   ModelId,
     #[serde(skip)]
-    passthrough:      bool,
-    display_name:     String,
+    passthrough:          bool,
+    display_name:         String,
     #[serde(default)]
-    aliases:          Vec<String>,
-    api_model:        String,
+    aliases:              Vec<String>,
+    api_model:            String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    limits:           Option<ModelLimits>,
-    #[serde(default)]
-    capabilities:     ModelCapabilities,
-    #[serde(default)]
-    protocol_options: ModelProtocolOptions,
+    family:               Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pricing:          Option<Pricing>,
+    training_cutoff:      Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    knowledge_cutoff:     Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    estimated_output_tps: Option<f64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    small_default:        bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    probe:                bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    limits:               Option<ModelLimits>,
+    #[serde(default)]
+    capabilities:         ModelCapabilities,
+    #[serde(default)]
+    protocol_options:     ModelProtocolOptions,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pricing:              Option<Pricing>,
     #[serde(default, skip_serializing_if = "Metadata::is_empty")]
-    metadata:         Metadata,
+    metadata:             Metadata,
 }
 
 impl CatalogModel {
@@ -215,6 +239,41 @@ impl CatalogModel {
 
     pub fn api_model(&self) -> &str {
         &self.api_model
+    }
+
+    /// The model family label a picker groups this model under, such as
+    /// `claude-5` or `gpt-5`.
+    pub fn family(&self) -> Option<&str> {
+        self.family.as_deref()
+    }
+
+    /// The training data cutoff as the provider states it, usually an ISO
+    /// date.
+    pub fn training_cutoff(&self) -> Option<&str> {
+        self.training_cutoff.as_deref()
+    }
+
+    /// The knowledge cutoff as a person would write it, for display.
+    pub fn knowledge_cutoff(&self) -> Option<&str> {
+        self.knowledge_cutoff.as_deref()
+    }
+
+    /// A rough sustained output rate in tokens per second, for display and
+    /// for choosing between otherwise equivalent models.
+    pub fn estimated_output_tps(&self) -> Option<f64> {
+        self.estimated_output_tps
+    }
+
+    /// Whether this is the provider's model for cheap utility calls such as
+    /// title generation. At most one model per provider should say so.
+    pub fn is_small_default(&self) -> bool {
+        self.small_default
+    }
+
+    /// Whether this is the provider's model for connectivity probes: cheap,
+    /// fast, and available on every account tier.
+    pub fn is_probe(&self) -> bool {
+        self.probe
     }
 
     pub fn limits(&self) -> Option<ModelLimits> {
@@ -275,6 +334,12 @@ impl CatalogModel {
             display_name: record.display_name,
             aliases: record.aliases,
             api_model: record.api_model,
+            family: record.family,
+            training_cutoff: record.training_cutoff,
+            knowledge_cutoff: record.knowledge_cutoff,
+            estimated_output_tps: record.estimated_output_tps,
+            small_default: record.small_default,
+            probe: record.probe,
             limits: record.limits,
             capabilities: record.capabilities,
             protocol_options: record.protocol_options,
@@ -291,6 +356,12 @@ impl CatalogModel {
             api_model: model.to_string(),
             id: model,
             aliases: Vec::new(),
+            family: None,
+            training_cutoff: None,
+            knowledge_cutoff: None,
+            estimated_output_tps: None,
+            small_default: false,
+            probe: false,
             limits: None,
             capabilities: ModelCapabilities::unknown(),
             protocol_options: ModelProtocolOptions::default(),

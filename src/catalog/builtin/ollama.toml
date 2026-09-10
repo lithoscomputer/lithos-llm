@@ -18,6 +18,8 @@ codec = "openai-chat"
 base_url = "http://localhost:11434/v1"
 priority = 30
 allow_passthrough = true
+# Opt-in: operators enable this provider in their own catalog overlay.
+enabled = false
 
 [providers.ollama.auth]
 type = "none"

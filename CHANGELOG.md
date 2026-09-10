@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: the catalog owns the facts applications used to keep under
+  `metadata.fabro`. Model rows gain optional `family`, `training_cutoff`,
+  `knowledge_cutoff`, and `estimated_output_tps`, plus `small_default` and
+  `probe` booleans that name the provider's model for cheap utility calls and
+  for connectivity probes. Provider rows gain optional `api_key_url`, a
+  `stands_in_for` provider the resolver reroutes to when the named provider
+  has no adapter, and `enabled` (default `true`). A disabled provider stays
+  visible in the catalog but builds no adapter and resolves no route; an
+  overlay turns it on with `enabled = true`. The built-in bedrock,
+  bedrock-openai, fireworks, litellm, modal, ollama, and openrouter providers
+  ship disabled because each needs deployment-specific setup.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;

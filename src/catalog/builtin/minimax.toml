@@ -18,12 +18,10 @@ priority = 50
 allow_passthrough = true
 default_model = "minimax-m2.5"
 default_options = { reasoning_split = true }
+api_key_url = "https://platform.minimaxi.com/user-center/basic-information/interface-key"
 
 [providers.minimax.auth]
 type = "bearer"
-
-[providers.minimax.metadata.fabro]
-api_key_url = "https://platform.minimaxi.com/user-center/basic-information/interface-key"
 
 [providers.minimax.metadata.pebble]
 profile = "openai"
@@ -35,7 +33,5 @@ api_model = "MiniMax-M2.5"
 limits = { context_tokens = 204800, max_output_tokens = 16384 }
 capabilities = { text = true, images = false, tools = true, reasoning = true, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000 }
-
-[providers.minimax.models."minimax-m2.5".metadata.fabro]
 family = "minimax-m2"
 estimated_output_tps = 45

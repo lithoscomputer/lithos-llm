@@ -28,6 +28,7 @@ base_url = "https://api.anthropic.com"
 priority = 100
 allow_passthrough = true
 default_model = "claude-sonnet-5"
+api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.auth]
 type = "header"
@@ -52,11 +53,10 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
+family = "claude-5"
 
 [providers.anthropic.models."claude-fable-5.1".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-5"
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-fable-5.1".metadata.pebble]
 profile = "claude-5"
@@ -71,11 +71,10 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
+family = "claude-5"
 
 [providers.anthropic.models."claude-fable-5".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-5"
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-fable-5".metadata.pebble]
 profile = "claude-5"
@@ -90,13 +89,12 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
+family = "claude-5"
+training_cutoff = "2026-05-01"
+knowledge_cutoff = "May 2026"
 
 [providers.anthropic.models."claude-opus-5".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-5"
-training = "2026-05-01"
-knowledge_cutoff = "May 2026"
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-5".metadata.pebble]
 profile = "claude-5"
@@ -112,13 +110,12 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
+family = "claude-5"
+training_cutoff = "2026-01-01"
+knowledge_cutoff = "Jan 2026"
 
 [providers.anthropic.models."claude-sonnet-5".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-5"
-training = "2026-01-01"
-knowledge_cutoff = "Jan 2026"
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-sonnet-5".metadata.pebble]
 profile = "claude-5"
@@ -132,14 +129,13 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
+family = "claude-4"
+training_cutoff = "2026-01-01"
+knowledge_cutoff = "Jan 2026"
+estimated_output_tps = 25
 
 [providers.anthropic.models."claude-opus-4.8".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-4"
-training = "2026-01-01"
-knowledge_cutoff = "Jan 2026"
-estimated_output_tps = 25
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-4.8".metadata.pebble]
 profile = "claude-5"
@@ -155,14 +151,13 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
+family = "claude-4"
+training_cutoff = "2025-08-01"
+knowledge_cutoff = "May 2025"
+estimated_output_tps = 25
 
 [providers.anthropic.models."claude-opus-4.7".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 25
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-4.7".metadata.pebble]
 profile = "claude-5"
@@ -177,14 +172,13 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
+family = "claude-4"
+training_cutoff = "2025-08-01"
+knowledge_cutoff = "May 2025"
+estimated_output_tps = 25
 
 [providers.anthropic.models."claude-opus-4.6".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 25
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-opus-4.6".metadata.pebble]
 profile = "claude-5"
@@ -197,14 +191,13 @@ limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # This older model uses a manual thinking budget, not named effort levels.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
+family = "claude-4"
+training_cutoff = "2025-08-01"
+knowledge_cutoff = "May 2025"
+estimated_output_tps = 50
 
 [providers.anthropic.models."claude-sonnet-4.5".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 50
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-sonnet-4.5".metadata.pebble]
 profile = "claude-5"
@@ -219,14 +212,13 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
+family = "claude-4"
+training_cutoff = "2025-08-01"
+knowledge_cutoff = "May 2025"
+estimated_output_tps = 50
 
 [providers.anthropic.models."claude-sonnet-4.6".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 50
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-sonnet-4.6".metadata.pebble]
 profile = "claude-5"
@@ -241,16 +233,15 @@ limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # levels. Anthropic's current price is $1/$5, not fabro's $0.80/$4.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 }
+family = "claude-4"
+training_cutoff = "2025-08-01"
+knowledge_cutoff = "May 2025"
+estimated_output_tps = 100
+small_default = true
+probe = true
 
 [providers.anthropic.models."claude-haiku-4.5".metadata.fabro]
 agent_profile = "claude-5"
-family = "claude-4"
-training = "2025-08-01"
-knowledge_cutoff = "May 2025"
-estimated_output_tps = 100
-probe = true
-small_default = true
-api_key_url = "https://console.anthropic.com/settings/keys"
 
 [providers.anthropic.models."claude-haiku-4.5".metadata.pebble]
 profile = "claude-5"

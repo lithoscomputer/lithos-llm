@@ -28,6 +28,8 @@ base_url = "https://openrouter.ai/api/v1"
 priority = 25
 allow_passthrough = true
 default_model = "claude-sonnet-5"
+# Opt-in: operators enable this provider in their own catalog overlay.
+enabled = false
 
 [providers.openrouter.auth]
 type = "bearer"
@@ -374,9 +376,9 @@ api_model = "moonshotai/kimi-k2.6"
 limits = { context_tokens = 262144, max_output_tokens = 262144 }
 capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 510000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 100000 }
+family = "kimi-k2"
 
 [providers.openrouter.models."kimi-k2.6".metadata.fabro]
-family = "kimi-k2"
 agent_profile = "kimi"
 
 [providers.openrouter.models."kimi-k2.6".metadata.pebble]
@@ -390,8 +392,6 @@ api_model = "nvidia/nemotron-3-super-120b-a12b"
 limits = { context_tokens = 1000000, max_output_tokens = 16384 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 85000, output_usd_micros_per_million = 400000 }
-
-[providers.openrouter.models."nemotron-3-super-120b-a12b".metadata.fabro]
 family = "nemotron-3"
 
 [providers.openrouter.models."nemotron-3-super-120b-a12b".metadata.pebble]

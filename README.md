@@ -405,6 +405,23 @@ Unknown core provider and model fields are rejected. Application extensions
 belong under a namespaced `metadata` table, which Lithos preserves without
 interpreting.
 
+Provider rows carry routing facts (`adapter`, `codec`, `base_url`, `auth`,
+`priority`, `default_model`, `allow_passthrough`, `default_headers`,
+`adapter_options`, `default_options`) and offering policy: `enabled` (default
+`true`; a disabled provider stays in the catalog but builds no adapter and
+resolves no route), `stands_in_for` (a provider this one answers for when that
+provider has no adapter), and `api_key_url`. Model rows carry the wire id,
+limits, capabilities, protocol options, pricing, and display facts (`family`,
+`training_cutoff`, `knowledge_cutoff`, `estimated_output_tps`), plus
+`small_default` and `probe`, which name the provider's model for cheap utility
+calls and for connectivity probes. Built-in providers that need
+deployment-specific setup ship with `enabled = false`; an overlay turns one on:
+
+```toml
+[providers.openrouter]
+enabled = true
+```
+
 An application can supply its whole catalog and use none of the built-in
 entries. Building from external TOML never adds built-in providers implicitly;
 only `with_builtin()` does that.

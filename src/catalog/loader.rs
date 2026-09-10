@@ -826,11 +826,11 @@ mod tests {
         assert!(k3.protocol_options().reasoning_effort_levels);
         assert!(!k3.capabilities().sampling().is_supported());
 
-        let fabro = k3
-            .metadata()
-            .get("fabro")
-            .ok_or("Kimi K3 should preserve fabro metadata")?;
-        assert_eq!(fabro["family"], "kimi-k3");
+        assert_eq!(k3.family(), Some("kimi-k3"));
+        assert_eq!(
+            moonshot.api_key_url(),
+            Some("https://platform.kimi.ai/console/api-keys")
+        );
         Ok(())
     }
 
@@ -903,12 +903,16 @@ mod tests {
                 .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
             Some((400_000, 128_000))
         );
-        let fabro = mini
-            .metadata()
-            .get("fabro")
-            .ok_or("gpt-5.4-mini should preserve fabro metadata")?;
-        assert_eq!(fabro["probe"], true);
-        assert_eq!(fabro["small_default"], true);
+        assert!(mini.is_probe());
+        assert!(mini.is_small_default());
+        assert_eq!(mini.family(), Some("gpt-5"));
+        assert_eq!(mini.training_cutoff(), Some("2025-08-31"));
+        assert_eq!(mini.knowledge_cutoff(), Some("August 31, 2025"));
+        assert_eq!(mini.estimated_output_tps(), Some(140.0));
+        assert!(
+            !catalog.model("openai", "gpt-5.5")?.is_probe(),
+            "only the mini row is the probe model"
+        );
         Ok(())
     }
 
@@ -1160,10 +1164,7 @@ mod tests {
             xs.pricing().ok_or("prices")?.input_usd_micros_per_million,
             Some(100_000)
         );
-        assert_eq!(
-            xs.metadata().get("fabro").ok_or("metadata")?["small_default"],
-            true
-        );
+        assert!(xs.is_small_default());
         for provider in ["ollama", "litellm"] {
             let provider = catalog.provider(provider)?;
             assert!(provider.default_model().is_none());

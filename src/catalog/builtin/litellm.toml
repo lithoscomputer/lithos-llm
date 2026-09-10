@@ -17,6 +17,8 @@ codec = "openai-chat"
 base_url = "http://localhost:4000/v1"
 priority = 50
 allow_passthrough = true
+# Opt-in: operators enable this provider in their own catalog overlay.
+enabled = false
 
 [providers.litellm.auth]
 type = "bearer"

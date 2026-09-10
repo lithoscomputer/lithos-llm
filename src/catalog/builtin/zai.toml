@@ -19,12 +19,10 @@ priority = 60
 allow_passthrough = true
 adapter_options = { base_url_is_api_root = true }
 default_model = "glm-5.2"
+api_key_url = "https://open.bigmodel.cn/usercenter/apikeys"
 
 [providers.zai.auth]
 type = "bearer"
-
-[providers.zai.metadata.fabro]
-api_key_url = "https://open.bigmodel.cn/usercenter/apikeys"
 
 [providers.zai.metadata.pebble]
 profile = "openai"
@@ -37,8 +35,6 @@ limits = { context_tokens = 1048576, max_output_tokens = 131072 }
 capabilities = { text = true, images = false, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = true, xhigh = false, max = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1400000, output_usd_micros_per_million = 4400000, cached_input_usd_micros_per_million = 260000 }
-
-[providers.zai.models."glm-5.2".metadata.fabro]
 family = "glm-5"
 
 [providers.zai.models."glm-4.7"]
@@ -48,7 +44,5 @@ api_model = "glm-4.7"
 limits = { context_tokens = 202752, max_output_tokens = 16384 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 600000, output_usd_micros_per_million = 2200000 }
-
-[providers.zai.models."glm-4.7".metadata.fabro]
 family = "glm-4"
 estimated_output_tps = 100

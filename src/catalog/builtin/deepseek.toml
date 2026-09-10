@@ -17,12 +17,10 @@ base_url = "https://api.deepseek.com"
 priority = 75
 allow_passthrough = true
 default_model = "deepseek-v4-flash"
+api_key_url = "https://platform.deepseek.com/api_keys"
 
 [providers.deepseek.auth]
 type = "bearer"
-
-[providers.deepseek.metadata.fabro]
-api_key_url = "https://platform.deepseek.com/api_keys"
 
 [providers.deepseek.metadata.pebble]
 profile = "openai"
@@ -35,12 +33,12 @@ limits = { context_tokens = 1048576, max_output_tokens = 384000 }
 capabilities = { text = true, images = false, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 140000, output_usd_micros_per_million = 280000, cached_input_usd_micros_per_million = 2800 }
+family = "deepseek-v4"
+small_default = true
+probe = true
 
 [providers.deepseek.models."deepseek-v4-flash".metadata.fabro]
 agent_profile = "openai"
-family = "deepseek-v4"
-probe = true
-small_default = true
 
 [providers.deepseek.models."deepseek-v4-pro"]
 display_name = "DeepSeek V4 Pro"
@@ -49,7 +47,7 @@ limits = { context_tokens = 1048576, max_output_tokens = 384000 }
 capabilities = { text = true, images = false, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 435000, output_usd_micros_per_million = 870000, cached_input_usd_micros_per_million = 3625 }
+family = "deepseek-v4"
 
 [providers.deepseek.models."deepseek-v4-pro".metadata.fabro]
 agent_profile = "openai"
-family = "deepseek-v4"

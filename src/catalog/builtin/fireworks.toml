@@ -19,12 +19,12 @@ base_url = "https://api.fireworks.ai/inference/v1"
 priority = 30
 allow_passthrough = true
 default_model = "kimi-k2.7-code"
+api_key_url = "https://app.fireworks.ai/settings/users/api-keys"
+# Opt-in: operators enable this provider in their own catalog overlay.
+enabled = false
 
 [providers.fireworks.auth]
 type = "bearer"
-
-[providers.fireworks.metadata.fabro]
-api_key_url = "https://app.fireworks.ai/settings/users/api-keys"
 
 # The agent profile for this provider's models; a model row overrides it.
 [providers.fireworks.metadata.pebble]
@@ -37,10 +37,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 131072 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000 }
+family = "kimi-k3"
 
 [providers.fireworks.models."kimi-k3".metadata.fabro]
 agent_profile = "kimi"
-family = "kimi-k3"
 
 [providers.fireworks.models."kimi-k3".metadata.pebble]
 profile = "kimi"
@@ -53,10 +53,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 131072 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 450000 }
+family = "kimi-k3"
 
 [providers.fireworks.models."kimi-k3-fast".metadata.fabro]
 agent_profile = "kimi"
-family = "kimi-k3"
 
 [providers.fireworks.models."kimi-k3-fast".metadata.pebble]
 profile = "kimi"
@@ -67,8 +67,6 @@ api_model = "accounts/fireworks/models/kimi-k2p7-code"
 limits = { context_tokens = 262144, max_output_tokens = 32768 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 190000 }
-
-[providers.fireworks.models."kimi-k2.7-code".metadata.fabro]
 family = "kimi-k2"
 
 [providers.fireworks.models."kimi-k2.7-code".metadata.pebble]
@@ -81,8 +79,6 @@ limits = { context_tokens = 262144, max_output_tokens = 16384 }
 # The live listing and probes override fabro's no-vision/no-reasoning claim.
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 950000, output_usd_micros_per_million = 4000000, cached_input_usd_micros_per_million = 160000 }
-
-[providers.fireworks.models."kimi-k2.6".metadata.fabro]
 family = "kimi-k2"
 
 [providers.fireworks.models."kimi-k2.6".metadata.pebble]
@@ -96,10 +92,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 16384 }
 capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1320000, output_usd_micros_per_million = 3960000, cached_input_usd_micros_per_million = 44000 }
+family = "deepseek-v4"
 
 [providers.fireworks.models."deepseek-v4-pro".metadata.fabro]
 agent_profile = "openai"
-family = "deepseek-v4"
 
 [providers.fireworks.models."deepseek-v4-pro".metadata.pebble]
 profile = "openai"
@@ -113,10 +109,10 @@ limits = { context_tokens = 1048576, max_output_tokens = 384000 }
 capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 220000, output_usd_micros_per_million = 660000, cached_input_usd_micros_per_million = 7000 }
+family = "deepseek-v4"
 
 [providers.fireworks.models."deepseek-v4-flash".metadata.fabro]
 agent_profile = "openai"
-family = "deepseek-v4"
 
 [providers.fireworks.models."deepseek-v4-flash".metadata.pebble]
 profile = "openai"
@@ -128,8 +124,6 @@ limits = { context_tokens = 1048576, max_output_tokens = 131072 }
 capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 1400000, output_usd_micros_per_million = 4400000, cached_input_usd_micros_per_million = 140000 }
-
-[providers.fireworks.models."glm-5.2".metadata.fabro]
 family = "glm-5"
 
 # Roster-union row. Fireworks launched GLM 5.3 on 2026-08-28 and the live
@@ -150,8 +144,6 @@ limits = { context_tokens = 262144, max_output_tokens = 16384 }
 # The live response carried reasoning, overriding fabro's false claim.
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 pricing = { input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1600000, cached_input_usd_micros_per_million = 80000 }
-
-[providers.fireworks.models."qwen3.7-plus".metadata.fabro]
 family = "qwen3"
 
 # Roster-union row. The live alias accepts images, schemas, and forced tools.
@@ -178,8 +170,6 @@ api_model = "accounts/fireworks/models/minimax-m2p7"
 limits = { context_tokens = 196608, max_output_tokens = 16384 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = true, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 59000 }
-
-[providers.fireworks.models."minimax-m2.7".metadata.fabro]
 family = "minimax-m2"
 
 [providers.fireworks.models."minimax-m2.7".metadata.pebble]
