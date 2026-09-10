@@ -1,5 +1,6 @@
 //! Immutable provider and model catalog data.
 
+pub mod builtin;
 mod capabilities;
 mod loader;
 mod model;

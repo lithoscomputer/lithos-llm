@@ -64,6 +64,9 @@ an install flow can tell an operator what to set and write under the first. A
 provider the table does not list reads a name derived from its id: a catalog
 overlay that adds `acme` with bearer auth is served by `ACME_API_KEY`.
 
+`catalog::builtin::ids` names every provider the built-in catalog ships, so an
+install flow or a login command refers to `ids::OPENAI` rather than a string.
+
 The catalog also includes provisional imports for DeepSeek, Inception, MiniMax,
 Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
 configuration notes, and pending live checks are in

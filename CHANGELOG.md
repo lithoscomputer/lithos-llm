@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `catalog::builtin::ids` names every provider the built-in catalog ships, with
+  `anthropic()`, `openai()`, `openai_codex()`, and `gemini()` constructors for
+  the ones applications drive directly. A test keeps the list equal to the
+  shipped rows.
+
 - `ModelCapabilities::closest_supported_effort` picks the supported reasoning
   level nearest to a requested one, ties to the higher level, for sending a
   request written for one model to another.
