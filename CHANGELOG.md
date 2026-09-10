@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Local files as media. Behind the new `local-files` feature,
+  `middleware::InlineLocalFiles` rewrites an image, document, or audio part
+  whose source is a local path (`/…`, `./…`, `~/…`, or `file://`) to inline
+  base64 with a media type inferred from the extension, inside tool results
+  too. A file that cannot be read is dropped with a warning rather than failing
+  the request. `media_type_for_path` is the inference on its own.
+
 - Structured output in one call. `Client::complete_object` attaches a JSON
   schema as the request's response format, completes it, and parses the reply
   into a `StructuredCompletion` holding the response and the document.

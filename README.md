@@ -314,7 +314,11 @@ capability.
 ## Multimodal input
 
 A message can contain text, images, audio, and documents. Media can use a
-provider-accessible URL or inline base64 data.
+provider-accessible URL or inline base64 data. With the `local-files` feature,
+the `InlineLocalFiles` middleware accepts a local path as well (`/…`, `./…`,
+`~/…`, or `file://`) and reads the file into inline base64 before the request
+reaches a codec, so a caller on the same machine as its files can point at
+them directly.
 
 ```rust
 use std::error::Error;
@@ -515,6 +519,7 @@ fn build(root: &str, openai: &str, anthropic: &str) -> Result<(), Box<dyn Error>
 | `gemini` | yes | Gemini Generate Content adapter |
 | `openai-compatible` | yes | Chat Completions-compatible adapter |
 | `environment-credentials` | yes | Environment-backed credential provider |
+| `local-files` | no | Middleware that inlines local-path media as base64 |
 | `bedrock` | no | Bedrock Converse adapter with bearer-token authentication |
 | `bedrock-aws` | no | AWS credential chain and SigV4 signing for Bedrock |
 

@@ -226,7 +226,7 @@ fi
 quiet = true
 description = "Check each additive feature and the AWS SDK boundary"
 run = '''
-for feature in runtime openai anthropic gemini openai-compatible bedrock bedrock-aws cli; do
+for feature in runtime openai anthropic gemini openai-compatible bedrock bedrock-aws local-files cli; do
   cargo check -q --locked -p lithos-llm --no-default-features --features "$feature"
 done
 

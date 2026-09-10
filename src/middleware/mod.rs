@@ -2,6 +2,8 @@
 
 mod concurrency;
 mod guard;
+#[cfg(feature = "local-files")]
+mod local_files;
 mod observer;
 mod retry;
 mod tracing_layer;
@@ -19,6 +21,8 @@ use async_trait::async_trait;
 pub use concurrency::ConcurrencyLimitMiddleware;
 use futures_core::Stream;
 pub(crate) use guard::CallGuard;
+#[cfg(feature = "local-files")]
+pub use local_files::{InlineLocalFiles, media_type_for_path};
 pub use observer::{CallOutcome, Observer, ObserverMiddleware, RetryStage};
 pub use retry::{RetryMiddleware, RetryPolicy};
 use tokio::sync::Notify;

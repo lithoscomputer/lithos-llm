@@ -89,6 +89,7 @@ bedrock-aws = [
   "dep:aws-smithy-types",
 ]
 environment-credentials = ["runtime"]
+local-files = ["runtime", "dep:base64", "dep:mime_guess", "tokio/fs"]
 e2e-driver = ["cli", "tokio/test-util"]
 
 [dependencies]
