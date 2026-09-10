@@ -47,6 +47,7 @@ impl AdapterFactory for Factory {
             OpenAiResponsesCodec::new(codex),
             HttpAdapterOptions {
                 force_streaming_complete: codex,
+                identify_application:     codex,
             },
         )
     }

@@ -74,9 +74,11 @@ Closing blocks that precede any content are held until the terminal outcome.
 When the attempt or deadline budget prevents a retry, the partial response is
 returned with its original finish reason. `Length` does not trigger a retry.
 
-Use `ClientBuilder::http` to inject an application-configured
-`reqwest::Client`, and `ClientBuilder::enabled_providers` to build adapters for
-only the providers a deployment has configured. That selection narrows the
+`ClientBuilder::application` names the calling application to providers that
+expect a client to identify itself; the OpenAI Codex deployment reads it from
+an `originator` header. Use `ClientBuilder::http` to inject an
+application-configured `reqwest::Client`, and `ClientBuilder::enabled_providers`
+to build adapters for only the providers a deployment has configured. That selection narrows the
 catalog; a provider the catalog marks `enabled = false` builds no adapter
 either way, and a catalog overlay is what turns it on. The complete catalog
 stays available for inspection.

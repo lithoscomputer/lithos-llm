@@ -48,6 +48,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   providers that serve Sonnet 5 and placing Bedrock below the direct
   providers as a fallback route rather than a first choice.
 
+- Add `ClientBuilder::application`, which names the calling application to
+  providers that expect a client to identify itself. The OpenAI adapter sends
+  it as the `originator` header in codex mode, so the name no longer has to
+  be written into the catalog as a default header. Custom adapters read it
+  through `AdapterContext::application`.
+
 - Usage records accept added fields without changing the five existing buckets.
   Historical bucket names remain errors to avoid silently losing usage.
   Unknown error categories round-trip through `ErrorKind::Unknown(String)`;

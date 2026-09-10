@@ -160,6 +160,7 @@ pub struct AdapterContext {
     http:                reqwest::Client,
     credentials:         Arc<dyn CredentialProvider>,
     stream_idle_timeout: Option<Duration>,
+    application:         Option<String>,
 }
 
 impl AdapterContext {
@@ -170,7 +171,22 @@ impl AdapterContext {
             policy: ResponsePolicy::default(),
             credentials,
             stream_idle_timeout: Some(DEFAULT_STREAM_IDLE_TIMEOUT),
+            application: None,
         }
+    }
+
+    /// Names the application to providers that expect a client to identify
+    /// itself. See
+    /// [`ClientBuilder::application`](crate::ClientBuilder::application).
+    #[must_use]
+    pub fn with_application(mut self, application: Option<String>) -> Self {
+        self.application = application;
+        self
+    }
+
+    /// The application name, when the client was given one.
+    pub fn application(&self) -> Option<&str> {
+        self.application.as_deref()
     }
 
     /// Replaces the longest a stream may stall between two chunks.

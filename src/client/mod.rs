@@ -279,6 +279,7 @@ pub struct ClientBuilder {
     middleware:          Vec<Arc<dyn Middleware>>,
     registry:            AdapterRegistry,
     enabled:             Option<BTreeSet<ProviderId>>,
+    application:         Option<String>,
 }
 
 impl Default for ClientBuilder {
@@ -297,6 +298,7 @@ impl Default for ClientBuilder {
             middleware: Vec::new(),
             registry,
             enabled: None,
+            application: None,
         }
     }
 }
@@ -351,6 +353,18 @@ impl ClientBuilder {
 
     pub fn credentials_arc(mut self, credentials: Arc<dyn CredentialProvider>) -> Self {
         self.credentials = credentials;
+        self
+    }
+
+    /// Names the application to providers that expect a client to identify
+    /// itself.
+    ///
+    /// The OpenAI Codex deployment expects every client to send an
+    /// `originator` header naming the calling application; its adapter sends
+    /// this value there. Other built-in adapters ignore it. Custom adapters
+    /// read it through [`AdapterContext::application`].
+    pub fn application(mut self, name: impl Into<String>) -> Self {
+        self.application = Some(name.into());
         self
     }
 
@@ -488,7 +502,8 @@ impl ClientBuilder {
         let context = AdapterContext::new(http, self.credentials)
             .with_stream_idle_timeout(self.stream_idle_timeout)
             .with_response_limits(self.policy.limits)
-            .with_retain_raw_response(self.policy.retain_raw);
+            .with_retain_raw_response(self.policy.retain_raw)
+            .with_application(self.application);
         let mut adapters = BTreeMap::new();
         let mut issues = Vec::new();
         for provider in catalog.providers() {
