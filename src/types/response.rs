@@ -200,6 +200,18 @@ impl TokenCounts {
     pub fn billable_output(self) -> u64 {
         self.output.saturating_add(self.reasoning)
     }
+
+    /// Adds the two counts bucket by bucket, saturating at `u64::MAX`.
+    #[must_use]
+    pub fn saturating_add(self, other: Self) -> Self {
+        Self {
+            input:       self.input.saturating_add(other.input),
+            output:      self.output.saturating_add(other.output),
+            reasoning:   self.reasoning.saturating_add(other.reasoning),
+            cache_read:  self.cache_read.saturating_add(other.cache_read),
+            cache_write: self.cache_write.saturating_add(other.cache_write),
+        }
+    }
 }
 
 /// The source used for a computed response cost.
@@ -217,6 +229,105 @@ pub enum CostSource {
 pub struct Cost {
     pub usd_micros: u64,
     pub source:     CostSource,
+}
+
+/// Token counts and, when known, what they cost.
+///
+/// `cost` is `None` when there is no cost data, never a price of zero. A
+/// response's own [`Response::usage`] and [`Response::cost`] pair up this way
+/// through [`Response::usage_with_cost`]; totals across calls come from
+/// [`Usage::saturating_add`].
+///
+/// The wire shape is the two fields side by side, with `cost` omitted when it
+/// is `None`:
+///
+/// ```
+/// use lithos_llm::types::{Cost, CostSource, TokenCounts, Usage};
+/// use serde_json::json;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let usage = Usage {
+///     tokens: TokenCounts {
+///         input:       28_640,
+///         output:      8_750,
+///         reasoning:   1_200,
+///         cache_read:  4_800,
+///         cache_write: 1_500,
+///     },
+///     cost:   Some(Cost {
+///         usd_micros: 720_000,
+///         source:     CostSource::Catalog,
+///     }),
+/// };
+///
+/// assert_eq!(
+///     serde_json::to_value(usage)?,
+///     json!({
+///         "tokens": { "input": 28640, "output": 8750, "reasoning": 1200,
+///                     "cache_read": 4800, "cache_write": 1500 },
+///         "cost": { "usd_micros": 720000, "source": "catalog" }
+///     })
+/// );
+/// assert_eq!(serde_json::from_value::<Usage>(json!({}))?, Usage::default());
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Usage {
+    #[serde(default)]
+    pub tokens: TokenCounts,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost:   Option<Cost>,
+}
+
+impl Usage {
+    /// Adds the two usages: tokens bucket by bucket, saturating, and cost only
+    /// when every part that used tokens is priced.
+    ///
+    /// A total cost is known only when every part is priced, so a part that
+    /// used tokens without a cost makes the sum's cost `None` rather than a
+    /// figure that under-reports the whole. A part with no tokens and no cost
+    /// used nothing and adds nothing, which keeps [`Usage::default`] the
+    /// identity for a fold. Two priced parts keep their shared source, or
+    /// take [`CostSource::Application`] when the sources differ, because the
+    /// caller assembled the sum rather than either source reporting it.
+    #[must_use]
+    pub fn saturating_add(self, other: Self) -> Self {
+        let cost = match (self.cost, other.cost) {
+            (Some(left), Some(right)) => Some(Cost {
+                usd_micros: left.usd_micros.saturating_add(right.usd_micros),
+                source:     if left.source == right.source {
+                    left.source
+                } else {
+                    CostSource::Application
+                },
+            }),
+            (cost, None) if other.is_empty() => cost,
+            (None, cost) if self.is_empty() => cost,
+            _ => None,
+        };
+        Self {
+            tokens: self.tokens.saturating_add(other.tokens),
+            cost,
+        }
+    }
+
+    /// The sum of the five token buckets, as [`TokenCounts::total`].
+    pub fn total_tokens(self) -> u64 {
+        self.tokens.total()
+    }
+
+    /// No tokens and no cost data: the usage of something that did not run.
+    fn is_empty(self) -> bool {
+        self.tokens == TokenCounts::default() && self.cost.is_none()
+    }
+}
+
+impl From<TokenCounts> for Usage {
+    /// The counts with no cost data.
+    fn from(tokens: TokenCounts) -> Self {
+        Self { tokens, cost: None }
+    }
 }
 
 /// Rate-limit information returned by a provider.
@@ -332,6 +443,14 @@ impl Response {
         Message::new(Role::Assistant, self.content)
     }
 
+    /// The response's token counts and cost as one [`Usage`].
+    pub fn usage_with_cost(&self) -> Usage {
+        Usage {
+            tokens: self.usage,
+            cost:   self.cost,
+        }
+    }
+
     pub fn new(provider: ProviderId, model: ModelId, content: Vec<ContentPart>) -> Self {
         Self {
             id: None,
@@ -397,7 +516,10 @@ mod tests {
 
     use serde_json::json;
 
-    use super::{ErrorKind, FinishReason, RateLimits, Response, TokenCounts, Warning};
+    use super::{
+        Cost, CostSource, ErrorKind, FinishReason, RateLimits, Response, TokenCounts, Usage,
+        Warning,
+    };
     use crate::catalog::{ModelId, ProviderId};
     use crate::types::{ContentPart, ToolCall};
 
@@ -624,6 +746,169 @@ mod tests {
             cache_write: 0,
         });
         assert_eq!(usage.total(), 8);
+    }
+
+    #[test]
+    fn saturating_add_adds_every_bucket_without_wrapping() {
+        let left = TokenCounts {
+            input:       1,
+            output:      2,
+            reasoning:   3,
+            cache_read:  4,
+            cache_write: u64::MAX,
+        };
+        let right = TokenCounts {
+            input:       10,
+            output:      20,
+            reasoning:   30,
+            cache_read:  40,
+            cache_write: 1,
+        };
+
+        assert_eq!(left.saturating_add(right), TokenCounts {
+            input:       11,
+            output:      22,
+            reasoning:   33,
+            cache_read:  44,
+            cache_write: u64::MAX,
+        });
+    }
+
+    fn priced(input: u64, usd_micros: u64, source: CostSource) -> Usage {
+        Usage {
+            tokens: TokenCounts {
+                input,
+                ..TokenCounts::default()
+            },
+            cost:   Some(Cost { usd_micros, source }),
+        }
+    }
+
+    fn unpriced(input: u64) -> Usage {
+        Usage::from(TokenCounts {
+            input,
+            ..TokenCounts::default()
+        })
+    }
+
+    #[test]
+    fn usage_round_trips_with_and_without_cost() -> Result<(), Box<dyn StdError>> {
+        let with_cost = priced(10, 250, CostSource::Provider);
+        let encoded = serde_json::to_value(with_cost)?;
+        assert_eq!(
+            encoded,
+            json!({
+                "tokens": { "input": 10, "output": 0, "reasoning": 0,
+                            "cache_read": 0, "cache_write": 0 },
+                "cost": { "usd_micros": 250, "source": "provider" }
+            })
+        );
+        assert_eq!(serde_json::from_value::<Usage>(encoded)?, with_cost);
+
+        let without_cost = unpriced(10);
+        let encoded = serde_json::to_value(without_cost)?;
+        assert!(encoded.get("cost").is_none());
+        assert_eq!(serde_json::from_value::<Usage>(encoded)?, without_cost);
+        Ok(())
+    }
+
+    #[test]
+    fn an_empty_usage_object_is_the_default() -> Result<(), Box<dyn StdError>> {
+        assert_eq!(
+            serde_json::from_value::<Usage>(json!({}))?,
+            Usage::default()
+        );
+        assert_eq!(
+            serde_json::from_value::<Usage>(json!({ "tokens": {} }))?,
+            Usage::default()
+        );
+        assert_eq!(
+            serde_json::to_value(Usage::default())?,
+            json!({
+                "tokens": { "input": 0, "output": 0, "reasoning": 0,
+                            "cache_read": 0, "cache_write": 0 }
+            })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn usage_add_keeps_a_shared_cost_source() {
+        let sum = priced(10, 250, CostSource::Catalog).saturating_add(priced(
+            5,
+            u64::MAX,
+            CostSource::Catalog,
+        ));
+
+        assert_eq!(sum, priced(15, u64::MAX, CostSource::Catalog));
+    }
+
+    #[test]
+    fn usage_add_marks_mixed_cost_sources_as_application() {
+        let sum = priced(10, 250, CostSource::Catalog).saturating_add(priced(
+            5,
+            100,
+            CostSource::Provider,
+        ));
+
+        assert_eq!(sum, priced(15, 350, CostSource::Application));
+    }
+
+    #[test]
+    fn usage_add_has_no_cost_when_a_part_with_tokens_is_unpriced() {
+        assert_eq!(
+            priced(10, 250, CostSource::Catalog).saturating_add(unpriced(5)),
+            unpriced(15)
+        );
+        assert_eq!(
+            unpriced(5).saturating_add(priced(10, 250, CostSource::Catalog)),
+            unpriced(15)
+        );
+        assert_eq!(unpriced(5).saturating_add(unpriced(10)), unpriced(15));
+    }
+
+    #[test]
+    fn usage_add_treats_the_default_as_identity() {
+        let usage = priced(10, 250, CostSource::Provider);
+
+        assert_eq!(Usage::default().saturating_add(usage), usage);
+        assert_eq!(usage.saturating_add(Usage::default()), usage);
+        assert_eq!(
+            [usage, priced(1, 1, CostSource::Provider)]
+                .into_iter()
+                .fold(Usage::default(), Usage::saturating_add),
+            priced(11, 251, CostSource::Provider)
+        );
+    }
+
+    #[test]
+    fn usage_from_counts_has_no_cost_and_the_same_total() {
+        let counts = TokenCounts::from_inclusive(100, 60, 25, 30, 10);
+
+        let usage = Usage::from(counts);
+
+        assert_eq!(usage, Usage {
+            tokens: counts,
+            cost:   None,
+        });
+        assert_eq!(usage.total_tokens(), counts.total());
+    }
+
+    #[test]
+    fn a_response_pairs_its_usage_and_cost() {
+        let mut response = sample_response();
+        assert_eq!(response.usage_with_cost(), Usage::default());
+
+        response.usage = TokenCounts::from_inclusive(100, 60, 25, 30, 10);
+        response.cost = Some(Cost {
+            usd_micros: 720_000,
+            source:     CostSource::Catalog,
+        });
+
+        assert_eq!(response.usage_with_cost(), Usage {
+            tokens: response.usage,
+            cost:   response.cost,
+        });
     }
 
     #[test]

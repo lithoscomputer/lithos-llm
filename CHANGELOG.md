@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- One usage type. `types::Usage` pairs a `TokenCounts` with an optional
+  `Cost`: what a call or a run used and, when known, what it cost. On the
+  wire the two sit side by side as `tokens` and `cost`, with `cost` omitted
+  when there is no cost data. `Usage::saturating_add` sums two: tokens bucket
+  by bucket, cost only when every part that used tokens is priced, and the
+  shared source or `application` when the sources differ. `Usage::default`
+  is the identity for a fold. `Response::usage_with_cost` reads a response's
+  `usage` and `cost` as one `Usage`, `Usage::from(TokenCounts)` carries no
+  cost, and `TokenCounts::saturating_add` adds two counts bucket by bucket.
+
 - `catalog::builtin::ids` names every provider the built-in catalog ships, with
   `anthropic()`, `openai()`, `openai_codex()`, and `gemini()` constructors for
   the ones applications drive directly. A test keeps the list equal to the
