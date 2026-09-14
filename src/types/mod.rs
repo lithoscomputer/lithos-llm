@@ -38,7 +38,9 @@ pub use request::{
     CacheHint, ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
     UnknownControlValue,
 };
-pub use response::{Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Warning};
+pub use response::{
+    Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Usage, Warning,
+};
 #[cfg(feature = "runtime")]
 pub use stream::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};
 pub use tool_input::{ToolArgumentError, ToolArguments, ToolInput};
