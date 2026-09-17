@@ -18,6 +18,7 @@ pub use capabilities::{
 pub use loader::CatalogBuilder;
 pub use model::{CatalogModel, LongContextPricing, ModelLimits, Pricing, SpeedPricing, SpeedRates};
 pub use offering::Offering;
+pub(crate) use provider::string_id;
 pub use provider::{
     AdapterId, AuthScheme, CatalogProvider, CodecId, Metadata, MetadataError, ModelHandle, ModelId,
     ProviderId, adapter_ids, codec_ids,

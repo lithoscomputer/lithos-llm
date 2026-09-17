@@ -10,7 +10,8 @@ use super::model::ModelRecord;
 use super::{CatalogError, CatalogModel};
 
 macro_rules! string_id {
-    ($name:ident) => {
+    ($(#[$meta:meta])* $name:ident) => {
+        $(#[$meta])*
         #[derive(
             Clone, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
         )]
@@ -56,6 +57,8 @@ macro_rules! string_id {
         }
     };
 }
+
+pub(crate) use string_id;
 
 string_id!(ProviderId);
 string_id!(ModelId);
