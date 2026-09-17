@@ -15,17 +15,7 @@ use crate::adapter::{
     DEFAULT_STREAM_IDLE_TIMEOUT, InputTokenCount, ProviderAdapter,
 };
 use crate::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, ProviderId, adapter_ids};
-#[cfg(all(
-    feature = "builtin-catalog",
-    feature = "environment-credentials",
-    any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible",
-        feature = "bedrock"
-    )
-))]
+#[cfg(all(feature = "builtin-catalog", feature = "environment-credentials"))]
 use crate::credentials::ConventionalCredentials;
 use crate::credentials::{self, CredentialError, CredentialProvider, NoCredentials};
 use crate::middleware::{Call, CallContext, CallGuard, Middleware, Operation, Output, Pipeline};
@@ -90,17 +80,7 @@ impl Client {
     ///
     /// Returns an error if the built-in catalog is invalid or the default HTTP
     /// client cannot be built.
-    #[cfg(all(
-        feature = "builtin-catalog",
-        feature = "environment-credentials",
-        any(
-            feature = "openai",
-            feature = "anthropic",
-            feature = "gemini",
-            feature = "openai-compatible",
-            feature = "bedrock"
-        )
-    ))]
+    #[cfg(all(feature = "builtin-catalog", feature = "environment-credentials"))]
     pub fn from_env() -> Result<ClientBuild, ClientBuildError> {
         let catalog = Catalog::builder()
             .with_builtin()
@@ -682,10 +662,6 @@ impl ClientBuilder {
 
 fn is_disabled_builtin_adapter(adapter: &AdapterId) -> bool {
     match adapter.as_str() {
-        adapter_ids::OPENAI => !cfg!(feature = "openai"),
-        adapter_ids::ANTHROPIC => !cfg!(feature = "anthropic"),
-        adapter_ids::GEMINI => !cfg!(feature = "gemini"),
-        adapter_ids::OPENAI_COMPATIBLE => !cfg!(feature = "openai-compatible"),
         adapter_ids::BEDROCK => !cfg!(feature = "bedrock"),
         _ => false,
     }

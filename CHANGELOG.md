@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: the `openai`, `anthropic`, `gemini`, and `openai-compatible`
+  features are gone. Each expanded to `runtime` and pulled no dependency of
+  its own, so the four HTTP adapters now compile whenever `runtime` is on;
+  only `bedrock` and `bedrock-aws` still gate real crates. `default` is
+  `builtin-catalog`, `runtime`, and `environment-credentials`. A consumer that
+  listed any of the four names replaces them with `runtime` in its
+  `features` list; Cargo rejects the old names.
+
 - One usage type. `types::Usage` pairs a `TokenCounts` with an optional
   `Cost`: what a call or a run used and, when known, what it cost. On the
   wire the two sit side by side as `tokens` and `cost`, with `cost` omitted

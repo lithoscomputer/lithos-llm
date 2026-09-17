@@ -4,30 +4,11 @@ pub(crate) mod classify;
 #[cfg(feature = "bedrock")]
 pub(crate) mod event_stream;
 
-use std::collections::BTreeMap;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 #[cfg(feature = "bedrock")]
 use std::future::ready;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 use std::mem::take;
 use std::pin::Pin;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 use std::str::from_utf8;
 use std::time::Duration;
 
@@ -84,12 +65,6 @@ pub(crate) struct EncodedRequest {
     /// How the transport frames this request's SSE response stream.
     ///
     /// Only the streaming path reads this; a JSON response has no frames.
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     pub framing:       SseFraming,
 }
 
@@ -104,26 +79,18 @@ impl EncodedRequest {
             timeout: None,
             warnings: Vec::new(),
             applied_speed: None,
-            #[cfg(any(
-                feature = "openai",
-                feature = "anthropic",
-                feature = "gemini",
-                feature = "openai-compatible"
-            ))]
             framing: SseFraming::Spec,
         }
     }
 
     /// Records the speed the codec encoded into the request.
     #[must_use]
-    #[cfg(any(feature = "openai", feature = "anthropic", feature = "bedrock"))]
     pub(crate) fn with_applied_speed(mut self, speed: Option<Speed>) -> Self {
         self.applied_speed = speed;
         self
     }
 
     #[must_use]
-    #[cfg(any(feature = "anthropic", feature = "bedrock"))]
     pub(crate) fn with_headers(mut self, headers: Vec<(String, String)>) -> Self {
         self.headers = headers;
         self
@@ -144,7 +111,6 @@ impl EncodedRequest {
     /// Lenient skins and proxies for this codec's dialect separate events with
     /// single newlines rather than the blank line the SSE specification
     /// requires, and every event is one `data:` line of JSON.
-    #[cfg(any(feature = "gemini", feature = "openai-compatible"))]
     #[must_use]
     pub(crate) fn with_data_line_framing(mut self) -> Self {
         self.framing = SseFraming::DataLines;
@@ -153,12 +119,6 @@ impl EncodedRequest {
 }
 
 /// How the transport splits an SSE byte stream into events.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum SseFraming {
     /// A blank line ends a frame, whose `data:` lines join with `\n`, as the
@@ -166,19 +126,11 @@ pub(crate) enum SseFraming {
     Spec,
     /// Every complete `data:` line is one event on its own, delivered as soon
     /// as its newline arrives.
-    #[cfg_attr(
-        not(any(feature = "gemini", feature = "openai-compatible")),
-        allow(dead_code, reason = "only the gemini and openai_chat codecs opt in")
-    )]
     DataLines,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct SseEvent {
-    #[cfg_attr(
-        not(any(feature = "openai", feature = "anthropic", test)),
-        allow(dead_code, reason = "some provider streams do not use SSE event names")
-    )]
     pub event: Option<String>,
     pub data:  String,
 }
@@ -254,12 +206,6 @@ impl HttpTransport {
         json_response(response, provider, self.limits.body_bytes()).await
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     pub(crate) async fn sse_events(
         &self,
         request: EncodedRequest,
@@ -564,13 +510,6 @@ where
 /// expiry keeps the complete path's never-retry rule and reports as a timeout
 /// rather than a network fault; see [`json_response`] for the same rule on the
 /// complete body.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
 fn chunk_error(provider: &ProviderId, message: &'static str, source: reqwest::Error) -> Error {
     let (kind, retry) = if source.is_timeout() {
         (ErrorKind::Timeout, RetryClassification::Never)
@@ -592,13 +531,6 @@ fn chunk_error(provider: &ProviderId, message: &'static str, source: reqwest::Er
 /// expiry, so one stall produces one error rather than one per idle period.
 ///
 /// A `timeout` of `None` waits forever.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
 fn with_idle_timeout<T, S>(
     stream: S,
     idle: Option<Duration>,
@@ -639,12 +571,6 @@ where
 ///
 /// A stream that ends without the trailing blank line still delivers its last
 /// frame: the leftover buffer is flushed at end of stream rather than dropped.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 fn sse_frames<C, S>(
     chunks: S,
     framing: SseFraming,
@@ -1018,12 +944,6 @@ pub(crate) fn provider_error(
     error
 }
 
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 fn extract_frames(buffer: &mut Vec<u8>, framing: SseFraming) -> Vec<Result<SseEvent, Error>> {
     let mut events = Vec::new();
     while let Some((end, delimiter_len)) = frame_end(buffer, framing) {
@@ -1043,12 +963,6 @@ fn extract_frames(buffer: &mut Vec<u8>, framing: SseFraming) -> Vec<Result<SseEv
 /// A provider that closes the connection right after its last `data:` line,
 /// without the trailing blank line, still delivers that frame. Trailing
 /// whitespace alone is not a frame.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 fn flush_frame(buffer: &mut Vec<u8>) -> Vec<Result<SseEvent, Error>> {
     let frame = take(buffer);
     if frame.iter().all(u8::is_ascii_whitespace) {
@@ -1061,12 +975,6 @@ fn flush_frame(buffer: &mut Vec<u8>) -> Vec<Result<SseEvent, Error>> {
     }
 }
 
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 fn frame_end(buffer: &[u8], framing: SseFraming) -> Option<(usize, usize)> {
     match framing {
         SseFraming::Spec => buffer
@@ -1088,12 +996,6 @@ fn frame_end(buffer: &[u8], framing: SseFraming) -> Option<(usize, usize)> {
     }
 }
 
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 fn parse_frame(frame: &[u8]) -> Result<Option<SseEvent>, Error> {
     // Garbled framing is indistinguishable from mid-stream corruption, so
     // the failure is retryable like any other garbled stream.
@@ -1203,7 +1105,6 @@ mod tests {
             super::ErrorKind::ResourceLimit
         );
     }
-    #[cfg(feature = "openai")]
     #[tokio::test]
     async fn frame_limit_applies_across_chunks_but_not_across_frames() {
         use futures_util::{StreamExt as _, stream};
@@ -1238,15 +1139,8 @@ mod tests {
     use super::{
         AuthScheme, Client, CredentialHeader, Credentials, EncodedRequest, ErrorKind, HeaderMap,
         HeaderValue, HttpAuthentication, HttpTransport, Method, ProviderId, RetryClassification,
-        SecretValue, merge_headers, rate_limits, with_idle_timeout,
+        SecretValue, SseFraming, extract_frames, merge_headers, rate_limits, with_idle_timeout,
     };
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
-    use super::{SseFraming, extract_frames};
     use crate::codecs::test_support;
     use crate::credentials::HttpCredentials;
     use crate::resolver::ResolvedRoute;
@@ -1365,12 +1259,6 @@ mod tests {
         assert_eq!(error.kind(), ErrorKind::Authentication);
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn parses_frames_across_chunks() {
         let mut buffer = b"event: delta\ndata: {\"text\":\"hel".to_vec();
@@ -1383,12 +1271,6 @@ mod tests {
         assert_eq!(event.data, r#"{"text":"hello"}"#);
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn spec_framing_joins_single_newline_data_lines_into_one_frame() {
         let mut buffer = b"data: {\"n\":1}\ndata: {\"n\":2}\n\n".to_vec();
@@ -1400,12 +1282,6 @@ mod tests {
         assert_eq!(event.data, "{\"n\":1}\n{\"n\":2}");
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn data_line_framing_splits_single_newline_data_lines() {
         let mut buffer = b"data: {\"n\":1}\ndata: {\"n\":2}\n\n".to_vec();
@@ -1418,12 +1294,6 @@ mod tests {
         assert!(buffer.is_empty(), "the blank line is not a frame");
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn data_line_framing_skips_comments_terminators_and_non_data_lines() {
         let mut buffer = b": keep-alive\nevent: x\ndata: [DONE]\ndata: {\"n\":1}\n".to_vec();
@@ -1437,12 +1307,6 @@ mod tests {
         );
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn data_line_framing_handles_crlf_line_endings() {
         let mut buffer = b"data: {\"n\":1}\r\n\r\ndata: {\"n\":2}\r\n".to_vec();
@@ -1454,12 +1318,6 @@ mod tests {
         assert_eq!(events[1].as_ref().expect("line two").data, r#"{"n":2}"#);
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn data_line_framing_buffers_a_split_utf8_character() {
         let text = "data: {\"t\":\"é\"}\n";
@@ -1496,12 +1354,6 @@ mod tests {
         assert_eq!(limits.request_remaining, None);
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn flushes_a_last_frame_that_has_no_trailing_blank_line() {
         let mut buffer = b"data: {\"text\":\"bye\"}".to_vec();
@@ -1515,12 +1367,6 @@ mod tests {
         assert!(buffer.is_empty());
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[test]
     fn a_trailing_newline_is_not_a_frame() {
         let mut buffer = b"\n".to_vec();
@@ -1630,12 +1476,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible"
-    ))]
     #[tokio::test]
     async fn a_stream_delivers_a_frame_without_its_trailing_blank_line()
     -> Result<(), Box<dyn StdError>> {
@@ -1668,7 +1508,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "gemini", feature = "openai-compatible"))]
     #[tokio::test]
     async fn a_data_line_framed_stream_splits_events_without_blank_lines()
     -> Result<(), Box<dyn StdError>> {

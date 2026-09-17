@@ -1,5 +1,5 @@
 //! Offline public-client contracts against the real Anthropic twin.
-#![cfg(feature = "anthropic")]
+#![cfg(feature = "runtime")]
 
 mod contracts;
 mod faults;

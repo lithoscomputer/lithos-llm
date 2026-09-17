@@ -531,11 +531,7 @@ fn build(root: &str, openai: &str, anthropic: &str) -> Result<(), Box<dyn Error>
 | Feature | Default | Purpose |
 | --- | --- | --- |
 | `builtin-catalog` | yes | Embedded provider and model catalog |
-| `runtime` | through provider features | Client and public runtime extension points |
-| `openai` | yes | OpenAI Responses adapter |
-| `anthropic` | yes | Anthropic Messages adapter |
-| `gemini` | yes | Gemini Generate Content adapter |
-| `openai-compatible` | yes | Chat Completions-compatible adapter |
+| `runtime` | yes | Client, public runtime extension points, and the OpenAI, Anthropic, Gemini, and OpenAI-compatible adapters |
 | `environment-credentials` | yes | Environment-backed credential provider |
 | `local-files` | no | Middleware that inlines local-path media as base64 |
 | `bedrock` | no | Bedrock Converse adapter with bearer-token authentication |
@@ -549,8 +545,6 @@ A catalog-only consumer can avoid Tokio, reqwest, and provider SDKs:
 ```toml
 lithos-llm = { version = "0.1", default-features = false, features = ["builtin-catalog"] }
 ```
-
-A custom adapter consumer can enable `runtime` without a built-in provider.
 
 ## Setup
 

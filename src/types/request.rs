@@ -213,7 +213,7 @@ pub struct Request {
 }
 
 impl Request {
-    #[cfg(any(feature = "anthropic", feature = "gemini", feature = "bedrock", test))]
+    #[cfg(any(feature = "runtime", test))]
     pub(crate) fn carries_foreign_signature(&self, family: &str) -> bool {
         self.messages.iter().flat_map(Message::content).any(|part| {
             matches!(part, super::ContentPart::Reasoning(reasoning) if reasoning.has_foreign_signature(family))

@@ -1,29 +1,13 @@
 //! Helpers shared by every provider codec.
 
-#[cfg(any(feature = "openai", feature = "openai-compatible"))]
-use serde_json::json;
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
-#[cfg(any(
-    feature = "anthropic",
-    feature = "bedrock",
-    feature = "openai",
-    feature = "openai-compatible",
-    test
-))]
 use crate::transport::classify;
-#[cfg(any(feature = "openai", feature = "openai-compatible"))]
-use crate::types::CacheHint;
-#[cfg(any(
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
-use crate::types::FinishReason;
-use crate::types::{ContentPart, Error, ErrorKind, Message, Request, Role};
+use crate::types::{
+    CacheHint, ContentPart, Error, ErrorKind, FinishReason, Message, Request, Role,
+};
 
 /// Raw provider option keys a codec consumes as behavior controls.
 ///
@@ -36,24 +20,15 @@ pub(crate) const CONTROL_KEYS: &[&str] = &["auto_cache"];
 ///
 /// [`classify`](crate::transport::classify) registers this code among the
 /// content-filter codes, which is what makes a refusal failover-eligible.
-#[cfg(any(
-    feature = "anthropic",
-    feature = "bedrock",
-    feature = "openai",
-    feature = "openai-compatible",
-    test
-))]
 const REFUSAL_CODE: &str = "refusal";
 
 /// The signature family of Claude-minted reasoning signatures.
 ///
 /// The Anthropic Messages and Bedrock Converse protocols both carry them, so
 /// a conversation that moves between those providers keeps its signatures.
-#[cfg(any(feature = "anthropic", feature = "bedrock", test))]
 pub(crate) const ANTHROPIC_SIGNATURES: &str = "anthropic";
 
 /// The signature family of Gemini thought signatures.
-#[cfg(any(feature = "gemini", test))]
 pub(crate) const GEMINI_SIGNATURES: &str = "gemini";
 
 /// Codec behavior selected by control keys in the raw provider options.
@@ -169,7 +144,6 @@ fn split_controls(mut options: Map<String, Value>) -> (Map<String, Value>, Contr
 /// capability like every other automatic cache behavior. A raw
 /// `prompt_cache_key` in the provider options still wins, because codecs
 /// merge raw options over the encoded body.
-#[cfg(any(feature = "openai", feature = "openai-compatible"))]
 pub(crate) fn cache_routing_key(call: &ResolvedCall, controls: Controls) -> Option<String> {
     let capabilities = call.route().model().capabilities();
     if !capabilities.cache_routing().is_supported() {
@@ -191,7 +165,6 @@ pub(crate) fn cache_routing_key(call: &ResolvedCall, controls: Controls) -> Opti
 /// across the turns of an agent loop, so every turn of one conversation
 /// routes to the same replica. The hash is FNV-1a over the serialized
 /// prefix — a routing hint, not a security boundary.
-#[cfg(any(feature = "openai", feature = "openai-compatible"))]
 fn prefix_fingerprint(request: &Request) -> String {
     let system: Vec<Value> = request
         .messages()
@@ -253,12 +226,6 @@ pub(crate) fn merge_options(body: &mut Map<String, Value>, options: Map<String, 
 ///
 /// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
 /// naming the first unsupported capability found.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
 pub(crate) fn reject_unencodable(
     route: &ResolvedRoute,
     request: &Request,
@@ -357,7 +324,6 @@ pub(crate) fn plain_text(parts: &[ContentPart]) -> String {
 /// A message whose text is only whitespace contributes nothing — templating
 /// commonly produces one, and a whitespace-only system field is a blank block
 /// providers reject rather than an instruction.
-#[cfg(any(feature = "anthropic", feature = "bedrock", feature = "gemini"))]
 pub(crate) fn system_text(messages: &[Message]) -> String {
     messages
         .iter()
@@ -375,12 +341,6 @@ pub(crate) fn system_text(messages: &[Message]) -> String {
 /// text and nothing else, which makes the drop correct — but silent, and the
 /// caller put that content somewhere deliberately. The text still reaches the
 /// model, so this is a warning rather than a refusal.
-#[cfg(any(
-    feature = "anthropic",
-    feature = "bedrock",
-    feature = "gemini",
-    feature = "openai"
-))]
 pub(crate) fn flattens_system_content(request: &Request) -> bool {
     request
         .messages()
@@ -396,12 +356,6 @@ pub(crate) fn flattens_system_content(request: &Request) -> bool {
 /// asked it to stop at. Gemini's `RECITATION` is a content block, reported
 /// separately from `SAFETY` because the blocked material is quoted source
 /// rather than unsafe content.
-#[cfg(any(
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
 pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
     match value {
         None | Some("stop" | "end_turn" | "stop_sequence" | "STOP") => FinishReason::Stop,
@@ -427,13 +381,6 @@ pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
 /// the kind and the retry classification. `explanation` is the provider's own
 /// account of the refusal, when the payload carried one, and `raw` is the
 /// payload the codec decoded.
-#[cfg(any(
-    feature = "anthropic",
-    feature = "bedrock",
-    feature = "openai",
-    feature = "openai-compatible",
-    test
-))]
 pub(crate) fn refusal(
     route: &ResolvedRoute,
     explanation: Option<&str>,

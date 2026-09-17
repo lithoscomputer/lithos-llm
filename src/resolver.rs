@@ -9,13 +9,7 @@ use thiserror::Error;
 
 use crate::catalog::{Catalog, CatalogModel, CatalogProvider, ModelHandle, ModelId, ProviderId};
 use crate::cost::estimate_catalog_cost;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
+#[cfg(feature = "runtime")]
 use crate::types::Response;
 use crate::types::{Cost, Error as LlmError, ErrorKind, Request, Speed, TokenCounts};
 
@@ -64,13 +58,7 @@ pub struct ResolvedRoute {
 
 impl ResolvedRoute {
     /// Adds catalog pricing only when the provider did not supply a cost.
-    #[cfg(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible",
-        feature = "bedrock"
-    ))]
+    #[cfg(feature = "runtime")]
     pub(crate) fn apply_catalog_cost(&self, response: &mut Response, speed: Option<Speed>) {
         if response.cost.is_none() {
             response.cost = self.estimate_cost(response.usage, speed);

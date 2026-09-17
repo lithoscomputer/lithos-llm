@@ -1,57 +1,25 @@
 //! Built-in provider adapter factories.
 
-#[cfg(feature = "anthropic")]
 mod anthropic;
 #[cfg(feature = "bedrock")]
 mod bedrock;
-#[cfg(feature = "gemini")]
 mod gemini;
-#[cfg(feature = "openai")]
 mod openai;
-#[cfg(feature = "openai-compatible")]
 mod openai_compatible;
 
 use crate::adapter::AdapterRegistry;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
 use crate::catalog::adapter_ids;
 
 pub(crate) fn register_builtin(registry: &mut AdapterRegistry) {
-    #[cfg(not(any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible",
-        feature = "bedrock"
-    )))]
-    let _ = registry;
-    #[cfg(feature = "openai")]
     registry.register_factory(adapter_ids::OPENAI, openai::Factory);
-    #[cfg(feature = "anthropic")]
     registry.register_factory(adapter_ids::ANTHROPIC, anthropic::Factory);
-    #[cfg(feature = "gemini")]
     registry.register_factory(adapter_ids::GEMINI, gemini::Factory);
-    #[cfg(feature = "openai-compatible")]
     registry.register_factory(adapter_ids::OPENAI_COMPATIBLE, openai_compatible::Factory);
     #[cfg(feature = "bedrock")]
     registry.register_factory(adapter_ids::BEDROCK, bedrock::Factory);
 }
 
 /// The shared HTTP adapter every SSE-based provider factory builds on.
-///
-/// The whole module is gated once so the individual items do not repeat the
-/// provider feature list.
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible"
-))]
 pub(super) mod http {
     use std::mem::take;
     use std::sync::Arc;
@@ -60,7 +28,6 @@ pub(super) mod http {
     use futures_core::Stream;
     use futures_util::StreamExt as _;
     use futures_util::stream::{iter, unfold};
-    #[cfg(any(feature = "openai", feature = "openai-compatible"))]
     use serde::de::DeserializeOwned;
 
     use crate::adapter::{
@@ -106,7 +73,6 @@ pub(super) mod http {
     /// Returns [`AdapterBuildError::InvalidAdapterOptions`] when the table does
     /// not match `T`. The client turns that into one provider build issue and
     /// still builds every other provider.
-    #[cfg(any(feature = "openai", feature = "openai-compatible"))]
     pub(in crate::providers) fn adapter_options<T: Default + DeserializeOwned>(
         provider: &CatalogProvider,
     ) -> Result<T, AdapterBuildError> {

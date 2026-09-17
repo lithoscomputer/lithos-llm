@@ -42,13 +42,9 @@ mod bedrock;
 #[cfg(all(feature = "bedrock", feature = "builtin-catalog"))]
 mod bedrock_parity;
 mod gemini;
-#[cfg(all(
-    feature = "builtin-catalog",
-    feature = "openai-compatible",
-    feature = "openai"
-))]
+#[cfg(feature = "builtin-catalog")]
 mod imported_providers;
-#[cfg(all(feature = "builtin-catalog", feature = "openai-compatible"))]
+#[cfg(feature = "builtin-catalog")]
 mod modal_parity;
 mod openai_chat;
 mod openai_responses;
