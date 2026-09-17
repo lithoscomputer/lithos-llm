@@ -20,8 +20,6 @@ priority = 30
 allow_passthrough = true
 default_model = "kimi-k2.7-code"
 api_key_url = "https://app.fireworks.ai/settings/users/api-keys"
-# Opt-in: operators enable this provider in their own catalog overlay.
-enabled = false
 
 [providers.fireworks.auth]
 type = "bearer"

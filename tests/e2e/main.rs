@@ -52,3 +52,5 @@ mod openrouter;
 mod support;
 #[cfg(feature = "openai-compatible")]
 mod venice;
+#[cfg(feature = "openai-compatible")]
+mod vercel;

@@ -361,6 +361,10 @@ impl ConventionalCredentials {
             .or_bearer("moonshot", "KIMI_API_KEY")
             .bearer("openrouter", "OPENROUTER_API_KEY")
             .bearer("venice", "VENICE_API_KEY")
+            // Vercel documents `AI_GATEWAY_API_KEY`; a Vercel deployment can
+            // present its OIDC token as the same bearer instead.
+            .bearer("vercel", "AI_GATEWAY_API_KEY")
+            .or_bearer("vercel", "VERCEL_OIDC_TOKEN")
             .bedrock_bearer("bedrock", "AWS_BEARER_TOKEN_BEDROCK")
             .or_bedrock_bearer("bedrock", "BEDROCK_API_KEY");
         #[cfg(feature = "bedrock-aws")]
@@ -1117,6 +1121,42 @@ mod tests {
             ),
             "OpenRouter should resolve a bearer credential"
         );
+        Ok(())
+    }
+
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn vercel_reads_the_ai_gateway_key_before_the_oidc_token() -> Result<(), String> {
+        let preferred = resolve("vercel", &[
+            ("AI_GATEWAY_API_KEY", "gateway-key"),
+            ("VERCEL_OIDC_TOKEN", "oidc-token"),
+        ])?;
+        assert!(
+            matches!(
+                &preferred,
+                Credentials::Http(HttpCredentials {
+                    auth: HttpAuthentication::Bearer(secret),
+                    ..
+                }) if secret.expose_secret() == "gateway-key"
+            ),
+            "Vercel should resolve the gateway key as a bearer credential"
+        );
+
+        let fallback = resolve("vercel", &[("VERCEL_OIDC_TOKEN", "oidc-token")])?;
+        assert!(
+            matches!(
+                &fallback,
+                Credentials::Http(HttpCredentials {
+                    auth: HttpAuthentication::Bearer(secret),
+                    ..
+                }) if secret.expose_secret() == "oidc-token"
+            ),
+            "Vercel should fall back to the OIDC token"
+        );
+
+        // With neither variable set, the error names the documented one.
+        let message = resolve("vercel", &[]).expect_err("vercel should not resolve");
+        assert!(message.contains("AI_GATEWAY_API_KEY"), "{message}");
         Ok(())
     }
 
