@@ -360,6 +360,7 @@ impl ConventionalCredentials {
             .bearer("moonshot", "MOONSHOT_API_KEY")
             .or_bearer("moonshot", "KIMI_API_KEY")
             .bearer("openrouter", "OPENROUTER_API_KEY")
+            .bearer("typesafe", "TYPESAFE_API_KEY")
             .bearer("venice", "VENICE_API_KEY")
             // Vercel documents `AI_GATEWAY_API_KEY`; a Vercel deployment can
             // present its OIDC token as the same bearer instead.
@@ -1279,6 +1280,7 @@ mod tests {
             ("zai", "ZAI_API_KEY"),
             ("poolside", "POOLSIDE_API_KEY"),
             ("litellm", "LITELLM_API_KEY"),
+            ("typesafe", "TYPESAFE_API_KEY"),
         ] {
             assert_eq!(
                 resolve(provider, &[(variable, "test-key")])?,

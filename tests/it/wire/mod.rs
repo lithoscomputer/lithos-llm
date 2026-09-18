@@ -50,4 +50,5 @@ mod judge;
 mod modal_parity;
 mod openai_chat;
 mod openai_responses;
+mod systemone;
 mod vercel_evaluation;

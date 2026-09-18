@@ -38,5 +38,6 @@ mod moonshot;
 mod openai;
 mod openrouter;
 mod support;
+mod typesafe;
 mod venice;
 mod vercel;

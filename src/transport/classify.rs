@@ -162,8 +162,12 @@ const CONTENT_FILTER_MESSAGES: &[&str] = &["content filter", "content policy", "
 /// `{"error":{"message","code","type"}}`, Anthropic
 /// `{"type":"error","error":{"type","message"}}`, Gemini
 /// `{"error":{"code","message","status"}}`, Venice's bare
-/// `{"error":"<message>"}`, and the Bedrock envelopes that put the message at
-/// `message` or `Message` and the code in `__type`.
+/// `{"error":"<message>"}`, the Bedrock envelopes that put the message at
+/// `message` or `Message` and the code in `__type`, and the FastAPI shapes
+/// TypeSafe's API sends under `detail`: a bare string (also the OpenAI Codex
+/// endpoint), an object `{"detail":{"error_type","message"}}`, and a
+/// validation array `{"detail":[{"type","msg",...}]}` whose first entry is
+/// read.
 ///
 /// Returns `(None, None)` for a body that carries neither.
 pub(crate) fn extract(body: Option<&Value>) -> (Option<String>, Option<String>) {
@@ -171,6 +175,7 @@ pub(crate) fn extract(body: Option<&Value>) -> (Option<String>, Option<String>) 
         return (None, None);
     };
     let error = body.get("error");
+    let detail = fastapi_detail(body);
 
     let message = error
         .and_then(|error| text(error, "message"))
@@ -178,7 +183,9 @@ pub(crate) fn extract(body: Option<&Value>) -> (Option<String>, Option<String>) 
         .or_else(|| error.and_then(|error| non_empty(error.as_str())))
         .or_else(|| text(body, "message")) // Bedrock SigV4
         .or_else(|| text(body, "Message")) // Bedrock API key
-        .or_else(|| text(body, "detail")) // OpenAI Codex endpoint
+        .or_else(|| text(body, "detail")) // OpenAI Codex endpoint, FastAPI
+        .or_else(|| detail.and_then(|detail| text(detail, "message"))) // FastAPI object
+        .or_else(|| detail.and_then(|detail| text(detail, "msg"))) // FastAPI validation
         .or_else(|| non_empty(body.as_str()));
 
     let code = error
@@ -190,9 +197,21 @@ pub(crate) fn extract(body: Option<&Value>) -> (Option<String>, Option<String>) 
         // A bare stream error payload carries its own code. Anthropic's
         // envelope tags itself `"type": "error"`, which says nothing.
         .or_else(|| text(body, "type").filter(|value| value != "error"))
+        .or_else(|| detail.and_then(|detail| text(detail, "error_type"))) // FastAPI object
+        .or_else(|| detail.and_then(|detail| text(detail, "type"))) // FastAPI validation
         .map(code_tail);
 
     (message, code)
+}
+
+/// The object a FastAPI `detail` field describes the failure with: the
+/// object itself, or the first entry of a validation error array.
+fn fastapi_detail(body: &Value) -> Option<&Value> {
+    match body.get("detail")? {
+        detail @ Value::Object(_) => Some(detail),
+        Value::Array(entries) => entries.first().filter(|entry| entry.is_object()),
+        _ => None,
+    }
 }
 
 /// Classifies one provider failure.
@@ -933,6 +952,62 @@ mod tests {
                 Some("server_error".to_owned())
             )
         );
+    }
+
+    /// TypeSafe's API is FastAPI: a rejected key is `detail` as an object
+    /// with `error_type` and `message`, and a malformed body is `detail` as
+    /// pydantic's validation array. Both are real bodies from 2026-09-18.
+    #[test]
+    fn extracts_and_classifies_the_fastapi_error_shapes() {
+        let unauthorized = json!({
+            "detail": {
+                "error_type": "authentication_error",
+                "message": "Cannot authenticate with the server. Please check your API key and try again."
+            }
+        });
+        let (message, code) = extract(Some(&unauthorized));
+        assert_eq!(code.as_deref(), Some("authentication_error"));
+        assert_eq!(
+            message.as_deref(),
+            Some("Cannot authenticate with the server. Please check your API key and try again.")
+        );
+        let failure = classify(Some(401), code.as_deref(), message.as_deref(), None);
+        assert_eq!(
+            kinds(&failure),
+            (ErrorKind::Authentication, RetryClassification::Never)
+        );
+        // The code alone, with no status, still lands as authentication.
+        assert_eq!(
+            classify(None, code.as_deref(), None, None).kind,
+            ErrorKind::Authentication
+        );
+
+        let invalid = json!({
+            "detail": [{
+                "type": "union_tag_invalid",
+                "loc": ["body", "questions", "q"],
+                "msg": "Input tag 'boolean' found using 'type' does not match any of the expected tags: <QuestionType.Noul: 'noul'>, <QuestionType.Choice: 'choice'>, <QuestionType.Score: 'score'>, <QuestionType.BoundingBox: 'bounding_box'>",
+                "input": { "type": "boolean", "instructions": "Is it x?" },
+                "ctx": { "discriminator": "'type'", "tag": "boolean" }
+            }]
+        });
+        let (message, code) = extract(Some(&invalid));
+        assert_eq!(code.as_deref(), Some("union_tag_invalid"));
+        assert!(
+            message
+                .as_deref()
+                .is_some_and(|message| message.starts_with("Input tag 'boolean'")),
+            "{message:?}"
+        );
+        // A 422 with a code the table does not know is an invalid request.
+        let failure = classify(Some(422), code.as_deref(), message.as_deref(), None);
+        assert_eq!(
+            kinds(&failure),
+            (ErrorKind::InvalidRequest, RetryClassification::Never)
+        );
+
+        // An empty validation array carries nothing.
+        assert_eq!(extract(Some(&json!({ "detail": [] }))), (None, None));
     }
 
     #[test]

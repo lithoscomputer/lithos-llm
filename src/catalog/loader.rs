@@ -219,12 +219,13 @@ mod tests {
     /// The codec ids this crate builds. A built-in provider lists nothing
     /// else, so every built-in row can be served.
     #[cfg(feature = "builtin-catalog")]
-    const BUILTIN_CODECS: [&str; 6] = [
+    const BUILTIN_CODECS: [&str; 7] = [
         codec_ids::ANTHROPIC_MESSAGES,
         codec_ids::BEDROCK_CONVERSE,
         codec_ids::GEMINI_GENERATE,
         codec_ids::OPENAI_CHAT,
         codec_ids::OPENAI_RESPONSES,
+        codec_ids::SYSTEMONE,
         codec_ids::VERCEL_EVALUATION,
     ];
 

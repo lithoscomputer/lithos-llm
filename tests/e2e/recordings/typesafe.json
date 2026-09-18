@@ -1,0 +1,885 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "typesafe::evaluate::a_mixed_evaluation_answers_every_question/0001",
+      "namespace": "typesafe::evaluate::a_mixed_evaluation_answers_every_question",
+      "matcher": {
+        "endpoint": "systemone",
+        "stream": false,
+        "request_hash": "d7164ed7d25de1c2"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "headers": {
+          "x-typesafe-request-id": "req_01a0b6dcc80d7956a9a593244b9baf80"
+        },
+        "body": {
+          "model": "jev-1.13.0",
+          "answers": {
+            "department": {
+              "type": "choice",
+              "choice": "billing",
+              "confidence": 1.0,
+              "probabilities": {
+                "other": 0.0,
+                "billing": 1.0,
+                "technical": 0.0
+              }
+            },
+            "requests_refund": {
+              "type": "noul",
+              "noul": 0.99
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.08,
+              "confidence": 0.46,
+              "legend": {
+                "0": "Cosmetic",
+                "1": "Workaround exists",
+                "2": "Blocking; no workaround"
+              },
+              "probabilities": {
+                "0": 0.14,
+                "1": 0.64,
+                "2": 0.22
+              }
+            }
+          },
+          "usage": {
+            "input_tokens": 389,
+            "output_tokens": 70
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "typesafe::evaluate::two_hundred_questions_are_answered/0001",
+      "namespace": "typesafe::evaluate::two_hundred_questions_are_answered",
+      "matcher": {
+        "endpoint": "systemone",
+        "stream": false,
+        "request_hash": "d6e4c63d189648bf"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "headers": {
+          "x-typesafe-request-id": "req_01a0b6dcc85473b9a7f2907e028cf7a4"
+        },
+        "body": {
+          "model": "jev-1.13.0",
+          "answers": {
+            "q000": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q001": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q002": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q003": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q004": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q005": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q006": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q007": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q008": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q009": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q010": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q011": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q012": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q013": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q014": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q015": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q016": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q017": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q018": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q019": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q020": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q021": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q022": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q023": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q024": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q025": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q026": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q027": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q028": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q029": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q030": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q031": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q032": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q033": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q034": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q035": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q036": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q037": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "q038": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q039": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q040": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q041": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q042": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q043": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q044": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q045": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q046": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q047": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q048": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q049": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q050": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q051": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q052": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q053": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q054": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q055": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q056": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q057": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q058": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q059": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q060": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q061": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q062": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q063": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q064": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q065": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q066": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q067": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q068": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q069": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q070": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q071": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "q072": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q073": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q074": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q075": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q076": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q077": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "q078": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q079": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q080": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q081": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q082": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q083": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q084": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q085": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q086": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q087": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q088": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q089": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q090": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q091": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q092": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q093": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q094": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q095": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q096": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q097": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q098": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q099": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "q100": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q101": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q102": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q103": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q104": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q105": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q106": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q107": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q108": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q109": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q110": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q111": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q112": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q113": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q114": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q115": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q116": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q117": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q118": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q119": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q120": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q121": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q122": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q123": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q124": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q125": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q126": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q127": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q128": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q129": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q130": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q131": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q132": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q133": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q134": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "q135": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q136": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q137": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q138": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q139": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q140": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q141": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q142": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "q143": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q144": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q145": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q146": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q147": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q148": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q149": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q150": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q151": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q152": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q153": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q154": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "q155": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q156": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q157": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q158": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q159": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q160": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q161": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q162": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q163": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q164": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q165": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q166": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q167": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q168": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q169": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q170": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q171": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q172": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q173": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q174": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q175": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q176": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q177": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q178": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q179": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q180": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q181": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q182": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q183": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q184": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q185": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q186": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q187": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q188": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q189": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q190": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q191": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q192": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q193": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q194": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q195": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q196": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q197": {
+              "type": "noul",
+              "noul": 0.92
+            },
+            "q198": {
+              "type": "noul",
+              "noul": 0.91
+            },
+            "q199": {
+              "type": "noul",
+              "noul": 0.91
+            }
+          },
+          "usage": {
+            "input_tokens": 4366,
+            "output_tokens": 3804
+          }
+        }
+      }
+    }
+  ]
+}

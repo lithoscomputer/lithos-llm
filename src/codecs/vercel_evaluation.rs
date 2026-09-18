@@ -38,20 +38,22 @@
 
 use std::collections::BTreeMap;
 
-use indexmap::IndexMap;
 use reqwest::Method;
 use serde_json::{Map, Value};
 
 use super::EvaluationCodec;
 use super::common::usd_micros;
+use super::evaluation_common::{
+    MAX_LEVELS, QuestionLimits, answer_object, decode_choice, decode_failure, decode_score,
+    encode_question, encode_state,
+};
 use crate::adapter::ResolvedEvaluation;
 use crate::evaluation::{
-    Answer, BooleanAnswer, ChoiceAnswer, Evaluation, Question, QuestionId, Rounding, ScoreAnswer,
-    State, Verdict,
+    Answer, BooleanAnswer, Evaluation, Question, QuestionId, Rounding, Verdict,
 };
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{Cost, CostSource, Error, ErrorKind, TokenCounts, Warning};
+use crate::types::{Cost, CostSource, Error, TokenCounts, Warning};
 
 /// The gateway path every evaluation request posts to.
 const EVALUATION_PATH: &str = "/v4/ai/evaluation-model";
@@ -69,11 +71,14 @@ const MODEL_ID_HEADER: &str = "ai-model-id";
 /// The most options a choice question may carry, per Jev's documentation.
 const MAX_OPTIONS: usize = 255;
 
-/// The most levels a score question may carry, per Jev's documentation.
-const MAX_LEVELS: usize = 10;
+/// The ceilings this protocol enforces before dispatch.
+const LIMITS: QuestionLimits = QuestionLimits {
+    max_options: Some(MAX_OPTIONS),
+    max_levels:  MAX_LEVELS,
+};
 
-/// The provider code an evaluation the protocol cannot carry is refused with.
-const INVALID_EVALUATION_CODE: &str = "invalid_evaluation";
+/// The type word of a yes/no question on the gateway.
+const BOOLEAN_TYPE: &str = "boolean";
 
 /// The `providerOptions` and `providerMetadata` namespace of the gateway
 /// itself, which the route's own provider id maps to.
@@ -95,7 +100,7 @@ impl EvaluationCodec for VercelEvaluationCodec {
         for (id, question) in evaluation.questions() {
             questions.insert(
                 id.as_str().to_owned(),
-                encode_question(route, id, question)?,
+                encode_question(route, id, question, BOOLEAN_TYPE, LIMITS)?,
             );
         }
 
@@ -150,90 +155,6 @@ fn endpoint(base_url: &str) -> String {
     format!("{root}{EVALUATION_PATH}")
 }
 
-/// A state or instruction as the bare JSON value the protocol expects.
-fn encode_state(state: &State) -> Value {
-    match state {
-        State::Text(text) => Value::String(text.clone()),
-        State::Json(value) => value.clone(),
-    }
-}
-
-/// An optional description as the value or JSON `null`.
-fn encode_description(description: Option<&State>) -> Value {
-    description.map_or(Value::Null, encode_state)
-}
-
-fn encode_question(
-    route: &ResolvedRoute,
-    id: &QuestionId,
-    question: &Question,
-) -> Result<Value, Error> {
-    let mut encoded = Map::new();
-    match question {
-        Question::Choice {
-            instructions,
-            options,
-        } => {
-            if options.len() > MAX_OPTIONS {
-                return Err(invalid_evaluation(
-                    route,
-                    format!(
-                        "question `{id}` has {} options; this protocol takes at most {MAX_OPTIONS}",
-                        options.len()
-                    ),
-                ));
-            }
-            let criteria: Map<String, Value> = options
-                .iter()
-                .map(|(name, description)| (name.clone(), encode_description(description.as_ref())))
-                .collect();
-            encoded.insert("type".to_owned(), "choice".into());
-            encoded.insert("instructions".to_owned(), encode_state(instructions));
-            encoded.insert("criteria".to_owned(), Value::Object(criteria));
-        }
-        Question::Score {
-            instructions,
-            levels,
-        } => {
-            if levels.len() > MAX_LEVELS {
-                return Err(invalid_evaluation(
-                    route,
-                    format!(
-                        "question `{id}` has {} levels; this protocol takes at most {MAX_LEVELS}",
-                        levels.len()
-                    ),
-                ));
-            }
-            let criteria: Vec<Value> = levels
-                .iter()
-                .map(|level| encode_description(level.as_ref()))
-                .collect();
-            encoded.insert("type".to_owned(), "score".into());
-            encoded.insert("instructions".to_owned(), encode_state(instructions));
-            encoded.insert("criteria".to_owned(), Value::Array(criteria));
-        }
-        Question::Boolean {
-            instructions,
-            when_true,
-            when_false,
-        } => {
-            encoded.insert("type".to_owned(), "boolean".into());
-            encoded.insert("instructions".to_owned(), encode_state(instructions));
-            let mut criteria = Map::new();
-            if let Some(description) = when_true {
-                criteria.insert("true".to_owned(), encode_state(description));
-            }
-            if let Some(description) = when_false {
-                criteria.insert("false".to_owned(), encode_state(description));
-            }
-            if !criteria.is_empty() {
-                encoded.insert("criteria".to_owned(), Value::Object(criteria));
-            }
-        }
-    }
-    Ok(Value::Object(encoded))
-}
-
 /// The `providerOptions` object, or `None` when the evaluation carries no
 /// provider options.
 ///
@@ -256,28 +177,10 @@ fn encode_provider_options(route: &ResolvedRoute, evaluation: &Evaluation) -> Op
     Some(Value::Object(encoded))
 }
 
-fn invalid_evaluation(route: &ResolvedRoute, message: String) -> Error {
-    Error::new(ErrorKind::InvalidRequest, message)
-        .with_provider(route.provider().id().clone())
-        .with_provider_code(INVALID_EVALUATION_CODE)
-}
-
-/// A success body that does not match the protocol.
-///
-/// A malformed answer is never retried: a model that returned a bad shape
-/// once tends to return it again, so the error keeps [`Error::new`]'s
-/// default classification.
-fn decode_failure(route: &ResolvedRoute, detail: &str, body: Value) -> Error {
-    Error::new(
-        ErrorKind::ResponseDecode,
-        format!("provider {} {detail}", route.provider().id()),
-    )
-    .with_provider(route.provider().id().clone())
-    .with_raw_data(body)
-}
-
 /// Decodes everything but `raw`. Errors are the detail of the failure, which
-/// the caller turns into one [`ErrorKind::ResponseDecode`] carrying the body.
+/// the caller turns into one
+/// [`ResponseDecode`](crate::types::ErrorKind::ResponseDecode) carrying the
+/// body.
 fn decode_body(call: &ResolvedEvaluation, body: &Value) -> Result<Verdict, String> {
     let route = call.route();
     let questions = call.evaluation().questions();
@@ -326,40 +229,11 @@ fn decode_body(call: &ResolvedEvaluation, body: &Value) -> Result<Verdict, Strin
 }
 
 fn decode_answer(id: &str, question: Option<&Question>, wire: &Value) -> Result<Answer, String> {
-    let object = wire
-        .as_object()
-        .ok_or_else(|| format!("answered question `{id}` with something other than an object"))?;
-    let distribution = object.get("probabilities").filter(|value| !value.is_null());
+    let object = answer_object(id, wire)?;
     match object.get("type").and_then(Value::as_str) {
-        Some("choice") => {
-            let choice = object
-                .get("choice")
-                .and_then(Value::as_str)
-                .ok_or_else(|| format!("answered choice question `{id}` without a choice"))?;
-            let probabilities = distribution
-                .map(|wire| choice_probabilities(id, question, wire))
-                .transpose()?;
-            Ok(Answer::Choice(ChoiceAnswer {
-                choice: choice.to_owned(),
-                probabilities,
-                confidence: None,
-            }))
-        }
-        Some("score") => {
-            let score = object
-                .get("score")
-                .and_then(Value::as_f64)
-                .ok_or_else(|| format!("answered score question `{id}` without a number"))?;
-            let probabilities = distribution
-                .map(|wire| score_probabilities(id, question, wire))
-                .transpose()?;
-            Ok(Answer::Score(ScoreAnswer {
-                score,
-                probabilities,
-                confidence: None,
-            }))
-        }
-        Some("boolean") => {
+        Some("choice") => Ok(Answer::Choice(decode_choice(id, question, object)?)),
+        Some("score") => Ok(Answer::Score(decode_score(id, question, object)?)),
+        Some(BOOLEAN_TYPE) => {
             let probability = object
                 .get("probability")
                 .and_then(Value::as_f64)
@@ -371,85 +245,6 @@ fn decode_answer(id: &str, question: Option<&Question>, wire: &Value) -> Result<
         )),
         None => Err(format!("answered question `{id}` without an answer type")),
     }
-}
-
-/// The wire's option-keyed probabilities in the question's option order.
-///
-/// Without a matching choice question there is no order to follow, so the
-/// wire order is kept and the client's validator judges the answer.
-fn choice_probabilities(
-    id: &str,
-    question: Option<&Question>,
-    wire: &Value,
-) -> Result<IndexMap<String, f64>, String> {
-    let object = wire.as_object().ok_or_else(|| {
-        format!("reported probabilities for question `{id}` that are not keyed by option")
-    })?;
-    let probability = |option: &str, value: &Value| {
-        value.as_f64().ok_or_else(|| {
-            format!("reported a non-numeric probability for option `{option}` of question `{id}`")
-        })
-    };
-
-    let Some(Question::Choice { options, .. }) = question else {
-        return object
-            .iter()
-            .map(|(option, value)| Ok((option.clone(), probability(option, value)?)))
-            .collect();
-    };
-    let mut probabilities = IndexMap::with_capacity(options.len());
-    for option in options.keys() {
-        let value = object.get(option).ok_or_else(|| {
-            format!("reported no probability for option `{option}` of question `{id}`")
-        })?;
-        probabilities.insert(option.clone(), probability(option, value)?);
-    }
-    if let Some(foreign) = object
-        .keys()
-        .find(|option| !options.contains_key(option.as_str()))
-    {
-        return Err(format!(
-            "reported a probability for `{foreign}`, which is not an option of question `{id}`"
-        ));
-    }
-    Ok(probabilities)
-}
-
-/// The wire's index-keyed probabilities as a vector over the levels.
-///
-/// Without a matching score question the wire's own size sets the level
-/// count, and the client's validator judges the answer.
-fn score_probabilities(
-    id: &str,
-    question: Option<&Question>,
-    wire: &Value,
-) -> Result<Vec<f64>, String> {
-    let object = wire.as_object().ok_or_else(|| {
-        format!("reported probabilities for question `{id}` that are not keyed by level")
-    })?;
-    let levels = match question {
-        Some(Question::Score { levels, .. }) => levels.len(),
-        _ => object.len(),
-    };
-    let mut probabilities = Vec::with_capacity(levels);
-    for index in 0..levels {
-        let value = object.get(&index.to_string()).ok_or_else(|| {
-            format!("reported no probability for level {index} of question `{id}`")
-        })?;
-        probabilities.push(value.as_f64().ok_or_else(|| {
-            format!("reported a non-numeric probability for level {index} of question `{id}`")
-        })?);
-    }
-    if object.len() != levels {
-        let extra = object
-            .keys()
-            .find(|key| !key.parse::<usize>().is_ok_and(|index| index < levels))
-            .map_or("?", String::as_str);
-        return Err(format!(
-            "reported a probability for level `{extra}`, which question `{id}` does not have"
-        ));
-    }
-    Ok(probabilities)
 }
 
 fn decode_rounding(wire: Option<&Value>) -> Result<Option<Rounding>, String> {

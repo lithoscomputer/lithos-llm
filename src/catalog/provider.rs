@@ -92,6 +92,10 @@ pub mod codec_ids {
     /// The Vercel AI Gateway's evaluation protocol, `POST
     /// /v4/ai/evaluation-model`.
     pub const VERCEL_EVALUATION: &str = "vercel-evaluation";
+    /// TypeSafe's System One protocol, `POST /v1/systemone` on TypeSafe's
+    /// own API or `POST /alpha/decisions` on OpenRouter, chosen by
+    /// `codec_options.systemone.dialect`.
+    pub const SYSTEMONE: &str = "systemone";
 }
 
 /// The operation family a codec serves.
@@ -116,7 +120,7 @@ pub(crate) fn family(codec: &CodecId) -> CodecFamily {
         | codec_ids::GEMINI_GENERATE
         | codec_ids::OPENAI_CHAT
         | codec_ids::OPENAI_RESPONSES => CodecFamily::Generation,
-        codec_ids::VERCEL_EVALUATION => CodecFamily::Evaluation,
+        codec_ids::VERCEL_EVALUATION | codec_ids::SYSTEMONE => CodecFamily::Evaluation,
         _ => CodecFamily::Unknown,
     }
 }

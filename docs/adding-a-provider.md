@@ -156,7 +156,8 @@ here is one red test you will not have to debug later.
 2. Choose the codecs. A Chat Completions host writes nothing: `adapter`
    defaults to `http` and `codecs` to `["openai-chat"]`. A host that speaks
    another protocol writes `codecs = ["openai-responses"]`,
-   `["anthropic-messages"]`, or `["gemini-generate"]`; a host that speaks
+   `["anthropic-messages"]`, `["gemini-generate"]`, or, for an evaluation
+   host, `["vercel-evaluation"]` or `["systemone"]`; a host that speaks
    several lists them in preference order. Bedrock alone sets
    `adapter = "bedrock"`. Put a codec's own options under
    `codec_options.<codec>` and transport options under `adapter_options`.

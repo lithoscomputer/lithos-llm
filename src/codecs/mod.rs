@@ -2,6 +2,7 @@
 
 mod assembler;
 mod common;
+mod evaluation_common;
 
 pub(crate) mod anthropic;
 #[cfg(feature = "bedrock")]
@@ -9,6 +10,7 @@ pub(crate) mod bedrock;
 pub(crate) mod gemini;
 pub(crate) mod openai;
 pub(crate) mod openai_chat;
+pub(crate) mod systemone;
 pub(crate) mod vercel_evaluation;
 
 use std::sync::Arc;
@@ -84,8 +86,9 @@ pub(crate) trait Codec: Send + Sync {
 /// Translates one provider evaluation protocol.
 ///
 /// The evaluation analogue of [`Codec`]: stateless, shared across calls, and
-/// owned by an adapter that only evaluates. A second implementation is
-/// expected for TypeSafe's own API.
+/// held by the `http` adapter alongside the provider's generation codecs.
+/// Two implementations exist: the Vercel AI Gateway's evaluation protocol
+/// and TypeSafe's System One protocol.
 pub(crate) trait EvaluationCodec: Send + Sync {
     /// Encodes a resolved evaluation into one provider request.
     ///
@@ -187,6 +190,10 @@ pub(crate) fn build(id: &CodecId, options: &Value) -> Result<BuiltCodec, CodecBu
         codec_ids::VERCEL_EVALUATION => {
             let NoOptions {} = typed_options(id, options)?;
             BuiltCodec::Evaluation(Arc::new(vercel_evaluation::VercelEvaluationCodec))
+        }
+        codec_ids::SYSTEMONE => {
+            let options: systemone::SystemOneOptions = typed_options(id, options)?;
+            BuiltCodec::Evaluation(Arc::new(systemone::SystemOneCodec::new(options.dialect)))
         }
         _ => return Err(CodecBuildError::UnknownCodec { codec: id.clone() }),
     })
@@ -312,10 +319,30 @@ mod tests {
     }
 
     #[test]
-    fn the_evaluation_codec_builds_as_an_evaluation_codec() -> Result<(), CodecBuildError> {
-        let built = build(&CodecId::new(codec_ids::VERCEL_EVALUATION), &json!({}))?;
-        assert!(matches!(built, BuiltCodec::Evaluation(_)));
+    fn every_evaluation_codec_builds_as_an_evaluation_codec() -> Result<(), CodecBuildError> {
+        for id in [codec_ids::VERCEL_EVALUATION, codec_ids::SYSTEMONE] {
+            let built = build(&CodecId::new(id), &json!({}))?;
+            assert!(
+                matches!(built, BuiltCodec::Evaluation(_)),
+                "{id} serves evaluation"
+            );
+        }
         Ok(())
+    }
+
+    #[test]
+    fn the_systemone_codec_takes_only_the_declared_dialects() {
+        for options in [json!({ "dialect": "vercel" }), json!({ "made_up": true })] {
+            let error = build(&CodecId::new(codec_ids::SYSTEMONE), &options)
+                .err()
+                .expect("undeclared options are refused");
+            assert!(matches!(&error, CodecBuildError::InvalidOptions { .. }));
+        }
+        let openrouter = build(
+            &CodecId::new(codec_ids::SYSTEMONE),
+            &json!({ "dialect": "openrouter" }),
+        );
+        assert!(openrouter.is_ok_and(|built| matches!(built, BuiltCodec::Evaluation(_))));
     }
 
     #[test]

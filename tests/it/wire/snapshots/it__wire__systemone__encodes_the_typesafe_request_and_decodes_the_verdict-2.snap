@@ -1,0 +1,87 @@
+---
+source: tests/it/wire/systemone.rs
+expression: rendered
+---
+{
+  "answers": {
+    "department": {
+      "choice": "billing",
+      "confidence": 1.0,
+      "probabilities": {
+        "billing": 1.0,
+        "other": 0.0,
+        "technical": 0.0
+      },
+      "type": "choice"
+    },
+    "requests_refund": {
+      "probability": 0.98,
+      "type": "boolean"
+    },
+    "severity": {
+      "confidence": 0.47,
+      "probabilities": [
+        0.14,
+        0.64,
+        0.22
+      ],
+      "score": 1.08,
+      "type": "score"
+    }
+  },
+  "id": "req_01K5J6R0X3T8V2W7Y9Z1A4B6C8",
+  "model": {
+    "model": "jev-latest",
+    "provider": "typesafe"
+  },
+  "raw": {
+    "answers": {
+      "department": {
+        "choice": "billing",
+        "confidence": 1.0,
+        "probabilities": {
+          "billing": 1.0,
+          "other": 0.0,
+          "technical": 0.0
+        },
+        "type": "choice"
+      },
+      "requests_refund": {
+        "noul": 0.98,
+        "type": "noul"
+      },
+      "severity": {
+        "confidence": 0.47,
+        "legend": {
+          "0": "Cosmetic",
+          "1": "Workaround exists",
+          "2": "Blocking; no workaround"
+        },
+        "probabilities": {
+          "0": 0.14,
+          "1": 0.64,
+          "2": 0.22
+        },
+        "score": 1.08,
+        "type": "score"
+      }
+    },
+    "model": "jev-1.13.0",
+    "usage": {
+      "input_tokens": 389,
+      "output_tokens": 70
+    }
+  },
+  "rounding": {
+    "probability_decimals": 2,
+    "score_decimals": 2
+  },
+  "served_by": "jev-1.13.0",
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 389,
+    "output": 70,
+    "reasoning": 0
+  }
+}

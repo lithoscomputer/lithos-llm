@@ -9,8 +9,9 @@ application. See the [CLI documentation](docs/cli.md) for installation and
 usage.
 
 Applications can use the built-in `http` adapter with the OpenAI Chat
-Completions, OpenAI Responses, Anthropic Messages, Gemini, and Vercel
-evaluation codecs, and the optional `bedrock` adapter with the Converse codec.
+Completions, OpenAI Responses, Anthropic Messages, Gemini, Vercel
+evaluation, and TypeSafe System One codecs, and the optional `bedrock`
+adapter with the Converse codec.
 Applications can also register their own `ProviderAdapter` implementations.
 
 The library does not execute tools or own an agent loop. It carries tool calls
@@ -44,9 +45,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 `Client::from_env()` uses the built-in catalog, the default HTTP client, and
 conventional provider environment variables such as `OPENAI_API_KEY`. The
 built-in catalog covers the first-party APIs (Anthropic, OpenAI, Gemini,
-Bedrock) and the routers that front many models behind one key: OpenRouter
-(`OPENROUTER_API_KEY`), Venice (`VENICE_API_KEY`), and Vercel AI Gateway
-(`AI_GATEWAY_API_KEY`).
+Bedrock, and TypeSafe AI with `TYPESAFE_API_KEY`) and the routers that
+front many models behind one key: OpenRouter (`OPENROUTER_API_KEY`), Venice
+(`VENICE_API_KEY`), and Vercel AI Gateway (`AI_GATEWAY_API_KEY`).
 
 `ConventionalCredentials` is the table behind that: which named secrets each
 provider expects and how they shape into its authentication. Where a named
@@ -378,7 +379,9 @@ Two kinds of model answer the same `Evaluation`. A row that reaches an
 evaluation codec (today `vercel/jev`, TypeSafe's Jev through the
 `vercel-evaluation` codec) answers natively and returns a probability per
 option or level, a `confidence` on each choice and score answer, and the
-provider's declared rounding. Every other row that claims
+provider's declared rounding. `typesafe/jev-latest` evaluates natively too,
+through TypeSafe's own API on the `systemone` codec, and names the
+versioned model that answered in `Verdict::served_by`. Every other row that claims
 `response_format.json_schema` acts as a judge: the client runs one
 structured-output completion with a fixed system prompt and reads the JSON
 object back into answers. On a provider served by a built-in adapter the
@@ -577,8 +580,8 @@ names a factory the application registered with
 and receives no codec selection. `codecs` defaults to `["openai-chat"]`, so
 a Chat Completions host needs neither line. OpenAI lists
 `["openai-responses"]`, Anthropic `["anthropic-messages"]`, Gemini
-`["gemini-generate"]`, Bedrock `["bedrock-converse"]`, and Vercel
-`["openai-chat", "vercel-evaluation"]`. `codec_options` is a table keyed by
+`["gemini-generate"]`, Bedrock `["bedrock-converse"]`, Vercel
+`["openai-chat", "vercel-evaluation"]`, and TypeSafe `["systemone"]`. `codec_options` is a table keyed by
 codec id that carries one codec's own options, such as
 `codec_options = { openai-chat = { base_url_is_api_root = true } }` for a host
 whose base URL is already versioned; `adapter_options` carries transport

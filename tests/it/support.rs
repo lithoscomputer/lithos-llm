@@ -146,7 +146,25 @@ pub(crate) fn mount_capture<'server>(
     path: &str,
     response_body: &Value,
 ) -> (Mock<'server>, CaptureSlot) {
-    mount(server, path, "application/json", body_bytes(response_body))
+    mount_capture_with_headers(server, path, response_body, &[])
+}
+
+/// Mounts a `POST` mock that captures the request and answers with JSON
+/// plus the given response headers, for a protocol that reports something
+/// (such as its request id) outside the body.
+pub(crate) fn mount_capture_with_headers<'server>(
+    server: &'server MockServer,
+    path: &str,
+    response_body: &Value,
+    headers: &[(&str, &str)],
+) -> (Mock<'server>, CaptureSlot) {
+    mount(
+        server,
+        path,
+        "application/json",
+        body_bytes(response_body),
+        headers,
+    )
 }
 
 /// Mounts a `POST` mock that captures the request and answers with an SSE
@@ -161,6 +179,7 @@ pub(crate) fn mount_capture_sse<'server>(
         path,
         "text/event-stream",
         sse_body.as_bytes().to_vec(),
+        &[],
     )
 }
 
@@ -180,6 +199,7 @@ pub(crate) fn mount_capture_event_stream<'server>(
         path,
         "application/vnd.amazon.eventstream",
         frames.concat(),
+        &[],
     )
 }
 
@@ -188,11 +208,16 @@ fn mount<'server>(
     path: &str,
     content_type: &str,
     body: Vec<u8>,
+    headers: &[(&str, &str)],
 ) -> (Mock<'server>, CaptureSlot) {
     let slot: CaptureSlot = Arc::new(Mutex::new(None));
     let writer = Arc::clone(&slot);
     let path = path.to_owned();
     let content_type = content_type.to_owned();
+    let headers: Vec<(String, String)> = headers
+        .iter()
+        .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+        .collect();
     let mock = server.mock(move |when, then| {
         when.method(Method::POST)
             .path(path)
@@ -206,9 +231,11 @@ fn mount<'server>(
                     Some(capture_request(request));
                 true
             });
-        then.status(200)
-            .header("content-type", content_type)
-            .body(body);
+        let mut then = then.status(200).header("content-type", content_type);
+        for (name, value) in &headers {
+            then = then.header(name, value);
+        }
+        then.body(body);
     });
     (mock, slot)
 }

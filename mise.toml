@@ -121,7 +121,12 @@ LITHOS_E2E_TWIN_ADDR=127.0.0.1:3927 \
 LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/vercel.json \
 ./target/debug/examples/e2e_twin &
 VERCEL_TWIN_PID=$!
-trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID $CODEX_TWIN_PID $VERCEL_TWIN_PID 2>/dev/null || true' EXIT
+LITHOS_E2E_TWIN_MODE=replay \
+LITHOS_E2E_TWIN_ADDR=127.0.0.1:3928 \
+LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/typesafe.json \
+./target/debug/examples/e2e_twin &
+TYPESAFE_TWIN_PID=$!
+trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID $CODEX_TWIN_PID $VERCEL_TWIN_PID $TYPESAFE_TWIN_PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3922/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3923/healthz >/dev/null 2>&1 && break; sleep 0.1; done
@@ -129,6 +134,7 @@ for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3924/healthz >/dev/null 2>&1 
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3925/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3927/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3928/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 LITHOS_E2E_BACKEND=replay cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --no-tests=pass
 """
 
@@ -191,7 +197,14 @@ LITHOS_E2E_UPSTREAM_URL=https://ai-gateway.vercel.sh \
 LITHOS_E2E_API_KEY_VARIABLE=AI_GATEWAY_API_KEY \
 ./target/debug/examples/e2e_twin &
 VERCEL_TWIN_PID=$!
-trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID $CODEX_TWIN_PID $VERCEL_TWIN_PID 2>/dev/null || true' EXIT
+LITHOS_E2E_TWIN_MODE=record \
+LITHOS_E2E_TWIN_ADDR=127.0.0.1:3928 \
+LITHOS_E2E_RECORDING_PATH=tests/e2e/recordings/typesafe.json \
+LITHOS_E2E_UPSTREAM_URL=https://api.typesafe.ai \
+LITHOS_E2E_API_KEY_VARIABLE=TYPESAFE_API_KEY \
+./target/debug/examples/e2e_twin &
+TYPESAFE_TWIN_PID=$!
+trap 'kill $VENICE_TWIN_PID $OPENROUTER_TWIN_PID $MOONSHOT_TWIN_PID $FIREWORKS_TWIN_PID $OPENAI_TWIN_PID $CODEX_TWIN_PID $VERCEL_TWIN_PID $TYPESAFE_TWIN_PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3921/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3922/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3923/healthz >/dev/null 2>&1 && break; sleep 0.1; done
@@ -201,6 +214,7 @@ if [ -n "$CODEX_TWIN_PID" ]; then
   for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3926/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 fi
 for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3927/healthz >/dev/null 2>&1 && break; sleep 0.1; done
+for _ in $(seq 1 50); do curl -sf http://127.0.0.1:3928/healthz >/dev/null 2>&1 && break; sleep 0.1; done
 LITHOS_E2E_BACKEND=record cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --all-features --test e2e --run-ignored all --test-threads 4 --no-fail-fast --success-output final --no-tests=pass
 """
 

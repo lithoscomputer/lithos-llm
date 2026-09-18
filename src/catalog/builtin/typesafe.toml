@@ -1,0 +1,79 @@
+# TypeSafe AI, built on 2026-09-18 from the API's `GET /v1/models` listing
+# (which needs a key) and live `POST /v1/systemone` probes. TypeSafe serves
+# one model family: Jev, its System One evaluation model. Every row here is
+# an evaluation row on the `systemone` codec; the provider speaks no
+# generation protocol, so `complete`, `stream`, and `count_input_tokens` on
+# any of its rows are refused before dispatch, and a passthrough model has
+# nothing to reach.
+#
+# The same model is also reachable through the Vercel AI Gateway as
+# `vercel/jev` on the `vercel-evaluation` codec. This provider talks to
+# TypeSafe directly, with TypeSafe's own key.
+#
+# Probe findings that shaped the rows (all 2026-09-18):
+# - The listing names `jev-latest` and `jev-preview`. Versioned ids such as
+#   `jev-1.13.0` are accepted although unlisted; the response's `model`
+#   field names the version that answered, and `jev-latest` resolved to
+#   `jev-1.13.0`, which the codec surfaces as `Verdict::served_by`.
+# - Pricing is $0.042 per million input tokens; output is free. The API
+#   reports no in-band cost, so these rates price every verdict.
+# - The request id is the `x-typesafe-request-id` response header, which
+#   becomes `Verdict::id`.
+# - Limits are per request rather than per model: 64k tokens per request
+#   and 32k for the state plus the longest question, so the rows carry no
+#   `limits`. Score questions take 2 to 10 levels (documented; a one-level
+#   score still answered 200), which the codec enforces before dispatch. No
+#   option maximum is documented and none is enforced.
+# - Answers are to two decimals with no rounding declared; the codec
+#   declares 2/2, as the Vercel AI SDK's native TypeSafe adapter does.
+# - The validation error for a wrong question type lists a fourth type,
+#   `bounding_box`, that no documentation page describes. The codec does
+#   not send it and rejects an answer of that type.
+# - The API accepts no provider options. Errors are FastAPI shapes: a 401
+#   is `{"detail": {"error_type": "authentication_error", "message"}}` and
+#   a 422 is `{"detail": [{"type", "loc", "msg", ...}]}`.
+
+schema_version = 1
+
+[providers.typesafe]
+display_name = "TypeSafe AI"
+codecs = ["systemone"]
+base_url = "https://api.typesafe.ai/v1"
+priority = 28
+default_model = "jev-latest"
+api_key_url = "https://console.typesafe.ai/settings/keys"
+
+[providers.typesafe.auth]
+type = "bearer"
+
+# The agent profile for this provider's models. No profile fits an
+# evaluation model, which no agent runtime prompts; `openai` is the
+# provider-default convention the other non-Anthropic providers follow, and
+# the catalog's invariant tests need every provider to name one.
+[providers.typesafe.metadata.agent]
+profile = "openai"
+
+# ---------- Jev ----------
+
+# The alias TypeSafe's SDK defaults to. Listed on 2026-09-18; resolved to
+# `jev-1.13.0` on that day.
+[providers.typesafe.models."jev-latest"]
+display_name = "TypeSafe AI Jev (latest)"
+api_model = "jev-latest"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+pricing = { input_usd_micros_per_million = 42000, output_usd_micros_per_million = 0 }
+
+# The preview channel. Listed on 2026-09-18.
+[providers.typesafe.models."jev-preview"]
+display_name = "TypeSafe AI Jev (preview)"
+api_model = "jev-preview"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+pricing = { input_usd_micros_per_million = 42000, output_usd_micros_per_million = 0 }
+
+# The version `jev-latest` resolved to on 2026-09-18. Not in the listing,
+# but accepted by name, so a caller can pin the version a verdict came from.
+[providers.typesafe.models."jev-1.13.0"]
+display_name = "TypeSafe AI Jev 1.13.0"
+api_model = "jev-1.13.0"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+pricing = { input_usd_micros_per_million = 42000, output_usd_micros_per_million = 0 }

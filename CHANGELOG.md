@@ -6,6 +6,43 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The `systemone` codec (`codec_ids::SYSTEMONE`) speaks TypeSafe's System
+  One evaluation protocol, and the built-in catalog gains the `typesafe`
+  provider (`catalog::builtin::ids::TYPESAFE`, bearer auth from
+  `TYPESAFE_API_KEY`) with three evaluation rows: `jev-latest` (the
+  default), `jev-preview`, and `jev-1.13.0`, each priced at $0.042 per
+  million input tokens with free output. The codec posts
+  `{model, state, questions}` to `/v1/systemone` with `noul` as the yes/no
+  question type, refuses more than 10 score levels before dispatch with
+  code `invalid_evaluation` (TypeSafe documents no option maximum, so none
+  is enforced), and warns with `unsupported_control` on evaluation metadata
+  and on any provider options. It decodes the inline `confidence` on
+  choice and score answers, checks a score answer's `legend` against the
+  question's levels and drops it (a mismatch is `ResponseDecode`), rejects
+  an answer type outside `choice`, `score`, and `noul` (TypeSafe's
+  validation error lists an undocumented `bounding_box`), sets
+  `Verdict::served_by` from the body's versioned `model`, declares 2/2
+  rounding because the API answers to two decimals and declares none, and
+  names `x-typesafe-request-id` as the header the `http` adapter fills
+  `Verdict::id` from. A second dialect selected with
+  `codec_options = { systemone = { dialect = "openrouter" } }` speaks
+  OpenRouter's Decisions API at `/alpha/decisions`: it forwards
+  `session_id`, `user`, `trace`, and `provider` from the `openrouter`
+  provider-options namespace, and lifts the body's `id`, `usage.cost` (as
+  `CostSource::Provider`), and `provider` (into
+  `provider_metadata["openrouter"]`). The dialect ships in code and wire
+  tests only; no built-in row uses it until OpenRouter lists a decisions
+  model. The shared evaluation encoding and decoding helpers moved out of
+  the Vercel codec into `codecs::evaluation_common`; the Vercel wire is
+  unchanged. Error classification learned the FastAPI shapes TypeSafe
+  sends: `detail` as an object with `error_type` and `message`, and
+  `detail` as a validation array whose first entry carries `type` and
+  `msg`. The E2E suite gains a `typesafe` module with the mixed and
+  200-question evaluation cells recorded through an eighth twin on
+  127.0.0.1:3928, plus a preflight and a live-only bad-key cell, and
+  `twin-openai` moves to the revision that proxies `/v1/systemone` and
+  records the request id header (twins PR #12).
+
 - Breaking: the catalog schema names one adapter and many codecs per
   provider. The provider `codec` field is removed; write `codecs = ["x"]`
   in place of `codec = "x"`. The four protocol-named adapter ids are removed
