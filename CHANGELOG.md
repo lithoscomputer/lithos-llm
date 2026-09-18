@@ -6,6 +6,59 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Evaluation: typed questions about one piece of state. `Client::evaluate`
+  answers an `Evaluation` with a `Verdict`; `evaluate_with_context` takes an
+  application call context and `resolve_evaluation_route` returns the route it
+  would use without dispatching. `Evaluation`, `EvaluationBuilder`, and
+  `Verdict` are root exports; `types` gains `Answer`, `AnswerError`,
+  `BooleanAnswer`, `ChoiceAnswer`, `EvaluationBuildError`, `Instructions`,
+  `IntoLevel`, `Question`, `QuestionId`, `QuestionKind`, `Rounding`,
+  `ScoreAnswer`, and `State`. `indexmap` 2 becomes a public dependency: choice
+  options and choice probabilities are `IndexMap`s that keep the caller's
+  order. Two backends answer the same `Evaluation`. A row whose adapter
+  evaluates natively answers through its own protocol; every other row that
+  claims `json_schema` output is a judge, and the client runs one JSON Schema
+  completion whose system prompt is the Vercel AI SDK's, verbatim, and reads
+  the object back into answers. A judge returns point estimates, so
+  `probabilities`, `confidence`, and `rounding` are optional on a `Verdict`.
+  The client validates every verdict on both paths: exactly the questions
+  asked are answered, each with its kind, a choice names a known option and is
+  the most probable one, scores and probabilities are in range, and
+  distributions sum to one within the declared rounding; a malformed verdict
+  is `ResponseDecode` and is never retried. The catalog gains a derived
+  `evaluation` capability: `ModelCapabilities::evaluation(kind)` and
+  `evaluates()` read `EvaluationSupport`, which follows the row's
+  `json_schema` support unless the row writes `capabilities.evaluation`
+  itself, and `ResolvedRoute` refuses a question kind the row does not claim
+  with `unsupported_capability` before dispatch. The `vercel-evaluation`
+  adapter and codec (`adapter_ids::VERCEL_EVALUATION`,
+  `codec_ids::VERCEL_EVALUATION`) speak the gateway's `POST
+  /v4/ai/evaluation-model`, derive `/v4/ai` from a `/v1` base URL, and refuse
+  more than 255 options or 10 levels with code `invalid_evaluation`. The
+  `vercel` catalog gains `jev` (`typesafe-ai/jev`, $0.042 per million input
+  tokens, output free), the one row on that adapter.
+  `ProviderAdapter::evaluate` and `evaluates_natively` have defaults, so an
+  existing adapter needs no change. Middleware and observers see
+  `Operation::Evaluate`, `Output::Verdict`, `Call::evaluation()`, and
+  `CallOutcome::Verdict`. Breaking: `middleware::Output` gained the `Verdict`
+  variant and is not `#[non_exhaustive]`, so an exhaustive `match` on it needs
+  a `Verdict` arm. The E2E suite gains four Jev cells recorded through the
+  twin and one judge cell per family, and `twin-openai` moves to the revision
+  that proxies the evaluation endpoint (twins PR #11).
+
+- A model row may name its own `adapter`, and the client honors it. A row
+  with `adapter = "..."` gets a second adapter from that factory, built with
+  its provider's credentials and base URL; every `complete`, `stream`,
+  `count_input_tokens`, and `evaluate` on that row goes to it, while the
+  provider's own adapter keeps serving the provider's other rows.
+  `Client::available_providers` still reads the provider-level outcome only.
+  `ProviderBuildIssue` gains `model: Option<ModelId>`: `Some` names a row
+  whose own adapter did not build (the provider stays available), `None` is
+  the provider-level failure it always reported. `ClientBuilder::adapter`
+  replaces the provider-level adapter only; a row override always comes from
+  a factory. `ModelHandle` now derives `Ord` and `PartialOrd`, ordering by
+  provider then model.
+
 - Breaking: the `openai`, `anthropic`, `gemini`, and `openai-compatible`
   features are gone. Each expanded to `runtime` and pulled no dependency of
   its own, so the four HTTP adapters now compile whenever `runtime` is on;
@@ -14,7 +67,7 @@ This project follows [Semantic Versioning](https://semver.org/).
   listed any of the four names replaces them with `runtime` in its
   `features` list; Cargo rejects the old names.
 
-- Vercel AI Gateway joins the built-in catalog as `vercel`: 29 models
+- Vercel AI Gateway joins the built-in catalog as `vercel`: 31 models
   mirroring the OpenRouter roster (every OpenRouter row the gateway lists,
   under the same ids and aliases) with the gateway's namespaced wire ids,
   limits, effort levels, and upstream rates from its public model listing,

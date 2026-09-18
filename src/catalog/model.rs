@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    CatalogError, Metadata, ModelCapabilities, ModelHandle, ModelId, ModelProtocolOptions,
-    ProviderId,
+    AdapterId, CatalogError, Metadata, ModelCapabilities, ModelHandle, ModelId,
+    ModelProtocolOptions, ProviderId,
 };
 use crate::types::Speed;
 
@@ -159,6 +159,8 @@ pub(super) struct ModelRecord {
     aliases:              Vec<String>,
     api_model:            String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    adapter:              Option<AdapterId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     family:               Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     training_cutoff:      Option<String>,
@@ -196,6 +198,8 @@ pub struct CatalogModel {
     #[serde(default)]
     aliases:              Vec<String>,
     api_model:            String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    adapter:              Option<AdapterId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     family:               Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -239,6 +243,17 @@ impl CatalogModel {
 
     pub fn api_model(&self) -> &str {
         &self.api_model
+    }
+
+    /// The adapter this row speaks through instead of its provider's.
+    ///
+    /// Most rows leave this unset and use the provider's `adapter`. A row
+    /// names one when it needs a protocol the rest of the provider does not,
+    /// such as an evaluation model on a gateway whose other rows generate
+    /// text. The catalog does not check the id against the adapter
+    /// factories; the client does when it builds.
+    pub fn adapter(&self) -> Option<&AdapterId> {
+        self.adapter.as_ref()
     }
 
     /// The model family label a picker groups this model under, such as
@@ -319,6 +334,9 @@ impl CatalogModel {
         for alias in &record.aliases {
             super::validate_identifier("model alias", alias, false)?;
         }
+        if let Some(adapter) = &record.adapter {
+            super::validate_identifier("model adapter", adapter.as_str(), false)?;
+        }
         if record
             .limits
             .is_some_and(|limits| limits.max_output_tokens > limits.context_tokens)
@@ -334,6 +352,7 @@ impl CatalogModel {
             display_name: record.display_name,
             aliases: record.aliases,
             api_model: record.api_model,
+            adapter: record.adapter,
             family: record.family,
             training_cutoff: record.training_cutoff,
             knowledge_cutoff: record.knowledge_cutoff,
@@ -356,6 +375,7 @@ impl CatalogModel {
             api_model: model.to_string(),
             id: model,
             aliases: Vec::new(),
+            adapter: None,
             family: None,
             training_cutoff: None,
             knowledge_cutoff: None,

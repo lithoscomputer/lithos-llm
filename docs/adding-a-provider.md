@@ -164,6 +164,19 @@ here is one red test you will not have to debug later.
 6. Add loader tests for provider-specific resolution and behavior.
 7. Run `mise run test`. The catalog must parse, validate, and resolve.
 
+A model row may set `adapter = "<id>"` to speak through a different adapter
+from its provider; `vercel/jev` does this to reach the gateway's evaluation
+protocol while the provider's other rows generate text. The provider's own
+`adapter` and `codec` stay required. The loader checks only that the id is
+an identifier (`rejects_a_model_adapter_that_is_not_an_identifier` in
+`src/catalog/loader.rs`); the built-in catalog's invariant tests in the same
+file add that an override names a known adapter
+(`builtin_adapter_overrides_name_a_known_adapter`), that a row on an
+evaluation adapter claims `evaluation` explicitly and no generation
+capability (`builtin_evaluation_rows_claim_evaluation_and_no_generation`),
+and that any explicit `evaluation` claim rests on `json_schema` or a native
+adapter (`builtin_evaluation_claims_rest_on_json_schema_or_a_native_adapter`).
+
 ## Phase 4 — write the E2E module
 
 1. Copy `tests/e2e/venice/` to `tests/e2e/<provider>/` and register it in

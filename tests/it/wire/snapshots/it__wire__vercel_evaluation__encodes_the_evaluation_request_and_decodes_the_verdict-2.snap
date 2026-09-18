@@ -1,0 +1,169 @@
+---
+source: tests/it/wire/vercel_evaluation.rs
+expression: rendered
+---
+{
+  "answers": {
+    "department": {
+      "choice": "billing",
+      "confidence": 1.0,
+      "probabilities": {
+        "billing": 1.0,
+        "other": 0.0,
+        "technical": 0.0
+      },
+      "type": "choice"
+    },
+    "requests_refund": {
+      "probability": 0.99,
+      "type": "boolean"
+    },
+    "severity": {
+      "confidence": 0.54,
+      "probabilities": [
+        0.13,
+        0.69,
+        0.18
+      ],
+      "score": 1.05,
+      "type": "score"
+    }
+  },
+  "cost": {
+    "source": "provider",
+    "usd_micros": 16
+  },
+  "id": "gen_01M2RV50ENRGT4K2CHJ0WC4N1H",
+  "model": {
+    "model": "jev",
+    "provider": "vercel"
+  },
+  "provider_metadata": {
+    "gateway": {
+      "gatewayCost": "0.000016338",
+      "inferenceCost": "0.000016338",
+      "inputInferenceCost": "0.000016338",
+      "marketCost": "0.000016338",
+      "outputInferenceCost": "0",
+      "routing": {
+        "canonicalSlug": "typesafe-ai/jev",
+        "fallbacksAvailable": [],
+        "finalProvider": "typesafe-ai",
+        "modelAttemptCount": 1,
+        "modelAttempts": [
+          {
+            "canonicalSlug": "typesafe-ai/jev",
+            "providerAttemptCount": 1,
+            "providerAttempts": [
+              {
+                "credentialType": "system",
+                "endTime": 1789687661468,
+                "provider": "typesafe-ai",
+                "startTime": 1789687661182,
+                "statusCode": 200,
+                "success": true
+              }
+            ],
+            "success": true
+          }
+        ],
+        "originalModelId": "typesafe-ai/jev",
+        "planningReasoning": "System credentials planned for: typesafe-ai. Total execution order: typesafe-ai(system)",
+        "resolvedProvider": "typesafe-ai",
+        "totalProviderAttemptCount": 1
+      },
+      "surchargeCost": "0"
+    }
+  },
+  "raw": {
+    "answers": {
+      "department": {
+        "choice": "billing",
+        "probabilities": {
+          "billing": 1,
+          "other": 0,
+          "technical": 0
+        },
+        "type": "choice"
+      },
+      "requests_refund": {
+        "probability": 0.99,
+        "type": "boolean"
+      },
+      "severity": {
+        "probabilities": {
+          "0": 0.13,
+          "1": 0.69,
+          "2": 0.18
+        },
+        "score": 1.05,
+        "type": "score"
+      }
+    },
+    "providerMetadata": {
+      "gateway": {
+        "cost": "0.000016338",
+        "gatewayCost": "0.000016338",
+        "generationId": "gen_01M2RV50ENRGT4K2CHJ0WC4N1H",
+        "inferenceCost": "0.000016338",
+        "inputInferenceCost": "0.000016338",
+        "marketCost": "0.000016338",
+        "outputInferenceCost": "0",
+        "routing": {
+          "canonicalSlug": "typesafe-ai/jev",
+          "fallbacksAvailable": [],
+          "finalProvider": "typesafe-ai",
+          "modelAttemptCount": 1,
+          "modelAttempts": [
+            {
+              "canonicalSlug": "typesafe-ai/jev",
+              "providerAttemptCount": 1,
+              "providerAttempts": [
+                {
+                  "credentialType": "system",
+                  "endTime": 1789687661468,
+                  "provider": "typesafe-ai",
+                  "startTime": 1789687661182,
+                  "statusCode": 200,
+                  "success": true
+                }
+              ],
+              "success": true
+            }
+          ],
+          "originalModelId": "typesafe-ai/jev",
+          "planningReasoning": "System credentials planned for: typesafe-ai. Total execution order: typesafe-ai(system)",
+          "resolvedProvider": "typesafe-ai",
+          "totalProviderAttemptCount": 1
+        },
+        "surchargeCost": "0"
+      },
+      "typesafe": {
+        "confidence": {
+          "department": 1,
+          "severity": 0.54
+        }
+      }
+    },
+    "rounding": {
+      "probabilityDecimals": 2,
+      "scoreDecimals": 2
+    },
+    "usage": {
+      "inputTokens": 389,
+      "outputTokens": 70
+    },
+    "warnings": []
+  },
+  "rounding": {
+    "probability_decimals": 2,
+    "score_decimals": 2
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 389,
+    "output": 70,
+    "reasoning": 0
+  }
+}

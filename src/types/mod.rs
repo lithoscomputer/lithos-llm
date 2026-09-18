@@ -28,6 +28,7 @@ pub use reasoning::{
     OPENAI_COMPAT_REASONING_DETAILS_KIND, OPENAI_MESSAGE_KIND, OPENAI_REASONING_KIND,
     ReasoningOutput,
 };
+pub(crate) use request::duration_millis;
 pub use request::{
     CacheHint, ReasoningEffort, Request, RequestBuildError, RequestBuilder, ResponseFormat, Speed,
     UnknownControlValue,
@@ -39,3 +40,8 @@ pub use response::{
 pub use stream::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};
 pub use tool_input::{ToolArgumentError, ToolArguments, ToolInput};
 pub use unknown_content::{UnknownContent, UnknownContentError};
+
+pub use crate::evaluation::{
+    Answer, AnswerError, BooleanAnswer, ChoiceAnswer, EvaluationBuildError, Instructions,
+    IntoLevel, Question, QuestionId, QuestionKind, Rounding, ScoreAnswer, State,
+};

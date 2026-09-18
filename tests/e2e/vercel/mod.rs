@@ -12,8 +12,15 @@
 //! consult the catalog row and skip models whose row does not claim the
 //! capability, so the catalog stays the single source of truth for which
 //! cells exist.
+//!
+//! One row is outside the macros: `jev`, TypeSafe's evaluation model, which
+//! names the `vercel-evaluation` adapter and claims no generation
+//! capability. Its cells are the [`evaluate`] module, and they record and
+//! replay through the twin's `/v4/ai/evaluation-model` passthrough (twins
+//! PR #11) like every other cell here.
 
 mod caching;
+mod evaluate;
 mod negative;
 mod preflight;
 mod reasoning;

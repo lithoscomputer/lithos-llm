@@ -44,7 +44,9 @@ mod bedrock_parity;
 mod gemini;
 #[cfg(feature = "builtin-catalog")]
 mod imported_providers;
+mod judge;
 #[cfg(feature = "builtin-catalog")]
 mod modal_parity;
 mod openai_chat;
 mod openai_responses;
+mod vercel_evaluation;

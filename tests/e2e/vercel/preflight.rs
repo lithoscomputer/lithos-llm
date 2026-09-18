@@ -5,6 +5,7 @@
 
 use std::env;
 
+use lithos_llm::Evaluation;
 use lithos_llm::types::{ErrorKind, ResponseFormat};
 
 use crate::support::{self, TestResult};
@@ -39,6 +40,45 @@ async fn structured_output_is_rejected_locally_on_laguna() -> TestResult {
         .expect_err("laguna-s-2.1 claims no structured output, so the client must refuse");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    Ok(())
+}
+
+/// The one native evaluation row claims no generation capability, so a
+/// completion is refused before it reaches the evaluation adapter.
+#[tokio::test]
+async fn completion_is_rejected_locally_on_jev() -> TestResult {
+    let client = vercel::client_with_key("preflight-key");
+    let request = vercel::request("jev").user("Hello").build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("jev claims no text generation, so the client must refuse");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    Ok(())
+}
+
+/// A generation row judges only through JSON Schema output; a row without
+/// that claim evaluates nothing, and the refusal names the question kind.
+#[tokio::test]
+async fn evaluation_is_rejected_locally_on_laguna() -> TestResult {
+    let client = vercel::client_with_key("preflight-key");
+    let evaluation = Evaluation::builder()
+        .model(vercel::selector("laguna-s-2.1"))
+        .state("Hello there.")
+        .boolean("greets", "Does the text greet the reader?")
+        .build()?;
+    let error = client
+        .evaluate(evaluation)
+        .await
+        .expect_err("laguna-s-2.1 claims no JSON Schema output, so it judges nothing");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert!(
+        error.message().contains("boolean evaluation"),
+        "the refusal does not name the kind: {}",
+        error.message()
+    );
     Ok(())
 }
 

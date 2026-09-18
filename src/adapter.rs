@@ -9,9 +9,12 @@ use thiserror::Error;
 
 use crate::catalog::{AdapterId, CatalogProvider, CodecId, ModelHandle, ProviderId};
 use crate::credentials::CredentialProvider;
+use crate::evaluation::{Evaluation, Verdict};
 use crate::middleware::CallContext;
 use crate::resolver::ResolvedRoute;
-use crate::types::{Error, Request, Response, ResponseLimits, ResponsePolicy, ResponseStream};
+use crate::types::{
+    Error, ErrorKind, Request, Response, ResponseLimits, ResponsePolicy, ResponseStream,
+};
 
 /// How long a response stream may stall between two chunks by default.
 ///
@@ -38,6 +41,37 @@ impl ResolvedCall {
 
     pub fn request(&self) -> &Request {
         &self.request
+    }
+
+    pub fn route(&self) -> &ResolvedRoute {
+        &self.route
+    }
+
+    pub fn context(&self) -> &CallContext {
+        &self.context
+    }
+}
+
+/// An evaluation with a fixed provider and model route, the analogue of
+/// [`ResolvedCall`] for [`ProviderAdapter::evaluate`].
+#[derive(Clone, Debug)]
+pub struct ResolvedEvaluation {
+    evaluation: Evaluation,
+    route:      ResolvedRoute,
+    context:    CallContext,
+}
+
+impl ResolvedEvaluation {
+    pub fn new(evaluation: Evaluation, route: ResolvedRoute, context: CallContext) -> Self {
+        Self {
+            evaluation,
+            route,
+            context,
+        }
+    }
+
+    pub fn evaluation(&self) -> &Evaluation {
+        &self.evaluation
     }
 
     pub fn route(&self) -> &ResolvedRoute {
@@ -150,6 +184,38 @@ pub trait ProviderAdapter: Send + Sync {
         _call: &ResolvedCall,
     ) -> Result<Option<InputTokenCount>, Error> {
         Ok(None)
+    }
+
+    /// Answers an evaluation through the provider's own evaluation protocol.
+    ///
+    /// The client calls this only when [`evaluates_natively`] returns `true`.
+    /// Every other adapter is a judge: the client turns the evaluation into a
+    /// structured-output [`complete`](Self::complete) call and decodes the
+    /// answers itself, so an adapter that does not override this method
+    /// still evaluates. The returned verdict carries the canonical identity
+    /// of `call.route()`, and the client validates its answers against the
+    /// questions before returning it.
+    ///
+    /// [`evaluates_natively`]: Self::evaluates_natively
+    ///
+    /// # Errors
+    ///
+    /// The default refuses with [`ErrorKind::InvalidRequest`]. An
+    /// implementation follows the classification and source-preservation
+    /// rules of [`complete`](Self::complete).
+    async fn evaluate(&self, _call: &ResolvedEvaluation) -> Result<Verdict, Error> {
+        Err(Error::new(
+            ErrorKind::InvalidRequest,
+            "this provider does not evaluate natively",
+        ))
+    }
+
+    /// Whether [`evaluate`](Self::evaluate) is implemented.
+    ///
+    /// The client routes a row whose adapter says `false` through the judge
+    /// path instead of calling `evaluate`.
+    fn evaluates_natively(&self) -> bool {
+        false
     }
 }
 

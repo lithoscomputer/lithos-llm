@@ -4,6 +4,7 @@ use std::cmp::Reverse;
 
 use serde::{Deserialize, Serialize};
 
+use crate::evaluation::QuestionKind;
 use crate::types::{ReasoningEffort, ResponseFormat, Speed, ToolChoice};
 
 /// Whether the catalog knows that a model supports a feature.
@@ -131,6 +132,30 @@ impl Default for SpeedSupport {
     }
 }
 
+/// Catalog support for each evaluation question kind.
+///
+/// Every field defaults to [`Support::Unknown`], which means "derive it":
+/// [`ModelCapabilities::evaluation`] then answers from the row's JSON Schema
+/// support, because any model that produces schema-bound JSON can act as a
+/// judge. A row writes a field explicitly to narrow that claim or to claim
+/// evaluation natively.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EvaluationSupport {
+    pub choice:  Support,
+    pub score:   Support,
+    pub boolean: Support,
+}
+impl Default for EvaluationSupport {
+    fn default() -> Self {
+        Self {
+            choice:  Support::Unknown,
+            score:   Support::Unknown,
+            boolean: Support::Unknown,
+        }
+    }
+}
+
 /// Portable capability facts. Omitted basic features are unsupported.
 /// Effort and speed choices remain unknown until declared by the catalog.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -149,6 +174,7 @@ pub struct ModelCapabilities {
     response_format:  ResponseFormatSupport,
     reasoning_effort: ReasoningEffortSupport,
     speed:            SpeedSupport,
+    evaluation:       EvaluationSupport,
 }
 impl ModelCapabilities {
     pub fn text(self) -> Support {
@@ -216,6 +242,45 @@ impl ModelCapabilities {
         }
     }
 
+    /// Whether the model answers evaluation questions of `kind`.
+    ///
+    /// The row's explicit `evaluation` claim wins when it has one for this
+    /// kind. Otherwise the answer is the row's JSON Schema support: a model
+    /// that produces schema-bound JSON judges every kind through structured
+    /// output, so a structured-output row evaluates without saying so.
+    pub fn evaluation(self, kind: QuestionKind) -> Support {
+        let explicit = match kind {
+            QuestionKind::Choice => self.evaluation.choice,
+            QuestionKind::Score => self.evaluation.score,
+            QuestionKind::Boolean => self.evaluation.boolean,
+        };
+        if explicit == Support::Unknown {
+            self.response_format.json_schema
+        } else {
+            explicit
+        }
+    }
+
+    /// Whether the model answers any evaluation question at all.
+    ///
+    /// `Supported` when at least one kind is supported, `Unsupported` when
+    /// every kind is unsupported, and `Unknown` otherwise.
+    pub fn evaluates(self) -> Support {
+        let kinds = [
+            QuestionKind::Choice,
+            QuestionKind::Score,
+            QuestionKind::Boolean,
+        ]
+        .map(|kind| self.evaluation(kind));
+        if kinds.iter().any(|support| support.is_supported()) {
+            Support::Supported
+        } else if kinds.iter().all(|support| support.is_unsupported()) {
+            Support::Unsupported
+        } else {
+            Support::Unknown
+        }
+    }
+
     /// The supported reasoning effort nearest to `requested`.
     ///
     /// A request written for one model often names an effort the fallback
@@ -263,6 +328,7 @@ impl ModelCapabilities {
                 balanced: Support::Unknown,
                 ..SpeedSupport::default()
             },
+            evaluation:       EvaluationSupport::default(),
         }
     }
 }
@@ -282,7 +348,14 @@ pub struct ModelProtocolOptions {
 #[cfg(test)]
 mod tests {
     use super::{ModelCapabilities, Support};
+    use crate::evaluation::QuestionKind;
     use crate::types::{ReasoningEffort, ResponseFormat, Speed, ToolChoice};
+
+    const KINDS: [QuestionKind; 3] = [
+        QuestionKind::Choice,
+        QuestionKind::Score,
+        QuestionKind::Boolean,
+    ];
 
     #[test]
     fn queries_individual_choices_and_preserves_unknown() {
@@ -340,6 +413,84 @@ mod tests {
         assert_eq!(caps.tools(), Support::Unknown);
         assert_eq!(caps.tool_choice(&ToolChoice::Required), Support::Unknown);
         assert_eq!(caps.speed(Speed::Balanced), Support::Unknown);
+    }
+
+    #[test]
+    fn a_structured_output_row_evaluates_every_kind_without_saying_so() {
+        let caps: ModelCapabilities =
+            toml::from_str("text = true\nresponse_format = { json_schema = true }")
+                .expect("valid capabilities");
+        for kind in KINDS {
+            assert_eq!(caps.evaluation(kind), Support::Supported, "{kind:?}");
+        }
+        assert_eq!(caps.evaluates(), Support::Supported);
+
+        let plain: ModelCapabilities = toml::from_str("text = true").expect("valid capabilities");
+        for kind in KINDS {
+            assert_eq!(plain.evaluation(kind), Support::Unsupported, "{kind:?}");
+        }
+        assert_eq!(plain.evaluates(), Support::Unsupported);
+    }
+
+    #[test]
+    fn an_explicit_evaluation_claim_narrows_or_overrides_the_derived_one() {
+        let narrowed: ModelCapabilities = toml::from_str(
+            "response_format = { json_schema = true }\nevaluation = { score = false }",
+        )
+        .expect("valid capabilities");
+        assert_eq!(
+            narrowed.evaluation(QuestionKind::Score),
+            Support::Unsupported
+        );
+        assert_eq!(
+            narrowed.evaluation(QuestionKind::Choice),
+            Support::Supported
+        );
+        assert_eq!(
+            narrowed.evaluation(QuestionKind::Boolean),
+            Support::Supported
+        );
+        assert_eq!(narrowed.evaluates(), Support::Supported);
+
+        let native: ModelCapabilities = toml::from_str(
+            "response_format = { json_schema = false }\nevaluation = { choice = true, score = true, boolean = true }",
+        )
+        .expect("valid capabilities");
+        for kind in KINDS {
+            assert_eq!(native.evaluation(kind), Support::Supported, "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn evaluation_stays_unknown_when_nothing_is_claimed() {
+        let caps = ModelCapabilities::unknown();
+        for kind in KINDS {
+            assert_eq!(caps.evaluation(kind), Support::Unknown, "{kind:?}");
+        }
+        assert_eq!(caps.evaluates(), Support::Unknown);
+
+        // One kind denied, the rest unknown: the whole is still unknown.
+        let partial: ModelCapabilities = toml::from_str(
+            "response_format = { json_schema = \"unknown\" }\nevaluation = { score = false }",
+        )
+        .expect("valid capabilities");
+        assert_eq!(partial.evaluates(), Support::Unknown);
+    }
+
+    #[test]
+    fn evaluation_round_trips_and_rejects_a_misspelled_key() {
+        let caps: ModelCapabilities =
+            toml::from_str("evaluation = { choice = true, score = false, boolean = \"unknown\" }")
+                .expect("valid capabilities");
+        let encoded = toml::to_string(&caps).expect("serializable");
+        assert_eq!(
+            toml::from_str::<ModelCapabilities>(&encoded).expect("round trip"),
+            caps
+        );
+
+        let error = toml::from_str::<ModelCapabilities>("evaluation = { scores = true }")
+            .expect_err("an unknown evaluation key is rejected");
+        assert!(error.to_string().contains("scores"), "{error}");
     }
 
     #[test]

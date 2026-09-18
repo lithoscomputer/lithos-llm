@@ -29,7 +29,7 @@ pub enum FinishReason {
 
 impl FinishReason {
     /// The canonical string for this reason.
-    fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         match self {
             Self::Stop => "stop",
             Self::Length => "length",

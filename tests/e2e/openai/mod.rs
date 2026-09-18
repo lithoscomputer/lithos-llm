@@ -23,6 +23,7 @@
 mod caching;
 mod codex;
 mod documents;
+mod evaluate;
 mod negative;
 mod preflight;
 mod reasoning;

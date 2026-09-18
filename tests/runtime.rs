@@ -1,5 +1,6 @@
 #![cfg(feature = "runtime")]
 
+use std::collections::BTreeMap;
 use std::error::Error as StdError;
 use std::future::pending;
 use std::num::NonZeroUsize;
@@ -10,20 +11,24 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 use futures_util::stream::{iter, pending as pending_stream};
-use lithos_llm::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
-use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId};
+use lithos_llm::adapter::{
+    AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
+    ResolvedCall, ResolvedEvaluation,
+};
+use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, ModelId, ProviderId};
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
     ObserverMiddleware, Operation, Output, RetryMiddleware, RetryPolicy, RetryStage, map_stream,
 };
 use lithos_llm::types::{
-    ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, ImageContent,
-    MediaSource, Message, RequestBuildError, Response, ResponseLimits, ResponseStream,
-    RetryClassification, Role, StreamEvent, TokenCounts, ToolArguments, ToolCall, ToolChoice,
-    ToolDefinition, ToolInput,
+    Answer, BooleanAnswer, ChoiceAnswer, ContentBlockId, ContentBlockKind, ContentPart, Error,
+    ErrorKind, FinishReason, ImageContent, MediaSource, Message, QuestionId, QuestionKind,
+    RequestBuildError, Response, ResponseFormat, ResponseLimits, ResponseStream,
+    RetryClassification, Role, ScoreAnswer, StreamEvent, TokenCounts, ToolArguments, ToolCall,
+    ToolChoice, ToolDefinition, ToolInput,
 };
-use lithos_llm::{Client, Request};
+use lithos_llm::{Client, Evaluation, Request, Verdict};
 use serde_json::json;
 use tokio::spawn;
 use tokio::task::yield_now;
@@ -326,7 +331,7 @@ impl Middleware for ResponsePolicyMiddleware {
                     })
                 }))
             }
-            output @ Output::InputTokenCount(_) => output,
+            output @ (Output::InputTokenCount(_) | Output::Verdict(_)) => output,
         })
     }
 }
@@ -2097,4 +2102,585 @@ fn unfamiliar_error_categories_never_authorize_automatic_retries() {
         .with_provider_retry_after(Duration::from_secs(1));
         assert_eq!(RetryPolicy::default().next_delay(1, &error), None);
     }
+}
+
+// ===========================================================================
+// Evaluation
+// ===========================================================================
+
+/// One provider whose `judge` row claims JSON Schema output and whose
+/// `plain` row claims only text.
+const EVALUATION_CATALOG: &str = r#"
+schema_version = 1
+
+[providers.test]
+display_name = "Test"
+adapter = "test-adapter"
+codec = "test-codec"
+base_url = "http://127.0.0.1"
+default_model = "judge"
+
+[providers.test.auth]
+type = "none"
+
+[providers.test.models.judge]
+display_name = "Judge"
+api_model = "judge"
+capabilities = { text = true, response_format = { json_schema = true } }
+
+[providers.test.models.plain]
+display_name = "Plain"
+api_model = "plain"
+capabilities = { text = true }
+"#;
+
+fn evaluation_catalog() -> Result<Catalog, CatalogError> {
+    Catalog::builder().overlay_toml(EVALUATION_CATALOG)?.build()
+}
+
+/// A choice, a boolean, and a score, under ids that sort in that order.
+fn evaluation(model: &str) -> Evaluation {
+    Evaluation::builder()
+        .model(model)
+        .state("I was charged twice.")
+        .choice("department", "Which team?", [
+            ("billing", Some("Charges and refunds")),
+            ("technical", None),
+        ])
+        .boolean("requests_refund", "Refund requested?")
+        .score("severity", "How severe?", ["Cosmetic", "Blocking"])
+        .build()
+        .expect("the evaluation should build")
+}
+
+/// Answers every judge request with one canned text body.
+struct JudgeAdapter {
+    id:    AdapterId,
+    calls: Arc<AtomicUsize>,
+    /// The text the judge returns, under the internal keys.
+    text:  &'static str,
+}
+
+impl JudgeAdapter {
+    fn answering(text: &'static str) -> Self {
+        Self {
+            id: AdapterId::new("test-adapter"),
+            calls: Arc::new(AtomicUsize::new(0)),
+            text,
+        }
+    }
+}
+
+#[async_trait]
+impl ProviderAdapter for JudgeAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        assert!(
+            matches!(
+                call.request().response_format(),
+                Some(ResponseFormat::JsonSchema { name, .. }) if name == "evaluation"
+            ),
+            "the judge request carries the evaluation schema"
+        );
+        Ok(success_response(call, self.text))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        Ok(ResponseStream::new(pending_stream()))
+    }
+}
+
+/// An adapter with its own evaluation protocol.
+struct NativeEvaluator {
+    id:              AdapterId,
+    complete_calls:  Arc<AtomicUsize>,
+    evaluate_calls:  Arc<AtomicUsize>,
+    /// Whether the returned verdict skips the boolean answer.
+    omits_an_answer: bool,
+}
+
+impl NativeEvaluator {
+    fn new(omits_an_answer: bool) -> Self {
+        Self {
+            id: AdapterId::new("test-adapter"),
+            complete_calls: Arc::new(AtomicUsize::new(0)),
+            evaluate_calls: Arc::new(AtomicUsize::new(0)),
+            omits_an_answer,
+        }
+    }
+}
+
+#[async_trait]
+impl ProviderAdapter for NativeEvaluator {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        self.complete_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(success_response(call, "unexpected"))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        Ok(ResponseStream::new(pending_stream()))
+    }
+
+    async fn evaluate(&self, call: &ResolvedEvaluation) -> Result<Verdict, Error> {
+        self.evaluate_calls.fetch_add(1, Ordering::SeqCst);
+        let mut answers = BTreeMap::new();
+        for (id, question) in call.evaluation().questions() {
+            let answer = match question.kind() {
+                QuestionKind::Choice => Answer::Choice(ChoiceAnswer {
+                    choice:        "billing".to_owned(),
+                    probabilities: None,
+                    confidence:    None,
+                }),
+                QuestionKind::Score => Answer::Score(ScoreAnswer {
+                    score:         1.0,
+                    probabilities: None,
+                    confidence:    None,
+                }),
+                QuestionKind::Boolean if self.omits_an_answer => continue,
+                QuestionKind::Boolean => Answer::Boolean(BooleanAnswer { probability: 0.75 }),
+                _ => unreachable!("the evaluation asks only the three known kinds"),
+            };
+            answers.insert(id.clone(), answer);
+        }
+        Ok(Verdict::new(
+            call.route().provider().id().clone(),
+            call.route().model().id().clone(),
+            answers,
+        ))
+    }
+
+    fn evaluates_natively(&self) -> bool {
+        true
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn evaluate_runs_one_judge_completion_on_a_structured_output_row()
+-> Result<(), Box<dyn StdError>> {
+    let adapter = JudgeAdapter::answering(r#"{"q0":"c1","q1":0.9,"q2":1}"#);
+    let calls = adapter.calls.clone();
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter("test", adapter)
+        .build()?
+        .client;
+
+    let verdict = client.evaluate(evaluation("test/judge")).await?;
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(verdict.model.to_string(), "test/judge");
+    assert_eq!(verdict.choice("department")?.choice, "technical");
+    assert!(verdict.boolean("requests_refund")?.is_likely());
+    assert_eq!(verdict.score("severity")?.nearest_level(), 1);
+    assert!(verdict.rounding.is_none());
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn evaluate_refuses_a_row_without_structured_output_before_dispatch()
+-> Result<(), Box<dyn StdError>> {
+    let adapter = JudgeAdapter::answering("{}");
+    let calls = adapter.calls.clone();
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter("test", adapter)
+        .build()?
+        .client;
+
+    let error = client
+        .evaluate(evaluation("test/plain"))
+        .await
+        .expect_err("a text-only row cannot judge");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_malformed_judge_answer_is_a_decode_error_and_is_never_retried()
+-> Result<(), Box<dyn StdError>> {
+    let adapter = JudgeAdapter::answering(r#"{"q0":"c9","q1":0.9,"q2":1}"#);
+    let calls = adapter.calls.clone();
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter("test", adapter)
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential()
+                .max_attempts(3)
+                .initial_delay(Duration::ZERO),
+        ))
+        .build()?
+        .client;
+
+    let error = client
+        .evaluate(evaluation("test/judge"))
+        .await
+        .expect_err("`c9` names no option");
+
+    assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+    assert_eq!(error.retry_classification(), RetryClassification::Never);
+    assert!(
+        error.message().contains("department"),
+        "{}",
+        error.message()
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_native_adapter_receives_evaluate_and_its_verdict_is_validated()
+-> Result<(), Box<dyn StdError>> {
+    let adapter = NativeEvaluator::new(false);
+    let complete_calls = adapter.complete_calls.clone();
+    let evaluate_calls = adapter.evaluate_calls.clone();
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter("test", adapter)
+        .build()?
+        .client;
+
+    let verdict = client.evaluate(evaluation("test/judge")).await?;
+
+    assert_eq!(evaluate_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(complete_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(verdict.choice("department")?.choice, "billing");
+    assert!((verdict.boolean("requests_refund")?.probability - 0.75).abs() < f64::EPSILON);
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_native_verdict_missing_an_answer_is_a_decode_error() -> Result<(), Box<dyn StdError>> {
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter("test", NativeEvaluator::new(true))
+        .build()?
+        .client;
+
+    let error = client
+        .evaluate(evaluation("test/judge"))
+        .await
+        .expect_err("the verdict skips the boolean");
+
+    assert_eq!(error.kind(), ErrorKind::ResponseDecode);
+    assert!(
+        error.message().contains("`requests_refund` has no answer"),
+        "{}",
+        error.message()
+    );
+    Ok(())
+}
+
+/// Records the operation and payload shape of every call it sees.
+struct OperationRecorder {
+    seen: Arc<Mutex<Vec<(Operation, bool, String)>>>,
+}
+
+#[async_trait]
+impl Middleware for OperationRecorder {
+    async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
+        self.seen.lock().expect("recorder").push((
+            call.operation(),
+            call.evaluation().is_some(),
+            call.request().model().to_owned(),
+        ));
+        next.run(call).await
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_native_evaluation_reaches_middleware_as_operation_evaluate()
+-> Result<(), Box<dyn StdError>> {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter("test", NativeEvaluator::new(false))
+        .middleware(OperationRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+
+    client.evaluate(evaluation("test/judge")).await?;
+
+    assert_eq!(*seen.lock().expect("recorder"), [(
+        Operation::Evaluate,
+        true,
+        "test/judge".to_owned()
+    )]);
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_judge_evaluation_reaches_middleware_as_a_complete_call() -> Result<(), Box<dyn StdError>>
+{
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter(
+            "test",
+            JudgeAdapter::answering(r#"{"q0":"c0","q1":0.5,"q2":0}"#),
+        )
+        .middleware(OperationRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+
+    client.evaluate(evaluation("test/judge")).await?;
+
+    assert_eq!(*seen.lock().expect("recorder"), [(
+        Operation::Complete,
+        false,
+        "test/judge".to_owned()
+    )]);
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn resolve_evaluation_route_agrees_with_evaluate() -> Result<(), Box<dyn StdError>> {
+    let client = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter(
+            "test",
+            JudgeAdapter::answering(r#"{"q0":"c0","q1":0.5,"q2":0}"#),
+        )
+        .build()?
+        .client;
+
+    // The provider default is the judge row, so a bare provider selector
+    // resolves there and the verdict names the canonical route.
+    let evaluation = evaluation("test");
+    let route = client.resolve_evaluation_route(&evaluation)?;
+    let verdict = client.evaluate(evaluation).await?;
+
+    assert_eq!(route.handle().to_string(), "test/judge");
+    assert_eq!(verdict.model, route.handle());
+    assert!(verdict.answers.contains_key(&QuestionId::new("severity")));
+    Ok(())
+}
+
+// ===========================================================================
+// Per-row adapter override
+// ===========================================================================
+
+/// One provider whose `two` row names its own adapter. The row claims `text`
+/// so a completion reaches dispatch instead of failing capability
+/// validation, which is what proves generation on the row hits the override.
+const ROW_OVERRIDE_CATALOG: &str = r#"
+schema_version = 1
+
+[providers.test]
+display_name = "Test"
+adapter = "provider-adapter"
+codec = "test-codec"
+base_url = "http://127.0.0.1"
+default_model = "one"
+
+[providers.test.auth]
+type = "none"
+
+[providers.test.models.one]
+display_name = "One"
+api_model = "one"
+capabilities = { text = true }
+
+[providers.test.models.two]
+display_name = "Two"
+api_model = "two"
+adapter = "row-adapter"
+capabilities = { text = true, evaluation = { choice = true, score = true, boolean = true } }
+"#;
+
+/// Counts the calls it receives so a test can say which adapter served a
+/// route. The native form evaluates and refuses to complete, the way an
+/// evaluation-only adapter does.
+struct RecordingAdapter {
+    id:             AdapterId,
+    native:         bool,
+    complete_calls: Arc<AtomicUsize>,
+    evaluate_calls: Arc<AtomicUsize>,
+}
+
+impl RecordingAdapter {
+    fn new(id: &str, native: bool) -> Arc<Self> {
+        Arc::new(Self {
+            id: AdapterId::new(id),
+            native,
+            complete_calls: Arc::new(AtomicUsize::new(0)),
+            evaluate_calls: Arc::new(AtomicUsize::new(0)),
+        })
+    }
+}
+
+#[async_trait]
+impl ProviderAdapter for RecordingAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        self.complete_calls.fetch_add(1, Ordering::SeqCst);
+        if self.native {
+            return Err(Error::new(
+                ErrorKind::InvalidRequest,
+                format!("adapter {} evaluates only", self.id),
+            ));
+        }
+        Ok(success_response(call, "done"))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        Ok(ResponseStream::new(pending_stream()))
+    }
+
+    async fn evaluate(&self, call: &ResolvedEvaluation) -> Result<Verdict, Error> {
+        self.evaluate_calls.fetch_add(1, Ordering::SeqCst);
+        let answers = call
+            .evaluation()
+            .questions()
+            .iter()
+            .map(|(id, question)| {
+                let answer = match question.kind() {
+                    QuestionKind::Choice => Answer::Choice(ChoiceAnswer {
+                        choice:        "billing".to_owned(),
+                        probabilities: None,
+                        confidence:    None,
+                    }),
+                    QuestionKind::Score => Answer::Score(ScoreAnswer {
+                        score:         1.0,
+                        probabilities: None,
+                        confidence:    None,
+                    }),
+                    QuestionKind::Boolean => Answer::Boolean(BooleanAnswer { probability: 0.75 }),
+                    _ => unreachable!("the evaluation asks only the three known kinds"),
+                };
+                (id.clone(), answer)
+            })
+            .collect();
+        Ok(Verdict::new(
+            call.route().provider().id().clone(),
+            call.route().model().id().clone(),
+            answers,
+        ))
+    }
+
+    fn evaluates_natively(&self) -> bool {
+        self.native
+    }
+}
+
+/// Hands out one shared adapter, so the test keeps its counters.
+struct SharedFactory(Arc<RecordingAdapter>);
+
+impl AdapterFactory for SharedFactory {
+    fn create(
+        &self,
+        _provider: &CatalogProvider,
+        _context: &AdapterContext,
+    ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
+        Ok(self.0.clone())
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_row_that_names_an_adapter_is_served_by_that_adapter() -> Result<(), Box<dyn StdError>> {
+    let provider_adapter = RecordingAdapter::new("provider-adapter", false);
+    let row_adapter = RecordingAdapter::new("row-adapter", true);
+    let build = Client::builder()
+        .catalog(
+            Catalog::builder()
+                .overlay_toml(ROW_OVERRIDE_CATALOG)?
+                .build()?,
+        )
+        .adapter_factory("provider-adapter", SharedFactory(provider_adapter.clone()))
+        .adapter_factory("row-adapter", SharedFactory(row_adapter.clone()))
+        .build()?;
+    assert!(build.issues.is_empty(), "{:?}", build.issues);
+    let client = build.client;
+
+    // The plain row goes to the provider's adapter.
+    let request = Request::builder().model("test/one").user("hi").build()?;
+    let response = client.complete(request).await?;
+    assert_eq!(response.model.to_string(), "test/one");
+    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(row_adapter.complete_calls.load(Ordering::SeqCst), 0);
+
+    // The overriding row evaluates through its own adapter, natively: the
+    // provider's adapter sees neither a judge completion nor an evaluate.
+    let verdict = client.evaluate(evaluation("test/two")).await?;
+    assert_eq!(verdict.model.to_string(), "test/two");
+    assert_eq!(verdict.choice("department")?.choice, "billing");
+    assert_eq!(row_adapter.evaluate_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(provider_adapter.evaluate_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
+
+    // Generation on the overriding row reaches the override too, which
+    // refuses it; the provider's adapter is not consulted.
+    let request = Request::builder().model("test/two").user("hi").build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("the row adapter refuses to complete");
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert!(
+        error.message().contains("row-adapter evaluates only"),
+        "{}",
+        error.message()
+    );
+    assert_eq!(row_adapter.complete_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_row_override_that_did_not_build_leaves_the_plain_row_serving()
+-> Result<(), Box<dyn StdError>> {
+    let provider_adapter = RecordingAdapter::new("provider-adapter", false);
+    let build = Client::builder()
+        .catalog(
+            Catalog::builder()
+                .overlay_toml(ROW_OVERRIDE_CATALOG)?
+                .build()?,
+        )
+        .adapter_factory("provider-adapter", SharedFactory(provider_adapter.clone()))
+        .build()?;
+
+    assert_eq!(build.issues.len(), 1);
+    assert_eq!(build.issues[0].provider.as_str(), "test");
+    assert_eq!(
+        build.issues[0].model.as_ref().map(ModelId::as_str),
+        Some("two")
+    );
+    assert_eq!(build.issues[0].adapter.as_str(), "row-adapter");
+    assert!(matches!(
+        build.issues[0].cause,
+        ProviderBuildCause::MissingAdapterFactory { .. }
+    ));
+    assert_eq!(
+        build
+            .client
+            .available_providers()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["test"]
+    );
+
+    let request = Request::builder().model("test/one").user("hi").build()?;
+    build.client.complete(request).await?;
+    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
+
+    // Without its own adapter the overriding row falls back to the
+    // provider's, whose judge path would need a completion.
+    let request = Request::builder().model("test/two").user("hi").build()?;
+    build.client.complete(request).await?;
+    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 2);
+    Ok(())
 }

@@ -8,6 +8,7 @@
 //! therefore skips under record and replay until native Gemini support exists.
 
 mod caching;
+mod evaluate;
 mod negative;
 mod preflight;
 mod reasoning;

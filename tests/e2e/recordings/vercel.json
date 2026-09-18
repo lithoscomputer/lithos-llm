@@ -79159,6 +79159,1381 @@
           "generationId": "gen_01M2RAENXNGWJ221J8R84DXPMS"
         }
       }
+    },
+    {
+      "scenario_id": "vercel::evaluate::a_structured_state_is_accepted/0001",
+      "namespace": "vercel::evaluate::a_structured_state_is_accepted",
+      "matcher": {
+        "endpoint": "evaluation",
+        "stream": false,
+        "request_hash": "d83dd366c6853262"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "answers": {
+            "department": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "technical": 0,
+                "other": 0,
+                "billing": 1
+              }
+            }
+          },
+          "rounding": {
+            "probabilityDecimals": 2,
+            "scoreDecimals": 2
+          },
+          "usage": {
+            "inputTokens": 369,
+            "outputTokens": 38
+          },
+          "warnings": [],
+          "providerMetadata": {
+            "typesafe": {
+              "confidence": {
+                "department": 1
+              }
+            },
+            "gateway": {
+              "routing": {
+                "originalModelId": "typesafe-ai/jev",
+                "resolvedProvider": "typesafe-ai",
+                "fallbacksAvailable": [],
+                "planningReasoning": "System credentials planned for: typesafe-ai. Total execution order: typesafe-ai(system)",
+                "canonicalSlug": "typesafe-ai/jev",
+                "finalProvider": "typesafe-ai",
+                "modelAttemptCount": 1,
+                "modelAttempts": [
+                  {
+                    "canonicalSlug": "typesafe-ai/jev",
+                    "success": true,
+                    "providerAttemptCount": 1,
+                    "providerAttempts": [
+                      {
+                        "provider": "typesafe-ai",
+                        "credentialType": "system",
+                        "success": true,
+                        "startTime": 1789695129822,
+                        "endTime": 1789695129974,
+                        "statusCode": 200
+                      }
+                    ]
+                  }
+                ],
+                "totalProviderAttemptCount": 1
+              },
+              "cost": "0.000015498",
+              "marketCost": "0.000015498",
+              "surchargeCost": "0",
+              "gatewayCost": "0.000015498",
+              "inferenceCost": "0.000015498",
+              "inputInferenceCost": "0.000015498",
+              "outputInferenceCost": "0",
+              "generationId": "gen_01M2S28XSTGJEEF6SH9P8WCM78"
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::evaluate::a_255_option_choice_is_accepted_and_256_is_refused_before_dispatch/0001",
+      "namespace": "vercel::evaluate::a_255_option_choice_is_accepted_and_256_is_refused_before_dispatch",
+      "matcher": {
+        "endpoint": "evaluation",
+        "stream": false,
+        "request_hash": "7d134bd821e6e2df"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "answers": {
+            "code": {
+              "type": "choice",
+              "choice": "o042",
+              "probabilities": {
+                "o157": 0,
+                "o178": 0,
+                "o044": 0,
+                "o173": 0,
+                "o113": 0,
+                "o048": 0,
+                "o190": 0,
+                "o209": 0,
+                "o003": 0,
+                "o227": 0,
+                "o194": 0,
+                "o101": 0,
+                "o162": 0,
+                "o066": 0,
+                "o116": 0,
+                "o047": 0,
+                "o147": 0,
+                "o008": 0,
+                "o222": 0,
+                "o043": 0,
+                "o204": 0,
+                "o240": 0,
+                "o094": 0,
+                "o241": 0,
+                "o100": 0,
+                "o036": 0,
+                "o016": 0,
+                "o145": 0,
+                "o207": 0,
+                "o131": 0,
+                "o037": 0,
+                "o045": 0,
+                "o179": 0,
+                "o171": 0,
+                "o199": 0,
+                "o169": 0,
+                "o216": 0,
+                "o009": 0,
+                "o127": 0,
+                "o087": 0,
+                "o084": 0,
+                "o081": 0,
+                "o180": 0,
+                "o202": 0,
+                "o035": 0,
+                "o015": 0,
+                "o164": 0,
+                "o069": 0,
+                "o192": 0,
+                "o053": 0,
+                "o027": 0,
+                "o055": 0,
+                "o156": 0,
+                "o079": 0,
+                "o155": 0,
+                "o067": 0,
+                "o064": 0,
+                "o080": 0,
+                "o109": 0,
+                "o250": 0,
+                "o004": 0,
+                "o104": 0,
+                "o186": 0,
+                "o242": 0,
+                "o030": 0,
+                "o137": 0,
+                "o172": 0,
+                "o254": 0,
+                "o243": 0,
+                "o050": 0,
+                "o108": 0,
+                "o107": 0,
+                "o253": 0,
+                "o023": 0,
+                "o063": 0,
+                "o060": 0,
+                "o103": 0,
+                "o215": 0,
+                "o112": 0,
+                "o062": 0,
+                "o160": 0,
+                "o225": 0,
+                "o200": 0,
+                "o201": 0,
+                "o091": 0,
+                "o019": 0,
+                "o085": 0,
+                "o052": 0,
+                "o161": 0,
+                "o054": 0,
+                "o148": 0,
+                "o151": 0,
+                "o077": 0,
+                "o136": 0,
+                "o138": 0,
+                "o221": 0,
+                "o028": 0,
+                "o017": 0,
+                "o031": 0,
+                "o014": 0,
+                "o106": 0,
+                "o181": 0,
+                "o122": 0,
+                "o010": 0,
+                "o086": 0,
+                "o039": 0,
+                "o059": 0,
+                "o237": 0,
+                "o144": 0,
+                "o105": 0,
+                "o007": 0,
+                "o029": 0,
+                "o197": 0,
+                "o124": 0,
+                "o249": 0,
+                "o245": 0,
+                "o013": 0,
+                "o231": 0,
+                "o152": 0,
+                "o198": 0,
+                "o090": 0,
+                "o024": 0,
+                "o130": 0,
+                "o082": 0,
+                "o210": 0,
+                "o125": 0,
+                "o247": 0,
+                "o012": 0,
+                "o114": 0,
+                "o191": 0,
+                "o135": 0,
+                "o020": 0,
+                "o040": 0,
+                "o141": 0,
+                "o166": 0,
+                "o170": 0,
+                "o011": 0,
+                "o185": 0,
+                "o128": 0,
+                "o076": 0,
+                "o051": 0,
+                "o049": 0,
+                "o238": 0,
+                "o163": 0,
+                "o176": 0,
+                "o074": 0,
+                "o251": 0,
+                "o083": 0,
+                "o177": 0,
+                "o218": 0,
+                "o158": 0,
+                "o244": 0,
+                "o153": 0,
+                "o150": 0,
+                "o093": 0,
+                "o224": 0,
+                "o140": 0,
+                "o149": 0,
+                "o146": 0,
+                "o098": 0,
+                "o212": 0,
+                "o070": 0,
+                "o065": 0,
+                "o211": 0,
+                "o193": 0,
+                "o120": 0,
+                "o220": 0,
+                "o134": 0,
+                "o006": 0,
+                "o117": 0,
+                "o183": 0,
+                "o034": 0,
+                "o058": 0,
+                "o026": 0,
+                "o005": 0,
+                "o228": 0,
+                "o188": 0,
+                "o226": 0,
+                "o075": 0,
+                "o196": 0,
+                "o025": 0,
+                "o168": 0,
+                "o000": 0,
+                "o133": 0,
+                "o233": 0,
+                "o102": 0,
+                "o203": 0,
+                "o073": 0,
+                "o099": 0,
+                "o021": 0,
+                "o229": 0,
+                "o239": 0,
+                "o208": 0,
+                "o129": 0,
+                "o115": 0,
+                "o121": 0,
+                "o230": 0,
+                "o078": 0,
+                "o119": 0,
+                "o246": 0,
+                "o022": 0,
+                "o041": 0,
+                "o184": 0,
+                "o248": 0,
+                "o110": 0,
+                "o089": 0,
+                "o214": 0,
+                "o118": 0,
+                "o139": 0,
+                "o232": 0,
+                "o018": 0,
+                "o092": 0,
+                "o159": 0,
+                "o175": 0,
+                "o206": 0,
+                "o111": 0,
+                "o046": 0,
+                "o096": 0,
+                "o123": 0,
+                "o219": 0,
+                "o042": 1,
+                "o095": 0,
+                "o174": 0,
+                "o097": 0,
+                "o001": 0,
+                "o038": 0,
+                "o223": 0,
+                "o132": 0,
+                "o187": 0,
+                "o165": 0,
+                "o142": 0,
+                "o182": 0,
+                "o167": 0,
+                "o234": 0,
+                "o032": 0,
+                "o071": 0,
+                "o252": 0,
+                "o126": 0,
+                "o213": 0,
+                "o236": 0,
+                "o235": 0,
+                "o068": 0,
+                "o056": 0,
+                "o033": 0,
+                "o205": 0,
+                "o088": 0,
+                "o057": 0,
+                "o217": 0,
+                "o154": 0,
+                "o195": 0,
+                "o002": 0,
+                "o061": 0,
+                "o143": 0,
+                "o072": 0,
+                "o189": 0
+              }
+            }
+          },
+          "rounding": {
+            "probabilityDecimals": 2,
+            "scoreDecimals": 2
+          },
+          "usage": {
+            "inputTokens": 2584,
+            "outputTokens": 2570
+          },
+          "warnings": [],
+          "providerMetadata": {
+            "typesafe": {
+              "confidence": {
+                "code": 0.99
+              }
+            },
+            "gateway": {
+              "routing": {
+                "originalModelId": "typesafe-ai/jev",
+                "resolvedProvider": "typesafe-ai",
+                "fallbacksAvailable": [],
+                "planningReasoning": "System credentials planned for: typesafe-ai. Total execution order: typesafe-ai(system)",
+                "canonicalSlug": "typesafe-ai/jev",
+                "finalProvider": "typesafe-ai",
+                "modelAttemptCount": 1,
+                "modelAttempts": [
+                  {
+                    "canonicalSlug": "typesafe-ai/jev",
+                    "success": true,
+                    "providerAttemptCount": 1,
+                    "providerAttempts": [
+                      {
+                        "provider": "typesafe-ai",
+                        "credentialType": "system",
+                        "success": true,
+                        "startTime": 1789695129901,
+                        "endTime": 1789695130065,
+                        "statusCode": 200
+                      }
+                    ]
+                  }
+                ],
+                "totalProviderAttemptCount": 1
+              },
+              "cost": "0.000108528",
+              "marketCost": "0.000108528",
+              "surchargeCost": "0",
+              "gatewayCost": "0.000108528",
+              "inferenceCost": "0.000108528",
+              "inputInferenceCost": "0.000108528",
+              "outputInferenceCost": "0",
+              "generationId": "gen_01M2S28XT0028EEKMT6D00NDMM"
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::evaluate::a_mixed_evaluation_answers_every_question/0001",
+      "namespace": "vercel::evaluate::a_mixed_evaluation_answers_every_question",
+      "matcher": {
+        "endpoint": "evaluation",
+        "stream": false,
+        "request_hash": "35bab29f1b72eb22"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "answers": {
+            "department": {
+              "type": "choice",
+              "choice": "billing",
+              "probabilities": {
+                "other": 0,
+                "billing": 1,
+                "technical": 0
+              }
+            },
+            "requests_refund": {
+              "type": "boolean",
+              "probability": 0.99
+            },
+            "severity": {
+              "type": "score",
+              "score": 1.09,
+              "probabilities": {
+                "0": 0.13,
+                "1": 0.65,
+                "2": 0.22
+              }
+            }
+          },
+          "rounding": {
+            "probabilityDecimals": 2,
+            "scoreDecimals": 2
+          },
+          "usage": {
+            "inputTokens": 389,
+            "outputTokens": 70
+          },
+          "warnings": [],
+          "providerMetadata": {
+            "typesafe": {
+              "confidence": {
+                "department": 1,
+                "severity": 0.46
+              }
+            },
+            "gateway": {
+              "routing": {
+                "originalModelId": "typesafe-ai/jev",
+                "resolvedProvider": "typesafe-ai",
+                "fallbacksAvailable": [],
+                "planningReasoning": "System credentials planned for: typesafe-ai. Total execution order: typesafe-ai(system)",
+                "canonicalSlug": "typesafe-ai/jev",
+                "finalProvider": "typesafe-ai",
+                "modelAttemptCount": 1,
+                "modelAttempts": [
+                  {
+                    "canonicalSlug": "typesafe-ai/jev",
+                    "success": true,
+                    "providerAttemptCount": 1,
+                    "providerAttempts": [
+                      {
+                        "provider": "typesafe-ai",
+                        "credentialType": "system",
+                        "success": true,
+                        "startTime": 1789695130027,
+                        "endTime": 1789695130692,
+                        "statusCode": 200
+                      }
+                    ]
+                  }
+                ],
+                "totalProviderAttemptCount": 1
+              },
+              "cost": "0.000016338",
+              "marketCost": "0.000016338",
+              "surchargeCost": "0",
+              "gatewayCost": "0.000016338",
+              "inferenceCost": "0.000016338",
+              "inputInferenceCost": "0.000016338",
+              "outputInferenceCost": "0",
+              "generationId": "gen_01M2S28XSVAVV5RW48JKNWKK4K"
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::evaluate::two_hundred_questions_are_answered/0001",
+      "namespace": "vercel::evaluate::two_hundred_questions_are_answered",
+      "matcher": {
+        "endpoint": "evaluation",
+        "stream": false,
+        "request_hash": "49a8b95de0d3f9b9"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "answers": {
+            "q000": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q001": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q002": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q003": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q004": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q005": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q006": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q007": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q008": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q009": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q010": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q011": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q012": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q013": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q014": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q015": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q016": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q017": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q018": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q019": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q020": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q021": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q022": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q023": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q024": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q025": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q026": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q027": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q028": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q029": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q030": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q031": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q032": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q033": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q034": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q035": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q036": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q037": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q038": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q039": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q040": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q041": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q042": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q043": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q044": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q045": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q046": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q047": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q048": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q049": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q050": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q051": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q052": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q053": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q054": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q055": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q056": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q057": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q058": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q059": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q060": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q061": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q062": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q063": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q064": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q065": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q066": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q067": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q068": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q069": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q070": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q071": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q072": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q073": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q074": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q075": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q076": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q077": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q078": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q079": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q080": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q081": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q082": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q083": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q084": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q085": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q086": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q087": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q088": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q089": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q090": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q091": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q092": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q093": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q094": {
+              "type": "boolean",
+              "probability": 0.9
+            },
+            "q095": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q096": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q097": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q098": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q099": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q100": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q101": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q102": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q103": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q104": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q105": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q106": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q107": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q108": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q109": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q110": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q111": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q112": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q113": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q114": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q115": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q116": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q117": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q118": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q119": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q120": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q121": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q122": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q123": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q124": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q125": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q126": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q127": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q128": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q129": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q130": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q131": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q132": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q133": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q134": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q135": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q136": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q137": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q138": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q139": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q140": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q141": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q142": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q143": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q144": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q145": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q146": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q147": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q148": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q149": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q150": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q151": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q152": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q153": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q154": {
+              "type": "boolean",
+              "probability": 0.9
+            },
+            "q155": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q156": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q157": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q158": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q159": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q160": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q161": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q162": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q163": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q164": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q165": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q166": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q167": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q168": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q169": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q170": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q171": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q172": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q173": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q174": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q175": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q176": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q177": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q178": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q179": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q180": {
+              "type": "boolean",
+              "probability": 0.9
+            },
+            "q181": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q182": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q183": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q184": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q185": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q186": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q187": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q188": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q189": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q190": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q191": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q192": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q193": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q194": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q195": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q196": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q197": {
+              "type": "boolean",
+              "probability": 0.91
+            },
+            "q198": {
+              "type": "boolean",
+              "probability": 0.92
+            },
+            "q199": {
+              "type": "boolean",
+              "probability": 0.92
+            }
+          },
+          "rounding": {
+            "probabilityDecimals": 2,
+            "scoreDecimals": 2
+          },
+          "usage": {
+            "inputTokens": 4366,
+            "outputTokens": 3804
+          },
+          "warnings": [],
+          "providerMetadata": {
+            "typesafe": {
+              "confidence": {}
+            },
+            "gateway": {
+              "routing": {
+                "originalModelId": "typesafe-ai/jev",
+                "resolvedProvider": "typesafe-ai",
+                "fallbacksAvailable": [],
+                "planningReasoning": "System credentials planned for: typesafe-ai. Total execution order: typesafe-ai(system)",
+                "canonicalSlug": "typesafe-ai/jev",
+                "finalProvider": "typesafe-ai",
+                "modelAttemptCount": 1,
+                "modelAttempts": [
+                  {
+                    "canonicalSlug": "typesafe-ai/jev",
+                    "success": true,
+                    "providerAttemptCount": 1,
+                    "providerAttempts": [
+                      {
+                        "provider": "typesafe-ai",
+                        "credentialType": "system",
+                        "success": true,
+                        "startTime": 1789695130483,
+                        "endTime": 1789695130779,
+                        "statusCode": 200
+                      }
+                    ]
+                  }
+                ],
+                "totalProviderAttemptCount": 1
+              },
+              "cost": "0.000183372",
+              "marketCost": "0.000183372",
+              "surchargeCost": "0",
+              "gatewayCost": "0.000183372",
+              "inferenceCost": "0.000183372",
+              "inputInferenceCost": "0.000183372",
+              "outputInferenceCost": "0",
+              "generationId": "gen_01M2S28YTN5KFRB4MD9VTJRQYF"
+            }
+          }
+        }
+      }
     }
   ]
 }

@@ -68,6 +68,11 @@ $ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local -
           "fast": false,
           "balanced": true,
           "economical": false
+        },
+        "evaluation": {
+          "choice": "unknown",
+          "score": "unknown",
+          "boolean": "unknown"
         }
       },
       "adapter_compiled": true,
@@ -108,6 +113,11 @@ $ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local -
           "fast": "unknown",
           "balanced": true,
           "economical": "unknown"
+        },
+        "evaluation": {
+          "choice": "unknown",
+          "score": "unknown",
+          "boolean": "unknown"
         }
       },
       "adapter_compiled": true,

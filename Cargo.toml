@@ -91,6 +91,7 @@ crc32fast = { version = "1.5.0", optional = true }
 futures-core = { version = "0.3.32", optional = true }
 futures-util = { version = "0.3.32", optional = true }
 humantime = { version = "2.2.0", optional = true }
+indexmap = { version = "2", features = ["serde"] }
 infer = { version = "0.19.0", optional = true }
 mime = { version = "0.3.17", optional = true }
 mime_guess = { version = "2.0.5", optional = true }
@@ -116,8 +117,9 @@ tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread", "t
 tracing-subscriber = { version = "0.3.20", default-features = false, features = ["registry", "fmt", "env-filter"] }
 trycmd = "1.2.1"
 # The OpenAI-compatible twin for declarative fixtures and live E2E replay,
-# pinned to the revision with raw transport and Codex route support.
-twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "fedab8e6b9b8e2577bee7d93812a318d6adb4aa4" }
+# pinned to the revision with raw transport, Codex route, and
+# evaluation-model passthrough support.
+twin-openai = { git = "https://github.com/lithoscomputer/twins", rev = "f461f9cf028684a042e4e3e5930ff34bcc5f47fe" }
 # The Anthropic twin, pinned to the revision the twin_anthropic contract tests
 # were written against.
 twin-anthropic = { git = "https://github.com/lithoscomputer/twins", rev = "ca45f0e50a6716d716aa2f638ca3cf767e88f613" }

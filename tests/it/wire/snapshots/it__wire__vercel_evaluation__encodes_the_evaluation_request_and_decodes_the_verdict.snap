@@ -1,0 +1,77 @@
+---
+source: tests/it/wire/vercel_evaluation.rs
+expression: rendered
+---
+{
+  "body": {
+    "questions": {
+      "department": {
+        "criteria": {
+          "billing": "Charges and refunds",
+          "other": null,
+          "technical": "Bugs and outages"
+        },
+        "instructions": "Which team should handle this?",
+        "type": "choice"
+      },
+      "requests_refund": {
+        "criteria": {
+          "false": "Anything else",
+          "true": "The customer asks for money back"
+        },
+        "instructions": "Is the customer requesting money back?",
+        "type": "boolean"
+      },
+      "severity": {
+        "criteria": [
+          "Cosmetic",
+          "Workaround exists",
+          "Blocking; no workaround"
+        ],
+        "instructions": "How severe is the issue?",
+        "type": "score"
+      }
+    },
+    "state": "I was charged twice. Please refund the duplicate."
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "ai-evaluation-model-specification-version",
+      "4"
+    ],
+    [
+      "ai-gateway-protocol-version",
+      "0.0.1"
+    ],
+    [
+      "ai-model-id",
+      "typesafe-ai/jev"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "555"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/v4/ai/evaluation-model"
+}

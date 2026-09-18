@@ -10,6 +10,7 @@ pub mod resolver;
 pub mod types;
 
 mod cost;
+mod evaluation;
 
 #[cfg(feature = "runtime")]
 pub mod adapter;
@@ -30,5 +31,7 @@ mod transport;
 #[cfg(feature = "runtime")]
 #[doc(inline)]
 pub use client::{Client, ClientBuild, ClientBuilder, StructuredCompletion};
+#[doc(inline)]
+pub use evaluation::{Evaluation, EvaluationBuilder, Verdict};
 #[doc(inline)]
 pub use types::{Error, Request, Response};

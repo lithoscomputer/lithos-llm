@@ -12,12 +12,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 pub use capabilities::{
-    ModelCapabilities, ModelProtocolOptions, ReasoningEffortSupport, ResponseFormatSupport,
-    SpeedSupport, Support, ToolChoiceSupport,
+    EvaluationSupport, ModelCapabilities, ModelProtocolOptions, ReasoningEffortSupport,
+    ResponseFormatSupport, SpeedSupport, Support, ToolChoiceSupport,
 };
 pub use loader::CatalogBuilder;
 pub use model::{CatalogModel, LongContextPricing, ModelLimits, Pricing, SpeedPricing, SpeedRates};
 pub use offering::Offering;
+pub(crate) use provider::string_id;
 pub use provider::{
     AdapterId, AuthScheme, CatalogProvider, CodecId, Metadata, MetadataError, ModelHandle, ModelId,
     ProviderId, adapter_ids, codec_ids,

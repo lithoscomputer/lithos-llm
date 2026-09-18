@@ -7,6 +7,8 @@
 # profile, with the gateway's own wire id, limits, and prices. Three
 # OpenRouter rows are absent because the gateway does not list them:
 # laguna-xs-2.1, qwen3.6-flash, and devstral-2512.
+# One row is outside that roster: TypeSafe's Jev evaluation model, in its
+# own section at the end.
 #
 # The listing is unusually complete. Each row carries `context_window`,
 # `max_tokens`, `supported_parameters`, `temperature` (whether the model
@@ -384,3 +386,24 @@ display_name = "NVIDIA Nemotron 3 Super 120B"
 api_model = "nvidia/nemotron-3-super-120b-a12b"
 limits = { context_tokens = 256000, max_output_tokens = 32000 }
 capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+
+# ---------- TypeSafe AI via Vercel ----------
+
+# The gateway's one evaluation model. Its listing row (2026-09-17) says
+# `type: evaluation` and `context_window: 0`, so the row carries no limits.
+# The wire id is `typesafe-ai/jev`; the SDK example's `typesafe-ai/jev-latest`
+# is a 404 on the gateway. The listing prices $0.042 per million input
+# tokens and nothing for output. The row names its own adapter: the
+# provider stays on `openai-compatible` for its generation rows, and this
+# row alone speaks the gateway's evaluation protocol at
+# `/v4/ai/evaluation-model`, which the codec derives from the provider's
+# `/v1` base URL. It claims the three question kinds and no generation
+# capability, so `complete` refuses it before dispatch. A live smoke test on
+# 2026-09-17 answered the three-question evaluation in about 300 ms for
+# $0.000016, with two-decimal rounding, a probability per option and per
+# level, and confidence on the choice and score answers.
+[providers.vercel.models."jev"]
+display_name = "TypeSafe AI Jev (via Vercel)"
+api_model = "typesafe-ai/jev"
+adapter = "vercel-evaluation"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }

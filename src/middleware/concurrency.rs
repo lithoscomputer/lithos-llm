@@ -37,6 +37,7 @@ impl Middleware for ConcurrencyLimitMiddleware {
         match next.run(call).await? {
             Output::Complete(response) => Ok(Output::Complete(response)),
             Output::InputTokenCount(count) => Ok(Output::InputTokenCount(count)),
+            Output::Verdict(verdict) => Ok(Output::Verdict(verdict)),
             Output::Stream(stream) => Ok(Output::Stream(ResponseStream::new(stream.map(
                 move |item| {
                     let _permit = &permit;

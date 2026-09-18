@@ -333,6 +333,67 @@ with the response and the parsed document. Lithos rejects structured-output
 requests before dispatch when the selected model does not declare that
 capability.
 
+## Evaluate
+
+An evaluation asks typed questions about one piece of state. Each answer is
+a chosen option, a position on an ordered scale, or a probability that a
+statement holds, and every answer comes back as its own type, not as prose
+to parse. `Evaluation` is to `Client::evaluate` what `Request` is to
+`complete`: the whole input, built once and checked on `build`.
+
+```rust
+use std::error::Error;
+
+use lithos_llm::{Client, Evaluation};
+
+async fn triage(client: &Client) -> Result<bool, Box<dyn Error>> {
+    let evaluation = Evaluation::builder()
+        .model("vercel/jev")
+        .state("I was charged twice. Please refund the duplicate.")
+        .choice("department", "Which team should handle this?", [
+            ("billing", Some("Charges and refunds")),
+            ("technical", Some("Bugs and outages")),
+            ("other", None),
+        ])
+        .score("severity", "How severe is the issue?", [
+            "Cosmetic",
+            "Workaround exists",
+            "Blocking; no workaround",
+        ])
+        .boolean("requests_refund", "Is the customer requesting money back?")
+        .build()?;
+
+    let verdict = client.evaluate(evaluation).await?;
+
+    let department = verdict.choice("department")?;
+    let severity = verdict.score("severity")?;
+    let refund = verdict.boolean("requests_refund")?;
+
+    Ok(department.choice == "billing" && severity.nearest_level() >= 1 && refund.is_likely())
+}
+```
+
+Two kinds of model answer the same `Evaluation`. A row whose adapter
+evaluates natively (today `vercel/jev`, TypeSafe's Jev on the
+`vercel-evaluation` adapter) returns a probability per option or level, a
+`confidence` on each choice and score answer, and the provider's declared
+rounding. Every row that claims `response_format.json_schema` acts as a
+judge instead: the client runs one structured-output completion with a fixed
+system prompt and reads the JSON object back into answers. A judge returns
+point estimates, so `probabilities`, `confidence`, and `rounding` are absent
+on its `Verdict`. The same `Evaluation` and `Verdict` types serve both, so an
+application can run one question set against a native model and a judge and
+compare them.
+
+The client validates every verdict before it returns it: exactly the
+questions asked are answered, each with the matching kind, choices name a
+known option, scores and probabilities are in range, and distributions sum to
+one within the declared rounding. A malformed verdict is a `ResponseDecode`
+error and is never retried. The judge's system prompt is part of the crate's
+contract, because changing it changes answers; any change to it is called out
+in the changelog. See [Catalog overlays](#catalog-overlays) for the
+`evaluation` claim and the per-row `adapter` field.
+
 ## Multimodal input
 
 A message can contain text, images, audio, and documents. Media can use a
@@ -501,6 +562,16 @@ LiteLLM, Modal, Ollama) ships with `enabled = false`; an overlay turns one on:
 enabled = true
 ```
 
+A model row that claims `response_format.json_schema` also answers evaluation
+questions of every kind (`choice`, `score`, `boolean`): it judges by producing
+one schema-bound JSON object, so the catalog does not repeat the claim per
+row. A row writes `capabilities.evaluation = { choice = true, score = false,
+boolean = true }` to narrow that, or to claim evaluation on a model that
+speaks an evaluation protocol natively. Such a row also names
+`adapter = "..."` to speak through an adapter other than its provider's;
+every other row uses the provider's `adapter`. `ModelCapabilities::evaluation`
+and `evaluates` answer the question a caller asks.
+
 Before it has a request, an application asks the catalog which providers are
 on and which model to pick for a job. `Catalog::enabled_providers` lists them
 in priority order and `listed_providers` drops the ones that stand in for
@@ -537,7 +608,7 @@ fn build(root: &str, openai: &str, anthropic: &str) -> Result<(), Box<dyn Error>
 | Feature | Default | Purpose |
 | --- | --- | --- |
 | `builtin-catalog` | yes | Embedded provider and model catalog |
-| `runtime` | yes | Client, public runtime extension points, and the OpenAI, Anthropic, Gemini, and OpenAI-compatible adapters |
+| `runtime` | yes | Client, public runtime extension points, and the OpenAI, Anthropic, Gemini, OpenAI-compatible, and Vercel evaluation adapters |
 | `environment-credentials` | yes | Environment-backed credential provider |
 | `local-files` | no | Middleware that inlines local-path media as base64 |
 | `bedrock` | no | Bedrock Converse adapter with bearer-token authentication |

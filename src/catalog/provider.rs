@@ -10,7 +10,8 @@ use super::model::ModelRecord;
 use super::{CatalogError, CatalogModel};
 
 macro_rules! string_id {
-    ($name:ident) => {
+    ($(#[$meta:meta])* $name:ident) => {
+        $(#[$meta])*
         #[derive(
             Clone, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
         )]
@@ -57,6 +58,8 @@ macro_rules! string_id {
     };
 }
 
+pub(crate) use string_id;
+
 string_id!(ProviderId);
 string_id!(ModelId);
 string_id!(AdapterId);
@@ -69,6 +72,9 @@ pub mod adapter_ids {
     pub const GEMINI: &str = "gemini";
     pub const OPENAI: &str = "openai";
     pub const OPENAI_COMPATIBLE: &str = "openai-compatible";
+    /// The Vercel AI Gateway evaluation protocol, named by a model row
+    /// whose provider otherwise speaks a generation protocol.
+    pub const VERCEL_EVALUATION: &str = "vercel-evaluation";
 }
 
 /// Built-in wire codec identifiers.
@@ -78,10 +84,15 @@ pub mod codec_ids {
     pub const GEMINI_GENERATE: &str = "gemini-generate";
     pub const OPENAI_CHAT: &str = "openai-chat";
     pub const OPENAI_RESPONSES: &str = "openai-responses";
+    /// The wire codec the `vercel-evaluation` adapter implies.
+    pub const VERCEL_EVALUATION: &str = "vercel-evaluation";
 }
 
 /// A resolved provider and model identity.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+///
+/// Handles order by provider, then model, so a sorted collection keyed by
+/// handle lists one provider's rows together.
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct ModelHandle {
     provider: ProviderId,
     model:    ModelId,

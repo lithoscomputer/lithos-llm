@@ -4,6 +4,7 @@ use futures_util::StreamExt as _;
 use serde::Serialize;
 
 use super::{Error, ErrorKind, Response, ResponseStream, StreamEvent};
+use crate::evaluation::Verdict;
 
 /// Response size limits in bytes. Zero rejects any nonempty value.
 ///
@@ -94,6 +95,17 @@ impl ResponsePolicy {
             response.raw = raw;
         }
         Ok(response)
+    }
+
+    /// Applies the output limit and raw-body retention to a verdict, the
+    /// way [`response`](Self::response) does to a response.
+    pub(crate) fn verdict(self, mut verdict: Verdict) -> Result<Verdict, Error> {
+        let raw = verdict.raw.take();
+        serialized_size(&verdict, self.limits.output)?;
+        if self.retain_raw {
+            verdict.raw = raw;
+        }
+        Ok(verdict)
     }
 
     pub(crate) fn stream(self, stream: ResponseStream) -> ResponseStream {
