@@ -22,8 +22,7 @@ schema_version = 1
 [providers.anthropic]
 display_name = "Anthropic"
 aliases = ["claude"]
-adapter = "anthropic"
-codec = "anthropic-messages"
+codecs = ["anthropic-messages"]
 base_url = "https://api.anthropic.com"
 priority = 100
 allow_passthrough = true

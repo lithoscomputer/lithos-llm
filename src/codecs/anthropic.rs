@@ -2361,8 +2361,7 @@ mod tests {
 
         [providers.anthropic]
         display_name = "Anthropic"
-        adapter = "anthropic"
-        codec = "anthropic-messages"
+        codecs = ["anthropic-messages"]
         base_url = "http://127.0.0.1"
         default_model = "claude-sonnet-4-5"
         auth = { type = "none" }
@@ -2379,8 +2378,7 @@ mod tests {
 
         [providers.anthropic]
         display_name = "Anthropic"
-        adapter = "anthropic"
-        codec = "anthropic-messages"
+        codecs = ["anthropic-messages"]
         base_url = "http://127.0.0.1"
         allow_passthrough = true
         default_model = "claude-sonnet-4-5"

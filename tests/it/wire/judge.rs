@@ -15,7 +15,7 @@
 use std::time::Duration;
 
 use httpmock::MockServer;
-use lithos_llm::catalog::{adapter_ids, codec_ids};
+use lithos_llm::catalog::codec_ids;
 use lithos_llm::{Evaluation, Verdict};
 use serde_json::{Value, json};
 
@@ -37,15 +37,10 @@ const REASONING_BY_DEFAULT: &str =
     "\n[providers.compat.models.compat-judge.metadata.agent]\nreasoning_by_default = true\n";
 
 fn provider() -> WireProvider<'static> {
-    WireProvider::new(
-        PROVIDER,
-        adapter_ids::OPENAI_COMPATIBLE,
-        codec_ids::OPENAI_CHAT,
-        MODEL,
-    )
-    .with_api_model(API_MODEL)
-    .with_auth("{ type = \"bearer\" }")
-    .with_capabilities(JUDGE_CAPABILITIES)
+    WireProvider::new(PROVIDER, codec_ids::OPENAI_CHAT, MODEL)
+        .with_api_model(API_MODEL)
+        .with_auth("{ type = \"bearer\" }")
+        .with_capabilities(JUDGE_CAPABILITIES)
 }
 
 /// The interface plan's three questions plus a timeout and one metadata

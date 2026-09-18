@@ -605,8 +605,7 @@ mod tests {
 
             [providers.vercel]
             display_name = "Vercel"
-            adapter = "vercel-evaluation"
-            codec = "vercel-evaluation"
+            codecs = ["vercel-evaluation"]
             base_url = "{base_url}"
             default_model = "jev"
             auth = {{ type = "bearer" }}

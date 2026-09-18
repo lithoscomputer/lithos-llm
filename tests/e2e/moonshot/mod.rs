@@ -1,6 +1,6 @@
 //! The Moonshot live suite.
 //!
-//! Moonshot runs through the `openai-compatible` adapter and the `openai-chat`
+//! Moonshot runs through the default `http` adapter and the `openai-chat`
 //! codec, so this suite is both the endpoint check for Moonshot itself and the
 //! live exercise of that shared code path. The Moonshot-specific behavior under
 //! test includes catalog-priced responses, automatic cache usage, K3 reasoning,

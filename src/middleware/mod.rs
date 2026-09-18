@@ -409,8 +409,12 @@ pub(crate) struct Pipeline {
     pub middleware:   Vec<Arc<dyn Middleware>>,
     /// One adapter per available provider, from the provider's `adapter`.
     pub adapters:     BTreeMap<ProviderId, Arc<dyn ProviderAdapter>>,
-    /// The adapters of model rows that name their own `adapter`. A row here
-    /// is served by this adapter instead of its provider's.
+    /// The adapters of model rows whose codec set reaches an evaluation codec
+    /// the provider's adapter does not serve. A row here is served by this
+    /// adapter instead of its provider's.
+    ///
+    /// Step 2 of .ai/plans/adapters-and-codecs.md deletes this: the `http`
+    /// adapter then holds every codec and dispatches on the call's codec.
     pub row_adapters: BTreeMap<ModelHandle, Arc<dyn ProviderAdapter>>,
 }
 
@@ -422,11 +426,11 @@ impl Pipeline {
         }
     }
 
-    /// The adapter that serves `route`: the row's own when the row names an
-    /// `adapter`, else its provider's.
+    /// The adapter that serves `route`: the row's evaluation codec adapter
+    /// when it has one, else its provider's.
     ///
     /// Every dispatch and the client's evaluation path look the adapter up
-    /// here, so this is the one place the per-row override applies.
+    /// here, so this is the one place the per-row adapter applies.
     ///
     /// # Errors
     ///

@@ -2,18 +2,18 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
-use super::http::{HttpAdapterOptions, adapter_options, build_http_adapter};
+use super::http::{HttpAdapterOptions, adapter_options, build_http_adapter, codec_options};
 use crate::adapter::{AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter};
 use crate::catalog::{CatalogProvider, codec_ids};
 use crate::codecs::openai::OpenAiResponsesCodec;
 
-/// The typed `adapter_options` table this factory accepts.
+/// The typed `codec_options.openai-responses` table.
 ///
 /// Unknown keys are rejected so a misspelled option is a build issue for one
 /// provider rather than a silently ignored setting.
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
-struct OpenAiOptions {
+struct OpenAiResponsesOptions {
     #[serde(default)]
     mode: OpenAiMode,
 }
@@ -25,8 +25,12 @@ enum OpenAiMode {
     /// The public `/v1/responses` API.
     #[default]
     Standard,
-    /// The Codex deployment, which streams every response and rejects several
-    /// generation fields.
+    /// The Codex deployment, which rejects several generation fields.
+    ///
+    /// The deployment also streams every response and reads an `originator`
+    /// header; those are adapter concerns, set in `adapter_options` as
+    /// `force_streaming_complete` and `identify_application`. A factory test
+    /// pins that the built-in row sets both.
     Codex,
 }
 
@@ -38,17 +42,14 @@ impl AdapterFactory for Factory {
         provider: &CatalogProvider,
         context: &AdapterContext,
     ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        let options: OpenAiOptions = adapter_options(provider)?;
-        let codex = options.mode == OpenAiMode::Codex;
+        let adapter: HttpAdapterOptions = adapter_options(provider)?;
+        let codec: OpenAiResponsesOptions = codec_options(provider, codec_ids::OPENAI_RESPONSES)?;
         build_http_adapter(
             provider,
             context,
             codec_ids::OPENAI_RESPONSES,
-            OpenAiResponsesCodec::new(codex),
-            HttpAdapterOptions {
-                force_streaming_complete: codex,
-                identify_application:     codex,
-            },
+            OpenAiResponsesCodec::new(codec.mode == OpenAiMode::Codex),
+            adapter,
         )
     }
 }
@@ -57,29 +58,29 @@ impl AdapterFactory for Factory {
 mod tests {
     use std::error::Error as StdError;
 
-    use super::super::http::adapter_options;
-    use super::{OpenAiMode, OpenAiOptions};
+    use super::super::http::{HttpAdapterOptions, adapter_options, codec_options};
+    use super::{OpenAiMode, OpenAiResponsesOptions};
     use crate::adapter::AdapterBuildError;
-    use crate::catalog::{Catalog, ProviderId};
+    use crate::catalog::{Catalog, ProviderId, codec_ids};
     use crate::client::ProviderBuildCause;
     use crate::{Client, Request};
 
     const CODEX_OPTIONS: &str = r#"
-            [providers.oai.adapter_options]
+            [providers.oai.codec_options.openai-responses]
             mode = "codex"
     "#;
 
     const UNKNOWN_KEY_OPTIONS: &str = "
-            [providers.oai.adapter_options]
+            [providers.oai.codec_options.openai-responses]
             made_up = true
     ";
 
     const UNKNOWN_MODE_OPTIONS: &str = r#"
-            [providers.oai.adapter_options]
+            [providers.oai.codec_options.openai-responses]
             mode = "turbo"
     "#;
 
-    /// One provider whose `adapter_options` table is written per test.
+    /// One provider whose options tables are written per test.
     fn catalog_layer(options: &str) -> String {
         format!(
             r#"
@@ -87,8 +88,7 @@ mod tests {
 
             [providers.oai]
             display_name = "OpenAI"
-            adapter = "openai"
-            codec = "openai-responses"
+            codecs = ["openai-responses"]
             base_url = "http://127.0.0.1"
             auth = {{ type = "none" }}
             {options}
@@ -96,14 +96,57 @@ mod tests {
         )
     }
 
-    fn parse(options: &str) -> Result<Result<OpenAiOptions, String>, Box<dyn StdError>> {
+    fn parse(options: &str) -> Result<Result<OpenAiResponsesOptions, String>, Box<dyn StdError>> {
         let catalog = Catalog::builder()
             .toml_layer("test", &catalog_layer(options))?
             .build()?;
         let provider = catalog
             .provider_by_id(&ProviderId::new("oai"))
             .ok_or("the test catalog must define the oai provider")?;
-        Ok(adapter_options::<OpenAiOptions>(provider).map_err(|error| error.to_string()))
+        Ok(
+            codec_options::<OpenAiResponsesOptions>(provider, codec_ids::OPENAI_RESPONSES)
+                .map_err(|error| error.to_string()),
+        )
+    }
+
+    /// The Codex deployment is one word in the codec table and two in the
+    /// adapter table; the built-in row must set all three together.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn the_builtin_codex_row_sets_the_codec_mode_and_both_adapter_options()
+    -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        let provider = catalog
+            .provider_by_id(&ProviderId::new("openai-codex"))
+            .ok_or("the built-in catalog defines openai-codex")?;
+
+        let codec: OpenAiResponsesOptions = codec_options(provider, codec_ids::OPENAI_RESPONSES)?;
+        let adapter: HttpAdapterOptions = adapter_options(provider)?;
+
+        assert_eq!(codec.mode, OpenAiMode::Codex);
+        assert!(adapter.force_streaming_complete);
+        assert!(adapter.identify_application);
+        Ok(())
+    }
+
+    /// An `adapter_options` key that belongs to the codec is rejected, so a
+    /// row migrated by hand cannot leave `mode` in the wrong table.
+    #[test]
+    fn a_codec_option_in_the_adapter_table_is_rejected() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .toml_layer(
+                "test",
+                &catalog_layer("adapter_options = { mode = \"codex\" }"),
+            )?
+            .build()?;
+        let provider = catalog
+            .provider_by_id(&ProviderId::new("oai"))
+            .ok_or("the test catalog must define the oai provider")?;
+
+        let parsed = adapter_options::<HttpAdapterOptions>(provider);
+
+        assert!(parsed.is_err(), "`mode` is a codec option");
+        Ok(())
     }
 
     #[test]
@@ -144,12 +187,11 @@ mod tests {
 
         [providers.broken]
         display_name = "Broken"
-        adapter = "openai"
-        codec = "openai-responses"
+        codecs = ["openai-responses"]
         base_url = "http://127.0.0.1"
         default_model = "one"
         auth = { type = "none" }
-        adapter_options = { mode = "turbo" }
+        codec_options = { openai-responses = { mode = "turbo" } }
 
         [providers.broken.models.one]
         display_name = "One"
@@ -158,8 +200,7 @@ mod tests {
 
         [providers.good]
         display_name = "Good"
-        adapter = "openai"
-        codec = "openai-responses"
+        codecs = ["openai-responses"]
         base_url = "http://127.0.0.1"
         default_model = "one"
         auth = { type = "none" }

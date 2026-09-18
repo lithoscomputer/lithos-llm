@@ -11,11 +11,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 use futures_util::stream::{iter, pending as pending_stream};
-use lithos_llm::adapter::{
-    AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
-    ResolvedCall, ResolvedEvaluation,
-};
-use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, ModelId, ProviderId};
+use lithos_llm::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall, ResolvedEvaluation};
+use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId};
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
@@ -40,7 +37,7 @@ schema_version = 1
 [providers.test]
 display_name = "Test"
 adapter = "test-adapter"
-codec = "test-codec"
+codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 default_model = "model"
 
@@ -1175,7 +1172,7 @@ schema_version = 1
 [providers.test]
 display_name = "Test"
 adapter = "test-adapter"
-codec = "test-codec"
+codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 default_model = "model"
 
@@ -2116,7 +2113,7 @@ schema_version = 1
 [providers.test]
 display_name = "Test"
 adapter = "test-adapter"
-codec = "test-codec"
+codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 default_model = "judge"
 
@@ -2463,224 +2460,5 @@ async fn resolve_evaluation_route_agrees_with_evaluate() -> Result<(), Box<dyn S
     assert_eq!(route.handle().to_string(), "test/judge");
     assert_eq!(verdict.model, route.handle());
     assert!(verdict.answers.contains_key(&QuestionId::new("severity")));
-    Ok(())
-}
-
-// ===========================================================================
-// Per-row adapter override
-// ===========================================================================
-
-/// One provider whose `two` row names its own adapter. The row claims `text`
-/// so a completion reaches dispatch instead of failing capability
-/// validation, which is what proves generation on the row hits the override.
-const ROW_OVERRIDE_CATALOG: &str = r#"
-schema_version = 1
-
-[providers.test]
-display_name = "Test"
-adapter = "provider-adapter"
-codec = "test-codec"
-base_url = "http://127.0.0.1"
-default_model = "one"
-
-[providers.test.auth]
-type = "none"
-
-[providers.test.models.one]
-display_name = "One"
-api_model = "one"
-capabilities = { text = true }
-
-[providers.test.models.two]
-display_name = "Two"
-api_model = "two"
-adapter = "row-adapter"
-capabilities = { text = true, evaluation = { choice = true, score = true, boolean = true } }
-"#;
-
-/// Counts the calls it receives so a test can say which adapter served a
-/// route. The native form evaluates and refuses to complete, the way an
-/// evaluation-only adapter does.
-struct RecordingAdapter {
-    id:             AdapterId,
-    native:         bool,
-    complete_calls: Arc<AtomicUsize>,
-    evaluate_calls: Arc<AtomicUsize>,
-}
-
-impl RecordingAdapter {
-    fn new(id: &str, native: bool) -> Arc<Self> {
-        Arc::new(Self {
-            id: AdapterId::new(id),
-            native,
-            complete_calls: Arc::new(AtomicUsize::new(0)),
-            evaluate_calls: Arc::new(AtomicUsize::new(0)),
-        })
-    }
-}
-
-#[async_trait]
-impl ProviderAdapter for RecordingAdapter {
-    fn id(&self) -> &AdapterId {
-        &self.id
-    }
-
-    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
-        self.complete_calls.fetch_add(1, Ordering::SeqCst);
-        if self.native {
-            return Err(Error::new(
-                ErrorKind::InvalidRequest,
-                format!("adapter {} evaluates only", self.id),
-            ));
-        }
-        Ok(success_response(call, "done"))
-    }
-
-    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
-        Ok(ResponseStream::new(pending_stream()))
-    }
-
-    async fn evaluate(&self, call: &ResolvedEvaluation) -> Result<Verdict, Error> {
-        self.evaluate_calls.fetch_add(1, Ordering::SeqCst);
-        let answers = call
-            .evaluation()
-            .questions()
-            .iter()
-            .map(|(id, question)| {
-                let answer = match question.kind() {
-                    QuestionKind::Choice => Answer::Choice(ChoiceAnswer {
-                        choice:        "billing".to_owned(),
-                        probabilities: None,
-                        confidence:    None,
-                    }),
-                    QuestionKind::Score => Answer::Score(ScoreAnswer {
-                        score:         1.0,
-                        probabilities: None,
-                        confidence:    None,
-                    }),
-                    QuestionKind::Boolean => Answer::Boolean(BooleanAnswer { probability: 0.75 }),
-                    _ => unreachable!("the evaluation asks only the three known kinds"),
-                };
-                (id.clone(), answer)
-            })
-            .collect();
-        Ok(Verdict::new(
-            call.route().provider().id().clone(),
-            call.route().model().id().clone(),
-            answers,
-        ))
-    }
-
-    fn evaluates_natively(&self) -> bool {
-        self.native
-    }
-}
-
-/// Hands out one shared adapter, so the test keeps its counters.
-struct SharedFactory(Arc<RecordingAdapter>);
-
-impl AdapterFactory for SharedFactory {
-    fn create(
-        &self,
-        _provider: &CatalogProvider,
-        _context: &AdapterContext,
-    ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        Ok(self.0.clone())
-    }
-}
-
-#[tokio::test(start_paused = true)]
-async fn a_row_that_names_an_adapter_is_served_by_that_adapter() -> Result<(), Box<dyn StdError>> {
-    let provider_adapter = RecordingAdapter::new("provider-adapter", false);
-    let row_adapter = RecordingAdapter::new("row-adapter", true);
-    let build = Client::builder()
-        .catalog(
-            Catalog::builder()
-                .overlay_toml(ROW_OVERRIDE_CATALOG)?
-                .build()?,
-        )
-        .adapter_factory("provider-adapter", SharedFactory(provider_adapter.clone()))
-        .adapter_factory("row-adapter", SharedFactory(row_adapter.clone()))
-        .build()?;
-    assert!(build.issues.is_empty(), "{:?}", build.issues);
-    let client = build.client;
-
-    // The plain row goes to the provider's adapter.
-    let request = Request::builder().model("test/one").user("hi").build()?;
-    let response = client.complete(request).await?;
-    assert_eq!(response.model.to_string(), "test/one");
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(row_adapter.complete_calls.load(Ordering::SeqCst), 0);
-
-    // The overriding row evaluates through its own adapter, natively: the
-    // provider's adapter sees neither a judge completion nor an evaluate.
-    let verdict = client.evaluate(evaluation("test/two")).await?;
-    assert_eq!(verdict.model.to_string(), "test/two");
-    assert_eq!(verdict.choice("department")?.choice, "billing");
-    assert_eq!(row_adapter.evaluate_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(provider_adapter.evaluate_calls.load(Ordering::SeqCst), 0);
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
-
-    // Generation on the overriding row reaches the override too, which
-    // refuses it; the provider's adapter is not consulted.
-    let request = Request::builder().model("test/two").user("hi").build()?;
-    let error = client
-        .complete(request)
-        .await
-        .expect_err("the row adapter refuses to complete");
-    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
-    assert!(
-        error.message().contains("row-adapter evaluates only"),
-        "{}",
-        error.message()
-    );
-    assert_eq!(row_adapter.complete_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
-    Ok(())
-}
-
-#[tokio::test(start_paused = true)]
-async fn a_row_override_that_did_not_build_leaves_the_plain_row_serving()
--> Result<(), Box<dyn StdError>> {
-    let provider_adapter = RecordingAdapter::new("provider-adapter", false);
-    let build = Client::builder()
-        .catalog(
-            Catalog::builder()
-                .overlay_toml(ROW_OVERRIDE_CATALOG)?
-                .build()?,
-        )
-        .adapter_factory("provider-adapter", SharedFactory(provider_adapter.clone()))
-        .build()?;
-
-    assert_eq!(build.issues.len(), 1);
-    assert_eq!(build.issues[0].provider.as_str(), "test");
-    assert_eq!(
-        build.issues[0].model.as_ref().map(ModelId::as_str),
-        Some("two")
-    );
-    assert_eq!(build.issues[0].adapter.as_str(), "row-adapter");
-    assert!(matches!(
-        build.issues[0].cause,
-        ProviderBuildCause::MissingAdapterFactory { .. }
-    ));
-    assert_eq!(
-        build
-            .client
-            .available_providers()
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>(),
-        ["test"]
-    );
-
-    let request = Request::builder().model("test/one").user("hi").build()?;
-    build.client.complete(request).await?;
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
-
-    // Without its own adapter the overriding row falls back to the
-    // provider's, whose judge path would need a completion.
-    let request = Request::builder().model("test/two").user("hi").build()?;
-    build.client.complete(request).await?;
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 2);
     Ok(())
 }

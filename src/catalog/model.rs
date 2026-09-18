@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use super::provider::{CodecFamily, family};
 use super::{
-    AdapterId, CatalogError, Metadata, ModelCapabilities, ModelHandle, ModelId,
+    CatalogError, CatalogProvider, CodecId, Metadata, ModelCapabilities, ModelHandle, ModelId,
     ModelProtocolOptions, ProviderId,
 };
 use crate::types::Speed;
@@ -159,7 +160,7 @@ pub(super) struct ModelRecord {
     aliases:              Vec<String>,
     api_model:            String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    adapter:              Option<AdapterId>,
+    codecs:               Option<Vec<CodecId>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     family:               Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -198,8 +199,7 @@ pub struct CatalogModel {
     #[serde(default)]
     aliases:              Vec<String>,
     api_model:            String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    adapter:              Option<AdapterId>,
+    codecs:               Vec<CodecId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     family:               Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -245,15 +245,21 @@ impl CatalogModel {
         &self.api_model
     }
 
-    /// The adapter this row speaks through instead of its provider's.
+    /// The provider codecs that reach this row, in the provider's order.
     ///
-    /// Most rows leave this unset and use the provider's `adapter`. A row
-    /// names one when it needs a protocol the rest of the provider does not,
-    /// such as an evaluation model on a gateway whose other rows generate
-    /// text. The catalog does not check the id against the adapter
-    /// factories; the client does when it builds.
-    pub fn adapter(&self) -> Option<&AdapterId> {
-        self.adapter.as_ref()
+    /// A row that writes `codecs` lists a subset of its provider's. Every
+    /// other row derives the set from its explicit capability claims: a
+    /// generation claim (`text`, `tools`, `images`, `audio`, `documents`, or
+    /// a `response_format` field) that is not `false` reaches every
+    /// generation codec the provider lists; an explicit
+    /// `capabilities.evaluation` with at least one kind `true` reaches every
+    /// evaluation codec the provider lists; a row that claims neither keeps
+    /// the generation codecs. The derived `evaluation` capability never
+    /// counts: a JSON Schema row can be judged, but only a row that writes
+    /// `evaluation` itself reaches a native evaluation codec. A passthrough
+    /// row gets the provider's generation codecs and no evaluation codec.
+    pub fn codecs(&self) -> &[CodecId] {
+        &self.codecs
     }
 
     /// The model family label a picker groups this model under, such as
@@ -324,6 +330,7 @@ impl CatalogModel {
         provider: ProviderId,
         id: ModelId,
         record: ModelRecord,
+        provider_codecs: &[CodecId],
     ) -> Result<Self, CatalogError> {
         super::validate_identifier("model", id.as_str(), true)?;
         if record.display_name.trim().is_empty() {
@@ -334,9 +341,6 @@ impl CatalogModel {
         for alias in &record.aliases {
             super::validate_identifier("model alias", alias, false)?;
         }
-        if let Some(adapter) = &record.adapter {
-            super::validate_identifier("model adapter", adapter.as_str(), false)?;
-        }
         if record
             .limits
             .is_some_and(|limits| limits.max_output_tokens > limits.context_tokens)
@@ -345,6 +349,24 @@ impl CatalogModel {
                 model: ModelHandle::new(provider, id),
             });
         }
+        let codecs = match record.codecs {
+            Some(listed) => {
+                if let Some(codec) = listed.iter().find(|codec| !provider_codecs.contains(codec)) {
+                    return Err(CatalogError::UnknownModelCodec {
+                        model: ModelHandle::new(provider, id),
+                        codec: codec.clone(),
+                    });
+                }
+                // Provider order, so selection ties break the same way for
+                // a listed set as for a derived one.
+                provider_codecs
+                    .iter()
+                    .filter(|codec| listed.contains(codec))
+                    .cloned()
+                    .collect()
+            }
+            None => derive_codecs(record.capabilities, provider_codecs),
+        };
         Ok(Self {
             provider,
             id,
@@ -352,7 +374,7 @@ impl CatalogModel {
             display_name: record.display_name,
             aliases: record.aliases,
             api_model: record.api_model,
-            adapter: record.adapter,
+            codecs,
             family: record.family,
             training_cutoff: record.training_cutoff,
             knowledge_cutoff: record.knowledge_cutoff,
@@ -367,28 +389,50 @@ impl CatalogModel {
         })
     }
 
-    pub(crate) fn passthrough(provider: ProviderId, model: ModelId) -> Self {
+    /// Synthesizes the row for a model the catalog does not describe.
+    ///
+    /// The row reaches the provider's generation codecs and no evaluation
+    /// codec, so a passthrough completion, stream, or token count keeps
+    /// working and a passthrough evaluation goes through the judge path.
+    pub(crate) fn passthrough(provider: &CatalogProvider, model: ModelId) -> Self {
         Self {
-            provider,
-            passthrough: true,
-            display_name: model.to_string(),
-            api_model: model.to_string(),
-            id: model,
-            aliases: Vec::new(),
-            adapter: None,
-            family: None,
-            training_cutoff: None,
-            knowledge_cutoff: None,
+            provider:             provider.id().clone(),
+            passthrough:          true,
+            display_name:         model.to_string(),
+            api_model:            model.to_string(),
+            id:                   model,
+            aliases:              Vec::new(),
+            codecs:               provider.generation_codecs().cloned().collect(),
+            family:               None,
+            training_cutoff:      None,
+            knowledge_cutoff:     None,
             estimated_output_tps: None,
-            small_default: false,
-            probe: false,
-            limits: None,
-            capabilities: ModelCapabilities::unknown(),
-            protocol_options: ModelProtocolOptions::default(),
-            pricing: None,
-            metadata: Metadata::default(),
+            small_default:        false,
+            probe:                false,
+            limits:               None,
+            capabilities:         ModelCapabilities::unknown(),
+            protocol_options:     ModelProtocolOptions::default(),
+            pricing:              None,
+            metadata:             Metadata::default(),
         }
     }
+}
+
+/// The codecs a row without a `codecs` list reaches, from its explicit
+/// capability claims alone; see [`CatalogModel::codecs`].
+fn derive_codecs(capabilities: ModelCapabilities, provider_codecs: &[CodecId]) -> Vec<CodecId> {
+    let generation = capabilities.claims_generation();
+    let evaluation = capabilities.claims_native_evaluation();
+    provider_codecs
+        .iter()
+        .filter(|codec| match family(codec) {
+            CodecFamily::Evaluation => evaluation,
+            // A row that claims nothing keeps the generation codecs, matching
+            // the dispatch it always had.
+            CodecFamily::Generation | CodecFamily::Unknown => generation || !evaluation,
+        })
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]

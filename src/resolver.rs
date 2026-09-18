@@ -261,7 +261,7 @@ fn resolve_explicit(
     let model = if let Some(model) = provider.model(model_selector) {
         model.clone()
     } else if provider.allows_passthrough() && !model_selector.trim().is_empty() {
-        CatalogModel::passthrough(provider.id().clone(), ModelId::new(model_selector))
+        CatalogModel::passthrough(provider, ModelId::new(model_selector))
     } else {
         return Err(ModelSelectionError::ModelNotFound {
             selector: format!("{}/{model_selector}", provider.id()),
@@ -356,7 +356,7 @@ mod tests {
         [providers.alpha]
         display_name = "Alpha"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         allow_passthrough = true
         default_model = "one"
@@ -485,7 +485,7 @@ mod tests {
         [providers.platform]
         display_name = "Platform"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         priority = 90
         default_model = "one"
@@ -499,7 +499,7 @@ mod tests {
         [providers.seat]
         display_name = "Seat"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1/seat"
         priority = 89
         stands_in_for = "platform"
@@ -514,7 +514,7 @@ mod tests {
         [providers.parked]
         display_name = "Parked"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1/parked"
         priority = 100
         enabled = false
@@ -629,7 +629,7 @@ mod tests {
                 [providers.high]
                 display_name = "High"
                 adapter = "test-adapter"
-                codec = "test-codec"
+                codecs = ["test-codec"]
                 base_url = "http://127.0.0.1"
                 priority = 100
                 auth = { type = "none" }
@@ -642,7 +642,7 @@ mod tests {
                 [providers.low]
                 display_name = "Low"
                 adapter = "test-adapter"
-                codec = "test-codec"
+                codecs = ["test-codec"]
                 base_url = "http://127.0.0.1"
                 priority = 1
                 auth = { type = "none" }

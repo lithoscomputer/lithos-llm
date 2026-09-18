@@ -66,26 +66,83 @@ string_id!(AdapterId);
 string_id!(CodecId);
 
 /// Built-in adapter identifiers.
+///
+/// An adapter owns transport and signing. `http` is the default and serves
+/// every codec that speaks plain HTTPS with a bearer or header credential;
+/// `bedrock` adds SigV4 signing and binary event-stream framing. Any other
+/// id names a factory the application registers through
+/// `ClientBuilder::adapter_factory`.
 pub mod adapter_ids {
-    pub const ANTHROPIC: &str = "anthropic";
     pub const BEDROCK: &str = "bedrock";
-    pub const GEMINI: &str = "gemini";
-    pub const OPENAI: &str = "openai";
-    pub const OPENAI_COMPATIBLE: &str = "openai-compatible";
-    /// The Vercel AI Gateway evaluation protocol, named by a model row
-    /// whose provider otherwise speaks a generation protocol.
-    pub const VERCEL_EVALUATION: &str = "vercel-evaluation";
+    pub const HTTP: &str = "http";
 }
 
 /// Built-in wire codec identifiers.
+///
+/// A codec owns one wire protocol and serves one operation family: the
+/// generation codecs serve `complete`, `stream`, and `count_input_tokens`;
+/// the evaluation codecs serve `evaluate`. A provider lists the codecs its
+/// host speaks in `codecs`, and each model row reaches a subset of them.
 pub mod codec_ids {
     pub const ANTHROPIC_MESSAGES: &str = "anthropic-messages";
     pub const BEDROCK_CONVERSE: &str = "bedrock-converse";
     pub const GEMINI_GENERATE: &str = "gemini-generate";
     pub const OPENAI_CHAT: &str = "openai-chat";
     pub const OPENAI_RESPONSES: &str = "openai-responses";
-    /// The wire codec the `vercel-evaluation` adapter implies.
+    /// The Vercel AI Gateway's evaluation protocol, `POST
+    /// /v4/ai/evaluation-model`.
     pub const VERCEL_EVALUATION: &str = "vercel-evaluation";
+}
+
+/// The operation family a codec serves.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum CodecFamily {
+    /// `complete`, `stream`, and `count_input_tokens`.
+    Generation,
+    /// `evaluate`.
+    Evaluation,
+    /// A codec id this crate does not know: a custom adapter's own protocol
+    /// name. Row codec derivation treats it as a generation codec, because
+    /// custom adapters bypass codec selection and serve every operation
+    /// themselves.
+    Unknown,
+}
+
+/// The operation family of a codec id.
+pub(crate) fn family(codec: &CodecId) -> CodecFamily {
+    match codec.as_str() {
+        codec_ids::ANTHROPIC_MESSAGES
+        | codec_ids::BEDROCK_CONVERSE
+        | codec_ids::GEMINI_GENERATE
+        | codec_ids::OPENAI_CHAT
+        | codec_ids::OPENAI_RESPONSES => CodecFamily::Generation,
+        codec_ids::VERCEL_EVALUATION => CodecFamily::Evaluation,
+        _ => CodecFamily::Unknown,
+    }
+}
+
+/// Whether a codec serves generation calls for row derivation: a known
+/// generation codec or an unknown one.
+pub(crate) fn serves_generation(codec: &CodecId) -> bool {
+    family(codec) != CodecFamily::Evaluation
+}
+
+/// The adapter ids the schema named before `adapter` and `codecs` were
+/// split, each with the codec it stood for. The loader rejects them with a
+/// message naming the replacement.
+const RETIRED_ADAPTER_IDS: [(&str, &str); 4] = [
+    ("openai-compatible", codec_ids::OPENAI_CHAT),
+    ("openai", codec_ids::OPENAI_RESPONSES),
+    ("anthropic", codec_ids::ANTHROPIC_MESSAGES),
+    ("gemini", codec_ids::GEMINI_GENERATE),
+];
+
+fn default_adapter() -> AdapterId {
+    AdapterId::new(adapter_ids::HTTP)
+}
+
+fn default_codecs() -> Vec<CodecId> {
+    vec![CodecId::new(codec_ids::OPENAI_CHAT)]
 }
 
 /// A resolved provider and model identity.
@@ -195,8 +252,16 @@ pub(super) struct ProviderRecord {
     display_name:      String,
     #[serde(default)]
     aliases:           Vec<String>,
+    #[serde(default = "default_adapter")]
     adapter:           AdapterId,
-    codec:             CodecId,
+    /// The retired one-codec field, accepted only so the loader can name
+    /// its replacement instead of reporting an unknown field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    codec:             Option<String>,
+    #[serde(default = "default_codecs")]
+    codecs:            Vec<CodecId>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    codec_options:     BTreeMap<CodecId, Value>,
     base_url:          String,
     auth:              AuthScheme,
     #[serde(default)]
@@ -233,7 +298,9 @@ pub struct CatalogProvider {
     #[serde(default)]
     aliases:           Vec<String>,
     adapter:           AdapterId,
-    codec:             CodecId,
+    codecs:            Vec<CodecId>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    codec_options:     BTreeMap<CodecId, Value>,
     base_url:          String,
     auth:              AuthScheme,
     #[serde(default)]
@@ -273,12 +340,48 @@ impl CatalogProvider {
         &self.aliases
     }
 
+    /// The adapter that carries this provider's requests: `http` (the
+    /// default), `bedrock`, or a custom factory id registered through
+    /// `ClientBuilder::adapter_factory`.
     pub fn adapter(&self) -> &AdapterId {
         &self.adapter
     }
 
-    pub fn codec(&self) -> &CodecId {
-        &self.codec
+    /// The wire protocols this host speaks, in catalog order.
+    ///
+    /// Defaults to `["openai-chat"]`. The client picks one codec per call:
+    /// the operation names the family, the row's [`CatalogModel::codecs`]
+    /// gives the candidates, and this list's order breaks ties.
+    pub fn codecs(&self) -> &[CodecId] {
+        &self.codecs
+    }
+
+    /// Raw options for one of this provider's codecs.
+    ///
+    /// The catalog does not interpret these. Each codec constructor
+    /// deserializes its own typed shape and reports its own errors. The
+    /// value is [`Value::Null`] when the catalog declares no options for
+    /// `codec`. Every key of `codec_options` names a codec in
+    /// [`codecs`](Self::codecs); the loader rejects any other.
+    pub fn codec_options(&self, codec: &CodecId) -> &Value {
+        self.codec_options.get(codec).unwrap_or(&Value::Null)
+    }
+
+    /// The codec a one-codec adapter is built around: the first generation
+    /// codec, else the first codec listed.
+    ///
+    /// Step 2 of .ai/plans/adapters-and-codecs.md replaces this with
+    /// per-call codec selection.
+    pub(crate) fn primary_codec(&self) -> &CodecId {
+        self.generation_codecs()
+            .next()
+            .or_else(|| self.codecs.first())
+            .expect("the loader rejects a provider with no codecs")
+    }
+
+    /// The listed codecs that serve generation calls, in catalog order.
+    pub(crate) fn generation_codecs(&self) -> impl Iterator<Item = &CodecId> {
+        self.codecs.iter().filter(|codec| serves_generation(codec))
     }
 
     pub fn base_url(&self) -> &str {
@@ -343,9 +446,12 @@ impl CatalogProvider {
 
     /// Raw adapter options for this provider.
     ///
-    /// The catalog does not interpret these. Each adapter factory deserializes
-    /// its own typed shape and reports its own errors. The value is
-    /// [`Value::Null`] when the catalog declares no options.
+    /// These are transport concerns: how the adapter dispatches, not what
+    /// goes in a request body. Options that change the wire protocol belong
+    /// in [`codec_options`](Self::codec_options) under their codec's id. The
+    /// catalog does not interpret either table. Each adapter factory
+    /// deserializes its own typed shape and reports its own errors. The
+    /// value is [`Value::Null`] when the catalog declares no options.
     pub fn adapter_options(&self) -> &Value {
         &self.adapter_options
     }
@@ -416,6 +522,41 @@ impl CatalogProvider {
         for alias in &record.aliases {
             super::validate_identifier("provider alias", alias, false)?;
         }
+        if let Some(codec) = record.codec {
+            return Err(CatalogError::RemovedCodecField {
+                provider: id.clone(),
+                codec,
+            });
+        }
+        if let Some((_, codec)) = RETIRED_ADAPTER_IDS
+            .iter()
+            .find(|(retired, _)| *retired == record.adapter.as_str())
+        {
+            return Err(CatalogError::RemovedAdapterId {
+                provider: id.clone(),
+                adapter:  record.adapter,
+                codec:    CodecId::new(*codec),
+            });
+        }
+        super::validate_identifier("adapter", record.adapter.as_str(), false)?;
+        if record.codecs.is_empty() {
+            return Err(CatalogError::EmptyCodecs {
+                provider: id.clone(),
+            });
+        }
+        for codec in &record.codecs {
+            super::validate_identifier("codec", codec.as_str(), false)?;
+        }
+        if let Some(codec) = record
+            .codec_options
+            .keys()
+            .find(|codec| !record.codecs.contains(codec))
+        {
+            return Err(CatalogError::UnknownCodecOptions {
+                provider: id.clone(),
+                codec:    codec.clone(),
+            });
+        }
         super::validate_default_headers(&id, &record.default_headers)?;
         let mut selectors = record
             .models
@@ -424,7 +565,8 @@ impl CatalogProvider {
             .collect::<BTreeSet<_>>();
         let mut models = BTreeMap::new();
         for (model_id, raw) in record.models {
-            let model = CatalogModel::try_from_record(id.clone(), model_id.clone(), raw)?;
+            let model =
+                CatalogModel::try_from_record(id.clone(), model_id.clone(), raw, &record.codecs)?;
             for alias in model.aliases() {
                 if !selectors.insert(alias.clone()) {
                     return Err(CatalogError::DuplicateModelSelector {
@@ -454,7 +596,8 @@ impl CatalogProvider {
             display_name: record.display_name,
             aliases: record.aliases,
             adapter: record.adapter,
-            codec: record.codec,
+            codecs: record.codecs,
+            codec_options: record.codec_options,
             base_url: record.base_url,
             auth: record.auth,
             priority: record.priority,

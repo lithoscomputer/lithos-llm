@@ -25,13 +25,13 @@ schema_version = 1
 
 [providers.openai-codex]
 display_name = "OpenAI Codex"
-adapter = "openai"
-codec = "openai-responses"
+codecs = ["openai-responses"]
 base_url = "https://chatgpt.com/backend-api/codex"
 priority = 90
 allow_passthrough = true
 default_model = "gpt-5.6-sol"
-adapter_options = { mode = "codex" }
+codec_options = { openai-responses = { mode = "codex" } }
+adapter_options = { force_streaming_complete = true, identify_application = true }
 
 [providers.openai-codex.auth]
 type = "bearer"

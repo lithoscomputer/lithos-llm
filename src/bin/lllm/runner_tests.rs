@@ -25,7 +25,7 @@ schema_version = 1
 display_name = "Alpha"
 aliases = ["a"]
 adapter = "fake"
-codec = "fake"
+codecs = ["fake"]
 base_url = "http://127.0.0.1"
 priority = 10
 default_model = "one"
@@ -41,7 +41,7 @@ protocol_options = { reasoning_effort_levels = true }
 [providers.beta]
 display_name = "Beta"
 adapter = "missing"
-codec = "fake"
+codecs = ["fake"]
 base_url = "http://127.0.0.1"
 priority = 1
 default_model = "two"
@@ -904,7 +904,7 @@ async fn model_query_prefers_the_higher_priority_provider() {
         [providers.first]
         display_name = "First"
         adapter = "fake"
-        codec = "fake"
+        codecs = ["fake"]
         base_url = "http://127.0.0.1"
         priority = 100
         default_model = "shared"
@@ -919,7 +919,7 @@ async fn model_query_prefers_the_higher_priority_provider() {
         [providers.aaa-router]
         display_name = "Router"
         adapter = "fake"
-        codec = "fake"
+        codecs = ["fake"]
         base_url = "http://127.0.0.1"
         priority = 30
         default_model = "shared"

@@ -4,7 +4,7 @@ schema_version = 1
 display_name = "Fixture"
 aliases = ["fx"]
 adapter = "fixture-adapter"
-codec = "openai-chat"
+codecs = ["openai-chat"]
 base_url = "http://127.0.0.1"
 auth = { type = "bearer" }
 priority = 7
@@ -27,27 +27,27 @@ metadata = { app = { mode = "model" } }
 [providers.header]
 display_name = "Header"
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "http://127.0.0.1"
 auth = { type = "header", name = "x-key" }
 
 [providers.headers]
 display_name = "Headers"
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "http://127.0.0.1"
 auth = { type = "headers" }
 
 [providers.aws]
 display_name = "AWS"
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "http://127.0.0.1"
 auth = { type = "aws", region = "us-east-1" }
 
 [providers.bedrock]
 display_name = "Bedrock"
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "http://127.0.0.1"
 auth = { type = "bedrock_bearer" }

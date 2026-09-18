@@ -48,10 +48,12 @@ impl AdapterFactory for Factory {
         provider: &CatalogProvider,
         context: &AdapterContext,
     ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        if provider.codec().as_str() != codec_ids::BEDROCK_CONVERSE {
+        // Step 2 of .ai/plans/adapters-and-codecs.md replaces this check
+        // with per-call codec dispatch.
+        if provider.primary_codec().as_str() != codec_ids::BEDROCK_CONVERSE {
             return Err(AdapterBuildError::UnsupportedCodec {
                 provider: provider.id().clone(),
-                codec:    provider.codec().clone(),
+                codec:    provider.primary_codec().clone(),
             });
         }
         // SigV4 needs the AWS crates. Reporting this as a build error keeps it
@@ -421,7 +423,7 @@ mod tests {
             [providers.bedrock]
             display_name = "Amazon Bedrock"
             adapter = "bedrock"
-            codec = "bedrock-converse"
+            codecs = ["bedrock-converse"]
             base_url = "{base_url}"
             default_model = "sonnet"
             auth = {{ type = "bedrock_bearer" }}
@@ -467,7 +469,7 @@ mod tests {
             [providers.bedrock]
             display_name = "Amazon Bedrock"
             adapter = "bedrock"
-            codec = "openai-chat"
+            codecs = ["openai-chat"]
             base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
             default_model = "sonnet"
             auth = { type = "bedrock_bearer" }

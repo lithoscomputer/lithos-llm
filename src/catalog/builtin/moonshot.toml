@@ -12,8 +12,6 @@ schema_version = 1
 
 [providers.moonshot]
 display_name = "Moonshot AI"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://api.moonshot.ai/v1"
 priority = 70
 allow_passthrough = true

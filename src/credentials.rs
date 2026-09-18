@@ -1037,8 +1037,6 @@ mod tests {
                     schema_version = 1
                     [providers."{id}"]
                     display_name = "Custom"
-                    adapter = "openai-compatible"
-                    codec = "openai-chat"
                     base_url = "http://127.0.0.1"
                     auth = {auth}
                     "#
@@ -1400,14 +1398,12 @@ mod tests {
                 schema_version = 1
                 [providers.openai]
                 display_name = "OpenAI"
-                adapter = "openai"
-                codec = "openai-responses"
+                codecs = ["openai-responses"]
                 base_url = "http://127.0.0.1"
                 auth = { type = "bearer" }
                 [providers.anthropic]
                 display_name = "Anthropic"
-                adapter = "anthropic"
-                codec = "anthropic-messages"
+                codecs = ["anthropic-messages"]
                 base_url = "http://127.0.0.1"
                 auth = { type = "header", name = "x-api-key" }
                 "#,
@@ -1513,20 +1509,14 @@ mod tests {
                 schema_version = 1
                 [providers.ready]
                 display_name = "Ready"
-                adapter = "openai-compatible"
-                codec = "openai-chat"
                 base_url = "http://127.0.0.1"
                 auth = { type = "none" }
                 [providers.broken]
                 display_name = "Broken"
-                adapter = "openai-compatible"
-                codec = "openai-chat"
                 base_url = "http://127.0.0.1"
                 auth = { type = "bearer" }
                 [providers.silent]
                 display_name = "Silent"
-                adapter = "openai-compatible"
-                codec = "openai-chat"
                 base_url = "http://127.0.0.1"
                 auth = { type = "bearer" }
                 "#,

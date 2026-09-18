@@ -7,7 +7,7 @@ schema_version = 1
 display_name = "Amazon Bedrock"
 aliases = ["aws-bedrock"]
 adapter = "bedrock"
-codec = "bedrock-converse"
+codecs = ["bedrock-converse"]
 base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
 # Below the direct providers and above the local ones: Bedrock is the route
 # for AWS shops, not a first choice when a direct key is present.

@@ -308,7 +308,7 @@ async fn imported_reasoning_survives_a_tool_turn() -> Result<(), Box<dyn StdErro
 }
 
 #[test]
-fn compatible_adapter_refuses_malformed_path_options() -> Result<(), Box<dyn StdError>> {
+fn the_chat_codec_refuses_malformed_path_options() -> Result<(), Box<dyn StdError>> {
     for options in [
         "{ base_url_is_api_root = \"yes\" }",
         "{ base_url_is_api_rooot = true }",
@@ -316,7 +316,7 @@ fn compatible_adapter_refuses_malformed_path_options() -> Result<(), Box<dyn Std
         let catalog = Catalog::builder()
             .with_builtin()
             .overlay_toml(&format!(
-                "schema_version = 1\n[providers.zai]\nadapter_options = {options}"
+                "schema_version = 1\n[providers.zai]\ncodec_options = {{ openai-chat = {options} }}"
             ))?
             .build()?;
         let build = Client::builder()

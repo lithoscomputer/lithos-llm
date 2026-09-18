@@ -3,7 +3,7 @@ schema_version = 1
 [providers.alpha]
 display_name = "Alpha"
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "https://example.com"
 priority = 20
 auth = { type = "none" }
@@ -16,7 +16,7 @@ capabilities = { text = true }
 [providers.beta]
 display_name = "Beta"
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "https://example.com"
 priority = 10
 default_model = "two"

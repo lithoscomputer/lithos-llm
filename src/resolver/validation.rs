@@ -145,7 +145,7 @@ mod tests {
         [providers.alpha]
         display_name = "Alpha"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         allow_passthrough = true
         auth = { type = "none" }
@@ -170,7 +170,7 @@ mod tests {
         let catalog = Catalog::builder().toml_layer("test", CATALOG)?.build()?;
         let provider = catalog.provider("alpha")?.clone();
         let model = if model == "passthrough" {
-            CatalogModel::passthrough(provider.id().clone(), ModelId::new(model))
+            CatalogModel::passthrough(&provider, ModelId::new(model))
         } else {
             catalog.model("alpha", model)?.clone()
         };

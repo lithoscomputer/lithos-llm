@@ -16,15 +16,15 @@ use crate::adapter::{
     DEFAULT_STREAM_IDLE_TIMEOUT, InputTokenCount, ProviderAdapter,
 };
 use crate::catalog::{
-    AdapterId, Catalog, CatalogError, CatalogModel, CatalogProvider, ModelHandle, ModelId,
-    ProviderId, adapter_ids,
+    AdapterId, Catalog, CatalogError, CatalogModel, CatalogProvider, CodecFamily, CodecId,
+    ModelHandle, ModelId, ProviderId, adapter_ids, family,
 };
 #[cfg(all(feature = "builtin-catalog", feature = "environment-credentials"))]
 use crate::credentials::ConventionalCredentials;
 use crate::credentials::{self, CredentialError, CredentialProvider, NoCredentials};
 use crate::evaluation::{Evaluation, State, Verdict, validate};
 use crate::middleware::{Call, CallContext, CallGuard, Middleware, Operation, Output, Pipeline};
-use crate::providers::register_builtin;
+use crate::providers::{builtin_factory_for, register_builtin};
 use crate::resolver::{
     AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
 };
@@ -639,10 +639,10 @@ impl ClientBuilder {
     /// Uses `adapter` for `provider` instead of building one from the
     /// provider's `adapter` factory.
     ///
-    /// This replaces the provider-level adapter only. A model row that names
-    /// its own `adapter` still gets that adapter from the registered factory,
-    /// so the row is served by the factory's adapter and every other row by
-    /// this one.
+    /// An explicit adapter owns its own wire handling: it receives every
+    /// operation on the provider, and its own
+    /// [`evaluates_natively`](ProviderAdapter::evaluates_natively) decides
+    /// native versus judge. The provider's `codecs` do not apply to it.
     pub fn adapter(
         mut self,
         provider: impl Into<ProviderId>,
@@ -669,13 +669,14 @@ impl ClientBuilder {
     /// [`ClientBuild::issues`] in that same order. A client with no available
     /// provider is a valid outcome. Credentials are never read here.
     ///
-    /// A model row that names its own `adapter` gets a second adapter from
-    /// that factory, built with the provider's credentials and base URL, and
-    /// every call on that row goes to it. The provider's own adapter still
-    /// serves the provider's other rows. A row whose adapter cannot be built
-    /// is reported as an issue naming the row; the provider stays available
-    /// for its other rows, and [`Client::available_providers`] reads only the
-    /// provider-level outcome.
+    /// A provider's `adapter` is `http` (the default), `bedrock`, or a custom
+    /// id registered with [`adapter_factory`](Self::adapter_factory). A
+    /// built-in adapter is built for the provider's `codecs`; a row on a
+    /// built-in adapter whose codec set reaches an evaluation codec that the
+    /// provider's adapter does not serve gets that codec's adapter as well,
+    /// and a failure there is reported as an issue naming the row while the
+    /// provider stays available for its other rows.
+    /// [`Client::available_providers`] reads only the provider-level outcome.
     ///
     /// # Errors
     ///
@@ -779,20 +780,10 @@ impl ClientBuilder {
                 continue;
             }
             ready.push(provider.id().clone());
-            let outcome = if let Some(adapter) = self.registry.explicit(provider.id()) {
-                Ok(adapter)
-            } else if let Some(factory) = self.registry.factory(provider.adapter()) {
-                factory
-                    .create(provider, &context)
-                    .map_err(ProviderBuildCause::Adapter)
-            } else if is_disabled_builtin_adapter(provider.adapter()) {
-                Err(ProviderBuildCause::AdapterFeatureDisabled {
-                    adapter: provider.adapter().clone(),
-                })
-            } else {
-                Err(ProviderBuildCause::MissingAdapterFactory {
-                    adapter: provider.adapter().clone(),
-                })
+            let explicit = self.registry.explicit(provider.id());
+            let outcome = match &explicit {
+                Some(adapter) => Ok(adapter.clone()),
+                None => build_provider_adapter(&self.registry, provider, &context),
             };
             match outcome {
                 Ok(adapter) => {
@@ -805,21 +796,32 @@ impl ClientBuilder {
                     cause,
                 }),
             }
-            // A row that names its own adapter is built whether or not the
-            // provider's adapter was: its outcome is the row's, and the
-            // issue list should say so.
-            for (model, adapter_id) in overriding_rows(provider) {
-                match build_row_adapter(&self.registry, provider, adapter_id, &context) {
-                    Ok(adapter) => {
-                        let handle = ModelHandle::new(provider.id().clone(), model.id().clone());
-                        row_adapters.insert(handle, adapter);
+            // Step 2 of .ai/plans/adapters-and-codecs.md replaces this. Until
+            // the `http` adapter dispatches on the call's codec, a row that
+            // reaches an evaluation codec the provider-level adapter does not
+            // serve gets that codec's one-codec adapter. An explicit or
+            // custom adapter serves every operation itself (decision 9).
+            if explicit.is_none() && is_builtin_adapter(provider.adapter()) {
+                let mut built: BTreeMap<&CodecId, Arc<dyn ProviderAdapter>> = BTreeMap::new();
+                for (model, codec) in evaluation_rows_beyond_the_provider_adapter(provider) {
+                    let outcome = match built.get(codec) {
+                        Some(adapter) => Ok(adapter.clone()),
+                        None => build_codec_adapter(&self.registry, provider, codec, &context),
+                    };
+                    match outcome {
+                        Ok(adapter) => {
+                            built.insert(codec, adapter.clone());
+                            let handle =
+                                ModelHandle::new(provider.id().clone(), model.id().clone());
+                            row_adapters.insert(handle, adapter);
+                        }
+                        Err(cause) => issues.push(ProviderBuildIssue {
+                            provider: provider.id().clone(),
+                            model: Some(model.id().clone()),
+                            adapter: provider.adapter().clone(),
+                            cause,
+                        }),
                     }
-                    Err(cause) => issues.push(ProviderBuildIssue {
-                        provider: provider.id().clone(),
-                        model: Some(model.id().clone()),
-                        adapter: adapter_id.clone(),
-                        cause,
-                    }),
                 }
             }
         }
@@ -844,39 +846,103 @@ impl ClientBuilder {
     }
 }
 
-/// Builds the adapter one model row names in place of its provider's.
+/// Builds the provider-level adapter from the registered factories.
 ///
-/// The row's adapter always comes from a factory: an explicit
-/// [`ClientBuilder::adapter`] registration is provider-level and does not
-/// reach here.
-fn build_row_adapter(
+/// `http` resolves to the built-in factory of the provider's primary codec
+/// and `bedrock` to the Bedrock factory; any other id is a custom factory
+/// registered through [`ClientBuilder::adapter_factory`].
+///
+/// Step 2 of .ai/plans/adapters-and-codecs.md replaces the `http` arm with
+/// one factory that builds every listed codec.
+fn build_provider_adapter(
     registry: &AdapterRegistry,
     provider: &CatalogProvider,
-    adapter: &AdapterId,
     context: &AdapterContext,
 ) -> Result<Arc<dyn ProviderAdapter>, ProviderBuildCause> {
-    if let Some(factory) = registry.factory(adapter) {
+    let factory = match provider.adapter().as_str() {
+        adapter_ids::HTTP => {
+            let codec = provider.primary_codec();
+            match builtin_factory_for(codec) {
+                Some(factory) if factory != adapter_ids::BEDROCK => AdapterId::new(factory),
+                _ => {
+                    return Err(ProviderBuildCause::Adapter(
+                        AdapterBuildError::UnsupportedCodec {
+                            provider: provider.id().clone(),
+                            codec:    codec.clone(),
+                        },
+                    ));
+                }
+            }
+        }
+        _ => provider.adapter().clone(),
+    };
+    build_from_factory(registry, provider, &factory, context)
+}
+
+/// Builds the one-codec adapter for an evaluation codec a row reaches.
+///
+/// Step 2 of .ai/plans/adapters-and-codecs.md replaces this.
+fn build_codec_adapter(
+    registry: &AdapterRegistry,
+    provider: &CatalogProvider,
+    codec: &CodecId,
+    context: &AdapterContext,
+) -> Result<Arc<dyn ProviderAdapter>, ProviderBuildCause> {
+    let Some(factory) = builtin_factory_for(codec) else {
+        return Err(ProviderBuildCause::Adapter(
+            AdapterBuildError::UnsupportedCodec {
+                provider: provider.id().clone(),
+                codec:    codec.clone(),
+            },
+        ));
+    };
+    build_from_factory(registry, provider, &AdapterId::new(factory), context)
+}
+
+/// Runs the factory registered under `factory`, reporting a missing one in
+/// terms of the provider's own `adapter` id.
+fn build_from_factory(
+    registry: &AdapterRegistry,
+    provider: &CatalogProvider,
+    factory: &AdapterId,
+    context: &AdapterContext,
+) -> Result<Arc<dyn ProviderAdapter>, ProviderBuildCause> {
+    if let Some(factory) = registry.factory(factory) {
         factory
             .create(provider, context)
             .map_err(ProviderBuildCause::Adapter)
-    } else if is_disabled_builtin_adapter(adapter) {
+    } else if is_disabled_builtin_adapter(factory.as_str()) {
         Err(ProviderBuildCause::AdapterFeatureDisabled {
-            adapter: adapter.clone(),
+            adapter: provider.adapter().clone(),
         })
     } else {
         Err(ProviderBuildCause::MissingAdapterFactory {
-            adapter: adapter.clone(),
+            adapter: provider.adapter().clone(),
         })
     }
 }
 
-/// The provider's rows that name their own adapter, with that adapter id.
-fn overriding_rows(
+/// The provider's rows that reach an evaluation codec its provider-level
+/// adapter does not serve, with that codec.
+///
+/// Step 2 of .ai/plans/adapters-and-codecs.md replaces this.
+fn evaluation_rows_beyond_the_provider_adapter(
     provider: &CatalogProvider,
-) -> impl Iterator<Item = (&CatalogModel, &AdapterId)> {
-    provider
-        .models()
-        .filter_map(|model| model.adapter().map(|adapter| (model, adapter)))
+) -> impl Iterator<Item = (&CatalogModel, &CodecId)> {
+    let served = provider.primary_codec();
+    provider.models().flat_map(move |model| {
+        model
+            .codecs()
+            .iter()
+            .filter(move |codec| family(codec) == CodecFamily::Evaluation && *codec != served)
+            .map(move |codec| (model, codec))
+    })
+}
+
+/// Whether `adapter` is one this crate builds, as opposed to a custom
+/// factory id.
+fn is_builtin_adapter(adapter: &AdapterId) -> bool {
+    matches!(adapter.as_str(), adapter_ids::HTTP | adapter_ids::BEDROCK)
 }
 
 /// The evaluation's state as the one user message of a stand-in request.
@@ -887,8 +953,9 @@ fn state_text(evaluation: &Evaluation) -> String {
     }
 }
 
-fn is_disabled_builtin_adapter(adapter: &AdapterId) -> bool {
-    match adapter.as_str() {
+/// Whether `factory` is a built-in factory that this build left out.
+fn is_disabled_builtin_adapter(factory: &str) -> bool {
+    match factory {
         adapter_ids::BEDROCK => !cfg!(feature = "bedrock"),
         _ => false,
     }
@@ -917,18 +984,17 @@ pub struct ClientBuild {
     pub issues:            Vec<ProviderBuildIssue>,
 }
 
-/// One provider, or one model row with its own adapter, that could not be
+/// One provider, or one model row's evaluation codec, that could not be
 /// constructed.
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct ProviderBuildIssue {
     pub provider: ProviderId,
-    /// The model row whose own `adapter` failed to build. `None` when the
+    /// The model row whose evaluation codec failed to build. `None` when the
     /// provider's adapter is the one that failed; then the provider is not
     /// available. `Some` leaves the provider available for its other rows.
     pub model:    Option<ModelId>,
-    /// The adapter that could not be built: the row's when `model` is
-    /// `Some`, else the provider's.
+    /// The provider's `adapter`.
     pub adapter:  AdapterId,
     pub cause:    ProviderBuildCause,
 }
@@ -979,7 +1045,7 @@ mod tests {
     use crate::adapter::{
         AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter, ResolvedCall,
     };
-    use crate::catalog::{AdapterId, Catalog, CatalogProvider, ModelId, ProviderId};
+    use crate::catalog::{AdapterId, Catalog, CatalogProvider, ModelHandle, ModelId, ProviderId};
     use crate::credentials::{CredentialError, CredentialProvider, Credentials, StaticCredentials};
     use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
     use crate::types::{
@@ -994,7 +1060,7 @@ mod tests {
         display_name = "Alpha"
         aliases = ["a"]
         adapter = "alpha-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         priority = 10
         allow_passthrough = true
@@ -1012,7 +1078,7 @@ mod tests {
         [providers.beta]
         display_name = "Beta"
         adapter = "beta-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         priority = 5
         default_model = "two"
@@ -1028,7 +1094,7 @@ mod tests {
         [providers.gamma]
         display_name = "Gamma"
         adapter = "gamma-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         priority = 1
         default_model = "three"
@@ -1095,7 +1161,7 @@ mod tests {
         ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
             Err(AdapterBuildError::UnsupportedCodec {
                 provider: provider.id().clone(),
-                codec:    provider.codec().clone(),
+                codec:    provider.primary_codec().clone(),
             })
         }
     }
@@ -1682,28 +1748,121 @@ mod tests {
         Ok(())
     }
 
-    /// Adds a second `alpha` row whose own adapter is `row-adapter`.
-    const ROW_OVERRIDE_OVERLAY: &str = r#"
-        [providers.alpha.models.two]
-        display_name = "Two"
-        api_model = "alpha-two-v1"
-        adapter = "row-adapter"
+    /// A provider on the default `http` adapter that lists the Chat codec
+    /// and the Vercel evaluation codec, as the built-in `vercel` provider
+    /// does, with one generation row and one native evaluation row.
+    const MIXED_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.vercel]
+        display_name = "Vercel"
+        codecs = ["openai-chat", "vercel-evaluation"]
+        base_url = "http://127.0.0.1"
+        default_model = "chat"
+        auth = { type = "none" }
+
+        [providers.vercel.models.chat]
+        display_name = "Chat"
+        api_model = "chat"
         capabilities = { text = true }
+
+        [providers.vercel.models.jev]
+        display_name = "Jev"
+        api_model = "typesafe-ai/jev"
+        capabilities = { evaluation = { choice = true, score = true, boolean = true } }
     "#;
 
-    fn row_override_catalog() -> Result<Catalog, Box<dyn StdError>> {
-        Ok(Catalog::builder()
-            .overlay_toml(TEST_CATALOG)?
-            .overlay_toml(ROW_OVERRIDE_OVERLAY)?
-            .build()?)
-    }
-
-    #[tokio::test]
-    async fn a_row_override_without_a_factory_is_an_issue_naming_the_row()
+    /// Until step 2 of .ai/plans/adapters-and-codecs.md, a row on a built-in
+    /// adapter that reaches an evaluation codec beyond the provider's primary
+    /// codec is served by that codec's own adapter, with no row `adapter`
+    /// field in the catalog.
+    #[test]
+    fn an_evaluation_row_on_a_mixed_http_provider_gets_its_codec_adapter()
     -> Result<(), Box<dyn StdError>> {
         let build = Client::builder()
-            .catalog(row_override_catalog()?)
-            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .catalog(Catalog::builder().overlay_toml(MIXED_CATALOG)?.build()?)
+            .build()?;
+
+        assert!(build.issues.is_empty(), "{:?}", build.issues);
+        assert_eq!(available_ids(&build.client), ["vercel"]);
+        let pipeline = &build.client.pipeline;
+        let provider = ProviderId::new("vercel");
+        assert_eq!(pipeline.adapters[&provider].id().as_str(), "http");
+        let jev = pipeline
+            .row_adapters
+            .get(&ModelHandle::new(provider.clone(), ModelId::new("jev")))
+            .ok_or("the evaluation row gets its codec's adapter")?;
+        assert_eq!(jev.id().as_str(), "vercel-evaluation");
+        assert!(jev.evaluates_natively());
+        assert!(
+            !pipeline
+                .row_adapters
+                .contains_key(&ModelHandle::new(provider, ModelId::new("chat"))),
+            "a generation row is served by the provider's adapter"
+        );
+        Ok(())
+    }
+
+    /// A custom adapter owns every operation on its provider (decision 9 of
+    /// .ai/plans/adapters-and-codecs.md), so no row adapter is built for it
+    /// however its rows' codec sets read.
+    #[test]
+    fn a_custom_adapter_gets_no_row_adapters() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .overlay_toml(MIXED_CATALOG)?
+            .overlay_toml(
+                r#"
+                [providers.vercel]
+                adapter = "alpha-adapter"
+                "#,
+            )?
+            .build()?;
+        let factory = CountingFactory::default();
+
+        let build = Client::builder()
+            .catalog(catalog)
+            .adapter_factory("alpha-adapter", factory.clone())
+            .build()?;
+
+        assert!(build.issues.is_empty(), "{:?}", build.issues);
+        assert_eq!(factory.created.load(Ordering::SeqCst), 1);
+        assert!(build.client.pipeline.row_adapters.is_empty());
+        Ok(())
+    }
+
+    /// The same holds for an explicit adapter installed with
+    /// [`ClientBuilder::adapter`].
+    #[test]
+    fn an_explicit_adapter_gets_no_row_adapters() -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(Catalog::builder().overlay_toml(MIXED_CATALOG)?.build()?)
+            .adapter("vercel", FakeAdapter {
+                id: AdapterId::new("explicit"),
+            })
+            .build()?;
+
+        assert!(build.issues.is_empty(), "{:?}", build.issues);
+        assert!(build.client.pipeline.row_adapters.is_empty());
+        Ok(())
+    }
+
+    /// An `http` provider whose primary codec this crate does not build is
+    /// one provider issue naming the codec, not a client failure.
+    #[test]
+    fn an_http_provider_on_an_unknown_codec_is_an_issue_naming_the_codec()
+    -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .overlay_toml(TEST_CATALOG)?
+            .overlay_toml(
+                r#"
+                [providers.alpha]
+                adapter = "http"
+                "#,
+            )?
+            .build()?;
+
+        let build = Client::builder()
+            .catalog(catalog)
             .adapter_factory("beta-adapter", CountingFactory::default())
             .adapter_factory("gamma-adapter", CountingFactory::default())
             .build()?;
@@ -1711,95 +1870,14 @@ mod tests {
         assert_eq!(build.issues.len(), 1);
         let issue = &build.issues[0];
         assert_eq!(issue.provider.as_str(), "alpha");
-        assert_eq!(issue.model.as_ref().map(ModelId::as_str), Some("two"));
-        assert_eq!(issue.adapter.as_str(), "row-adapter");
+        assert_eq!(issue.model, None);
+        assert_eq!(issue.adapter.as_str(), "http");
         assert!(matches!(
-            issue.cause,
-            ProviderBuildCause::MissingAdapterFactory { ref adapter } if adapter.as_str() == "row-adapter"
+            &issue.cause,
+            ProviderBuildCause::Adapter(AdapterBuildError::UnsupportedCodec { codec, .. })
+                if codec.as_str() == "test-codec"
         ));
-
-        // The provider's own adapter built, so its plain row still serves.
-        assert_eq!(available_ids(&build.client), ["alpha", "beta", "gamma"]);
-        let request = Request::builder().model("alpha/one").user("hi").build()?;
-        let response = build.client.complete(request).await?;
-        assert_eq!(response.model.to_string(), "alpha/one");
-        Ok(())
-    }
-
-    #[test]
-    fn a_row_override_whose_factory_fails_is_an_issue_naming_the_row()
-    -> Result<(), Box<dyn StdError>> {
-        let build = Client::builder()
-            .catalog(row_override_catalog()?)
-            .adapter_factory("alpha-adapter", CountingFactory::default())
-            .adapter_factory("row-adapter", FailingFactory)
-            .enabled_providers(["alpha"])
-            .build()?;
-
-        assert_eq!(build.issues.len(), 1);
-        let issue = &build.issues[0];
-        assert_eq!(issue.provider.as_str(), "alpha");
-        assert_eq!(issue.model.as_ref().map(ModelId::as_str), Some("two"));
-        assert_eq!(issue.adapter.as_str(), "row-adapter");
-        assert!(matches!(
-            issue.cause,
-            ProviderBuildCause::Adapter(AdapterBuildError::UnsupportedCodec { .. })
-        ));
-        assert_eq!(available_ids(&build.client), ["alpha"]);
-        Ok(())
-    }
-
-    #[test]
-    fn available_providers_come_from_the_provider_adapter_alone() -> Result<(), Box<dyn StdError>> {
-        let provider_factory = CountingFactory::default();
-        let row_factory = CountingFactory::default();
-        let build = Client::builder()
-            .catalog(row_override_catalog()?)
-            .adapter_factory("alpha-adapter", provider_factory.clone())
-            .adapter_factory("row-adapter", row_factory.clone())
-            .enabled_providers(["alpha"])
-            .build()?;
-
-        // A row override that builds adds no issue and no provider.
-        assert!(build.issues.is_empty());
-        assert_eq!(available_ids(&build.client), ["alpha"]);
-        assert_eq!(provider_factory.created.load(Ordering::SeqCst), 1);
-        assert_eq!(row_factory.created.load(Ordering::SeqCst), 1);
-
-        // A provider whose own adapter failed is unavailable even though its
-        // row override built; the issue list names the provider, not the row.
-        let row_factory = CountingFactory::default();
-        let build = Client::builder()
-            .catalog(row_override_catalog()?)
-            .adapter_factory("alpha-adapter", FailingFactory)
-            .adapter_factory("row-adapter", row_factory.clone())
-            .enabled_providers(["alpha"])
-            .build()?;
-
-        assert!(available_ids(&build.client).is_empty());
-        assert_eq!(build.issues.len(), 1);
-        assert_eq!(build.issues[0].provider.as_str(), "alpha");
-        assert_eq!(build.issues[0].model, None);
-        assert_eq!(build.issues[0].adapter.as_str(), "alpha-adapter");
-        assert_eq!(row_factory.created.load(Ordering::SeqCst), 1);
-        Ok(())
-    }
-
-    #[test]
-    fn an_explicit_provider_adapter_leaves_the_row_override_to_its_factory()
-    -> Result<(), Box<dyn StdError>> {
-        let row_factory = CountingFactory::default();
-        let build = Client::builder()
-            .catalog(row_override_catalog()?)
-            .adapter("alpha", FakeAdapter {
-                id: AdapterId::new("alpha-adapter"),
-            })
-            .adapter_factory("row-adapter", row_factory.clone())
-            .enabled_providers(["alpha"])
-            .build()?;
-
-        assert!(build.issues.is_empty());
-        assert_eq!(row_factory.created.load(Ordering::SeqCst), 1);
+        assert_eq!(available_ids(&build.client), ["beta", "gamma"]);
         Ok(())
     }
 
@@ -1843,7 +1921,7 @@ mod tests {
         [providers.delta]
         display_name = "Delta"
         adapter = "json-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         auth = { type = "none" }
 

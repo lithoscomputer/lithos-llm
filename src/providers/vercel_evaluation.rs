@@ -1,9 +1,12 @@
-//! The `vercel-evaluation` adapter: the Vercel AI Gateway's evaluation
-//! protocol, for a model row that names this adapter over its provider's.
+//! The `vercel-evaluation` codec's adapter: the Vercel AI Gateway's
+//! evaluation protocol, built for a row whose codec set reaches it.
 //!
 //! The adapter evaluates and nothing else. `complete`, `stream`, and
-//! `count_input_tokens` are refused before dispatch, because the row that
-//! names this adapter is an evaluation model with no generation surface.
+//! `count_input_tokens` are refused before dispatch, because a row that
+//! reaches this codec is an evaluation model with no generation surface.
+//!
+//! Step 2 of .ai/plans/adapters-and-codecs.md folds this into the HTTP
+//! adapter, which then dispatches on the resolved call's codec.
 
 use std::mem::take;
 use std::sync::Arc;
@@ -15,7 +18,7 @@ use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
     ResolvedCall, ResolvedEvaluation,
 };
-use crate::catalog::{AdapterId, CatalogProvider, adapter_ids};
+use crate::catalog::{AdapterId, CatalogProvider, codec_ids};
 use crate::codecs::EvaluationCodec;
 use crate::codecs::vercel_evaluation::VercelEvaluationCodec;
 use crate::credentials::CredentialProvider;
@@ -29,16 +32,15 @@ pub(super) struct Factory;
 impl AdapterFactory for Factory {
     /// Builds the adapter for any provider.
     ///
-    /// The provider's `codec` field names its generation codec and is
-    /// ignored here: a row that names this adapter implies its codec. There
-    /// are no adapter options.
+    /// The provider's other codecs are ignored here: this factory serves
+    /// the one codec it is named for. There are no options.
     fn create(
         &self,
         _provider: &CatalogProvider,
         context: &AdapterContext,
     ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
         Ok(Arc::new(VercelEvaluationAdapter {
-            id:          AdapterId::new(adapter_ids::VERCEL_EVALUATION),
+            id:          AdapterId::new(codec_ids::VERCEL_EVALUATION),
             codec:       VercelEvaluationCodec,
             transport:   HttpTransport::new(context.http().clone())
                 .with_stream_idle_timeout(context.stream_idle_timeout())
@@ -49,8 +51,8 @@ impl AdapterFactory for Factory {
 }
 
 struct VercelEvaluationAdapter {
-    /// Always `vercel-evaluation`: the adapter family, not the provider's
-    /// own adapter id.
+    /// Always `vercel-evaluation`: the codec this adapter serves, not the
+    /// provider's own adapter id.
     id:          AdapterId,
     codec:       VercelEvaluationCodec,
     transport:   HttpTransport,
@@ -133,8 +135,8 @@ mod tests {
     use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
     use crate::types::{CostSource, ErrorKind, Request};
 
-    /// A provider whose `codec` is the Chat codec, as the built-in `vercel`
-    /// provider's is, with a priced Jev row that names this adapter.
+    /// A provider shaped like the built-in `vercel` provider, with a priced
+    /// Jev row whose explicit evaluation claim reaches this codec.
     fn catalog(base_url: &str) -> Result<Catalog, Box<dyn StdError>> {
         let source = format!(
             r#"
@@ -142,8 +144,7 @@ mod tests {
 
             [providers.vercel]
             display_name = "Vercel"
-            adapter = "vercel-evaluation"
-            codec = "openai-chat"
+            codecs = ["openai-chat", "vercel-evaluation"]
             base_url = "{base_url}"
             default_model = "jev"
             auth = {{ type = "none" }}
@@ -189,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn the_factory_ignores_the_codec_field_and_reports_its_own_id() -> Result<(), Box<dyn StdError>>
+    fn the_factory_ignores_the_other_codecs_and_reports_its_own_id() -> Result<(), Box<dyn StdError>>
     {
         let adapter = adapter(&catalog("http://127.0.0.1:1")?)?;
 

@@ -6,6 +6,42 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: the catalog schema names one adapter and many codecs per
+  provider. The provider `codec` field is removed; write `codecs = ["x"]`
+  in place of `codec = "x"`. The four protocol-named adapter ids are removed
+  and the loader rejects each with an error naming the fix: delete
+  `adapter = "openai-compatible"` (the defaults cover it), and replace
+  `adapter = "openai"` with `codecs = ["openai-responses"]`,
+  `adapter = "anthropic"` with `codecs = ["anthropic-messages"]`, and
+  `adapter = "gemini"` with `codecs = ["gemini-generate"]`. `adapter` now
+  defaults to `"http"`; its built-in values are `"http"` and `"bedrock"`,
+  and any other id still names a custom factory. `codecs` defaults to
+  `["openai-chat"]`, may list several codecs in preference order, and may
+  not be empty. `codec_options` is a new provider table keyed by codec id
+  that carries one codec's own options; a key naming an unlisted codec is
+  a loader error. Z.ai's `base_url_is_api_root` moves there under
+  `openai-chat`, and Codex splits into
+  `codec_options = { openai-responses = { mode = "codex" } }` plus
+  `adapter_options = { force_streaming_complete = true, identify_application
+  = true }`; `adapter_options` now carries transport concerns only.
+  `CatalogProvider::codec()` is replaced by `codecs() -> &[CodecId]` and
+  `codec_options(&CodecId) -> &Value`; `adapter_ids` shrinks to `HTTP` and
+  `BEDROCK` (`ANTHROPIC`, `GEMINI`, `OPENAI`, `OPENAI_COMPATIBLE`, and
+  `VERCEL_EVALUATION` are gone; `codec_ids::VERCEL_EVALUATION` stays).
+  Model rows gain `codecs`, an optional subset of the provider's list that
+  `CatalogModel::codecs()` returns; without it the set derives at load time
+  from the row's explicit claims only: a generation claim that is not
+  `false` reaches the provider's generation codecs, an explicit
+  `capabilities.evaluation` with a kind `true` reaches its evaluation
+  codecs, and a row claiming neither keeps the generation codecs. The
+  derived judge claim of a JSON Schema row never reaches an evaluation
+  codec. Passthrough rows get the generation codecs only. The row-level
+  `adapter` field and `CatalogModel::adapter()` added by the previous entry
+  are removed; `vercel/jev` derives `["vercel-evaluation"]` from its claim.
+  The built-in catalog and every test and documentation catalog migrate in
+  this change. `ProviderBuildIssue::adapter` is always the provider's
+  `adapter` now.
+
 - Evaluation: typed questions about one piece of state. `Client::evaluate`
   answers an `Evaluation` with a `Verdict`; `evaluate_with_context` takes an
   application call context and `resolve_evaluation_route` returns the route it

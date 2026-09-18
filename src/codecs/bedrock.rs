@@ -1457,7 +1457,7 @@ mod tests {
         [providers.bedrock]
         display_name = "Amazon Bedrock"
         adapter = "bedrock"
-        codec = "bedrock-converse"
+        codecs = ["bedrock-converse"]
         base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
         default_model = "older-claude"
         auth = { type = "none" }
@@ -1475,7 +1475,7 @@ mod tests {
         [providers.bedrock]
         display_name = "Amazon Bedrock"
         adapter = "bedrock"
-        codec = "bedrock-converse"
+        codecs = ["bedrock-converse"]
         base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
         allow_passthrough = true
         default_model = "older-claude"
@@ -1988,7 +1988,7 @@ mod tests {
         [providers.bedrock]
         display_name = "Amazon Bedrock"
         adapter = "bedrock"
-        codec = "bedrock-converse"
+        codecs = ["bedrock-converse"]
         base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
         default_model = "llama"
         auth = { type = "none" }

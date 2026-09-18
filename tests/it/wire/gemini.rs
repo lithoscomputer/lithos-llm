@@ -70,7 +70,7 @@ const COUNT_PATH: &str = "/v1beta/models/gemini-3.1-pro-002:countTokens";
 // ===========================================================================
 
 fn provider() -> support::WireProvider<'static> {
-    support::WireProvider::new(PROVIDER, "gemini", "gemini-generate", MODEL)
+    support::WireProvider::new(PROVIDER, "gemini-generate", MODEL)
         .with_api_model(API_MODEL)
         .with_auth("{ type = \"header\", name = \"x-goog-api-key\" }")
         .with_capabilities(

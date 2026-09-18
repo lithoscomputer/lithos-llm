@@ -1,6 +1,6 @@
 //! The Vercel AI Gateway live suite.
 //!
-//! The gateway runs through the `openai-compatible` adapter and the
+//! The gateway runs through the default `http` adapter and the
 //! `openai-chat` codec, so this suite is both the endpoint check for Vercel
 //! itself and a live exercise of that shared code path. The gateway-specific
 //! behavior under test is the in-band `usage.cost` field, the Anthropic-style
@@ -14,10 +14,11 @@
 //! cells exist.
 //!
 //! One row is outside the macros: `jev`, TypeSafe's evaluation model, which
-//! names the `vercel-evaluation` adapter and claims no generation
-//! capability. Its cells are the [`evaluate`] module, and they record and
-//! replay through the twin's `/v4/ai/evaluation-model` passthrough (twins
-//! PR #11) like every other cell here.
+//! reaches the `vercel-evaluation` codec through its explicit evaluation
+//! claim and claims no generation capability. Its cells are the [`evaluate`]
+//! module, and they record and replay through the twin's
+//! `/v4/ai/evaluation-model` passthrough (twins PR #11) like every other cell
+//! here.
 
 mod caching;
 mod evaluate;

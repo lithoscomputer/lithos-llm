@@ -192,9 +192,9 @@ mod tests {
     use serde::Deserialize;
 
     use super::{Catalog, CatalogError};
-    use crate::catalog::AdapterId;
     #[cfg(feature = "builtin-catalog")]
-    use crate::catalog::{AuthScheme, Metadata, ProviderId, Support, adapter_ids};
+    use crate::catalog::{AuthScheme, Metadata, ProviderId, Support, adapter_ids, codec_ids};
+    use crate::catalog::{CatalogModel, CodecFamily, CodecId, ModelId, family};
     #[cfg(feature = "builtin-catalog")]
     use crate::evaluation::QuestionKind;
     #[cfg(feature = "builtin-catalog")]
@@ -216,27 +216,22 @@ mod tests {
         "gpt6",
     ];
 
-    /// The adapter ids a built-in row may name in its `adapter` override:
-    /// the adapters this crate compiles.
+    /// The codec ids this crate builds. A built-in provider lists nothing
+    /// else, so every built-in row can be served.
     #[cfg(feature = "builtin-catalog")]
-    const BUILTIN_ADAPTERS: [&str; 6] = [
-        adapter_ids::ANTHROPIC,
-        adapter_ids::BEDROCK,
-        adapter_ids::GEMINI,
-        adapter_ids::OPENAI,
-        adapter_ids::OPENAI_COMPATIBLE,
-        adapter_ids::VERCEL_EVALUATION,
+    const BUILTIN_CODECS: [&str; 6] = [
+        codec_ids::ANTHROPIC_MESSAGES,
+        codec_ids::BEDROCK_CONVERSE,
+        codec_ids::GEMINI_GENERATE,
+        codec_ids::OPENAI_CHAT,
+        codec_ids::OPENAI_RESPONSES,
+        codec_ids::VERCEL_EVALUATION,
     ];
 
-    /// Adapter ids an application registers itself. None today; a built-in
-    /// row that named one would be added here with the reason.
+    /// The adapter ids this crate builds. A built-in provider names nothing
+    /// else.
     #[cfg(feature = "builtin-catalog")]
-    const EXTERNAL_ADAPTERS: [&str; 0] = [];
-
-    /// The adapters that evaluate natively rather than judging through
-    /// structured output. A row on one of these is not a generation model.
-    #[cfg(feature = "builtin-catalog")]
-    const EVALUATION_ADAPTERS: [&str; 1] = [adapter_ids::VERCEL_EVALUATION];
+    const BUILTIN_ADAPTERS: [&str; 2] = [adapter_ids::HTTP, adapter_ids::BEDROCK];
 
     #[cfg(feature = "builtin-catalog")]
     const QUESTION_KINDS: [QuestionKind; 3] = [
@@ -251,7 +246,7 @@ mod tests {
         [providers.first]
         display_name = "First"
         adapter = "custom"
-        codec = "custom"
+        codecs = ["custom"]
         base_url = "https://example.com"
         auth = { type = "none" }
 
@@ -259,6 +254,62 @@ mod tests {
         display_name = "Model"
         api_model = "model"
     "#;
+
+    /// A provider that lists a generation codec and an evaluation codec, as
+    /// the built-in `vercel` provider does, with one row per claim shape.
+    const MIXED: &str = r#"
+        schema_version = 1
+
+        [providers.mixed]
+        display_name = "Mixed"
+        codecs = ["openai-chat", "vercel-evaluation"]
+        base_url = "https://example.com"
+        allow_passthrough = true
+        auth = { type = "none" }
+
+        [providers.mixed.models.chat]
+        display_name = "Chat"
+        api_model = "chat"
+        capabilities = { text = true }
+
+        [providers.mixed.models.judge]
+        display_name = "Judge"
+        api_model = "judge"
+        capabilities = { text = true, response_format = { json_schema = true } }
+
+        [providers.mixed.models.both]
+        display_name = "Both"
+        api_model = "both"
+        capabilities = { text = true, response_format = { json_schema = true }, evaluation = { score = true } }
+
+        [providers.mixed.models.native]
+        display_name = "Native"
+        api_model = "native"
+        capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+
+        [providers.mixed.models.silent]
+        display_name = "Silent"
+        api_model = "silent"
+
+        [providers.mixed.models.narrowed]
+        display_name = "Narrowed"
+        api_model = "narrowed"
+        codecs = ["vercel-evaluation"]
+        capabilities = { text = true, evaluation = { boolean = true } }
+    "#;
+
+    fn ids(codecs: &[CodecId]) -> Vec<&str> {
+        codecs.iter().map(CodecId::as_str).collect()
+    }
+
+    /// The validation failure under a layer error, or the error itself.
+    fn cause(result: Result<Catalog, CatalogError>) -> Result<CatalogError, Box<dyn StdError>> {
+        match result {
+            Err(CatalogError::Layer { source, .. }) => Ok(*source),
+            Err(other) => Ok(other),
+            Ok(_) => Err("expected the catalog to be rejected".into()),
+        }
+    }
 
     #[derive(Debug, Deserialize, Eq, PartialEq)]
     struct AppMetadata {
@@ -311,7 +362,7 @@ mod tests {
             [providers.second]
             display_name = "Second"
             adapter = "custom"
-            codec = "custom"
+            codecs = ["custom"]
             base_url = "https://second.example.com"
             auth = { type = "none" }
         "#;
@@ -412,56 +463,289 @@ mod tests {
     }
 
     #[test]
-    fn a_model_row_may_override_its_provider_adapter() -> Result<(), Box<dyn StdError>> {
-        let overriding = r#"
-            [providers.first.models.judge]
-            display_name = "Judge"
-            api_model = "judge"
-            adapter = "custom-eval"
+    fn adapter_and_codecs_default_when_both_are_absent() -> Result<(), Box<dyn StdError>> {
+        let source = r#"
+            schema_version = 1
+
+            [providers.host]
+            display_name = "Host"
+            base_url = "https://example.com"
+            auth = { type = "none" }
+
+            [providers.host.models.model]
+            display_name = "Model"
+            api_model = "model"
+            capabilities = { text = true }
         "#;
 
         let catalog = Catalog::builder()
-            .toml_layer("catalog.toml", BASE)?
-            .toml_layer("providers/first.toml", overriding)?
+            .toml_layer("catalog.toml", source)?
             .build()?;
 
-        assert_eq!(
-            catalog.model("first", "judge")?.adapter(),
-            Some(&AdapterId::new("custom-eval"))
-        );
-        let plain = catalog.model("first", "model")?;
-        assert_eq!(plain.adapter(), None);
-        // The provider's adapter stays where it was; only the row moved.
-        assert_eq!(catalog.provider("first")?.adapter().as_str(), "custom");
+        let host = catalog.provider("host")?;
+        assert_eq!(host.adapter().as_str(), "http");
+        assert_eq!(ids(host.codecs()), ["openai-chat"]);
+        assert!(host.codec_options(&CodecId::new("openai-chat")).is_null());
+        assert_eq!(ids(catalog.model("host", "model")?.codecs()), [
+            "openai-chat"
+        ]);
+        Ok(())
+    }
 
-        let encoded = serde_json::to_value(plain)?;
+    #[test]
+    fn rejects_the_retired_codec_field_naming_codecs() -> Result<(), Box<dyn StdError>> {
+        let source = r#"
+            schema_version = 1
+
+            [providers.host]
+            display_name = "Host"
+            codec = "openai-responses"
+            base_url = "https://example.com"
+            auth = { type = "none" }
+        "#;
+
+        let error = cause(
+            Catalog::builder()
+                .toml_layer("catalog.toml", source)?
+                .build(),
+        )?;
+
         assert!(
-            encoded.get("adapter").is_none(),
-            "an unset adapter is left out of the serialized row: {encoded}"
+            matches!(&error, CatalogError::RemovedCodecField { codec, .. } if codec == "openai-responses")
+        );
+        let message = error.to_string();
+        assert!(
+            message.contains(
+                "`codec = \"openai-responses\"` is now `codecs = [\"openai-responses\"]`"
+            ),
+            "{message}"
         );
         Ok(())
     }
 
     #[test]
-    fn rejects_a_model_adapter_that_is_not_an_identifier() -> Result<(), Box<dyn StdError>> {
-        let broken = r#"
-            [providers.first.models.model]
-            adapter = "custom eval"
+    fn rejects_each_retired_adapter_id_naming_its_codec() -> Result<(), Box<dyn StdError>> {
+        for (retired, codec) in [
+            ("openai-compatible", "openai-chat"),
+            ("openai", "openai-responses"),
+            ("anthropic", "anthropic-messages"),
+            ("gemini", "gemini-generate"),
+        ] {
+            let source = format!(
+                r#"
+                schema_version = 1
+
+                [providers.host]
+                display_name = "Host"
+                adapter = "{retired}"
+                base_url = "https://example.com"
+                auth = {{ type = "none" }}
+                "#
+            );
+
+            let error = cause(
+                Catalog::builder()
+                    .toml_layer("catalog.toml", &source)?
+                    .build(),
+            )?;
+
+            assert!(
+                matches!(&error, CatalogError::RemovedAdapterId { adapter, .. } if adapter.as_str() == retired),
+                "{retired}: {error}"
+            );
+            let message = error.to_string();
+            assert!(
+                message.contains(&format!("adapter `{retired}` is no longer an adapter id")),
+                "{message}"
+            );
+            assert!(message.contains("the default is `http`"), "{message}");
+            assert!(
+                message.contains(&format!("codecs = [\"{codec}\"]")),
+                "{message}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_an_empty_codec_list() -> Result<(), Box<dyn StdError>> {
+        let source = r#"
+            schema_version = 1
+
+            [providers.host]
+            display_name = "Host"
+            codecs = []
+            base_url = "https://example.com"
+            auth = { type = "none" }
         "#;
 
-        let result = Catalog::builder()
-            .toml_layer("catalog.toml", BASE)?
-            .toml_layer("providers/first.toml", broken)?
-            .build();
+        let error = cause(
+            Catalog::builder()
+                .toml_layer("catalog.toml", source)?
+                .build(),
+        )?;
 
-        let Err(CatalogError::Layer { layer, source }) = result else {
-            return Err("expected a layer failure".into());
-        };
-        assert_eq!(layer, "providers/first.toml");
+        assert!(
+            matches!(error, CatalogError::EmptyCodecs { provider } if provider.as_str() == "host")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_codec_options_for_an_unlisted_codec() -> Result<(), Box<dyn StdError>> {
+        let source = r#"
+            schema_version = 1
+
+            [providers.host]
+            display_name = "Host"
+            codecs = ["openai-chat"]
+            codec_options = { openai-responses = { mode = "codex" } }
+            base_url = "https://example.com"
+            auth = { type = "none" }
+        "#;
+
+        let error = cause(
+            Catalog::builder()
+                .toml_layer("catalog.toml", source)?
+                .build(),
+        )?;
+
         assert!(matches!(
-            *source,
-            CatalogError::InvalidIdentifier { kind: "model adapter", value } if value == "custom eval"
+            error,
+            CatalogError::UnknownCodecOptions { codec, .. } if codec.as_str() == "openai-responses"
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn codec_options_are_read_per_codec() -> Result<(), Box<dyn StdError>> {
+        let source = r#"
+            schema_version = 1
+
+            [providers.host]
+            display_name = "Host"
+            codecs = ["openai-chat", "openai-responses"]
+            codec_options = { openai-responses = { mode = "codex" } }
+            base_url = "https://example.com"
+            auth = { type = "none" }
+        "#;
+
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", source)?
+            .build()?;
+
+        let host = catalog.provider("host")?;
+        assert_eq!(
+            host.codec_options(&CodecId::new("openai-responses"))["mode"],
+            "codex"
+        );
+        assert!(host.codec_options(&CodecId::new("openai-chat")).is_null());
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_a_row_codec_its_provider_does_not_list() -> Result<(), Box<dyn StdError>> {
+        let foreign = r#"
+            [providers.first.models.model]
+            codecs = ["openai-chat"]
+        "#;
+
+        let error = cause(
+            Catalog::builder()
+                .toml_layer("catalog.toml", BASE)?
+                .toml_layer("providers/first.toml", foreign)?
+                .build(),
+        )?;
+
+        assert!(matches!(
+            error,
+            CatalogError::UnknownModelCodec { model, codec }
+                if model.to_string() == "first/model" && codec.as_str() == "openai-chat"
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn a_row_codec_list_narrows_the_provider_list() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", MIXED)?
+            .build()?;
+
+        // `narrowed` claims text, which would derive the Chat codec too, but
+        // its explicit list keeps only the evaluation codec.
+        assert_eq!(ids(catalog.model("mixed", "narrowed")?.codecs()), [
+            "vercel-evaluation"
+        ]);
+        Ok(())
+    }
+
+    /// The row's explicit claims decide its codecs: a generation claim reaches
+    /// the generation codecs, an explicit evaluation claim reaches the
+    /// evaluation codecs, and a JSON Schema row that does not write
+    /// `evaluation` stays on generation even though it judges.
+    #[test]
+    fn row_codecs_derive_from_explicit_claims_only() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", MIXED)?
+            .build()?;
+
+        assert_eq!(ids(catalog.model("mixed", "chat")?.codecs()), [
+            "openai-chat"
+        ]);
+        let judge = catalog.model("mixed", "judge")?;
+        assert!(judge.capabilities().evaluates().is_supported());
+        assert_eq!(ids(judge.codecs()), ["openai-chat"]);
+        assert_eq!(ids(catalog.model("mixed", "both")?.codecs()), [
+            "openai-chat",
+            "vercel-evaluation"
+        ]);
+        assert_eq!(ids(catalog.model("mixed", "native")?.codecs()), [
+            "vercel-evaluation"
+        ]);
+        // A row with no claim at all keeps the generation codecs.
+        assert_eq!(ids(catalog.model("mixed", "silent")?.codecs()), [
+            "openai-chat"
+        ]);
+        Ok(())
+    }
+
+    /// Passthrough rows reach the generation codecs and never an evaluation
+    /// codec, whatever the provider lists.
+    #[test]
+    fn passthrough_rows_get_the_generation_codecs_only() -> Result<(), Box<dyn StdError>> {
+        let evaluation_only = r#"
+            schema_version = 1
+
+            [providers.judge]
+            display_name = "Judge"
+            codecs = ["vercel-evaluation"]
+            base_url = "https://example.com"
+            allow_passthrough = true
+            auth = { type = "none" }
+        "#;
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("mixed.toml", MIXED)?
+            .toml_layer("judge.toml", evaluation_only)?
+            .build()?;
+
+        let generation = CatalogModel::passthrough(catalog.provider("first")?, ModelId::new("x"));
+        assert_eq!(ids(generation.codecs()), ["custom"]);
+        let mixed = CatalogModel::passthrough(catalog.provider("mixed")?, ModelId::new("x"));
+        assert_eq!(ids(mixed.codecs()), ["openai-chat"]);
+        let judge = CatalogModel::passthrough(catalog.provider("judge")?, ModelId::new("x"));
+        assert!(judge.codecs().is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn an_unknown_codec_id_derives_as_generation() -> Result<(), Box<dyn StdError>> {
+        assert_eq!(family(&CodecId::new("custom")), CodecFamily::Unknown);
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .build()?;
+        // `first/model` claims nothing and still reaches the custom codec.
+        assert_eq!(ids(catalog.model("first", "model")?.codecs()), ["custom"]);
         Ok(())
     }
 
@@ -640,8 +924,9 @@ mod tests {
                 };
                 let route = format!("{}/{}", provider.id(), model.id());
                 let evaluates_natively = model
-                    .adapter()
-                    .is_some_and(|adapter| EVALUATION_ADAPTERS.contains(&adapter.as_str()));
+                    .codecs()
+                    .iter()
+                    .any(|codec| family(codec) == CodecFamily::Evaluation);
                 assert!(
                     pricing
                         .input_usd_micros_per_million
@@ -694,42 +979,151 @@ mod tests {
         Ok(())
     }
 
-    /// A row that overrides its provider's adapter names one the client can
-    /// build, or one the test lists as registered by an application.
+    /// Every built-in provider names an adapter and codecs this crate builds,
+    /// and every `codec_options` key names a listed codec (the loader
+    /// enforces the last; this pins it over the whole catalog).
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn builtin_adapter_overrides_name_a_known_adapter() -> Result<(), Box<dyn StdError>> {
+    fn builtin_providers_name_known_adapters_and_codecs() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
         for provider in catalog.providers() {
-            for model in provider.models() {
-                let Some(adapter) = model.adapter() else {
-                    continue;
-                };
+            let id = provider.id();
+            assert!(
+                BUILTIN_ADAPTERS.contains(&provider.adapter().as_str()),
+                "{id} names the unknown adapter `{}`",
+                provider.adapter()
+            );
+            for codec in provider.codecs() {
                 assert!(
-                    BUILTIN_ADAPTERS.contains(&adapter.as_str())
-                        || EXTERNAL_ADAPTERS.contains(&adapter.as_str()),
-                    "{}/{} names the unknown adapter `{adapter}`",
-                    provider.id(),
-                    model.id()
+                    BUILTIN_CODECS.contains(&codec.as_str()),
+                    "{id} lists the unknown codec `{codec}`"
+                );
+                assert_ne!(
+                    family(codec),
+                    CodecFamily::Unknown,
+                    "{id} lists `{codec}`, whose family is unknown"
+                );
+            }
+            let bedrock = provider.adapter().as_str() == adapter_ids::BEDROCK;
+            assert_eq!(
+                bedrock,
+                provider
+                    .codecs()
+                    .iter()
+                    .any(|codec| codec.as_str() == codec_ids::BEDROCK_CONVERSE),
+                "{id}: the Converse codec rides on the bedrock adapter and nothing else does"
+            );
+            for codec in BUILTIN_CODECS {
+                let codec = CodecId::new(codec);
+                assert!(
+                    provider.codecs().contains(&codec) || provider.codec_options(&codec).is_null(),
+                    "{id} has options for `{codec}` without listing it"
                 );
             }
         }
         Ok(())
     }
 
-    /// A row on an evaluation adapter is a judge and nothing else: it says
-    /// what it evaluates and claims no generation capability, so `complete`
-    /// refuses it before dispatch.
+    /// Every built-in row reaches at least one codec, so no row is
+    /// unreachable by every operation.
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn builtin_evaluation_rows_claim_evaluation_and_no_generation() -> Result<(), Box<dyn StdError>>
-    {
+    fn every_builtin_row_reaches_a_codec() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                assert!(
+                    !model.codecs().is_empty(),
+                    "{}/{} reaches no codec",
+                    provider.id(),
+                    model.id()
+                );
+                for codec in model.codecs() {
+                    assert!(
+                        provider.codecs().contains(codec),
+                        "{}/{} reaches `{codec}`, which its provider does not list",
+                        provider.id(),
+                        model.id()
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Native evaluation reachability and judge capability are different
+    /// facts. A row that writes `capabilities.evaluation` itself either
+    /// reaches an evaluation codec or judges through JSON Schema; a row that
+    /// does not write it never reaches an evaluation codec, which pins that
+    /// every Vercel structured-output row keeps judging through Chat.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_evaluation_codecs_follow_explicit_claims() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        let mut native_rows = 0;
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                let route = format!("{}/{}", provider.id(), model.id());
+                let capabilities = model.capabilities();
+                let explicit = capabilities.explicit_evaluation();
+                let wrote_claim = [explicit.choice, explicit.score, explicit.boolean]
+                    .iter()
+                    .any(|support| *support != Support::Unknown);
+                let reaches_evaluation = model
+                    .codecs()
+                    .iter()
+                    .any(|codec| family(codec) == CodecFamily::Evaluation);
+                let json_schema = capabilities.response_format(&ResponseFormat::JsonSchema {
+                    name:   String::new(),
+                    schema: serde_json::Value::Null,
+                });
+                if wrote_claim {
+                    assert!(
+                        reaches_evaluation || json_schema.is_supported(),
+                        "{route} claims evaluation but neither reaches an evaluation codec nor \
+                         takes JSON Schema"
+                    );
+                } else {
+                    assert!(
+                        !reaches_evaluation,
+                        "{route} reaches an evaluation codec without an explicit claim"
+                    );
+                }
+                if reaches_evaluation {
+                    native_rows += 1;
+                    for kind in QUESTION_KINDS {
+                        assert!(
+                            capabilities.evaluation(kind) != Support::Unknown,
+                            "{route} leaves {kind:?} evaluation unknown"
+                        );
+                    }
+                    assert!(
+                        capabilities.evaluates().is_supported(),
+                        "{route} reaches an evaluation codec but claims no question kind"
+                    );
+                }
+            }
+        }
+        assert!(
+            native_rows > 0,
+            "the built-in catalog carries at least one native evaluation row"
+        );
+        Ok(())
+    }
+
+    /// A row on an evaluation codec is a judge and nothing else: it claims no
+    /// generation capability, so `complete` refuses it before dispatch, and
+    /// its codec set holds no generation codec.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_evaluation_rows_claim_no_generation() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
         for provider in catalog.providers() {
             for model in provider.models() {
                 if !model
-                    .adapter()
-                    .is_some_and(|adapter| EVALUATION_ADAPTERS.contains(&adapter.as_str()))
+                    .codecs()
+                    .iter()
+                    .any(|codec| family(codec) == CodecFamily::Evaluation)
                 {
                     continue;
                 }
@@ -758,18 +1152,12 @@ mod tests {
                         "{route} evaluates natively but claims {name}"
                     );
                 }
-                // With `json_schema` denied, a derived claim could only be
-                // `Unsupported`, so a supported kind proves the row wrote
-                // `evaluation` itself.
-                for kind in QUESTION_KINDS {
-                    assert!(
-                        capabilities.evaluation(kind) != Support::Unknown,
-                        "{route} leaves {kind:?} evaluation unknown"
-                    );
-                }
                 assert!(
-                    capabilities.evaluates().is_supported(),
-                    "{route} evaluates natively but claims no question kind"
+                    model
+                        .codecs()
+                        .iter()
+                        .all(|codec| family(codec) == CodecFamily::Evaluation),
+                    "{route} reaches a generation codec while claiming no generation capability"
                 );
             }
         }
@@ -777,18 +1165,19 @@ mod tests {
     }
 
     /// A generation row judges through structured output, so it can claim a
-    /// question kind only when it takes JSON Schema. Only a native
-    /// evaluation adapter answers without it.
+    /// question kind only when it takes JSON Schema. Only a row on a native
+    /// evaluation codec answers without it.
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn builtin_evaluation_claims_rest_on_json_schema_or_a_native_adapter()
+    fn builtin_evaluation_claims_rest_on_json_schema_or_a_native_codec()
     -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
         for provider in catalog.providers() {
             for model in provider.models() {
                 if model
-                    .adapter()
-                    .is_some_and(|adapter| EVALUATION_ADAPTERS.contains(&adapter.as_str()))
+                    .codecs()
+                    .iter()
+                    .any(|codec| family(codec) == CodecFamily::Evaluation)
                 {
                     continue;
                 }
@@ -843,9 +1232,9 @@ mod tests {
         assert!(codex.allows_passthrough());
         assert!(codex.priority() < catalog.provider("openai")?.priority());
         assert_eq!(
-            codex.adapter_options()["mode"].as_str(),
+            codex.codec_options(&CodecId::new(codec_ids::OPENAI_RESPONSES))["mode"].as_str(),
             Some("codex"),
-            "the codex adapter mode selects the deployment's dialect"
+            "the codex codec mode selects the deployment's dialect"
         );
 
         // The platform roster minus the pro rows, under the same ids and
@@ -971,14 +1360,14 @@ mod tests {
             display_name = "First"
             aliases = ["second"]
             adapter = "custom"
-            codec = "custom"
+            codecs = ["custom"]
             base_url = "https://example.com"
             auth = { type = "none" }
 
             [providers.second]
             display_name = "Second"
             adapter = "custom"
-            codec = "custom"
+            codecs = ["custom"]
             base_url = "https://example.com"
             auth = { type = "none" }
         "#;
@@ -1002,7 +1391,7 @@ mod tests {
             [providers.test]
             display_name = "Test"
             adapter = "custom"
-            codec = "custom"
+            codecs = ["custom"]
             base_url = "https://example.com"
             auth = { type = "none" }
 

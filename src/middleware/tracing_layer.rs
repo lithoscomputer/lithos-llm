@@ -369,7 +369,7 @@ mod tests {
         [providers.test]
         display_name = "Test"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         auth = { type = "none" }
 

@@ -14,8 +14,6 @@ schema_version = 1
 
 [providers.moonshot]
 display_name = "Moonshot AI"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://api.moonshot.ai/v1"
 # Passthrough lets the negative suite send an unknown model id to Moonshot.
 allow_passthrough = true

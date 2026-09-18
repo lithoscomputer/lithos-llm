@@ -4,7 +4,7 @@ schema_version = 1
 display_name = "First"
 aliases = ["shared"]
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "https://example.com"
 auth = { type = "none" }
 
@@ -12,6 +12,6 @@ auth = { type = "none" }
 display_name = "Second"
 aliases = ["shared"]
 adapter = "custom"
-codec = "custom"
+codecs = ["custom"]
 base_url = "https://example.com"
 auth = { type = "none" }

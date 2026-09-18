@@ -255,7 +255,9 @@ $ lithos-llm-e2e catalog catalog.json
       "display_name": "AWS",
       "aliases": [],
       "adapter": "custom",
-      "codec": "custom",
+      "codecs": [
+        "custom"
+      ],
       "base_url": "http://127.0.0.1",
       "auth": {
         "type": "aws",
@@ -275,7 +277,9 @@ $ lithos-llm-e2e catalog catalog.json
       "display_name": "Bedrock",
       "aliases": [],
       "adapter": "custom",
-      "codec": "custom",
+      "codecs": [
+        "custom"
+      ],
       "base_url": "http://127.0.0.1",
       "auth": {
         "type": "bedrock_bearer"
@@ -296,7 +300,9 @@ $ lithos-llm-e2e catalog catalog.json
         "fx"
       ],
       "adapter": "fixture-adapter",
-      "codec": "openai-chat",
+      "codecs": [
+        "openai-chat"
+      ],
       "base_url": "http://127.0.0.1",
       "auth": {
         "type": "bearer",
@@ -517,7 +523,9 @@ $ lithos-llm-e2e catalog catalog.json
       "display_name": "Header",
       "aliases": [],
       "adapter": "custom",
-      "codec": "custom",
+      "codecs": [
+        "custom"
+      ],
       "base_url": "http://127.0.0.1",
       "auth": {
         "type": "header",
@@ -537,7 +545,9 @@ $ lithos-llm-e2e catalog catalog.json
       "display_name": "Headers",
       "aliases": [],
       "adapter": "custom",
-      "codec": "custom",
+      "codecs": [
+        "custom"
+      ],
       "base_url": "http://127.0.0.1",
       "auth": {
         "type": "headers"

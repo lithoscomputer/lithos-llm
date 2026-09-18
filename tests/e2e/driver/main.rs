@@ -403,7 +403,7 @@ fn exercise_catalog(exercise: CatalogExercise) -> Value {
                 "display_name": provider.display_name(),
                 "aliases": provider.aliases(),
                 "adapter": provider.adapter(),
-                "codec": provider.codec(),
+                "codecs": provider.codecs(),
                 "base_url": provider.base_url(),
                 "auth": provider.auth(),
                 "priority": provider.priority(),
@@ -1624,7 +1624,7 @@ schema_version = 1
 [providers.fixture]
 display_name = "Fixture"
 adapter = "fixture-adapter"
-codec = "fixture-codec"
+codecs = ["fixture-codec"]
 base_url = "http://127.0.0.1"
 auth = { type = "none" }
 default_model = "model"

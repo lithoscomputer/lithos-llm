@@ -20,8 +20,6 @@ schema_version = 1
 
 [providers.modal]
 display_name = "Modal"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://inference.us-west.modal.direct/v1"
 priority = 75
 allow_passthrough = true

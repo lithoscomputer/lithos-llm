@@ -13,8 +13,6 @@ schema_version = 1
 
 [providers.ollama]
 display_name = "Ollama"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "http://localhost:11434/v1"
 priority = 30
 allow_passthrough = true

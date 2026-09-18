@@ -13,8 +13,6 @@ schema_version = 1
 
 [providers.fireworks]
 display_name = "Fireworks AI"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://api.fireworks.ai/inference/v1"
 priority = 30
 allow_passthrough = true

@@ -124,8 +124,7 @@ impl Twin {
 schema_version = 1
 [providers.anthropic]
 display_name = "Anthropic twin"
-adapter = "anthropic"
-codec = "anthropic-messages"
+codecs = ["anthropic-messages"]
 base_url = "{}"
 default_model = "claude"
 auth = {{ type = "header", name = "x-api-key" }}

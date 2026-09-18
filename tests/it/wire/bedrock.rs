@@ -62,7 +62,7 @@ const AWS_AUTH: &str = "{ type = \"aws\", region = \"us-east-1\" }";
 
 /// The provider under test: Converse behind a long-lived Bedrock API key.
 fn wire_provider() -> WireProvider<'static> {
-    WireProvider::new(PROVIDER, "bedrock", "bedrock-converse", MODEL)
+    WireProvider::new(PROVIDER, "bedrock-converse", MODEL)
         .with_api_model(API_MODEL)
         .with_auth(BEDROCK_BEARER_AUTH)
 }
@@ -1224,7 +1224,7 @@ async fn counts_input_tokens_through_the_native_endpoint() {
 /// everything below is gated on the feature.
 #[cfg(feature = "bedrock-aws")]
 fn aws_provider() -> WireProvider<'static> {
-    WireProvider::new(PROVIDER, "bedrock", "bedrock-converse", MODEL)
+    WireProvider::new(PROVIDER, "bedrock-converse", MODEL)
         .with_api_model(API_MODEL)
         .with_auth(AWS_AUTH)
 }

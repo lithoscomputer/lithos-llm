@@ -10,9 +10,10 @@ remain provisional unless a catalog comment identifies a documentation correctio
 
 ## Translation decisions
 
-- Chat Completions providers use `openai-compatible` and `openai-chat`.
-  `bedrock-openai` uses `openai` and `openai-responses`.
-- Z.ai sets `adapter_options.base_url_is_api_root = true`. This appends
+- Chat Completions providers write no `adapter` or `codecs` line and take
+  the defaults, `http` and `["openai-chat"]`. `bedrock-openai` lists
+  `["openai-responses"]`.
+- Z.ai sets `codec_options.openai-chat.base_url_is_api_root = true`. This appends
   `/chat/completions` to its `/api/coding/paas/v4` root without adding `/v1`.
   Other compatible providers retain the existing versioned-path behavior.
 - USD per million tokens becomes integer USD micros per million tokens.

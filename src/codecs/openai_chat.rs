@@ -2146,8 +2146,6 @@ mod tests {
 
         [providers.gateway]
         display_name = "Gateway"
-        adapter = "openai-compatible"
-        codec = "openai-chat"
         base_url = "http://127.0.0.1"
         default_model = "fronted"
         auth = { type = "bearer" }
@@ -2166,8 +2164,6 @@ protocol_options = { cache_breakpoints = true }
 
         [providers.gateway]
         display_name = "Gateway"
-        adapter = "openai-compatible"
-        codec = "openai-chat"
         base_url = "http://127.0.0.1"
         default_model = "routed"
         auth = { type = "bearer" }
@@ -2289,8 +2285,6 @@ protocol_options = { cache_breakpoints = true }
 
         [providers.gateway]
         display_name = "Gateway"
-        adapter = "openai-compatible"
-        codec = "openai-chat"
         base_url = "http://127.0.0.1"
         default_model = "fronted"
         auth = { type = "bearer" }

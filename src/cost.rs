@@ -9,8 +9,10 @@ pub(crate) fn estimate_catalog_cost(
     usage: TokenCounts,
     speed: Option<Speed>,
 ) -> Option<Cost> {
+    // Step 2 of .ai/plans/adapters-and-codecs.md replaces this with the
+    // codec the call was dispatched on.
     let anthropic_rates = matches!(
-        route.provider().codec().as_str(),
+        route.provider().primary_codec().as_str(),
         codec_ids::ANTHROPIC_MESSAGES | codec_ids::BEDROCK_CONVERSE
     );
     catalog_cost(

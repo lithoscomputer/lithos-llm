@@ -25,7 +25,9 @@ use crate::types::{
 /// because those constants are feature-gated per codec while the assembler is
 /// always built.
 fn signature_family(route: &ResolvedRoute) -> Option<&'static str> {
-    match route.provider().codec().as_str() {
+    // Step 2 of .ai/plans/adapters-and-codecs.md replaces this with the
+    // codec the call was dispatched on.
+    match route.provider().primary_codec().as_str() {
         codec_ids::ANTHROPIC_MESSAGES | codec_ids::BEDROCK_CONVERSE => Some("anthropic"),
         codec_ids::GEMINI_GENERATE => Some("gemini"),
         _ => None,

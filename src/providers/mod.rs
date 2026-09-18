@@ -9,16 +9,52 @@ mod openai_compatible;
 mod vercel_evaluation;
 
 use crate::adapter::AdapterRegistry;
-use crate::catalog::adapter_ids;
+use crate::catalog::{CodecId, adapter_ids, codec_ids};
 
+/// Registers the built-in factories under their internal ids.
+///
+/// Step 2 of .ai/plans/adapters-and-codecs.md replaces this with one `http`
+/// factory that builds every codec a provider lists. Until then each codec
+/// has its own one-codec factory, registered under the id
+/// [`builtin_factory_for`] maps it to, and the client resolves the
+/// provider's `http` adapter to the factory of its primary codec.
 pub(crate) fn register_builtin(registry: &mut AdapterRegistry) {
-    registry.register_factory(adapter_ids::OPENAI, openai::Factory);
-    registry.register_factory(adapter_ids::ANTHROPIC, anthropic::Factory);
-    registry.register_factory(adapter_ids::GEMINI, gemini::Factory);
-    registry.register_factory(adapter_ids::OPENAI_COMPATIBLE, openai_compatible::Factory);
-    registry.register_factory(adapter_ids::VERCEL_EVALUATION, vercel_evaluation::Factory);
+    registry.register_factory(factory_ids::OPENAI_RESPONSES, openai::Factory);
+    registry.register_factory(factory_ids::ANTHROPIC_MESSAGES, anthropic::Factory);
+    registry.register_factory(factory_ids::GEMINI_GENERATE, gemini::Factory);
+    registry.register_factory(factory_ids::OPENAI_CHAT, openai_compatible::Factory);
+    registry.register_factory(factory_ids::VERCEL_EVALUATION, vercel_evaluation::Factory);
     #[cfg(feature = "bedrock")]
     registry.register_factory(adapter_ids::BEDROCK, bedrock::Factory);
+}
+
+/// The internal registry ids of the one-codec factories.
+///
+/// Step 2 of .ai/plans/adapters-and-codecs.md replaces this. The ids are
+/// not catalog words: a catalog names `http` or `bedrock`, and these are
+/// how the client reaches the factory for one codec behind `http`.
+mod factory_ids {
+    pub(super) const ANTHROPIC_MESSAGES: &str = "http/anthropic-messages";
+    pub(super) const GEMINI_GENERATE: &str = "http/gemini-generate";
+    pub(super) const OPENAI_CHAT: &str = "http/openai-chat";
+    pub(super) const OPENAI_RESPONSES: &str = "http/openai-responses";
+    pub(super) const VERCEL_EVALUATION: &str = "http/vercel-evaluation";
+}
+
+/// The registry id of the built-in factory that serves `codec` behind the
+/// `http` adapter, or `None` for a codec this crate does not build.
+///
+/// Step 2 of .ai/plans/adapters-and-codecs.md replaces this.
+pub(crate) fn builtin_factory_for(codec: &CodecId) -> Option<&'static str> {
+    match codec.as_str() {
+        codec_ids::OPENAI_CHAT => Some(factory_ids::OPENAI_CHAT),
+        codec_ids::OPENAI_RESPONSES => Some(factory_ids::OPENAI_RESPONSES),
+        codec_ids::ANTHROPIC_MESSAGES => Some(factory_ids::ANTHROPIC_MESSAGES),
+        codec_ids::GEMINI_GENERATE => Some(factory_ids::GEMINI_GENERATE),
+        codec_ids::BEDROCK_CONVERSE => Some(adapter_ids::BEDROCK),
+        codec_ids::VERCEL_EVALUATION => Some(factory_ids::VERCEL_EVALUATION),
+        _ => None,
+    }
 }
 
 /// The shared HTTP adapter every SSE-based provider factory builds on.
@@ -30,12 +66,13 @@ pub(super) mod http {
     use futures_core::Stream;
     use futures_util::StreamExt as _;
     use futures_util::stream::{iter, unfold};
+    use serde::Deserialize;
     use serde::de::DeserializeOwned;
 
     use crate::adapter::{
         AdapterBuildError, AdapterContext, InputTokenCount, ProviderAdapter, ResolvedCall,
     };
-    use crate::catalog::{AdapterId, CatalogProvider};
+    use crate::catalog::{AdapterId, CatalogProvider, CodecId};
     use crate::codecs::{Codec, StreamDecoder};
     use crate::credentials::{CredentialProvider, Credentials};
     use crate::transport::{EncodedRequest, HttpTransport, SseEvent};
@@ -43,16 +80,19 @@ pub(super) mod http {
         Error, ErrorKind, RateLimits, Response, ResponsePolicy, ResponseStream, StreamEvent,
     };
 
-    /// Adapter behavior a factory selects from its typed catalog options.
+    /// The typed `adapter_options` table of an `http` provider.
     ///
-    /// Options that only change the wire body belong on the codec instead.
-    /// This carries the ones that change how the adapter dispatches.
-    #[derive(Clone, Copy, Debug, Default)]
+    /// Options that change the wire body belong in `codec_options` under
+    /// their codec's id. This carries the ones that change how the adapter
+    /// dispatches. Unknown keys are rejected so a misspelled option is a
+    /// build issue for one provider rather than a silently ignored setting.
+    #[derive(Clone, Copy, Debug, Default, Deserialize)]
+    #[serde(default, deny_unknown_fields)]
     pub(in crate::providers) struct HttpAdapterOptions {
         /// Completion runs the streaming path and assembles the one response.
         ///
         /// The OpenAI Codex endpoint accepts streaming requests only, so its
-        /// factory sets this and completion never sends `stream: false`.
+        /// catalog row sets this and completion never sends `stream: false`.
         pub force_streaming_complete: bool,
         /// Every request names the application in an `originator` header,
         /// when the client was given a name.
@@ -78,7 +118,29 @@ pub(super) mod http {
     pub(in crate::providers) fn adapter_options<T: Default + DeserializeOwned>(
         provider: &CatalogProvider,
     ) -> Result<T, AdapterBuildError> {
-        let options = provider.adapter_options();
+        typed_options(provider, provider.adapter_options())
+    }
+
+    /// Deserializes a provider's raw `codec_options` for `codec` into that
+    /// codec's typed shape.
+    ///
+    /// An absent table is the default options rather than an error.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AdapterBuildError::InvalidAdapterOptions`] when the table
+    /// does not match `T`.
+    pub(in crate::providers) fn codec_options<T: Default + DeserializeOwned>(
+        provider: &CatalogProvider,
+        codec: &str,
+    ) -> Result<T, AdapterBuildError> {
+        typed_options(provider, provider.codec_options(&CodecId::new(codec)))
+    }
+
+    fn typed_options<T: Default + DeserializeOwned>(
+        provider: &CatalogProvider,
+        options: &serde_json::Value,
+    ) -> Result<T, AdapterBuildError> {
         if options.is_null() {
             return Ok(T::default());
         }
@@ -115,10 +177,13 @@ pub(super) mod http {
 
     /// Builds the shared HTTP adapter for one catalog provider.
     ///
+    /// `options` is the provider's typed `adapter_options`; the caller reads
+    /// it with [`adapter_options`] so a factory test can pass its own.
+    ///
     /// # Errors
     ///
-    /// Returns [`AdapterBuildError::UnsupportedCodec`] when the catalog pairs
-    /// this adapter with a codec it does not implement.
+    /// Returns [`AdapterBuildError::UnsupportedCodec`] when the provider's
+    /// primary codec is not the one this factory implements.
     pub(in crate::providers) fn build_http_adapter(
         provider: &CatalogProvider,
         context: &AdapterContext,
@@ -126,10 +191,12 @@ pub(super) mod http {
         codec: impl Codec + 'static,
         options: HttpAdapterOptions,
     ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        if provider.codec().as_str() != expected_codec {
+        // Step 2 of .ai/plans/adapters-and-codecs.md replaces this: one
+        // factory builds every listed codec, so there is no expected codec.
+        if provider.primary_codec().as_str() != expected_codec {
             return Err(AdapterBuildError::UnsupportedCodec {
                 provider: provider.id().clone(),
-                codec:    provider.codec().clone(),
+                codec:    provider.primary_codec().clone(),
             });
         }
         Ok(Arc::new(HttpProviderAdapter {
@@ -462,7 +529,7 @@ pub(super) mod http {
                 [providers.alpha]
                 display_name = "Alpha"
                 adapter = "test-adapter"
-                codec = "test-codec"
+                codecs = ["test-codec"]
                 base_url = "{base_url}"
                 default_model = "one"
                 auth = {{ type = "none" }}

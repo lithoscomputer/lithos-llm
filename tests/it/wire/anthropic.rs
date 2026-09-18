@@ -55,7 +55,7 @@ const OTHER_PROVIDER: &str = "openai";
 
 /// The Anthropic provider every test in this file routes through.
 fn anthropic() -> WireProvider<'static> {
-    WireProvider::new(PROVIDER, "anthropic", "anthropic-messages", MODEL)
+    WireProvider::new(PROVIDER, "anthropic-messages", MODEL)
         .with_api_model(API_MODEL)
         .with_auth("{ type = \"header\", name = \"x-api-key\" }")
 }

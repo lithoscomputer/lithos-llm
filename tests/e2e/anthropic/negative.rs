@@ -145,8 +145,7 @@ schema_version = 1
 
 [providers.anthropic]
 display_name = "Anthropic"
-adapter = "anthropic"
-codec = "anthropic-messages"
+codecs = ["anthropic-messages"]
 base_url = "https://api.anthropic.com"
 default_model = "claude-haiku-4.5"
 
@@ -208,8 +207,7 @@ schema_version = 1
 
 [providers.anthropic]
 display_name = "Anthropic"
-adapter = "anthropic"
-codec = "anthropic-messages"
+codecs = ["anthropic-messages"]
 base_url = "https://api.anthropic.com"
 default_model = "claude-fable-5.1"
 

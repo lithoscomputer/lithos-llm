@@ -152,7 +152,7 @@ pub(crate) mod test_support {
         [providers.alpha]
         display_name = "Alpha"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         default_model = "one"
         auth = { type = "none" }
