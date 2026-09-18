@@ -72,6 +72,9 @@ pub mod adapter_ids {
     pub const GEMINI: &str = "gemini";
     pub const OPENAI: &str = "openai";
     pub const OPENAI_COMPATIBLE: &str = "openai-compatible";
+    /// The Vercel AI Gateway evaluation protocol, named by a model row
+    /// whose provider otherwise speaks a generation protocol.
+    pub const VERCEL_EVALUATION: &str = "vercel-evaluation";
 }
 
 /// Built-in wire codec identifiers.
@@ -81,6 +84,8 @@ pub mod codec_ids {
     pub const GEMINI_GENERATE: &str = "gemini-generate";
     pub const OPENAI_CHAT: &str = "openai-chat";
     pub const OPENAI_RESPONSES: &str = "openai-responses";
+    /// The wire codec the `vercel-evaluation` adapter implies.
+    pub const VERCEL_EVALUATION: &str = "vercel-evaluation";
 }
 
 /// A resolved provider and model identity.

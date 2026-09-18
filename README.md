@@ -501,6 +501,16 @@ LiteLLM, Modal, Ollama) ships with `enabled = false`; an overlay turns one on:
 enabled = true
 ```
 
+A model row that claims `response_format.json_schema` also answers evaluation
+questions of every kind (`choice`, `score`, `boolean`): it judges by producing
+one schema-bound JSON object, so the catalog does not repeat the claim per
+row. A row writes `capabilities.evaluation = { choice = true, score = false,
+boolean = true }` to narrow that, or to claim evaluation on a model that
+speaks an evaluation protocol natively. Such a row also names
+`adapter = "..."` to speak through an adapter other than its provider's;
+every other row uses the provider's `adapter`. `ModelCapabilities::evaluation`
+and `evaluates` answer the question a caller asks.
+
 Before it has a request, an application asks the catalog which providers are
 on and which model to pick for a job. `Catalog::enabled_providers` lists them
 in priority order and `listed_providers` drops the ones that stand in for

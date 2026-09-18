@@ -363,6 +363,11 @@ $ lithos-llm-e2e catalog catalog.json
               "fast": true,
               "balanced": true,
               "economical": true
+            },
+            "evaluation": {
+              "choice": "unknown",
+              "score": "unknown",
+              "boolean": "unknown"
             }
           },
           "pricing": {

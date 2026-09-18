@@ -192,10 +192,13 @@ mod tests {
     use serde::Deserialize;
 
     use super::{Catalog, CatalogError};
+    use crate::catalog::AdapterId;
     #[cfg(feature = "builtin-catalog")]
-    use crate::catalog::{AuthScheme, Metadata, ProviderId};
+    use crate::catalog::{AuthScheme, Metadata, ProviderId, Support, adapter_ids};
     #[cfg(feature = "builtin-catalog")]
-    use crate::types::Speed;
+    use crate::evaluation::QuestionKind;
+    #[cfg(feature = "builtin-catalog")]
+    use crate::types::{ResponseFormat, Speed};
 
     /// The agent profiles a catalog row may name under `metadata.agent`.
     ///
@@ -211,6 +214,35 @@ mod tests {
         "kimi",
         "gpt56",
         "gpt6",
+    ];
+
+    /// The adapter ids a built-in row may name in its `adapter` override:
+    /// the adapters this crate compiles.
+    #[cfg(feature = "builtin-catalog")]
+    const BUILTIN_ADAPTERS: [&str; 6] = [
+        adapter_ids::ANTHROPIC,
+        adapter_ids::BEDROCK,
+        adapter_ids::GEMINI,
+        adapter_ids::OPENAI,
+        adapter_ids::OPENAI_COMPATIBLE,
+        adapter_ids::VERCEL_EVALUATION,
+    ];
+
+    /// Adapter ids an application registers itself. None today; a built-in
+    /// row that named one would be added here with the reason.
+    #[cfg(feature = "builtin-catalog")]
+    const EXTERNAL_ADAPTERS: [&str; 0] = [];
+
+    /// The adapters that evaluate natively rather than judging through
+    /// structured output. A row on one of these is not a generation model.
+    #[cfg(feature = "builtin-catalog")]
+    const EVALUATION_ADAPTERS: [&str; 1] = [adapter_ids::VERCEL_EVALUATION];
+
+    #[cfg(feature = "builtin-catalog")]
+    const QUESTION_KINDS: [QuestionKind; 3] = [
+        QuestionKind::Choice,
+        QuestionKind::Score,
+        QuestionKind::Boolean,
     ];
 
     const BASE: &str = r#"
@@ -376,6 +408,60 @@ mod tests {
         };
         assert_eq!(layer, "providers/first.toml");
         assert!(source.to_string().contains("context_window"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_model_row_may_override_its_provider_adapter() -> Result<(), Box<dyn StdError>> {
+        let overriding = r#"
+            [providers.first.models.judge]
+            display_name = "Judge"
+            api_model = "judge"
+            adapter = "custom-eval"
+        "#;
+
+        let catalog = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("providers/first.toml", overriding)?
+            .build()?;
+
+        assert_eq!(
+            catalog.model("first", "judge")?.adapter(),
+            Some(&AdapterId::new("custom-eval"))
+        );
+        let plain = catalog.model("first", "model")?;
+        assert_eq!(plain.adapter(), None);
+        // The provider's adapter stays where it was; only the row moved.
+        assert_eq!(catalog.provider("first")?.adapter().as_str(), "custom");
+
+        let encoded = serde_json::to_value(plain)?;
+        assert!(
+            encoded.get("adapter").is_none(),
+            "an unset adapter is left out of the serialized row: {encoded}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_a_model_adapter_that_is_not_an_identifier() -> Result<(), Box<dyn StdError>> {
+        let broken = r#"
+            [providers.first.models.model]
+            adapter = "custom eval"
+        "#;
+
+        let result = Catalog::builder()
+            .toml_layer("catalog.toml", BASE)?
+            .toml_layer("providers/first.toml", broken)?
+            .build();
+
+        let Err(CatalogError::Layer { layer, source }) = result else {
+            return Err("expected a layer failure".into());
+        };
+        assert_eq!(layer, "providers/first.toml");
+        assert!(matches!(
+            *source,
+            CatalogError::InvalidIdentifier { kind: "model adapter", value } if value == "custom eval"
+        ));
         Ok(())
     }
 
@@ -595,6 +681,125 @@ mod tests {
                     assert!(
                         !capabilities.caching().is_unsupported(),
                         "{route} takes cache breakpoints without claiming caching"
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// A row that overrides its provider's adapter names one the client can
+    /// build, or one the test lists as registered by an application.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_adapter_overrides_name_a_known_adapter() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                let Some(adapter) = model.adapter() else {
+                    continue;
+                };
+                assert!(
+                    BUILTIN_ADAPTERS.contains(&adapter.as_str())
+                        || EXTERNAL_ADAPTERS.contains(&adapter.as_str()),
+                    "{}/{} names the unknown adapter `{adapter}`",
+                    provider.id(),
+                    model.id()
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// A row on an evaluation adapter is a judge and nothing else: it says
+    /// what it evaluates and claims no generation capability, so `complete`
+    /// refuses it before dispatch.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_evaluation_rows_claim_evaluation_and_no_generation() -> Result<(), Box<dyn StdError>>
+    {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                if !model
+                    .adapter()
+                    .is_some_and(|adapter| EVALUATION_ADAPTERS.contains(&adapter.as_str()))
+                {
+                    continue;
+                }
+                let route = format!("{}/{}", provider.id(), model.id());
+                let capabilities = model.capabilities();
+                for (support, name) in [
+                    (capabilities.text(), "text"),
+                    (capabilities.tools(), "tools"),
+                    (capabilities.images(), "images"),
+                    (capabilities.audio(), "audio"),
+                    (capabilities.documents(), "documents"),
+                    (
+                        capabilities.response_format(&ResponseFormat::JsonObject),
+                        "json_object",
+                    ),
+                    (
+                        capabilities.response_format(&ResponseFormat::JsonSchema {
+                            name:   String::new(),
+                            schema: serde_json::Value::Null,
+                        }),
+                        "json_schema",
+                    ),
+                ] {
+                    assert!(
+                        support.is_unsupported(),
+                        "{route} evaluates natively but claims {name}"
+                    );
+                }
+                // With `json_schema` denied, a derived claim could only be
+                // `Unsupported`, so a supported kind proves the row wrote
+                // `evaluation` itself.
+                for kind in QUESTION_KINDS {
+                    assert!(
+                        capabilities.evaluation(kind) != Support::Unknown,
+                        "{route} leaves {kind:?} evaluation unknown"
+                    );
+                }
+                assert!(
+                    capabilities.evaluates().is_supported(),
+                    "{route} evaluates natively but claims no question kind"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// A generation row judges through structured output, so it can claim a
+    /// question kind only when it takes JSON Schema. Only a native
+    /// evaluation adapter answers without it.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_evaluation_claims_rest_on_json_schema_or_a_native_adapter()
+    -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                if model
+                    .adapter()
+                    .is_some_and(|adapter| EVALUATION_ADAPTERS.contains(&adapter.as_str()))
+                {
+                    continue;
+                }
+                let capabilities = model.capabilities();
+                let json_schema = capabilities.response_format(&ResponseFormat::JsonSchema {
+                    name:   String::new(),
+                    schema: serde_json::Value::Null,
+                });
+                if !json_schema.is_unsupported() {
+                    continue;
+                }
+                for kind in QUESTION_KINDS {
+                    assert!(
+                        !capabilities.evaluation(kind).is_supported(),
+                        "{}/{} claims {kind:?} evaluation without JSON Schema output",
+                        provider.id(),
+                        model.id()
                     );
                 }
             }

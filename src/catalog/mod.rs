@@ -12,8 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 pub use capabilities::{
-    ModelCapabilities, ModelProtocolOptions, ReasoningEffortSupport, ResponseFormatSupport,
-    SpeedSupport, Support, ToolChoiceSupport,
+    EvaluationSupport, ModelCapabilities, ModelProtocolOptions, ReasoningEffortSupport,
+    ResponseFormatSupport, SpeedSupport, Support, ToolChoiceSupport,
 };
 pub use loader::CatalogBuilder;
 pub use model::{CatalogModel, LongContextPricing, ModelLimits, Pricing, SpeedPricing, SpeedRates};
