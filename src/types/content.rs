@@ -315,7 +315,7 @@ pub struct ReasoningContent {
 impl ReasoningContent {
     /// Whether this signature cannot be replayed in the requested family.
     /// A missing recorded origin is also a mismatch.
-    #[cfg(any(feature = "anthropic", feature = "gemini", feature = "bedrock", test))]
+    #[cfg(any(feature = "runtime", test))]
     pub(crate) fn has_foreign_signature(&self, family: &str) -> bool {
         self.signature.is_some() && self.signature_origin.as_deref() != Some(family)
     }

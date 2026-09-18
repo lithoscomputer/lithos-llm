@@ -1089,17 +1089,7 @@ fn public_identity_types_remain_open() {
     assert_eq!(ModelId::new("custom-model").as_str(), "custom-model");
 }
 
-#[cfg(all(
-    feature = "builtin-catalog",
-    feature = "environment-credentials",
-    any(
-        feature = "openai",
-        feature = "anthropic",
-        feature = "gemini",
-        feature = "openai-compatible",
-        feature = "bedrock"
-    )
-))]
+#[cfg(all(feature = "builtin-catalog", feature = "environment-credentials"))]
 #[test]
 fn from_env_builds_without_reading_credentials() -> Result<(), Box<dyn StdError>> {
     let build = Client::from_env()?;

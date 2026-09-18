@@ -1,8 +1,8 @@
 //! Provider-neutral language model types, catalog data, and runtime client.
 //!
 //! The catalog and the local token estimator stay synchronous. Enable
-//! `runtime` or a provider feature to use the async client. Applications own
-//! the Tokio runtime and tracing subscriber.
+//! `runtime` to use the async client. Applications own the Tokio runtime and
+//! tracing subscriber.
 
 pub mod catalog;
 pub mod estimate;
@@ -20,23 +20,11 @@ pub mod credentials;
 #[cfg(feature = "runtime")]
 pub mod middleware;
 
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
+#[cfg(feature = "runtime")]
 mod codecs;
 #[cfg(feature = "runtime")]
 mod providers;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
+#[cfg(feature = "runtime")]
 mod transport;
 
 #[cfg(feature = "runtime")]

@@ -22,13 +22,7 @@ pub use error::{Error, ErrorData, ErrorKind, RetryClassification};
 pub use limits::ResponseLimits;
 #[cfg(feature = "runtime")]
 pub(crate) use limits::ResponsePolicy;
-#[cfg(any(
-    feature = "openai",
-    feature = "anthropic",
-    feature = "gemini",
-    feature = "openai-compatible",
-    feature = "bedrock"
-))]
+#[cfg(feature = "runtime")]
 pub(crate) use limits::limit_error;
 pub use reasoning::{
     OPENAI_COMPAT_REASONING_DETAILS_KIND, OPENAI_MESSAGE_KIND, OPENAI_REASONING_KIND,

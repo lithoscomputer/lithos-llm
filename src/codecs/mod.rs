@@ -3,15 +3,11 @@
 mod assembler;
 mod common;
 
-#[cfg(feature = "anthropic")]
 pub(crate) mod anthropic;
 #[cfg(feature = "bedrock")]
 pub(crate) mod bedrock;
-#[cfg(feature = "gemini")]
 pub(crate) mod gemini;
-#[cfg(feature = "openai")]
 pub(crate) mod openai;
-#[cfg(feature = "openai-compatible")]
 pub(crate) mod openai_chat;
 
 use serde_json::Value;

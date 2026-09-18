@@ -38,21 +38,11 @@ members = ["."]
 resolver = "3"
 
 [features]
-default = [
-  "builtin-catalog",
-  "openai",
-  "anthropic",
-  "gemini",
-  "openai-compatible",
-  "environment-credentials",
-]
+default = ["builtin-catalog", "runtime", "environment-credentials"]
 builtin-catalog = []
 cli = [
   "builtin-catalog",
-  "openai",
-  "anthropic",
-  "gemini",
-  "openai-compatible",
+  "runtime",
   "environment-credentials",
   "dep:base64",
   "dep:clap",
@@ -75,10 +65,6 @@ runtime = [
   "dep:tracing",
   "dep:uuid",
 ]
-openai = ["runtime"]
-anthropic = ["runtime"]
-gemini = ["runtime"]
-openai-compatible = ["runtime"]
 bedrock = ["runtime", "dep:base64", "dep:crc32fast"]
 bedrock-aws = [
   "bedrock",
