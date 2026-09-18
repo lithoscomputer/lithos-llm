@@ -10,6 +10,7 @@ use std::time::Duration;
 use std::{env, thread};
 
 use lithos_llm::types::{ContentPart, Response, ResponseStream, ToolCall};
+use lithos_llm::{Evaluation, Verdict};
 use serde_json::Value;
 
 /// The wire-parity harness, included by path rather than copied.
@@ -183,4 +184,104 @@ pub(crate) fn json_payload(response: &Response) -> Result<Value, Box<dyn StdErro
     Ok(values
         .next()
         .ok_or("the response text holds no JSON value")??)
+}
+
+/// The option names of the mixed evaluation's choice question, in order.
+pub(crate) const MIXED_OPTIONS: [&str; 3] = ["billing", "technical", "other"];
+
+/// The interface plan's three-question evaluation against `model`: one
+/// question of each kind about one support message.
+///
+/// Every suite judges this same case, so a native evaluation model and a
+/// generation model used as a judge are held to the same shape. The score
+/// scale has three levels, so a valid score lies in `[0, 2]`.
+pub(crate) fn mixed_evaluation(model: &str) -> Evaluation {
+    Evaluation::builder()
+        .model(model)
+        .state("I was charged twice. Please refund the duplicate.")
+        .choice("department", "Which team should handle this?", [
+            (MIXED_OPTIONS[0], Some("Charges and refunds")),
+            (MIXED_OPTIONS[1], Some("Bugs and outages")),
+            (MIXED_OPTIONS[2], None),
+        ])
+        .score("severity", "How severe is the issue?", [
+            "Cosmetic",
+            "Workaround exists",
+            "Blocking; no workaround",
+        ])
+        .boolean("requests_refund", "Is the customer requesting money back?")
+        .timeout(LIVE_TIMEOUT)
+        .build()
+        .expect("the mixed evaluation builds")
+}
+
+/// Asserts what any verdict on [`mixed_evaluation`] must satisfy: three
+/// answers of the asked kinds, the choice naming one of the options, the
+/// score on its scale, the boolean a probability, and input tokens counted.
+///
+/// The specific answer is never asserted; a model may change its mind on a
+/// re-record.
+///
+/// # Errors
+///
+/// Fails when an answer is missing or has the wrong kind.
+pub(crate) fn assert_mixed_answers(verdict: &Verdict) -> TestResult {
+    assert_eq!(
+        verdict.answers.len(),
+        3,
+        "the verdict answers {} questions, not 3",
+        verdict.answers.len()
+    );
+    let department = verdict.choice("department")?;
+    assert!(
+        MIXED_OPTIONS.contains(&department.choice.as_str()),
+        "the choice `{}` names no option",
+        department.choice
+    );
+    let severity = verdict.score("severity")?;
+    // Three levels: positions 0, 1, and 2.
+    assert!(
+        (0.0..=2.0).contains(&severity.score),
+        "the score {} is off the three-level scale",
+        severity.score
+    );
+    let refund = verdict.boolean("requests_refund")?;
+    assert!(
+        (0.0..=1.0).contains(&refund.probability),
+        "the boolean probability {} is out of range",
+        refund.probability
+    );
+    assert!(
+        verdict.usage.input > 0,
+        "the verdict counts no input tokens"
+    );
+    Ok(())
+}
+
+/// Asserts a judge's verdict on [`mixed_evaluation`]: everything in
+/// [`assert_mixed_answers`], plus point estimates only. A generation model
+/// judging through structured output reports no distribution, no
+/// confidence, and no rounding; those fields are the native path's.
+///
+/// # Errors
+///
+/// Fails when an answer is missing or has the wrong kind.
+pub(crate) fn assert_point_estimates(verdict: &Verdict) -> TestResult {
+    assert_mixed_answers(verdict)?;
+    let department = verdict.choice("department")?;
+    assert!(
+        department.probabilities.is_none() && department.confidence.is_none(),
+        "a judge's choice carries a distribution or confidence: {department:?}"
+    );
+    let severity = verdict.score("severity")?;
+    assert!(
+        severity.probabilities.is_none() && severity.confidence.is_none(),
+        "a judge's score carries a distribution or confidence: {severity:?}"
+    );
+    assert!(
+        verdict.rounding.is_none(),
+        "a judge's verdict declares rounding: {:?}",
+        verdict.rounding
+    );
+    Ok(())
 }

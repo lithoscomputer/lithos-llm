@@ -16248,6 +16248,151 @@
           "metadata": {}
         }
       }
+    },
+    {
+      "scenario_id": "openai::evaluate::gpt_5_6_luna_judges_the_mixed_evaluation/0001",
+      "namespace": "openai::evaluate::gpt_5_6_luna_judges_the_mixed_evaluation",
+      "matcher": {
+        "endpoint": "responses",
+        "stream": false,
+        "request_hash": "54c66c01802c95b7"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "resp_05abc331e2af405f016aac949b4d7887d2a6a8d37dfa09142b",
+          "object": "response",
+          "created_at": 1789695131,
+          "status": "completed",
+          "background": false,
+          "billing": {
+            "payer": "developer"
+          },
+          "completed_at": 1789695133,
+          "error": null,
+          "frequency_penalty": 0.0,
+          "incomplete_details": null,
+          "instructions": null,
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-5.6-luna",
+          "moderation": null,
+          "output": [
+            {
+              "id": "rs_05abc331e2af405f016aac949c911487d2a22b5828c3e5a777",
+              "type": "reasoning",
+              "content": [],
+              "encrypted_content": "gAAAAABqrJSd3xHL5AZ9HXmc1s3dERQqEAeVXAt8uDSnp-yNw7R_RY1i4OBV63Tu7PqidE_N1xoVT1OxftdjuDxdaezQoltu1VuwXmwS52qlBZDdCocyHzzqjLOZ86BB4MgNBTas9c1-9pHXjS-5ZcfKW55N7MpGOArto6cfZI99A24Y1FlnBs89yKfFj2c71myyUiruodKZaZT8zDSxh3Lz8hgjcfvizEEDA_WggoZYdXXTEVyh7xwknlX1nuVxjp23ddQwJpX69OZHBdQNcsvzIfiZFtVDjo7iz3OUVuk1zj704NJz7lc4NVaq5NzhAKOAg5ExnRMNwOut3GUFlbzQ51w6t6YiKaVg3OH2aw-E14uBY1ZrLKPK6Oge9WHKMOoE9868eVQCi52l_N-Bo7kw82J1QtwnBouSXARDWtBzWRoyDK2iCp9K2AXomrdf6dwRLhom6UZhlH3Pgb7eZKEiNHnY9gP_WGiBs6-UcJ5ycmcVWfjhC7eg5NCFWpnUHIKj-5nH5hs2eQJgQMP4jD9tywzWdwyum8iya0dkrwIhdavPETRPGZnKdXuFG1aLthVwmWqdgsICpfPUSo-IS4ZM3t9n38HwyWbMQspemITGV6C0UDRqjxaIh4xjVOeNZ129NdbombmHu5ZQwLjqWA-HrvNfZJtftMzUruiThMFDhhh35yO5JLVp1aiih76pl_L7EMNyckbs_gJAmp3jR4S9JZIfuzX6HXrUVjFSygyEgEKEOI01sQgLMYKORx5_koemvSEs0UKq6rQJe3davAnCnzt0u2PMuCeirNXf-JS_42Imso1G_7PcUx90OmeGcJyXQzmzimmD40ZNLikEmuB3vLLF4umLdYNYsqinCtwxg2ux9lKFdJ5QsEnjrk0S_O1uE3UgX_xGCAD9LyEfYX4GyTFMGPs0rZlOiecTYYlUKZ8lKja7NDYg2O3WxYR2uEczcWzSYXq7SpQ8J396fpM6aUsvwvU-SUlieDPjAIupeli3rPuq9xY66nvbmZfHHh6abl4zm0jdaVkz_Zthj6ww1GxsEf1lOhEXzb7JCI5h-iSYMp5E5cG58YqiUzCJuDeqImJX6Ql3ymp_TgaCmnXNGLAY9uZ26th45qmTUa0STXn1oJPRlEJGlwoD-ZCuTqtPKlQA7LH5QD9PuuJf0MZRe-cQsvO4H1PbQz0obk9kn44R88t0s7qj1nLd26VeE3MnUGL6C6LIOipmCJ_ERG_VX8VpoaJZuuW9Z0Zi7Xa4nx9D9iWTGpgQSQTtXqonhenqe_SdSZZl3DeqqH91kEuqmA7MMO7VO6aC-2xoXWOCJmSkd7N78pqsljLkuv4qseCy3BT8c8gLHYfUDTZhgs5kyZr50ZBccJ_CvuCAUa1Ye1Q0nu9sdue50Txu6PHsqE2u6JPmsJT3OwgOIHDoWNxVx47q_bYBl2gk9ck4csDRvkZvsXkOuYnADrzU1V7wObejQmGAdT9QTiPMeYEv4Z0N_SY7_2DTWzHfLwgiDII92J4Ox0Kbp-U-AtgWlYddyKchz4fU2_Msv4Zcr5xFOZBxId-RWk9GWXq7IJt58qSA0W1RS1gWw6nLYUW1GLPmFGPklW1o9jIcJS_LljE9mdtU-qbtybwB6vAK2kbI0hce3ytsAlZ9ulVUF_WulUTyCIZup60dEsTKJ85X8rdX5wPyY_kF56wIQA==",
+              "summary": []
+            },
+            {
+              "id": "msg_05abc331e2af405f016aac949d2adc87d2aee1dbacc21204b5",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "{\"q0\":\"c0\",\"q1\":1,\"q2\":1}"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0.0,
+          "previous_response_id": null,
+          "prompt_cache_key": "lithos-5d49e8e177315f2e",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": null,
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1.0,
+          "text": {
+            "format": {
+              "type": "json_schema",
+              "description": null,
+              "name": "evaluation",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q0": {
+                    "type": "string",
+                    "enum": [
+                      "c0",
+                      "c1",
+                      "c2"
+                    ]
+                  },
+                  "q1": {
+                    "type": "number",
+                    "description": "Estimated probability that the answer is true, from 0 to 1 inclusive. 0 means certainly false and 1 means certainly true."
+                  },
+                  "q2": {
+                    "type": "number",
+                    "description": "A finite fractional score from 0 to 2, inclusive. Ordered rubric levels are indexed from zero."
+                  }
+                },
+                "required": [
+                  "q0",
+                  "q1",
+                  "q2"
+                ],
+                "additionalProperties": false
+              },
+              "strict": true
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "input_tokens": 412,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 0
+            },
+            "output_tokens": 109,
+            "output_tokens_details": {
+              "reasoning_tokens": 83
+            },
+            "total_tokens": 521
+          },
+          "user": null,
+          "metadata": {}
+        }
+      }
     }
   ]
 }

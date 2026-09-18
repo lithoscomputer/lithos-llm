@@ -624,7 +624,10 @@ mod tests {
     }
 
     /// A priced row prices both directions, and a long-context tier starts
-    /// inside the model's window, or it could never apply.
+    /// inside the model's window, or it could never apply. A zero rate is a
+    /// real price, distinct from an absent one, and only a native evaluation
+    /// row may charge nothing for output: Jev's output is free, while a
+    /// generation row with free output is a data error.
     #[cfg(feature = "builtin-catalog")]
     #[test]
     fn builtin_pricing_is_complete_and_tiers_sit_inside_the_window() -> Result<(), Box<dyn StdError>>
@@ -636,6 +639,9 @@ mod tests {
                     continue;
                 };
                 let route = format!("{}/{}", provider.id(), model.id());
+                let evaluates_natively = model
+                    .adapter()
+                    .is_some_and(|adapter| EVALUATION_ADAPTERS.contains(&adapter.as_str()));
                 assert!(
                     pricing
                         .input_usd_micros_per_million
@@ -645,7 +651,7 @@ mod tests {
                 assert!(
                     pricing
                         .output_usd_micros_per_million
-                        .is_some_and(|rate| rate > 0),
+                        .is_some_and(|rate| rate > 0 || evaluates_natively),
                     "{route} prices no output"
                 );
                 if let (Some(long_context), Some(limits)) = (pricing.long_context, model.limits()) {

@@ -15,6 +15,7 @@ pub(crate) fn protocol_options(model: &str) -> ModelProtocolOptions {
 }
 
 mod caching;
+mod evaluate;
 mod negative;
 mod preflight;
 mod reasoning;

@@ -27,7 +27,7 @@ This project follows [Semantic Versioning](https://semver.org/).
   listed any of the four names replaces them with `runtime` in its
   `features` list; Cargo rejects the old names.
 
-- Vercel AI Gateway joins the built-in catalog as `vercel`: 29 models
+- Vercel AI Gateway joins the built-in catalog as `vercel`: 31 models
   mirroring the OpenRouter roster (every OpenRouter row the gateway lists,
   under the same ids and aliases) with the gateway's namespaced wire ids,
   limits, effort levels, and upstream rates from its public model listing,
