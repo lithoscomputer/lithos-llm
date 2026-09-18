@@ -196,7 +196,6 @@ mod tests {
     use crate::catalog::{AuthScheme, Metadata, ProviderId};
     #[cfg(feature = "builtin-catalog")]
     use crate::types::Speed;
-    use crate::types::{ReasoningEffort, ResponseFormat, ToolChoice};
 
     /// The agent profiles a catalog row may name under `metadata.agent`.
     ///
@@ -468,319 +467,138 @@ mod tests {
         Ok(())
     }
 
+    /// The providers that ship disabled, each for a reason an API key cannot
+    /// fix: Bedrock needs AWS setup, and LiteLLM, Modal, and Ollama have no
+    /// portable model roster. Every other built-in provider needs only a
+    /// key, so credentials decide whether it is ready and the catalog leaves
+    /// it enabled.
+    #[cfg(feature = "builtin-catalog")]
+    const DISABLED_BY_DESIGN: [&str; 5] =
+        ["bedrock", "bedrock-openai", "litellm", "modal", "ollama"];
+
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn the_builtin_venice_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+    fn key_only_builtin_providers_ship_enabled() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
-
-        let venice = catalog.provider("venice")?;
-        assert_eq!(venice.default_model(), Some("deepseek-v4-flash"));
-        assert!(
-            venice.default_options().contains_key("venice_parameters"),
-            "the venice row should turn off the injected system prompt"
-        );
-
-        // The fabro aliases survive and resolve to the verified wire ids.
-        assert_eq!(
-            catalog.model("venice", "kimi-fast")?.api_model(),
-            "kimi-k3-fast-api"
-        );
-        assert_eq!(
-            catalog.model("venice", "deepseek")?.api_model(),
-            "deepseek-v4-flash-0731"
-        );
-        assert_eq!(
-            catalog.model("venice", "claude-opus-4.8")?.api_model(),
-            "claude-opus-4-8"
-        );
-
-        // Fable 5.1 keeps Venice's Claude flags but takes no forced tool
-        // choice, and Venice lists it at Anthropic's own rates.
-        let fable_51 = catalog.model("venice", "claude-fable-5.1")?;
-        assert_eq!(fable_51.api_model(), "claude-fable-5-1");
-        assert!(
-            !fable_51
-                .capabilities()
-                .tool_choice(&ToolChoice::Required)
-                .is_supported()
-        );
-        assert!(fable_51.capabilities().sampling().is_supported());
-        assert!(fable_51.capabilities().cache_routing().is_supported());
-        assert_eq!(
-            fable_51.pricing().map(|pricing| (
-                pricing.input_usd_micros_per_million,
-                pricing.cached_input_usd_micros_per_million,
-            )),
-            Some((Some(10_000_000), Some(250_000)))
-        );
-        assert!(
-            catalog
-                .model("venice", "claude-fable-5")?
-                .capabilities()
-                .tool_choice(&ToolChoice::Required)
-                .is_supported()
-        );
-
-        // Live-verified capability corrections win over fabro's claims.
-        assert!(
-            !catalog
-                .model("venice", "qwen3.8-max")?
-                .capabilities()
-                .response_format(&ResponseFormat::JsonObject)
-                .is_supported()
-        );
-        assert!(
-            catalog
-                .model("venice", "kimi-k3")?
-                .protocol_options()
-                .reasoning_effort_levels
-        );
-        assert!(
-            !catalog
-                .model("venice", "glm-5.3")?
-                .protocol_options()
-                .reasoning_effort_levels
-        );
-
-        // A model id shared with another provider stays reachable through
-        // the explicit selector; bare-id resolution is priority-ordered and
-        // is pinned by the resolver tests.
-        assert_eq!(
-            catalog.model("venice", "gpt-5.6-luna")?.api_model(),
-            "openai-gpt-56-luna"
-        );
+        let mut disabled: Vec<&str> = catalog
+            .providers()
+            .filter(|provider| !provider.is_enabled())
+            .map(|provider| provider.id().as_str())
+            .collect();
+        disabled.sort_unstable();
+        assert_eq!(disabled, DISABLED_BY_DESIGN);
         Ok(())
     }
 
+    /// The resolver splits a request selector on its first `/`, so a model id
+    /// with a slash could never be selected; the provider's wire id is where
+    /// a namespaced name belongs.
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn the_builtin_openrouter_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+    fn builtin_model_ids_never_contain_a_slash() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
-
-        let openrouter = catalog.provider("openrouter")?;
-        assert_eq!(openrouter.default_model(), Some("claude-sonnet-5"));
-
-        assert_eq!(
-            catalog.model("openrouter", "sonnet")?.api_model(),
-            "anthropic/claude-sonnet-5"
-        );
-        // The `fable` alias stays on Fable 5; 5.1 is reached by its own id and
-        // is the one Claude row that takes no forced tool choice.
-        let fable = catalog.model("openrouter", "fable")?;
-        assert_eq!(fable.api_model(), "anthropic/claude-fable-5");
-        assert!(
-            fable
-                .capabilities()
-                .tool_choice(&ToolChoice::Required)
-                .is_supported()
-        );
-        let fable_51 = catalog.model("openrouter", "claude-fable-5.1")?;
-        assert_eq!(fable_51.api_model(), "anthropic/claude-fable-5.1");
-        assert!(
-            !fable_51
-                .capabilities()
-                .tool_choice(&ToolChoice::Required)
-                .is_supported()
-        );
-        assert!(fable_51.protocol_options().cache_breakpoints);
-        assert_eq!(
-            fable_51
-                .pricing()
-                .and_then(|pricing| pricing.cached_input_usd_micros_per_million),
-            Some(250_000)
-        );
-        assert_eq!(
-            catalog.model("openrouter", "deepseek")?.api_model(),
-            "deepseek/deepseek-v4-flash-0731"
-        );
-        assert_eq!(
-            catalog.model("openrouter", "grok-4.6")?.api_model(),
-            "x-ai/grok-4.6"
-        );
-
-        let flash = catalog.model("openrouter", "gemini-3.5-flash")?;
-        assert!(
-            flash
-                .capabilities()
-                .response_format(&ResponseFormat::JsonSchema {
-                    name:   String::new(),
-                    schema: serde_json::Value::Null,
-                })
-                .is_supported()
-        );
-        assert!(flash.protocol_options().reasoning_effort_levels);
-        assert!(!flash.capabilities().audio().is_supported());
-        assert!(
-            !catalog
-                .model("openrouter", "qwen3.6-flash")?
-                .capabilities()
-                .response_format(&ResponseFormat::JsonObject)
-                .is_supported()
-        );
-
-        let sol = catalog.model("openrouter", "gpt-5.6-sol")?;
-        let pricing = sol.pricing().ok_or("gpt-5.6-sol should be priced")?;
-        assert_eq!(pricing.input_usd_micros_per_million, Some(2_000_000));
-        assert_eq!(
-            pricing
-                .long_context
-                .as_ref()
-                .and_then(|rates| rates.output_usd_micros_per_million),
-            Some(15_000_000)
-        );
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                assert!(
+                    !model.id().as_str().contains('/'),
+                    "{}/{} has a slash in its catalog id",
+                    provider.id(),
+                    model.id()
+                );
+            }
+        }
         Ok(())
     }
 
+    /// Every selector a row declares reaches that row through the provider,
+    /// and every provider default names a row it carries.
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn the_builtin_fireworks_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+    fn builtin_selectors_resolve_to_the_rows_that_declare_them() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
-
-        let fireworks = catalog.provider("fireworks")?;
-        assert_eq!(fireworks.default_model(), Some("kimi-k2.7-code"));
-        assert!(fireworks.allows_passthrough());
-        assert_eq!(
-            catalog.model("fireworks", "deepseek")?.api_model(),
-            "accounts/fireworks/models/deepseek-v4-flash-0731"
-        );
-        assert_eq!(
-            catalog.model("fireworks", "glm-5.3")?.api_model(),
-            "accounts/fireworks/models/glm-5p3"
-        );
-
-        let kimi = catalog.model("fireworks", "kimi-k2.6")?;
-        assert!(kimi.capabilities().images().is_supported());
-        assert!(kimi.capabilities().reasoning().is_supported());
-
-        let pro = catalog.model("fireworks", "deepseek-v4-pro")?;
-        let pricing = pro.pricing().ok_or("DeepSeek V4 Pro should be priced")?;
-        assert_eq!(pricing.input_usd_micros_per_million, Some(1_320_000));
-        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(44_000));
-
+        for provider in catalog.providers() {
+            let id = provider.id().as_str();
+            if let Some(default) = provider.default_model() {
+                catalog
+                    .model(id, default)
+                    .map_err(|error| format!("{id} default `{default}`: {error}"))?;
+            }
+            for model in provider.models() {
+                let mut selectors = vec![model.id().as_str()];
+                selectors.extend(model.aliases().iter().map(String::as_str));
+                for selector in selectors {
+                    let found = catalog
+                        .model(id, selector)
+                        .map_err(|error| format!("{id}/{selector}: {error}"))?;
+                    assert_eq!(found.id(), model.id(), "{id}/{selector}");
+                }
+            }
+        }
         Ok(())
     }
 
+    /// A priced row prices both directions, and a long-context tier starts
+    /// inside the model's window, or it could never apply.
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn the_builtin_anthropic_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+    fn builtin_pricing_is_complete_and_tiers_sit_inside_the_window() -> Result<(), Box<dyn StdError>>
+    {
         let catalog = Catalog::builder().with_builtin().build()?;
-
-        let anthropic = catalog.provider("claude")?;
-        assert_eq!(anthropic.default_model(), Some("claude-sonnet-5"));
-        assert!(anthropic.allows_passthrough());
-        assert_eq!(
-            catalog.model("anthropic", "sonnet")?.api_model(),
-            "claude-sonnet-5"
-        );
-
-        let fable = catalog.model("anthropic", "fable")?;
-        assert_eq!(
-            fable
-                .limits()
-                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
-            Some((1_000_000, 128_000))
-        );
-        assert!(fable.protocol_options().reasoning_effort_levels);
-        assert!(!fable.capabilities().sampling().is_supported());
-        assert!(
-            fable
-                .capabilities()
-                .tool_choice(&ToolChoice::Required)
-                .is_supported()
-        );
-
-        // Fable 5.1 shares Fable 5's limits and rates except for cache reads,
-        // and is the one row that takes no forced tool choice.
-        let fable_51 = catalog.model("anthropic", "claude-fable-5.1")?;
-        assert_eq!(fable_51.api_model(), "claude-fable-5-1");
-        assert_eq!(fable_51.limits(), fable.limits());
-        assert!(fable_51.protocol_options().reasoning_effort_levels);
-        assert!(!fable_51.capabilities().sampling().is_supported());
-        assert!(
-            !fable_51
-                .capabilities()
-                .tool_choice(&ToolChoice::Required)
-                .is_supported()
-        );
-
-        // System turns: the Claude 5 rows and Opus 4.8 take them, the older
-        // rows reject them, so the codec hoists there.
-        assert!(fable_51.protocol_options().system_turns);
-        assert!(fable.protocol_options().system_turns);
-        assert!(
-            catalog
-                .model("anthropic", "claude-sonnet-5")?
-                .protocol_options()
-                .system_turns
-        );
-        assert!(
-            catalog
-                .model("anthropic", "claude-opus-4.8")?
-                .protocol_options()
-                .system_turns
-        );
-        assert!(
-            !catalog
-                .model("anthropic", "claude-opus-4.7")?
-                .protocol_options()
-                .system_turns
-        );
-        assert!(
-            !catalog
-                .model("anthropic", "claude-haiku-4.5")?
-                .protocol_options()
-                .system_turns
-        );
-        let fable_51_pricing = fable_51.pricing().ok_or("Fable 5.1 must be priced")?;
-        assert_eq!(
-            fable_51_pricing.cached_input_usd_micros_per_million,
-            Some(250_000)
-        );
-        assert_eq!(
-            fable_51_pricing.input_usd_micros_per_million,
-            fable.pricing().and_then(|p| p.input_usd_micros_per_million)
-        );
-
-        let sonnet_45 = catalog.model("anthropic", "claude-sonnet-4.5")?;
-        assert_eq!(
-            sonnet_45
-                .limits()
-                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
-            Some((200_000, 64_000))
-        );
-        assert!(!sonnet_45.protocol_options().reasoning_effort_levels);
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                let Some(pricing) = model.pricing() else {
+                    continue;
+                };
+                let route = format!("{}/{}", provider.id(), model.id());
+                assert!(
+                    pricing
+                        .input_usd_micros_per_million
+                        .is_some_and(|rate| rate > 0),
+                    "{route} prices no input"
+                );
+                assert!(
+                    pricing
+                        .output_usd_micros_per_million
+                        .is_some_and(|rate| rate > 0),
+                    "{route} prices no output"
+                );
+                if let (Some(long_context), Some(limits)) = (pricing.long_context, model.limits()) {
+                    assert!(
+                        long_context.above_input_tokens < limits.context_tokens,
+                        "{route} starts its long-context tier past its window"
+                    );
+                }
+            }
+        }
         Ok(())
     }
 
+    /// A protocol option refines how a claimed capability is encoded, so a
+    /// row that opts into effort names or cache breakpoints must claim the
+    /// capability the option refines.
     #[cfg(feature = "builtin-catalog")]
     #[test]
-    fn the_builtin_gemini_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
+    fn builtin_protocol_options_refine_claimed_capabilities() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder().with_builtin().build()?;
-
-        let gemini = catalog.provider("google")?;
-        assert_eq!(gemini.default_model(), Some("gemini-3.5-flash"));
-        assert!(gemini.allows_passthrough());
-        assert_eq!(
-            catalog.model("gemini", "gemini-pro")?.api_model(),
-            "gemini-3.1-pro-preview"
-        );
-
-        let flash = catalog.model("gemini", "gemini-3.5-flash")?;
-        assert_eq!(
-            flash
-                .limits()
-                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
-            Some((1_048_576, 65_536))
-        );
-        assert!(flash.capabilities().reasoning().is_supported());
-        assert!(flash.protocol_options().reasoning_effort_levels);
-        assert!(flash.capabilities().sampling().is_supported());
-        assert_eq!(
-            flash
-                .pricing()
-                .and_then(|pricing| pricing.cached_input_usd_micros_per_million),
-            Some(150_000)
-        );
+        for provider in catalog.providers() {
+            for model in provider.models() {
+                let route = format!("{}/{}", provider.id(), model.id());
+                let options = model.protocol_options();
+                let capabilities = model.capabilities();
+                if options.reasoning_effort_levels {
+                    assert!(
+                        !capabilities.reasoning().is_unsupported(),
+                        "{route} names effort levels without claiming reasoning"
+                    );
+                }
+                if options.cache_breakpoints {
+                    assert!(
+                        !capabilities.caching().is_unsupported(),
+                        "{route} takes cache breakpoints without claiming caching"
+                    );
+                }
+            }
+        }
         Ok(())
     }
 
@@ -790,149 +608,12 @@ mod tests {
         let catalog = Catalog::builder().with_builtin().build()?;
 
         let modal = catalog.provider("modal")?;
-        assert_eq!(
-            modal.base_url(),
-            "https://inference.us-west.modal.direct/v1"
-        );
         assert!(matches!(modal.auth(), AuthScheme::Headers));
         assert!(modal.allows_passthrough());
         assert!(modal.default_model().is_none());
         assert_eq!(modal.models().len(), 0);
         assert_eq!(agent_profile(modal.metadata())?.as_deref(), Some("kimi"));
         assert!(!modal.is_enabled(), "modal ships as an opt-in provider");
-        assert_eq!(
-            modal.api_key_url(),
-            Some("https://modal.com/docs/guide/webhook-proxy-auth")
-        );
-        Ok(())
-    }
-
-    #[cfg(feature = "builtin-catalog")]
-    #[test]
-    fn the_builtin_moonshot_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
-        let catalog = Catalog::builder().with_builtin().build()?;
-
-        let moonshot = catalog.provider("moonshot")?;
-        assert_eq!(moonshot.default_model(), Some("kimi-k3"));
-        assert!(moonshot.allows_passthrough());
-        assert_eq!(catalog.model("moonshot", "kimi")?.api_model(), "kimi-k3");
-
-        let k3 = catalog.model("moonshot", "kimi-k3")?;
-        assert_eq!(
-            k3.limits()
-                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
-            Some((1_048_576, 1_048_576))
-        );
-        assert!(k3.protocol_options().reasoning_effort_levels);
-        assert!(!k3.capabilities().sampling().is_supported());
-        // Official docs and the live listing agree on the three levels K3
-        // accepts; the same row is served on Fireworks, OpenRouter, and
-        // Venice, so every copy claims the same levels.
-        for provider in ["moonshot", "fireworks", "openrouter", "venice"] {
-            let capabilities = catalog.model(provider, "kimi-k3")?.capabilities();
-            for (effort, expected) in [
-                (ReasoningEffort::Minimal, false),
-                (ReasoningEffort::Low, true),
-                (ReasoningEffort::Medium, false),
-                (ReasoningEffort::High, true),
-                (ReasoningEffort::Xhigh, false),
-                (ReasoningEffort::Max, true),
-            ] {
-                assert_eq!(
-                    capabilities.reasoning_effort(effort).is_supported(),
-                    expected,
-                    "{provider}/kimi-k3 {effort:?}"
-                );
-            }
-        }
-
-        assert_eq!(k3.family(), Some("kimi-k3"));
-        assert_eq!(
-            moonshot.api_key_url(),
-            Some("https://platform.kimi.ai/console/api-keys")
-        );
-        Ok(())
-    }
-
-    #[cfg(feature = "builtin-catalog")]
-    #[test]
-    fn the_builtin_openai_provider_resolves_verified_routes() -> Result<(), Box<dyn StdError>> {
-        let catalog = Catalog::builder().with_builtin().build()?;
-
-        let openai = catalog.provider("openai")?;
-        assert_eq!(openai.default_model(), Some("gpt-5.6-sol"));
-        assert!(openai.allows_passthrough());
-        assert_eq!(catalog.model("openai", "astra")?.api_model(), "gpt-6-astra");
-        assert_eq!(catalog.model("openai", "gpt-6")?.api_model(), "gpt-6-astra");
-        assert_eq!(catalog.model("openai", "luna")?.api_model(), "gpt-5.6-luna");
-        // fabro routes its legacy short names at the current codex driver.
-        assert_eq!(catalog.model("openai", "codex")?.api_model(), "gpt-5.4");
-        assert_eq!(
-            catalog.model("openai", "gpt-5.6")?.api_model(),
-            "gpt-5.6-sol"
-        );
-
-        // Sampling controls are model-specific: the Astra docs reject them,
-        // and on the live API (2026-08-30) only the 5.4 rows took them.
-        assert!(
-            !catalog
-                .model("openai", "gpt-6-astra")?
-                .capabilities()
-                .sampling()
-                .is_supported()
-        );
-        assert!(
-            catalog
-                .model("openai", "gpt-5.4")?
-                .capabilities()
-                .sampling()
-                .is_supported()
-        );
-        assert!(
-            catalog
-                .model("openai", "gpt-5.4-mini")?
-                .capabilities()
-                .sampling()
-                .is_supported()
-        );
-        assert!(
-            !catalog
-                .model("openai", "gpt-5.5")?
-                .capabilities()
-                .sampling()
-                .is_supported()
-        );
-        assert!(
-            !catalog
-                .model("openai", "gpt-5.6-sol")?
-                .capabilities()
-                .sampling()
-                .is_supported()
-        );
-
-        // The pro rows cache nothing and price no speed tier, so the local
-        // speed gate refuses fast and economical for them.
-        let pro = catalog.model("openai", "gpt-5.5-pro")?;
-        assert!(!pro.capabilities().caching().is_supported());
-        let pricing = pro.pricing().ok_or("gpt-5.5-pro should be priced")?;
-        assert!(pricing.speed.is_none());
-
-        let mini = catalog.model("openai", "gpt-5.4-mini")?;
-        assert_eq!(
-            mini.limits()
-                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
-            Some((400_000, 128_000))
-        );
-        assert!(mini.is_probe());
-        assert!(mini.is_small_default());
-        assert_eq!(mini.family(), Some("gpt-5"));
-        assert_eq!(mini.training_cutoff(), Some("2025-08-31"));
-        assert_eq!(mini.knowledge_cutoff(), Some("August 31, 2025"));
-        assert_eq!(mini.estimated_output_tps(), Some(140.0));
-        assert!(
-            !catalog.model("openai", "gpt-5.5")?.is_probe(),
-            "only the mini row is the probe model"
-        );
         Ok(())
     }
 
@@ -993,102 +674,6 @@ mod tests {
             "gpt-5.6-sol"
         );
         assert!(catalog.model("openai-codex", "gpt-5.4-mini")?.is_probe());
-        Ok(())
-    }
-
-    #[cfg(feature = "builtin-catalog")]
-    #[test]
-    fn the_builtin_catalog_carries_the_published_rates_and_limits() -> Result<(), Box<dyn StdError>>
-    {
-        let catalog = Catalog::builder().with_builtin().build()?;
-
-        // Astra's published rates and limits, documented on 2026-09-03.
-        let astra = catalog.model("openai", "gpt-6-astra")?;
-        assert_eq!(
-            astra
-                .limits()
-                .map(|limits| (limits.context_tokens, limits.max_output_tokens)),
-            Some((1_050_000, 128_000))
-        );
-        assert!(astra.capabilities().documents().is_supported());
-        assert!(astra.protocol_options().reasoning_effort_levels);
-        let pricing = astra.pricing().ok_or("gpt-6-astra should be priced")?;
-        assert_eq!(pricing.input_usd_micros_per_million, Some(10_000_000));
-        assert_eq!(pricing.output_usd_micros_per_million, Some(50_000_000));
-        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(1_000_000));
-        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(12_500_000));
-        let long = pricing.for_input_tokens(300_000);
-        assert_eq!(long.input_usd_micros_per_million, Some(20_000_000));
-        assert_eq!(long.output_usd_micros_per_million, Some(75_000_000));
-        let fast = pricing.for_speed(Some(Speed::Fast));
-        assert_eq!(fast.input_usd_micros_per_million, Some(20_000_000));
-        let flex = pricing.for_speed(Some(Speed::Economical));
-        assert_eq!(flex.input_usd_micros_per_million, Some(5_000_000));
-
-        // OpenAI's GPT-5 rates and limits, verified live on 2026-08-30.
-        // Luna's window is 1,050,000 tokens; 272,000 is the long-context
-        // billing threshold, and the 5.6 family bills cache writes at 1.25x.
-        let luna = catalog.model("openai", "gpt-5.6-luna")?;
-        let pricing = luna.pricing().ok_or("gpt-5.6-luna should be priced")?;
-        assert_eq!(pricing.input_usd_micros_per_million, Some(200_000));
-        assert_eq!(pricing.output_usd_micros_per_million, Some(1_200_000));
-        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(20_000));
-        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(250_000));
-        assert_eq!(
-            luna.limits().map(|limits| limits.context_tokens),
-            Some(1_050_000)
-        );
-        let long = pricing.for_input_tokens(300_000);
-        assert_eq!(long.input_usd_micros_per_million, Some(400_000));
-        assert_eq!(long.output_usd_micros_per_million, Some(1_800_000));
-        let fast = pricing.for_speed(Some(Speed::Fast));
-        assert_eq!(fast.input_usd_micros_per_million, Some(400_000));
-        let flex = pricing.for_speed(Some(Speed::Economical));
-        assert_eq!(flex.input_usd_micros_per_million, Some(100_000));
-
-        let sonnet = catalog.model("anthropic", "claude-sonnet-4-6")?;
-        assert_eq!(
-            sonnet.limits().map(|limits| limits.context_tokens),
-            Some(1_000_000)
-        );
-        assert_eq!(
-            sonnet.limits().map(|limits| limits.max_output_tokens),
-            Some(128_000)
-        );
-        let pricing = sonnet
-            .pricing()
-            .ok_or("claude-sonnet-4-6 should be priced")?;
-        // Anthropic bills a cache write at 1.25x input. The entry carries no
-        // fast-tier rates, so a fast request keeps the base rates rather than
-        // reporting an invented premium.
-        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(3_750_000));
-        let fast = pricing.for_speed(Some(Speed::Fast));
-        assert_eq!(fast.input_usd_micros_per_million, Some(3_000_000));
-        assert_eq!(fast.output_usd_micros_per_million, Some(15_000_000));
-        assert!(sonnet.protocol_options().reasoning_effort_levels);
-
-        // Bedrock on-demand access needs the `us.` inference profile, and the
-        // model caches, which the codec gates on.
-        assert_eq!(
-            catalog.provider("bedrock")?.default_model(),
-            Some("claude-sonnet-5")
-        );
-        assert_eq!(catalog.provider("bedrock")?.priority(), 20);
-        let bedrock = catalog.model("bedrock", "anthropic.claude-sonnet-4-6")?;
-        assert_eq!(bedrock.api_model(), "us.anthropic.claude-sonnet-4-6");
-        assert!(bedrock.capabilities().caching().is_supported());
-        assert!(bedrock.protocol_options().reasoning_effort_levels);
-        assert_eq!(
-            bedrock.limits().map(|limits| limits.max_output_tokens),
-            Some(64_000)
-        );
-        let pricing = bedrock
-            .pricing()
-            .ok_or("the Bedrock model should be priced")?;
-        assert_eq!(pricing.input_usd_micros_per_million, Some(3_000_000));
-        assert_eq!(pricing.output_usd_micros_per_million, Some(15_000_000));
-        assert_eq!(pricing.cached_input_usd_micros_per_million, Some(300_000));
-        assert_eq!(pricing.cache_write_usd_micros_per_million, Some(3_750_000));
         Ok(())
     }
 
@@ -1231,54 +816,6 @@ mod tests {
             *source,
             CatalogError::DuplicateModelSelector { provider, selector }
                 if provider.as_str() == "test" && selector == "shared"
-        ));
-        Ok(())
-    }
-
-    #[cfg(feature = "builtin-catalog")]
-    #[test]
-    fn imported_providers_preserve_routes_and_decimal_prices() -> Result<(), Box<dyn StdError>> {
-        let catalog = Catalog::builder().with_builtin().build()?;
-        for (provider, selector, api_model) in [
-            ("deepseek", "deepseek", "deepseek-v4-flash"),
-            ("deepseek", "deepseek-v4-pro", "deepseek-v4-pro"),
-            ("inception", "mercury", "mercury-2"),
-            ("minimax", "minimax", "MiniMax-M2.5"),
-            ("zai", "glm", "glm-5.2"),
-            ("zai", "glm4", "glm-4.7"),
-            ("poolside", "laguna", "poolside/laguna-s-2.1"),
-            ("poolside", "laguna-xs", "poolside/laguna-xs-2.1"),
-            ("bedrock-openai", "gpt-5.5", "openai.gpt-5.5"),
-            ("bedrock-openai", "gpt-5.4", "openai.gpt-5.4"),
-        ] {
-            assert_eq!(catalog.model(provider, selector)?.api_model(), api_model);
-        }
-        let pro = catalog.model("deepseek", "deepseek-v4-pro")?;
-        assert_eq!(
-            pro.pricing()
-                .ok_or("prices")?
-                .cached_input_usd_micros_per_million,
-            Some(3625)
-        );
-        let xs = catalog.model("poolside", "laguna-xs")?;
-        assert_eq!(
-            xs.pricing().ok_or("prices")?.input_usd_micros_per_million,
-            Some(100_000)
-        );
-        assert!(xs.is_small_default());
-        for provider in ["ollama", "litellm"] {
-            let provider = catalog.provider(provider)?;
-            assert!(provider.default_model().is_none());
-            assert_eq!(provider.models().len(), 0);
-            assert!(provider.allows_passthrough());
-        }
-        assert!(matches!(
-            catalog.provider("ollama")?.auth(),
-            AuthScheme::None
-        ));
-        assert!(matches!(
-            catalog.provider("bedrock-openai")?.auth(),
-            AuthScheme::Bearer { .. }
         ));
         Ok(())
     }

@@ -39,3 +39,4 @@ mod openai;
 mod openrouter;
 mod support;
 mod venice;
+mod vercel;

@@ -20,9 +20,10 @@ remain provisional unless a catalog comment identifies a documentation correctio
   `metadata.agent.profile`, `"openai"` for OpenAI-compatible providers.
 - Unverified forced-tool and structured-output support is `"unknown"`.
   Lithos permits these requests so the live tests can establish support.
-- A provider that needs deployment-specific setup ships `enabled = false`;
-  an overlay turns it on with `enabled = true`. Catalog presence does not
-  check account access or service availability.
+- A provider that needs deployment-specific setup or has no portable model
+  roster ships `enabled = false`; an overlay turns it on with `enabled = true`.
+  A provider that needs only an API key ships enabled. Catalog presence does
+  not check account access or service availability.
 - LiteLLM and Ollama have no universal model roster or default. Select an
   actual deployment or installed model with a qualified selector. Add model
   limits, capabilities, and pricing through an application catalog overlay.

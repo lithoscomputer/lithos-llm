@@ -1,0 +1,386 @@
+# The Vercel AI Gateway roster for the live E2E suite: the built-in rows
+# without pricing, so the cost assertion proves the in-band `usage.cost`
+# extraction. Built on 2026-09-17 from the gateway's public
+# `GET /v1/models` listing (no key needed) and raw Chat Completions probes
+# with a team key. The roster mirrors the OpenRouter roster: every OpenRouter
+# row the gateway lists is here under the same catalog id, aliases, and
+# profile, with the gateway's own wire id, limits, and prices. Three
+# OpenRouter rows are absent because the gateway does not list them:
+# laguna-xs-2.1, qwen3.6-flash, and devstral-2512.
+#
+# The listing is unusually complete. Each row carries `context_window`,
+# `max_tokens`, `supported_parameters`, `temperature` (whether the model
+# takes one), `reasoning_options` (the named effort levels), input
+# modalities, and per-token prices as decimal strings, so most flags below
+# come straight from it. Vercel adds no markup: the rows carry the upstream
+# rates, converted from USD per token to USD micros per million. Regional
+# and `fast` sub-tables in the listing are not represented; the Chat
+# Completions codec has no speed control, so `speed.fast` stays unclaimed
+# even where the gateway prices a fast tier (Claude Opus 5, GPT-5.6).
+#
+# Probe findings that shaped the rows (all 2026-09-17):
+# - The gateway reports cost in-band: `usage.cost` on every response, plus
+#   `cache_creation_input_tokens` and `prompt_tokens_details.cached_tokens`.
+#   A `cache_control` breakpoint on Claude Sonnet 5 wrote 15,381 tokens on
+#   the first call and read them all back on the second, so the Claude rows
+#   claim `cache_breakpoints`. The provider-reported cost wins over these
+#   rates; the rows price what a response fails to report.
+# - `reasoning_effort` is accepted on every reasoning row and the gateway
+#   maps it to the upstream's control, including levels the listing omits
+#   (Kimi K3 and GLM 5.3 both took `medium`). The rows spell out the
+#   listing's levels anyway so an application can pick a supported one.
+#   The listing's `none` level has no lithos-llm equivalent and is dropped.
+# - Reasoning text comes back as `reasoning` plus `reasoning_details`
+#   (`reasoning.text`, or `reasoning.summary` and `reasoning.encrypted` on
+#   OpenAI and Grok), which the codec already stores and replays. The Claude
+#   rows returned no reasoning text at any effort, only `reasoning_tokens`.
+# - The listing says Sonnet 5 and Kimi K3 take no temperature, but the
+#   gateway accepted one on both without a warning, so both claim sampling.
+#   Opus 5 and Fable 5 could not be probed (see below) and stay unclaimed.
+# - Fable 5.1 answers a forced tool choice with Anthropic's 400
+#   (`tool_choice: type "tool" and "any" are not supported for this
+#   model.`), so its row claims tools without forced choice. Every other
+#   row honored `required`; Sonnet 5 and Kimi K3 honored a named choice.
+# - JSON Schema output conformed on every row that claims it. It did not on
+#   GLM 4.6 (`{"answer": ...}` twice), MiMo (schema ignored), Qwen 3.8 27B
+#   (an array around the object, twice), Kimi K2.6 (prose), or Qwen3 Coder
+#   (two 120-second timeouts), so those rows claim `json_object` at most.
+# - The 64x64 PNG fixture the OpenRouter suite uses is rejected as an
+#   invalid PNG by the Grok and OpenAI upstreams through this gateway; a
+#   freshly encoded 64x64 PNG was read correctly by every image row.
+# - Stop sequences are ignored by the GPT rows, MiMo, MiniMax, and Grok, and
+#   Nemotron rejects the field outright. No capability records stop support;
+#   the E2E suite pins these.
+# - The gateway applies a per-model rate limit to Claude Opus 5, Fable 5,
+#   and Fable 5.1 on the team behind the probes: one request per model in
+#   each five-to-six-minute window, every later request answered `429
+#   rate_limit_exceeded` / `No access to this model at this time` with zero
+#   provider attempts in the routing metadata. Measured 19:28-19:55 UTC on
+#   2026-09-17, unchanged by a credit purchase during the window; Vercel's
+#   rate-limits page describes such per-model limits for the free tier. No
+#   other roster row is limited this way. Those three rows' sampling,
+#   forced-choice, and structured-output flags therefore follow the listing
+#   and the Sonnet 5 probes rather than a live probe. Re-probe when the team
+#   is on the paid tier.
+# - `prompt_cache_key` is accepted but nothing documents sticky routing, so
+#   no row claims `cache_routing`.
+#
+# Error bodies use the OpenAI shape with string codes
+# (`{"error": {"message", "type", "param", "code"}}`); an unknown model is a
+# 404 `model_not_found`, a bad key a 401 `authentication_error`.
+
+schema_version = 1
+
+[providers.vercel]
+display_name = "Vercel AI Gateway"
+adapter = "openai-compatible"
+codec = "openai-chat"
+base_url = "https://ai-gateway.vercel.sh/v1"
+priority = 30
+allow_passthrough = true
+default_model = "claude-sonnet-5"
+
+[providers.vercel.auth]
+type = "bearer"
+
+# The agent profile for this provider's models; a model row overrides it.
+
+# ---------- Anthropic via Vercel ----------
+
+# The one Claude row that takes no forced tool choice: the upstream 400
+# (`tool_choice: type "tool" and "any" are not supported for this model.`)
+# came straight through the gateway on 2026-09-17. The listing is the one
+# Claude 5 row with `temperature: true`, and cache reads are $0.25/MTok, a
+# quarter of Fable 5's rate. Sampling and structured output are unprobed
+# (see the per-model rate limit in the header) and follow the listing and
+# the Sonnet 5 row.
+[providers.vercel.models."claude-fable-5.1"]
+display_name = "Claude Fable 5.1 (via Vercel)"
+api_model = "anthropic/claude-fable-5.1"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+# Not probed live (see the per-model rate limit in the header); the flags
+# mirror the Sonnet 5 row except sampling, which the listing denies.
+[providers.vercel.models."claude-fable-5"]
+display_name = "Claude Fable 5 (via Vercel)"
+aliases = ["fable", "claude-fable"]
+api_model = "anthropic/claude-fable-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+# One `max`-effort completion verified (10 reasoning tokens counted); the
+# per-model rate limit in the header blocked every further probe, so the
+# other flags mirror the Sonnet 5 row except sampling, which the listing
+# denies. The listing also prices a `fast` tier at twice these rates, which
+# the Chat codec cannot request.
+[providers.vercel.models."claude-opus-5"]
+display_name = "Claude Opus 5 (via Vercel)"
+aliases = ["opus", "claude-opus"]
+api_model = "anthropic/claude-opus-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+# The listing says no temperature, but the gateway accepted one on
+# 2026-09-17 without a warning. A named tool choice, JSON Schema output,
+# vision, a cache write-then-read pair, and stop sequences all verified.
+[providers.vercel.models."claude-sonnet-5"]
+display_name = "Claude Sonnet 5 (via Vercel)"
+aliases = ["sonnet", "claude-sonnet"]
+api_model = "anthropic/claude-sonnet-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+[providers.vercel.models."claude-opus-4.8"]
+display_name = "Claude Opus 4.8 (via Vercel)"
+aliases = ["claude-opus-4-8"]
+api_model = "anthropic/claude-opus-4.8"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+[providers.vercel.models."claude-opus-4.7"]
+display_name = "Claude Opus 4.7 (via Vercel)"
+aliases = ["claude-opus-4-7"]
+api_model = "anthropic/claude-opus-4.7"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+[providers.vercel.models."claude-sonnet-4.6"]
+display_name = "Claude Sonnet 4.6 (via Vercel)"
+aliases = ["claude-sonnet-4-6"]
+api_model = "anthropic/claude-sonnet-4.6"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = false, max = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+# The listing offers a reasoning toggle but no named effort levels.
+[providers.vercel.models."claude-haiku-4.5"]
+display_name = "Claude Haiku 4.5 (via Vercel)"
+aliases = ["haiku", "claude-haiku", "claude-haiku-4-5"]
+api_model = "anthropic/claude-haiku-4.5"
+limits = { context_tokens = 200000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { cache_breakpoints = true }
+
+# ---------- OpenAI via Vercel ----------
+# The listing prices a second tier from 272,000 prompt tokens (`input_tiers`
+# with `min = 272000`); Lithos selects the tier above that input count. The
+# GPT rows ignore stop sequences through this gateway, and the listing's
+# `none` effort level has no lithos-llm equivalent.
+
+[providers.vercel.models."gpt-5.6-sol"]
+display_name = "GPT-5.6 Sol (via Vercel)"
+aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
+api_model = "openai/gpt-5.6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.vercel.models."gpt-5.6-terra"]
+display_name = "GPT-5.6 Terra (via Vercel)"
+aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
+api_model = "openai/gpt-5.6-terra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.vercel.models."gpt-5.6-luna"]
+display_name = "GPT-5.6 Luna (via Vercel)"
+aliases = ["luna", "gpt-luna", "gpt56-luna", "gpt-56-luna"]
+api_model = "openai/gpt-5.6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.vercel.models."gpt-5.4"]
+display_name = "GPT-5.4 (via Vercel)"
+aliases = ["gpt54", "gpt-54", "gpt-5.2", "gpt5", "gpt-5.3-codex", "codex"]
+api_model = "openai/gpt-5.4"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.vercel.models."gpt-5.5"]
+display_name = "GPT-5.5 (via Vercel)"
+aliases = ["gpt55", "gpt-55"]
+api_model = "openai/gpt-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+# ---------- Google Gemini via Vercel ----------
+# Both rows spend a few hundred reasoning tokens before a JSON Schema
+# answer; a 300-token cap truncated them mid-preamble on 2026-09-17, and a
+# 2,000-token cap produced a conforming document.
+
+# The listing prices a second tier above 200,000 prompt tokens.
+[providers.vercel.models."gemini-3.1-pro-preview"]
+display_name = "Gemini 3.1 Pro Preview (via Vercel)"
+api_model = "google/gemini-3.1-pro-preview"
+limits = { context_tokens = 1000000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = false, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.vercel.models."gemini-3.5-flash"]
+display_name = "Gemini 3.5 Flash (via Vercel)"
+api_model = "google/gemini-3.5-flash"
+limits = { context_tokens = 1000000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = true, low = true, medium = true, high = true, xhigh = false, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+# ---------- Open-weights models ----------
+
+# JSON object output works; the supplied schema was ignored twice on
+# 2026-09-17, and stop sequences are ignored. The listing offers a reasoning
+# toggle but no named effort levels.
+[providers.vercel.models."mimo-v2.5-pro"]
+display_name = "Xiaomi MiMo v2.5 Pro"
+api_model = "xiaomi/mimo-v2.5-pro"
+limits = { context_tokens = 1050000, max_output_tokens = 131000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = false }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+
+# JSON Schema output conformed on 2026-09-17, unlike the OpenRouter route.
+# Stop sequences are ignored, and a mid-conversation system message is
+# accepted but not obeyed.
+[providers.vercel.models."minimax-m2.7"]
+display_name = "MiniMax M2.7"
+api_model = "minimax/minimax-m2.7"
+limits = { context_tokens = 204800, max_output_tokens = 131000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+
+[providers.vercel.models."deepseek-v4-pro"]
+display_name = "DeepSeek V4 Pro"
+api_model = "deepseek/deepseek-v4-pro"
+limits = { context_tokens = 1000000, max_output_tokens = 384000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+# The dated `-0731` wire id matches the OpenRouter and Venice rows and is
+# priced below the gateway's undated `deepseek-v4-flash`. Its listing names
+# no effort levels, but `reasoning_effort: high` was accepted and reasoned
+# on 2026-09-17. The undated id answered one schema request out of two with
+# a non-conforming object, so JSON Schema stays unknown until probed on
+# this id.
+[providers.vercel.models."deepseek-v4-flash"]
+display_name = "DeepSeek V4 Flash"
+aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
+api_model = "deepseek/deepseek-v4-flash-0731"
+limits = { context_tokens = 1000000, max_output_tokens = 384000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = "unknown" }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+# The listing says no temperature, but the gateway accepted one on
+# 2026-09-17 without a warning. Named tool choice, JSON Schema output, and
+# vision verified; `medium` effort was accepted although the listing names
+# only low, high, and max.
+[providers.vercel.models."kimi-k3"]
+display_name = "Kimi K3 (via Vercel)"
+api_model = "moonshotai/kimi-k3"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# No caching tag in the listing, though it prices cache reads; the row
+# claims caching only when a probe shows it. JSON object output arrives in
+# a Markdown fence, so structured output stays unclaimed.
+[providers.vercel.models."laguna-s-2.1"]
+display_name = "Laguna S 2.1 (via Vercel)"
+api_model = "poolside/laguna-s-2.1"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, tools = true, reasoning = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+
+# Three price tiers in the listing (to 32,000, to 128,000, and above);
+# `long_context` carries one threshold, so the row prices the middle tier
+# above 32,000 and under-prices prompts past 128,000. JSON object output
+# verified; two JSON Schema requests timed out at 120 seconds on
+# 2026-09-17, so the schema flag stays off. The listing tags implicit
+# caching, but a 13k-token shared prefix neither wrote nor read a cache
+# across four attempts on 2026-09-17, so caching stays unclaimed.
+[providers.vercel.models."qwen3-coder"]
+display_name = "Qwen3 Coder"
+api_model = "alibaba/qwen3-coder"
+limits = { context_tokens = 262144, max_output_tokens = 65536 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = false }, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+
+# The listing names low, medium, and xhigh efforts, with no high.
+[providers.vercel.models."qwen3.8-max"]
+display_name = "Qwen3.8 Max"
+api_model = "alibaba/qwen3.8-max"
+limits = { context_tokens = 262144, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = false, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.vercel.models."glm-5.2"]
+display_name = "GLM 5.2 (via Vercel)"
+aliases = ["glm", "glm5", "glm52", "glm5.2"]
+api_model = "zai/glm-5.2"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+# A JSON Schema request answered `{"answer": "blue"}` twice on
+# 2026-09-17, so only JSON object output is claimed. Unlike the OpenRouter
+# route, `required` tool choice was honored. The listing offers a reasoning
+# toggle but no named effort levels.
+[providers.vercel.models."glm-4.6"]
+display_name = "GLM 4.6"
+api_model = "zai/glm-4.6"
+limits = { context_tokens = 200000, max_output_tokens = 96000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = false }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+
+# ---------- Venice roster union ----------
+
+# The listing names no effort levels, but low and xhigh were both
+# accepted with different reasoning counts on 2026-09-17. Stop sequences
+# are ignored, and a 32-token output cap did not truncate. The second price
+# tier starts above 200,000 prompt tokens.
+[providers.vercel.models."grok-4.6"]
+display_name = "Grok 4.6 (via Vercel)"
+aliases = ["grok", "grok46", "grok-46"]
+api_model = "spacexai/grok-4.6"
+limits = { context_tokens = 500000, max_output_tokens = 500000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+# `medium` effort was accepted although the listing names only low, high, and max.
+[providers.vercel.models."glm-5.3"]
+display_name = "GLM 5.3 (via Vercel)"
+aliases = ["glm53", "glm5.3", "glm-5-3"]
+api_model = "zai/glm-5.3"
+limits = { context_tokens = 1000000, max_output_tokens = 1000000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# A JSON Schema request answered an array around the object twice on
+# 2026-09-17, so only JSON object output is claimed.
+[providers.vercel.models."qwen3.8-27b"]
+display_name = "Qwen 3.8 27B (via Vercel)"
+aliases = ["qwen-27b", "qwen-3.8-27b", "qwen38-27b"]
+api_model = "alibaba/qwen3.8-27b"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = false }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = false, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+
+# JSON Schema output came back as prose and JSON object output in a
+# Markdown fence on 2026-09-17, so structured output stays unclaimed. The
+# listing offers a reasoning toggle but no named effort levels.
+[providers.vercel.models."kimi-k2.6"]
+display_name = "Kimi K2.6"
+api_model = "moonshotai/kimi-k2.6"
+limits = { context_tokens = 262000, max_output_tokens = 262000 }
+capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+
+# The gateway rejects a `stop` field for this model (`This model doesn't
+# support the stopSequences field`). The listing offers a reasoning toggle,
+# no caching, and no cache pricing.
+[providers.vercel.models."nemotron-3-super-120b-a12b"]
+display_name = "NVIDIA Nemotron 3 Super 120B"
+api_model = "nvidia/nemotron-3-super-120b-a12b"
+limits = { context_tokens = 256000, max_output_tokens = 32000 }
+capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }

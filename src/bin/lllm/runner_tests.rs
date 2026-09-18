@@ -893,6 +893,76 @@ async fn model_selection_uses_the_documented_precedence() {
     );
 }
 
+/// A model the same alias reaches on two compiled providers goes to the
+/// higher-priority one, as a bare selector would in the resolver, even when
+/// the other provider's selector sorts first.
+#[tokio::test]
+async fn model_query_prefers_the_higher_priority_provider() {
+    const SHARED_ALIAS_CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.first]
+        display_name = "First"
+        adapter = "fake"
+        codec = "fake"
+        base_url = "http://127.0.0.1"
+        priority = 100
+        default_model = "shared"
+        auth = { type = "none" }
+
+        [providers.first.models.shared]
+        display_name = "Shared Model"
+        aliases = ["same"]
+        api_model = "shared-v1"
+        capabilities = { text = true }
+
+        [providers.aaa-router]
+        display_name = "Router"
+        adapter = "fake"
+        codec = "fake"
+        base_url = "http://127.0.0.1"
+        priority = 30
+        default_model = "shared"
+        auth = { type = "none" }
+
+        [providers.aaa-router.models.shared]
+        display_name = "Shared Model (via Router)"
+        aliases = ["same"]
+        api_model = "vendor/shared-v1"
+        capabilities = { text = true }
+    "#;
+    let adapter = RecordingAdapter::default();
+    let catalog = Catalog::builder()
+        .overlay_toml(SHARED_ALIAS_CATALOG)
+        .expect("catalog overlay should parse")
+        .build()
+        .expect("catalog should build");
+    let build = Client::builder()
+        .catalog(catalog)
+        .adapter("first", adapter.clone())
+        .adapter("aaa-router", adapter)
+        .build()
+        .expect("client should build");
+    let environment = CliEnvironment::new(None, [
+        ProviderId::new("first"),
+        ProviderId::new("aaa-router"),
+    ]);
+
+    for query in ["same", "shared"] {
+        let (status, stdout, stderr) = invoke_with_environment(
+            &build.client,
+            &["lllm", "resolve", "--model-query", query],
+            Vec::new(),
+            true,
+            &environment,
+            CancellationToken::new(),
+        )
+        .await;
+        assert_eq!(status, ExitStatus::Success, "{query}: {stderr:?}");
+        assert_eq!(stdout, b"first/shared\n", "query {query}");
+    }
+}
+
 #[tokio::test]
 async fn probe_uses_model_selection_and_emits_a_json_report() {
     let adapter = RecordingAdapter::default();

@@ -29,10 +29,11 @@ pub mod ids {
     pub const OPENROUTER: &str = "openrouter";
     pub const POOLSIDE: &str = "poolside";
     pub const VENICE: &str = "venice";
+    pub const VERCEL: &str = "vercel";
     pub const ZAI: &str = "zai";
 
     /// Every built-in provider id, in catalog order.
-    pub const ALL: [&str; 18] = [
+    pub const ALL: [&str; 19] = [
         ANTHROPIC,
         BEDROCK,
         BEDROCK_OPENAI,
@@ -50,6 +51,7 @@ pub mod ids {
         OPENROUTER,
         POOLSIDE,
         VENICE,
+        VERCEL,
         ZAI,
     ];
 }
