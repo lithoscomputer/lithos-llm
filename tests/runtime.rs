@@ -11,8 +11,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 use futures_util::stream::{iter, pending as pending_stream};
-use lithos_llm::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall, ResolvedEvaluation};
-use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ModelId, ProviderId};
+use lithos_llm::adapter::{
+    AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
+    ResolvedCall, ResolvedEvaluation,
+};
+use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, ModelId, ProviderId};
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
@@ -2460,5 +2463,346 @@ async fn resolve_evaluation_route_agrees_with_evaluate() -> Result<(), Box<dyn S
     assert_eq!(route.handle().to_string(), "test/judge");
     assert_eq!(verdict.model, route.handle());
     assert!(verdict.answers.contains_key(&QuestionId::new("severity")));
+    Ok(())
+}
+
+// ===========================================================================
+// Per-call codec selection
+// ===========================================================================
+
+/// A provider on the default `http` adapter that lists the Chat codec and
+/// the Vercel evaluation codec, with one generation row and one native
+/// evaluation row, as the built-in `vercel` provider does.
+const MIXED_HTTP_CATALOG: &str = r#"
+schema_version = 1
+
+[providers.vercel]
+display_name = "Vercel"
+codecs = ["openai-chat", "vercel-evaluation"]
+base_url = "http://127.0.0.1:1"
+default_model = "chat"
+
+[providers.vercel.auth]
+type = "none"
+
+[providers.vercel.models.chat]
+display_name = "Chat"
+api_model = "chat"
+capabilities = { text = true }
+
+[providers.vercel.models.jev]
+display_name = "Jev"
+api_model = "typesafe-ai/jev"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+"#;
+
+/// Records the codec each call carried when it reached the middleware.
+struct CodecRecorder {
+    seen: Arc<Mutex<Vec<Option<String>>>>,
+}
+
+#[async_trait]
+impl Middleware for CodecRecorder {
+    async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
+        self.seen
+            .lock()
+            .expect("recorder")
+            .push(call.codec().map(ToString::to_string));
+        next.run(call).await
+    }
+}
+
+/// An evaluation-only row has no generation codec, so `complete` is refused
+/// before the pipeline runs, and the refusal names the family.
+#[tokio::test(start_paused = true)]
+async fn a_completion_on_an_evaluation_only_row_is_refused_before_dispatch()
+-> Result<(), Box<dyn StdError>> {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(
+            Catalog::builder()
+                .overlay_toml(MIXED_HTTP_CATALOG)?
+                .build()?,
+        )
+        .middleware(CodecRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+    // The row claims no `text` either, but the codec refusal comes first
+    // and names the family, which is the more useful message.
+    let request = Request::builder()
+        .model("vercel/jev")
+        .user("Hello")
+        .build()?;
+
+    let error = client
+        .complete(request.clone())
+        .await
+        .expect_err("no generation codec reaches the evaluation row");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert_eq!(
+        error.message(),
+        "no generation codec reaches model vercel/jev"
+    );
+    assert!(
+        client.stream(request.clone()).await.is_err(),
+        "streaming applies the same gate"
+    );
+    assert!(client.count_input_tokens(request).await.is_err());
+    assert!(
+        seen.lock().expect("recorder").is_empty(),
+        "the refusal happens before any middleware runs"
+    );
+    Ok(())
+}
+
+/// The generation row on the same provider carries its codec into the
+/// pipeline, where middleware can read it.
+#[tokio::test(start_paused = true)]
+async fn middleware_sees_the_selected_codec_on_a_builtin_provider() -> Result<(), Box<dyn StdError>>
+{
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(
+            Catalog::builder()
+                .overlay_toml(MIXED_HTTP_CATALOG)?
+                .build()?,
+        )
+        .middleware(CodecRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+
+    // Port 1 refuses every connection, so the call fails at the transport,
+    // after the middleware has already recorded the codec.
+    let request = Request::builder()
+        .model("vercel/chat")
+        .user("Hello")
+        .build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("nothing listens on port 1");
+    assert_eq!(error.kind(), ErrorKind::Network, "{error}");
+
+    let evaluation = Evaluation::builder()
+        .model("vercel/jev")
+        .state("I was charged twice.")
+        .boolean("requests_refund", "Refund requested?")
+        .build()?;
+    let error = client
+        .evaluate(evaluation)
+        .await
+        .expect_err("nothing listens on port 1");
+    assert_eq!(error.kind(), ErrorKind::Network, "{error}");
+
+    assert_eq!(*seen.lock().expect("recorder"), [
+        Some("openai-chat".to_owned()),
+        Some("vercel-evaluation".to_owned()),
+    ]);
+    Ok(())
+}
+
+/// An explicit adapter installed with `ClientBuilder::adapter` owns its own
+/// wire handling, so the client selects no codec for it.
+#[tokio::test(start_paused = true)]
+async fn middleware_sees_no_codec_on_an_explicit_adapter() -> Result<(), Box<dyn StdError>> {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", FakeAdapter::successful())
+        .middleware(CodecRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+
+    client.complete(request()?).await?;
+
+    assert_eq!(*seen.lock().expect("recorder"), [None]);
+    Ok(())
+}
+
+/// An adapter a custom factory builds, which records the codec it received.
+struct CodecObservingAdapter {
+    id:     AdapterId,
+    codecs: Arc<Mutex<Vec<Option<String>>>>,
+}
+
+#[async_trait]
+impl ProviderAdapter for CodecObservingAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        self.codecs
+            .lock()
+            .expect("codecs")
+            .push(call.codec().map(ToString::to_string));
+        Ok(success_response(call, "done"))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        Ok(ResponseStream::new(pending_stream()))
+    }
+
+    async fn evaluate(&self, call: &ResolvedEvaluation) -> Result<Verdict, Error> {
+        self.codecs
+            .lock()
+            .expect("codecs")
+            .push(call.codec().map(ToString::to_string));
+        let answers = call
+            .evaluation()
+            .questions()
+            .keys()
+            .map(|id| {
+                (
+                    id.clone(),
+                    Answer::Boolean(BooleanAnswer { probability: 0.5 }),
+                )
+            })
+            .collect();
+        Ok(Verdict::new(
+            call.route().provider().id().clone(),
+            call.route().model().id().clone(),
+            answers,
+        ))
+    }
+
+    fn evaluates_natively(&self) -> bool {
+        true
+    }
+}
+
+struct CodecObservingFactory {
+    codecs: Arc<Mutex<Vec<Option<String>>>>,
+}
+
+impl AdapterFactory for CodecObservingFactory {
+    fn create(
+        &self,
+        provider: &CatalogProvider,
+        _context: &AdapterContext,
+    ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
+        Ok(Arc::new(CodecObservingAdapter {
+            id:     provider.adapter().clone(),
+            codecs: self.codecs.clone(),
+        }))
+    }
+}
+
+/// A custom factory registered under an opaque adapter id builds, serves
+/// `complete` and `evaluate`, and sees no codec on either: codecs are how
+/// the built-in adapters organize their protocols, not a contract every
+/// adapter must adopt.
+#[tokio::test(start_paused = true)]
+async fn a_custom_factory_serves_complete_and_evaluate_with_no_codec()
+-> Result<(), Box<dyn StdError>> {
+    let codecs = Arc::new(Mutex::new(Vec::new()));
+    let build = Client::builder()
+        .catalog(evaluation_catalog()?)
+        .adapter_factory("test-adapter", CodecObservingFactory {
+            codecs: codecs.clone(),
+        })
+        .build()?;
+    assert!(build.issues.is_empty(), "{:?}", build.issues);
+    let client = build.client;
+
+    let response = client
+        .complete(Request::builder().model("test/judge").user("hi").build()?)
+        .await?;
+    assert_eq!(response.text(), "done");
+
+    let evaluation = Evaluation::builder()
+        .model("test/judge")
+        .state("I was charged twice.")
+        .boolean("requests_refund", "Refund requested?")
+        .build()?;
+    let verdict = client.evaluate(evaluation).await?;
+    assert!(
+        verdict
+            .answers
+            .contains_key(&QuestionId::new("requests_refund"))
+    );
+
+    assert_eq!(*codecs.lock().expect("codecs"), [None, None]);
+    Ok(())
+}
+
+/// A provider whose codec has options that do not parse is one build issue
+/// naming the codec, and the provider builds no adapter.
+#[test]
+fn invalid_codec_options_are_one_issue_naming_the_codec() -> Result<(), Box<dyn StdError>> {
+    let catalog = Catalog::builder()
+        .overlay_toml(MIXED_HTTP_CATALOG)?
+        .overlay_toml(
+            r#"
+            [providers.vercel]
+            codec_options = { openai-chat = { base_url_is_api_root = "yes" } }
+            "#,
+        )?
+        .build()?;
+
+    let build = Client::builder().catalog(catalog).build()?;
+
+    assert!(build.client.available_providers().iter().next().is_none());
+    assert!(
+        matches!(
+            build.issues.as_slice(),
+            [issue] if issue.provider.as_str() == "vercel"
+                && issue.adapter.as_str() == "http"
+                && issue.codec.as_ref().map(ToString::to_string).as_deref() == Some("openai-chat")
+                && matches!(&issue.cause, ProviderBuildCause::Adapter(_))
+        ),
+        "{:?}",
+        build.issues
+    );
+    Ok(())
+}
+
+/// The E2E Vercel catalog's `jev` row writes no `adapter` line and no
+/// `codecs` line; its evaluation claim alone selects the native codec, and
+/// its sibling structured-output rows keep judging through Chat.
+#[test]
+fn the_vercel_catalog_derives_native_and_judge_rows_without_row_adapters()
+-> Result<(), Box<dyn StdError>> {
+    let catalog = Catalog::builder()
+        .toml_layer("vercel", include_str!("e2e/vercel_catalog.toml"))?
+        .build()?;
+    let build = Client::builder().catalog(catalog).build()?;
+    assert!(build.issues.is_empty(), "{:?}", build.issues);
+    let client = build.client;
+
+    let jev = client.resolve_evaluation_route(
+        &Evaluation::builder()
+            .model("vercel/jev")
+            .state("state")
+            .boolean("q", "Q?")
+            .build()?,
+    )?;
+    assert_eq!(
+        jev.model()
+            .codecs()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["vercel-evaluation"]
+    );
+
+    let sonnet = client.resolve_evaluation_route(
+        &Evaluation::builder()
+            .model("vercel/claude-sonnet-5")
+            .state("state")
+            .boolean("q", "Q?")
+            .build()?,
+    )?;
+    assert_eq!(
+        sonnet
+            .model()
+            .codecs()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["openai-chat"]
+    );
     Ok(())
 }

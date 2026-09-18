@@ -28,6 +28,7 @@ pub struct ResolvedCall {
     request: Request,
     route:   ResolvedRoute,
     context: CallContext,
+    codec:   Option<CodecId>,
 }
 
 impl ResolvedCall {
@@ -36,7 +37,16 @@ impl ResolvedCall {
             request,
             route,
             context,
+            codec: None,
         }
+    }
+
+    /// Sets the codec the client selected for this call; see
+    /// [`codec`](Self::codec).
+    #[must_use]
+    pub fn with_codec(mut self, codec: Option<CodecId>) -> Self {
+        self.codec = codec;
+        self
     }
 
     pub fn request(&self) -> &Request {
@@ -50,6 +60,17 @@ impl ResolvedCall {
     pub fn context(&self) -> &CallContext {
         &self.context
     }
+
+    /// The generation codec the client selected for this call.
+    ///
+    /// `Some` on a provider served by a built-in adapter: the first codec in
+    /// the row's [`codecs`](crate::catalog::CatalogModel::codecs) that
+    /// serves generation, in the provider's order. `None` on a provider
+    /// served by an explicit or custom-factory adapter, which owns its own
+    /// wire handling and may ignore this field.
+    pub fn codec(&self) -> Option<&CodecId> {
+        self.codec.as_ref()
+    }
 }
 
 /// An evaluation with a fixed provider and model route, the analogue of
@@ -59,6 +80,7 @@ pub struct ResolvedEvaluation {
     evaluation: Evaluation,
     route:      ResolvedRoute,
     context:    CallContext,
+    codec:      Option<CodecId>,
 }
 
 impl ResolvedEvaluation {
@@ -67,7 +89,16 @@ impl ResolvedEvaluation {
             evaluation,
             route,
             context,
+            codec: None,
         }
+    }
+
+    /// Sets the codec the client selected for this evaluation; see
+    /// [`codec`](Self::codec).
+    #[must_use]
+    pub fn with_codec(mut self, codec: Option<CodecId>) -> Self {
+        self.codec = codec;
+        self
     }
 
     pub fn evaluation(&self) -> &Evaluation {
@@ -80,6 +111,13 @@ impl ResolvedEvaluation {
 
     pub fn context(&self) -> &CallContext {
         &self.context
+    }
+
+    /// The evaluation codec the client selected, under the same rule as
+    /// [`ResolvedCall::codec`]: `Some` on a built-in adapter, `None` on an
+    /// explicit or custom-factory adapter.
+    pub fn codec(&self) -> Option<&CodecId> {
+        self.codec.as_ref()
     }
 }
 
@@ -127,6 +165,12 @@ impl InputTokenCount {
 /// [`AdapterContext`]. The client enforces normalized-output limits and
 /// raw-body retention after adapter dispatch and again after middleware
 /// returns.
+///
+/// The built-in `http` and `bedrock` adapters dispatch on
+/// [`ResolvedCall::codec`] and [`ResolvedEvaluation::codec`], which the
+/// client fills from the row's codec set. A custom adapter receives every
+/// operation on its provider with no codec chosen and may ignore those
+/// fields; it organizes its own wire handling however it likes.
 #[async_trait]
 pub trait ProviderAdapter: Send + Sync {
     /// The adapter family ID, not the catalog provider ID. It must remain
@@ -399,6 +443,15 @@ pub enum AdapterBuildError {
     #[error("provider {provider} has invalid adapter options")]
     InvalidAdapterOptions {
         provider: ProviderId,
+        #[source]
+        source:   serde_json::Error,
+    },
+    /// The provider's `codec_options` table for `codec` did not match the
+    /// typed shape that codec's constructor expects.
+    #[error("provider {provider} has invalid options for codec {codec}")]
+    InvalidCodecOptions {
+        provider: ProviderId,
+        codec:    CodecId,
         #[source]
         source:   serde_json::Error,
     },

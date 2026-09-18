@@ -39,8 +39,29 @@ This project follows [Semantic Versioning](https://semver.org/).
   `adapter` field and `CatalogModel::adapter()` added by the previous entry
   are removed; `vercel/jev` derives `["vercel-evaluation"]` from its claim.
   The built-in catalog and every test and documentation catalog migrate in
-  this change. `ProviderBuildIssue::adapter` is always the provider's
-  `adapter` now.
+  this change. The client now selects one codec per call: the operation's
+  family (generation for `complete`, `stream`, and `count_input_tokens`;
+  evaluation for `evaluate`) filters the row's codec set, and the first
+  match in the provider's list order wins. A generation call on a row that
+  reaches no generation codec is refused before dispatch with
+  `unsupported_capability` and a message naming the family; an evaluation
+  on a row that reaches an evaluation codec runs natively, and one on a row
+  that reaches none runs through the judge. The selected codec is exposed
+  as `Call::codec()`, `ResolvedCall::codec()`, and
+  `ResolvedEvaluation::codec()`, each `Option<CodecId>`; `ResolvedCall` and
+  `ResolvedEvaluation` gain `with_codec`. One `http` factory now builds
+  every codec a provider lists, so a provider may speak several protocols;
+  the `vercel-evaluation` adapter id is gone (the codec stays) and the
+  four one-codec factories with it. `AdapterBuildError` gains
+  `InvalidCodecOptions { provider, codec, source }`. `ProviderBuildIssue`
+  loses `model` (no row-level adapters remain: a provider with a codec
+  that does not build has no adapter at all) and gains
+  `codec: Option<CodecId>`, naming the codec that failed. `Verdict` gains
+  `rate_limits: Option<RateLimits>`, filled from the provider's headers as
+  on `Response`. Custom adapters are unaffected: an adapter registered
+  with `ClientBuilder::adapter` or built by a custom `adapter_factory`
+  receives every operation with `codec()` equal to `None`, and its own
+  `evaluates_natively()` still decides native versus judge.
 
 - Evaluation: typed questions about one piece of state. `Client::evaluate`
   answers an `Evaluation` with a `Verdict`; `evaluate_with_context` takes an

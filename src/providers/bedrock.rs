@@ -48,12 +48,17 @@ impl AdapterFactory for Factory {
         provider: &CatalogProvider,
         context: &AdapterContext,
     ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        // Step 2 of .ai/plans/adapters-and-codecs.md replaces this check
-        // with per-call codec dispatch.
-        if provider.primary_codec().as_str() != codec_ids::BEDROCK_CONVERSE {
+        // This adapter speaks Converse and nothing else, so any other codec
+        // in the provider's list is a build issue rather than a call that
+        // fails later.
+        if let Some(codec) = provider
+            .codecs()
+            .iter()
+            .find(|codec| codec.as_str() != codec_ids::BEDROCK_CONVERSE)
+        {
             return Err(AdapterBuildError::UnsupportedCodec {
                 provider: provider.id().clone(),
-                codec:    provider.primary_codec().clone(),
+                codec:    codec.clone(),
             });
         }
         // SigV4 needs the AWS crates. Reporting this as a build error keeps it
@@ -100,6 +105,7 @@ impl ProviderAdapter for BedrockAdapter {
     }
 
     async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+        expect_converse(call, "complete")?;
         let encoded = self.codec.encode(call, false)?;
         let warnings = encoded.warnings.clone();
         let speed = encoded.applied_speed;
@@ -107,11 +113,13 @@ impl ProviderAdapter for BedrockAdapter {
         let mut response = self.codec.decode_response(call.route(), result.body)?;
         response.rate_limits = result.rate_limits;
         response.warnings.extend(warnings);
-        call.route().apply_catalog_cost(&mut response, speed);
+        call.route()
+            .apply_catalog_cost(&mut response, call.codec(), speed);
         Ok(response)
     }
 
     async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        expect_converse(call, "stream")?;
         let encoded = self.codec.encode(call, true)?;
         let warnings = encoded.warnings.clone();
         let speed = encoded.applied_speed;
@@ -119,10 +127,11 @@ impl ProviderAdapter for BedrockAdapter {
         let decoded = decode_stream(accepted.events, self.codec.stream_decoder(call.route()));
 
         let route = call.route().clone();
+        let codec = call.codec().cloned();
         let finished = decoded.map(move |event| match event {
             Ok(StreamEvent::Ended { mut response }) => {
                 response.warnings.extend(warnings.clone());
-                route.apply_catalog_cost(&mut response, speed);
+                route.apply_catalog_cost(&mut response, codec.as_ref(), speed);
                 Ok(StreamEvent::Ended { response })
             }
             other => other,
@@ -140,12 +149,49 @@ impl ProviderAdapter for BedrockAdapter {
         &self,
         call: &ResolvedCall,
     ) -> Result<Option<InputTokenCount>, Error> {
+        expect_converse(call, "count_input_tokens")?;
         let Some(encoded) = self.codec.encode_count_tokens(call) else {
             return Ok(None);
         };
         let result = self.json(call, encoded?).await?;
         let tokens = self.codec.decode_count_tokens(call.route(), result.body)?;
         Ok(Some(InputTokenCount::new(tokens, call.route().handle())))
+    }
+
+    /// The client picks the codec before a call arrives here, and the one
+    /// codec this adapter holds serves generation only, so a row on this
+    /// adapter never reaches a native evaluation; the judge path runs.
+    fn evaluates_natively(&self) -> bool {
+        true
+    }
+}
+
+/// Checks that the client selected the Converse codec for `call`.
+///
+/// The factory refused any other codec at build time, so a mismatch here
+/// is a client invariant failure, reported as such.
+fn expect_converse(call: &ResolvedCall, operation: &str) -> Result<(), Error> {
+    let provider = call.route().provider();
+    match call.codec() {
+        Some(codec) if codec.as_str() == codec_ids::BEDROCK_CONVERSE => Ok(()),
+        Some(codec) => Err(Error::new(
+            ErrorKind::Configuration,
+            format!(
+                "internal error: the bedrock adapter received {operation} for provider {} on \
+                 codec {codec}, which it does not serve",
+                provider.id()
+            ),
+        )
+        .with_provider(provider.id().clone())),
+        None => Err(Error::new(
+            ErrorKind::Configuration,
+            format!(
+                "internal error: the bedrock adapter received {operation} for provider {} with \
+                 no codec selected",
+                provider.id()
+            ),
+        )
+        .with_provider(provider.id().clone())),
     }
 }
 
@@ -405,13 +451,13 @@ mod tests {
     #[cfg(feature = "bedrock-aws")]
     use super::{BedrockConverseCodec, prepare};
     use crate::adapter::{AdapterBuildError, AdapterContext, AdapterFactory as _, ResolvedCall};
-    use crate::catalog::{Catalog, CatalogProvider, ProviderId};
+    use crate::catalog::{Catalog, CatalogProvider, CodecId, ProviderId, codec_ids};
     #[cfg(feature = "bedrock-aws")]
     use crate::codecs::Codec as _;
     use crate::credentials::{Credentials, SecretValue, StaticCredentials};
     use crate::middleware::CallContext;
     use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver as _};
-    use crate::types::Request;
+    use crate::types::{ErrorKind, Request};
 
     /// A Bedrock provider whose endpoint the test controls, using bearer
     /// authentication so no AWS crates are needed.
@@ -444,7 +490,8 @@ mod tests {
             .build()?;
         let available = AvailableProviders::all(catalog);
         let route = CatalogResolver.resolve(&request, catalog, &available)?;
-        Ok(ResolvedCall::new(request, route, CallContext::new()))
+        Ok(ResolvedCall::new(request, route, CallContext::new())
+            .with_codec(Some(CodecId::new(codec_ids::BEDROCK_CONVERSE))))
     }
 
     fn provider(catalog: &Catalog) -> Result<&CatalogProvider, Box<dyn StdError>> {
@@ -461,15 +508,17 @@ mod tests {
         AdapterContext::new(Client::new(), Arc::new(credentials))
     }
 
+    /// The adapter holds Converse alone, so a second codec in the list is
+    /// refused at build time rather than at the first call that selects it.
     #[test]
-    fn rejects_a_provider_that_is_not_bedrock_converse() -> Result<(), Box<dyn StdError>> {
+    fn rejects_a_provider_that_lists_any_other_codec() -> Result<(), Box<dyn StdError>> {
         let source = r#"
             schema_version = 1
 
             [providers.bedrock]
             display_name = "Amazon Bedrock"
             adapter = "bedrock"
-            codecs = ["openai-chat"]
+            codecs = ["bedrock-converse", "openai-chat"]
             base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
             default_model = "sonnet"
             auth = { type = "bedrock_bearer" }
@@ -487,8 +536,29 @@ mod tests {
             .ok_or("a non-Bedrock codec is rejected")?;
 
         assert!(
-            matches!(error, AdapterBuildError::UnsupportedCodec { .. }),
+            matches!(&error, AdapterBuildError::UnsupportedCodec { codec, .. } if codec.as_str() == "openai-chat"),
             "unexpected error: {error}"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_call_on_another_codec_is_an_internal_configuration_error()
+    -> Result<(), Box<dyn StdError>> {
+        let catalog = catalog("http://127.0.0.1:1")?;
+        let adapter = Factory.create(provider(&catalog)?, &context())?;
+        let call = call(&catalog)?.with_codec(Some(CodecId::new("openai-chat")));
+
+        let error = adapter
+            .complete(&call)
+            .await
+            .expect_err("the bedrock adapter serves Converse only");
+
+        assert_eq!(error.kind(), ErrorKind::Configuration);
+        assert!(
+            error.message().contains("openai-chat") && error.message().contains("complete"),
+            "{}",
+            error.message()
         );
         Ok(())
     }

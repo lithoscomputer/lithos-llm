@@ -409,6 +409,7 @@ pub(super) fn verdict_from(
         rounding: None,
         usage: response.usage,
         cost: response.cost,
+        rate_limits: response.rate_limits,
         warnings: response.warnings,
         raw: response.raw,
         provider_metadata: BTreeMap::new(),

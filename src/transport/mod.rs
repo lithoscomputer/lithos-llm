@@ -149,6 +149,16 @@ type EventStream = Pin<Box<dyn Stream<Item = Result<SseEvent, Error>> + Send>>;
 pub(crate) struct JsonResponse {
     pub body:        Value,
     pub rate_limits: Option<RateLimits>,
+    /// The response headers, for a codec that reads a value the transport
+    /// does not model, such as a request id.
+    pub headers:     HeaderMap,
+}
+
+impl JsonResponse {
+    /// One response header as text, when it is present and valid UTF-8.
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
+        self.headers.get(name).and_then(|value| value.to_str().ok())
+    }
 }
 
 pub(crate) struct EventResponse {
@@ -415,7 +425,8 @@ async fn json_response(
     provider: &CatalogProvider,
     body_limit: usize,
 ) -> Result<JsonResponse, Error> {
-    let rate_limits = rate_limits(response.headers());
+    let headers = response.headers().clone();
+    let rate_limits = rate_limits(&headers);
     let bytes = bounded_body(response, provider, body_limit).await?;
     let body = serde_json::from_slice(&bytes).map_err(|source| {
         Error::new(
@@ -426,7 +437,11 @@ async fn json_response(
         .with_retry(RetryClassification::Safe)
         .with_source(source)
     })?;
-    Ok(JsonResponse { body, rate_limits })
+    Ok(JsonResponse {
+        body,
+        rate_limits,
+        headers,
+    })
 }
 
 /// Reads rate limits and decodes AWS event-stream frames.

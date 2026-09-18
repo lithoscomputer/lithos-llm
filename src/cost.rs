@@ -1,20 +1,36 @@
 //! Catalog cost estimation.
 
-use crate::catalog::{Pricing, codec_ids};
+use crate::catalog::{CodecFamily, CodecId, Pricing, codec_ids, family};
 use crate::resolver::ResolvedRoute;
 use crate::types::{Cost, CostSource, Speed, TokenCounts};
 
+/// Prices `usage` on `route` at the rates of `codec`.
+///
+/// `codec` is the codec the call went out on, when the caller knows it; it
+/// decides whether Anthropic's cache-write derivation applies (see
+/// [`catalog_cost`]). A caller without a codec, such as
+/// [`ResolvedRoute::estimate_cost`], passes `None` and the route's first
+/// generation codec stands in, which is the codec a call on that route
+/// would select.
 pub(crate) fn estimate_catalog_cost(
     route: &ResolvedRoute,
+    codec: Option<&CodecId>,
     usage: TokenCounts,
     speed: Option<Speed>,
 ) -> Option<Cost> {
-    // Step 2 of .ai/plans/adapters-and-codecs.md replaces this with the
-    // codec the call was dispatched on.
-    let anthropic_rates = matches!(
-        route.provider().primary_codec().as_str(),
-        codec_ids::ANTHROPIC_MESSAGES | codec_ids::BEDROCK_CONVERSE
-    );
+    let codec = codec.or_else(|| {
+        route
+            .model()
+            .codecs()
+            .iter()
+            .find(|codec| family(codec) == CodecFamily::Generation)
+    });
+    let anthropic_rates = codec.is_some_and(|codec| {
+        matches!(
+            codec.as_str(),
+            codec_ids::ANTHROPIC_MESSAGES | codec_ids::BEDROCK_CONVERSE
+        )
+    });
     catalog_cost(
         usage,
         route.model().pricing().as_ref(),

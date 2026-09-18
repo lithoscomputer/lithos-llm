@@ -247,7 +247,7 @@ impl Codec for BedrockConverseCodec {
     fn stream_decoder(&self, route: &ResolvedRoute) -> Box<dyn StreamDecoder> {
         Box::new(BedrockStreamDecoder {
             route:           route.clone(),
-            assembler:       StreamAssembler::new(route),
+            assembler:       StreamAssembler::new(route).with_signatures(ANTHROPIC_SIGNATURES),
             tool_blocks:     BTreeSet::new(),
             redacted_blocks: BTreeSet::new(),
             text_blocks:     BTreeSet::new(),

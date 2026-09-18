@@ -367,18 +367,6 @@ impl CatalogProvider {
         self.codec_options.get(codec).unwrap_or(&Value::Null)
     }
 
-    /// The codec a one-codec adapter is built around: the first generation
-    /// codec, else the first codec listed.
-    ///
-    /// Step 2 of .ai/plans/adapters-and-codecs.md replaces this with
-    /// per-call codec selection.
-    pub(crate) fn primary_codec(&self) -> &CodecId {
-        self.generation_codecs()
-            .next()
-            .or_else(|| self.codecs.first())
-            .expect("the loader rejects a provider with no codecs")
-    }
-
     /// The listed codecs that serve generation calls, in catalog order.
     pub(crate) fn generation_codecs(&self) -> impl Iterator<Item = &CodecId> {
         self.codecs.iter().filter(|codec| serves_generation(codec))

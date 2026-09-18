@@ -41,6 +41,7 @@ mod anthropic;
 mod bedrock;
 #[cfg(all(feature = "bedrock", feature = "builtin-catalog"))]
 mod bedrock_parity;
+mod codec_selection;
 mod gemini;
 #[cfg(feature = "builtin-catalog")]
 mod imported_providers;

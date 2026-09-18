@@ -42,7 +42,8 @@ fn provider() -> WireProvider<'static> {
 
 /// A provider that lists the Chat codec first and this codec second, as the
 /// built-in `vercel` provider does, whose one row derives this codec from
-/// its explicit evaluation claim.
+/// its explicit evaluation claim. No row `adapter` line exists any more; the
+/// one `http` adapter holds both codecs and the client picks this one.
 fn mixed_provider_catalog(base_url: &str) -> Catalog {
     let toml = provider().toml(base_url).replacen(
         &format!("codecs = [\"{}\"]", codec_ids::VERCEL_EVALUATION),
@@ -117,15 +118,15 @@ async fn encodes_the_evaluation_request_and_decodes_the_verdict() {
 async fn an_evaluation_row_on_a_mixed_provider_reaches_this_codec() {
     let server = MockServer::start_async().await;
     let catalog = mixed_provider_catalog(&server.base_url());
-    // `client_for` fails if the provider's adapter or the row's codec
-    // adapter did not build.
+    // `client_for` fails if the provider's adapter, which holds both codecs,
+    // did not build.
     let client = support::client_for(catalog, PROVIDER, support::bearer_credentials());
     let (mock, _slot) = support::mount_capture(&server, PATH, &body(LIVE_BODY));
 
     let verdict = client
         .evaluate(evaluation())
         .await
-        .expect("the row override should evaluate");
+        .expect("the row's derived codec should evaluate natively");
 
     mock.assert_async().await;
     assert_eq!(
@@ -192,9 +193,14 @@ async fn a_completion_on_the_evaluation_row_is_refused_before_dispatch() {
         Err(error) => error,
     };
 
-    // The row claims no `text`, so the client's capability check refuses the
-    // request before the adapter's own refusal could.
+    // The row reaches no generation codec, so the client refuses the request
+    // before selecting one, and nothing reaches the adapter.
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert!(
+        error.message().contains("no generation codec"),
+        "{}",
+        error.message()
+    );
     mock.assert_calls_async(0).await;
 }

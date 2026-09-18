@@ -471,6 +471,7 @@ mod tests {
             route,
             mode,
             context: CallContext::new(),
+            codec: None,
         })
     }
 

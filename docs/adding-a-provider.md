@@ -174,7 +174,8 @@ line out and the set follows its claims: a generation claim reaches the
 provider's generation codecs, an explicit `capabilities.evaluation` claim
 reaches its evaluation codecs, and a row with neither keeps the generation
 codecs. `vercel/jev` writes only the evaluation claim, so it alone reaches
-`vercel-evaluation` while the provider's other rows stay on Chat. Write
+`vercel-evaluation` while the provider's other rows stay on Chat; the one
+`http` adapter holds both codecs and the client picks per call. Write
 `codecs = [...]` on a row only to narrow the set; a codec the provider does
 not list is a loader error. The built-in catalog's invariant tests in
 `src/catalog/loader.rs` check that every provider names a known adapter and

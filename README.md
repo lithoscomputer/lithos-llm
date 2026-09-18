@@ -376,15 +376,18 @@ async fn triage(client: &Client) -> Result<bool, Box<dyn Error>> {
 
 Two kinds of model answer the same `Evaluation`. A row that reaches an
 evaluation codec (today `vercel/jev`, TypeSafe's Jev through the
-`vercel-evaluation` codec) returns a probability per option or level, a
-`confidence` on each choice and score answer, and the provider's declared
-rounding. Every row that claims `response_format.json_schema` acts as a
-judge instead: the client runs one structured-output completion with a fixed
-system prompt and reads the JSON object back into answers. A judge returns
-point estimates, so `probabilities`, `confidence`, and `rounding` are absent
-on its `Verdict`. The same `Evaluation` and `Verdict` types serve both, so an
-application can run one question set against a native model and a judge and
-compare them.
+`vercel-evaluation` codec) answers natively and returns a probability per
+option or level, a `confidence` on each choice and score answer, and the
+provider's declared rounding. Every other row that claims
+`response_format.json_schema` acts as a judge: the client runs one
+structured-output completion with a fixed system prompt and reads the JSON
+object back into answers. On a provider served by a built-in adapter the
+row's codec set makes that choice; on a provider served by an adapter the
+application registered, the adapter's own `evaluates_natively()` does. A
+judge returns point estimates, so `probabilities`, `confidence`, and
+`rounding` are absent on its `Verdict`. The same `Evaluation` and `Verdict`
+types serve both, so an application can run one question set against a
+native model and a judge and compare them.
 
 The client validates every verdict before it returns it: exactly the
 questions asked are answered, each with the matching kind, choices name a
@@ -566,10 +569,12 @@ enabled = true
 
 An adapter owns transport and signing; a codec owns one wire protocol. A
 provider names one adapter and lists the codecs its host speaks. `adapter`
-defaults to `"http"`, which serves every codec that speaks plain HTTPS with a
-bearer or header credential; `"bedrock"` adds SigV4 signing and event-stream
-framing; any other id names a factory the application registered with
-`ClientBuilder::adapter_factory`. `codecs` defaults to `["openai-chat"]`, so
+defaults to `"http"`, which holds every codec the provider lists and
+dispatches each call on the codec the client selected; `"bedrock"` adds
+SigV4 signing and event-stream framing for the Converse codec; any other id
+names a factory the application registered with
+`ClientBuilder::adapter_factory`, whose adapter owns its own wire handling
+and receives no codec selection. `codecs` defaults to `["openai-chat"]`, so
 a Chat Completions host needs neither line. OpenAI lists
 `["openai-responses"]`, Anthropic `["anthropic-messages"]`, Gemini
 `["gemini-generate"]`, Bedrock `["bedrock-converse"]`, and Vercel

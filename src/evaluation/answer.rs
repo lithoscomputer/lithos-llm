@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use super::{QuestionId, QuestionKind};
 use crate::catalog::{ModelHandle, ModelId, ProviderId};
-use crate::types::{Cost, TokenCounts, Usage, Warning};
+use crate::types::{Cost, RateLimits, TokenCounts, Usage, Warning};
 
 /// The answer to one question.
 ///
@@ -137,6 +137,10 @@ pub struct Verdict {
     pub usage:             TokenCounts,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost:              Option<Cost>,
+    /// The provider's rate-limit headers on this response, as on
+    /// [`Response::rate_limits`](crate::Response::rate_limits).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limits:       Option<RateLimits>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings:          Vec<Warning>,
     /// The complete provider success payload, when one was available.
@@ -163,6 +167,7 @@ impl Verdict {
             rounding: None,
             usage: TokenCounts::default(),
             cost: None,
+            rate_limits: None,
             warnings: Vec::new(),
             raw: None,
             provider_metadata: BTreeMap::new(),

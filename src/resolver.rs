@@ -7,6 +7,8 @@ use std::collections::BTreeSet;
 
 use thiserror::Error;
 
+#[cfg(feature = "runtime")]
+use crate::catalog::CodecId;
 use crate::catalog::{Catalog, CatalogModel, CatalogProvider, ModelHandle, ModelId, ProviderId};
 use crate::cost::estimate_catalog_cost;
 #[cfg(feature = "runtime")]
@@ -58,11 +60,34 @@ pub struct ResolvedRoute {
 
 impl ResolvedRoute {
     /// Adds catalog pricing only when the provider did not supply a cost.
+    ///
+    /// `codec` is the codec the response came back through; it selects the
+    /// rate family, as [`estimate_cost_for`](Self::estimate_cost_for) does.
     #[cfg(feature = "runtime")]
-    pub(crate) fn apply_catalog_cost(&self, response: &mut Response, speed: Option<Speed>) {
+    pub(crate) fn apply_catalog_cost(
+        &self,
+        response: &mut Response,
+        codec: Option<&CodecId>,
+        speed: Option<Speed>,
+    ) {
         if response.cost.is_none() {
-            response.cost = self.estimate_cost(response.usage, speed);
+            response.cost = self.estimate_cost_for(codec, response.usage, speed);
         }
+    }
+
+    /// [`estimate_cost`](Self::estimate_cost) at the rates of one codec.
+    ///
+    /// The built-in adapters call this with the codec the call was
+    /// dispatched on, so a provider that lists several codecs is priced for
+    /// the protocol that answered. `None` prices as `estimate_cost` does.
+    #[cfg(feature = "runtime")]
+    pub(crate) fn estimate_cost_for(
+        &self,
+        codec: Option<&CodecId>,
+        usage: TokenCounts,
+        speed: Option<Speed>,
+    ) -> Option<Cost> {
+        estimate_catalog_cost(self, codec, usage, speed)
     }
 
     /// Builds a route whose model belongs to the selected provider.
@@ -110,10 +135,17 @@ impl ResolvedRoute {
     /// applies rates for `speed`. It returns `None` when the model has no
     /// catalog pricing or a non-empty cache bucket has no applicable rate.
     ///
+    /// The rate family follows the route's first generation codec, which is
+    /// the codec a call on this route selects: an Anthropic Messages or
+    /// Bedrock Converse route derives a missing cache-write rate from the
+    /// input rate as Anthropic bills it. The built-in adapters price a
+    /// response at the codec that answered instead, which differs only on a
+    /// provider whose row lists several generation codecs.
+    ///
     /// This calculation has no state. It does not reserve or enforce a budget.
     #[must_use]
     pub fn estimate_cost(&self, usage: TokenCounts, speed: Option<Speed>) -> Option<Cost> {
-        estimate_catalog_cost(self, usage, speed)
+        estimate_catalog_cost(self, None, usage, speed)
     }
 }
 
