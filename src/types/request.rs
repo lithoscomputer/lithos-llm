@@ -213,6 +213,33 @@ pub struct Request {
 }
 
 impl Request {
+    /// A one-message request for `model`, for code that needs a request only
+    /// to resolve a route or to stand in for a payload of another shape.
+    ///
+    /// Every other field is unset. Unlike [`RequestBuilder::build`] this
+    /// cannot fail: `model` is taken as given and `text` is one user message
+    /// however short it is.
+    #[cfg(feature = "runtime")]
+    pub(crate) fn stand_in(model: &str, text: String) -> Self {
+        Self {
+            model:             model.to_owned(),
+            messages:          vec![Message::text(Role::User, text)],
+            tools:             Vec::new(),
+            tool_choice:       None,
+            response_format:   None,
+            max_output_tokens: None,
+            temperature:       None,
+            top_p:             None,
+            reasoning_effort:  None,
+            cache_hint:        None,
+            speed:             None,
+            timeout:           None,
+            stop_sequences:    Vec::new(),
+            metadata:          BTreeMap::new(),
+            provider_options:  BTreeMap::new(),
+        }
+    }
+
     #[cfg(any(feature = "runtime", test))]
     pub(crate) fn carries_foreign_signature(&self, family: &str) -> bool {
         self.messages.iter().flat_map(Message::content).any(|part| {

@@ -28,8 +28,9 @@ pub use retry::{RetryMiddleware, RetryPolicy};
 use tokio::sync::Notify;
 pub use tracing_layer::TracingMiddleware;
 
-use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall};
+use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall, ResolvedEvaluation};
 use crate::catalog::ProviderId;
+use crate::evaluation::{Evaluation, Verdict};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     Error, ErrorKind, Request, RequestBuildError, Response, ResponsePolicy, ResponseStream,
@@ -43,6 +44,10 @@ pub enum Operation {
     Complete,
     Stream,
     CountInputTokens,
+    /// A native evaluation: the adapter answers an [`Evaluation`] through
+    /// its own protocol. A judge evaluation never appears here; the client
+    /// runs it as a [`Complete`](Self::Complete) call.
+    Evaluate,
 }
 
 /// A clone-safe application cancellation signal.
@@ -191,15 +196,34 @@ impl CallContext {
 /// One resolved logical inference call.
 #[derive(Clone, Debug)]
 pub struct Call {
-    pub(crate) request: Request,
-    pub(crate) route:   ResolvedRoute,
-    pub(crate) mode:    Operation,
-    pub(crate) context: CallContext,
+    pub(crate) request:    Request,
+    /// The payload of an [`Operation::Evaluate`] call; `None` otherwise.
+    /// Boxed so the common generation call, which every middleware future
+    /// holds by value, does not grow by the evaluation's size.
+    pub(crate) evaluation: Option<Box<Evaluation>>,
+    pub(crate) route:      ResolvedRoute,
+    pub(crate) mode:       Operation,
+    pub(crate) context:    CallContext,
 }
 
 impl Call {
+    /// The request this call dispatches.
+    ///
+    /// An [`Operation::Evaluate`] call dispatches its [`evaluation`] instead,
+    /// and this request is a stand-in that carries the same model selector,
+    /// timeout, metadata, and provider options, with the evaluation's state
+    /// as its one user message. Middleware that reads those fields sees the
+    /// evaluation's values; a transformation through [`map_request`] changes
+    /// only the stand-in, never what the adapter receives.
+    ///
+    /// [`evaluation`]: Self::evaluation
+    /// [`map_request`]: Self::map_request
     pub fn request(&self) -> &Request {
         &self.request
+    }
+    /// The evaluation an [`Operation::Evaluate`] call dispatches.
+    pub fn evaluation(&self) -> Option<&Evaluation> {
+        self.evaluation.as_deref()
     }
     pub fn route(&self) -> &ResolvedRoute {
         &self.route
@@ -238,15 +262,17 @@ impl Call {
     }
 }
 
-/// A complete response or an accepted response stream.
-#[expect(
-    clippy::large_enum_variant,
-    reason = "the public middleware contract keeps complete responses directly accessible"
-)]
+/// A complete response, an accepted response stream, a token count, or a
+/// native verdict; one variant per [`Operation`].
+///
+/// The public middleware contract keeps complete responses and verdicts
+/// directly accessible rather than boxed.
 pub enum Output {
     Complete(Response),
     Stream(ResponseStream),
     InputTokenCount(Option<InputTokenCount>),
+    /// The answers to an [`Operation::Evaluate`] call.
+    Verdict(Verdict),
 }
 
 impl fmt::Debug for Output {
@@ -258,6 +284,7 @@ impl fmt::Debug for Output {
                 .debug_tuple("InputTokenCount")
                 .field(count)
                 .finish(),
+            Self::Verdict(verdict) => formatter.debug_tuple("Verdict").field(verdict).finish(),
         }
     }
 }
@@ -337,21 +364,23 @@ impl Next {
                 .await;
         }
 
-        call.route.validate_request(&call.request)?;
-        let adapter = self
-            .pipeline
-            .adapters
-            .get(call.route.provider().id())
-            .cloned()
-            .ok_or_else(|| {
+        let adapter = self.pipeline.adapter_for(&call.route)?;
+        if call.mode == Operation::Evaluate {
+            let evaluation = call.evaluation.ok_or_else(|| {
                 Error::new(
-                    ErrorKind::Configuration,
-                    format!(
-                        "no adapter is registered for provider {}",
-                        call.route.provider().id()
-                    ),
+                    ErrorKind::Middleware,
+                    "an evaluate call reached the adapter without an evaluation",
                 )
             })?;
+            call.route.validate_evaluation(&evaluation)?;
+            let resolved = ResolvedEvaluation::new(*evaluation, call.route, call.context);
+            return adapter
+                .evaluate(&resolved)
+                .await
+                .and_then(|verdict| self.pipeline.policy.verdict(verdict))
+                .map(Output::Verdict);
+        }
+        call.route.validate_request(&call.request)?;
         let resolved = ResolvedCall::new(call.request, call.route, call.context);
         match call.mode {
             Operation::Complete => adapter
@@ -367,6 +396,10 @@ impl Next {
                 .count_input_tokens(&resolved)
                 .await
                 .map(Output::InputTokenCount),
+            Operation::Evaluate => Err(Error::new(
+                ErrorKind::Middleware,
+                "evaluate calls are dispatched before request validation",
+            )),
         }
     }
 }
@@ -383,6 +416,32 @@ impl Pipeline {
             pipeline: self.clone(),
             index:    0,
         }
+    }
+
+    /// The adapter that serves `route`.
+    ///
+    /// Every dispatch and the client's evaluation path look the adapter up
+    /// here, so a per-row adapter override needs to change only this lookup.
+    ///
+    /// # Errors
+    ///
+    /// `Configuration` when no adapter was built for the route's provider.
+    pub(crate) fn adapter_for(
+        &self,
+        route: &ResolvedRoute,
+    ) -> Result<Arc<dyn ProviderAdapter>, Error> {
+        self.adapters
+            .get(route.provider().id())
+            .cloned()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::Configuration,
+                    format!(
+                        "no adapter is registered for provider {}",
+                        route.provider().id()
+                    ),
+                )
+            })
     }
 }
 

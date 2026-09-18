@@ -6,6 +6,7 @@ use futures_util::StreamExt as _;
 
 use super::{Call, CallGuard, Middleware, Next, Output};
 use crate::adapter::InputTokenCount;
+use crate::evaluation::Verdict;
 use crate::types::{Error, ErrorKind, Response, ResponseStream, StreamEvent};
 
 /// The final outcome of one observed middleware invocation.
@@ -14,6 +15,9 @@ use crate::types::{Error, ErrorKind, Response, ResponseStream, StreamEvent};
 pub enum CallOutcome<'a> {
     Response(&'a Response),
     InputTokenCount(Option<&'a InputTokenCount>),
+    /// A native [`Operation::Evaluate`](super::Operation::Evaluate) call
+    /// answered.
+    Verdict(&'a Verdict),
     Failed(&'a Error),
     Cancelled,
     Dropped,
@@ -104,6 +108,10 @@ impl Middleware for ObserverMiddleware {
             Ok(Output::Complete(response)) => {
                 finish.finish(CallOutcome::Response(&response));
                 Ok(Output::Complete(response))
+            }
+            Ok(Output::Verdict(verdict)) => {
+                finish.finish(CallOutcome::Verdict(&verdict));
+                Ok(Output::Verdict(verdict))
             }
             Ok(Output::Stream(stream)) => {
                 let observer = self.observer.clone();

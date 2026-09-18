@@ -8,6 +8,8 @@
 mod answer;
 mod builder;
 mod question;
+#[cfg(any(feature = "runtime", test))]
+pub(crate) mod validate;
 
 pub use answer::{
     Answer, AnswerError, BooleanAnswer, ChoiceAnswer, Rounding, ScoreAnswer, Verdict,

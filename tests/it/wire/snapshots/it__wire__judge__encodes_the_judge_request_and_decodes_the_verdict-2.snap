@@ -1,0 +1,59 @@
+---
+source: tests/it/wire/judge.rs
+expression: rendered
+---
+{
+  "answers": {
+    "department": {
+      "choice": "billing",
+      "type": "choice"
+    },
+    "requests_refund": {
+      "probability": 0.9,
+      "type": "boolean"
+    },
+    "severity": {
+      "score": 1.5,
+      "type": "score"
+    }
+  },
+  "id": "chatcmpl-judge",
+  "model": {
+    "model": "compat-judge",
+    "provider": "compat"
+  },
+  "raw": {
+    "choices": [
+      {
+        "finish_reason": "stop",
+        "index": 0,
+        "message": {
+          "content": "{\"q0\":\"c0\",\"q1\":0.9,\"q2\":1.5}",
+          "role": "assistant"
+        }
+      }
+    ],
+    "created": 1700000000,
+    "id": "chatcmpl-judge",
+    "model": "vendor/compat-judge-v1",
+    "object": "chat.completion",
+    "usage": {
+      "completion_tokens": 20,
+      "prompt_tokens": 250,
+      "total_tokens": 270
+    }
+  },
+  "usage": {
+    "cache_read": 0,
+    "cache_write": 0,
+    "input": 250,
+    "output": 20,
+    "reasoning": 0
+  },
+  "warnings": [
+    {
+      "code": "unsupported_control",
+      "message": "this provider protocol does not support request metadata"
+    }
+  ]
+}

@@ -98,13 +98,6 @@ impl ResolvedRoute {
     /// `Unknown` passes, as it does for generation capabilities: a
     /// passthrough model is not described by the catalog, so the provider
     /// gets to say no.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "called by `Client::evaluate`, which the next step adds"
-        )
-    )]
     pub(crate) fn validate_evaluation(&self, evaluation: &Evaluation) -> Result<(), Error> {
         let capabilities = self.model().capabilities();
         for question in evaluation.questions().values() {

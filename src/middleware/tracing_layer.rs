@@ -7,8 +7,10 @@ use tracing::Instrument as _;
 use tracing::field::Empty;
 
 use super::{Call, CallGuard, Middleware, Next, Operation, Output};
+use crate::evaluation::Verdict;
 use crate::types::{
-    CostSource, Error, ErrorKind, FinishReason, Response, ResponseStream, StreamEvent, TokenCounts,
+    Cost, CostSource, Error, ErrorKind, FinishReason, Response, ResponseStream, StreamEvent,
+    TokenCounts,
 };
 
 const OUTCOME_COMPLETED: &str = "completed";
@@ -52,6 +54,10 @@ impl Middleware for TracingMiddleware {
             Ok(Output::Complete(response)) => {
                 trace.finish_completed(&response);
                 Ok(Output::Complete(response))
+            }
+            Ok(Output::Verdict(verdict)) => {
+                trace.finish_verdict(&verdict);
+                Ok(Output::Verdict(verdict))
             }
             Ok(Output::Stream(stream)) => {
                 tracing::debug!(parent: &trace.span, "LLM stream accepted");
@@ -107,16 +113,34 @@ impl CallTrace {
         self.span.record("cache_write_tokens", usage.cache_write);
     }
 
+    fn finish_verdict(&mut self, verdict: &Verdict) {
+        if self.finished {
+            return;
+        }
+        self.record_usage(verdict.usage);
+        self.record_cost(verdict.cost);
+        self.record_terminal(OUTCOME_COMPLETED, None);
+        tracing::debug!(
+            parent: &self.span,
+            outcome = OUTCOME_COMPLETED,
+            "LLM call finished"
+        );
+    }
+
+    fn record_cost(&self, cost: Option<Cost>) {
+        if let Some(cost) = cost {
+            self.span.record("cost_usd_micros", cost.usd_micros);
+            self.span
+                .record("cost_source", cost_source_name(cost.source));
+        }
+    }
+
     fn finish_completed(&mut self, response: &Response) {
         if self.finished {
             return;
         }
         self.record_usage(response.usage);
-        if let Some(cost) = response.cost {
-            self.span.record("cost_usd_micros", cost.usd_micros);
-            self.span
-                .record("cost_source", cost_source_name(cost.source));
-        }
+        self.record_cost(response.cost);
         if response.finish_reason == FinishReason::Incomplete {
             self.record_terminal(OUTCOME_INCOMPLETE, None);
             tracing::warn!(
@@ -273,6 +297,7 @@ fn mode_name(mode: Operation) -> &'static str {
         Operation::Complete => "complete",
         Operation::Stream => "stream",
         Operation::CountInputTokens => "count_input_tokens",
+        Operation::Evaluate => "evaluate",
     }
 }
 
@@ -442,6 +467,7 @@ mod tests {
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
         Ok(Call {
             request,
+            evaluation: None,
             route,
             mode,
             context: CallContext::new(),
