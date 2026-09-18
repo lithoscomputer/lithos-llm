@@ -22,7 +22,8 @@ use serde_json::{Map, Value, json, to_string};
 use super::assembler::StreamAssembler;
 use super::common::{
     cache_routing_key, endpoint, finish_reason, flattens_tool_result_content, merge_options,
-    plain_text, refusal, reject_unencodable, sampling, unsupported_capability, wire_options,
+    plain_text, refusal, reject_unencodable, sampling, unsupported_capability, usd_micros,
+    wire_options,
 };
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
@@ -1153,16 +1154,6 @@ fn provider_cost(body: &Value) -> Option<Cost> {
         usd_micros: usd_micros(usd),
         source:     CostSource::Provider,
     })
-}
-
-/// Converts US dollars to the integer micros the cost type carries.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "a float-to-integer cast saturates, which is the clamp a provider-reported cost needs"
-)]
-fn usd_micros(usd: f64) -> u64 {
-    (usd * 1_000_000.0).round() as u64
 }
 
 #[cfg(all(test, feature = "builtin-catalog"))]

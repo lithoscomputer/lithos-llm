@@ -408,6 +408,16 @@ pub(crate) fn refusal(
     error
 }
 
+/// Converts US dollars to the integer micros the cost type carries.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "a float-to-integer cast saturates, which is the clamp a provider-reported cost needs"
+)]
+pub(crate) fn usd_micros(usd: f64) -> u64 {
+    (usd * 1_000_000.0).round() as u64
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

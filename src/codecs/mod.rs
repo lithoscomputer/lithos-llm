@@ -9,10 +9,12 @@ pub(crate) mod bedrock;
 pub(crate) mod gemini;
 pub(crate) mod openai;
 pub(crate) mod openai_chat;
+pub(crate) mod vercel_evaluation;
 
 use serde_json::Value;
 
-use crate::adapter::ResolvedCall;
+use crate::adapter::{ResolvedCall, ResolvedEvaluation};
+use crate::evaluation::Verdict;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent};
 use crate::types::{Error, ErrorKind, Response, StreamEvent};
@@ -73,6 +75,32 @@ pub(crate) trait Codec: Send + Sync {
     }
 }
 
+/// Translates one provider evaluation protocol.
+///
+/// The evaluation analogue of [`Codec`]: stateless, shared across calls, and
+/// owned by an adapter that only evaluates. A second implementation is
+/// expected for TypeSafe's own API.
+pub(crate) trait EvaluationCodec: Send + Sync {
+    /// Encodes a resolved evaluation into one provider request.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::InvalidRequest`] when the evaluation asks for
+    /// more than this protocol carries, before any network dispatch.
+    fn encode_evaluation(&self, call: &ResolvedEvaluation) -> Result<EncodedRequest, Error>;
+
+    /// Decodes one complete provider success body into a verdict.
+    ///
+    /// The codec translates shape only; the client validates every verdict's
+    /// answers against the questions afterwards.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::ResponseDecode`] when the body does not match the
+    /// protocol.
+    fn decode_verdict(&self, call: &ResolvedEvaluation, body: Value) -> Result<Verdict, Error>;
+}
+
 /// Decodes one streaming provider response.
 ///
 /// A decoder is created per stream and driven in order. It owns the
@@ -110,8 +138,9 @@ pub(crate) trait StreamDecoder: Send {
 pub(crate) mod test_support {
     use std::error::Error as StdError;
 
-    use crate::adapter::ResolvedCall;
+    use crate::adapter::{ResolvedCall, ResolvedEvaluation};
     use crate::catalog::Catalog;
+    use crate::evaluation::Evaluation;
     use crate::middleware::CallContext;
     use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver, ResolvedRoute};
     use crate::types::Request;
@@ -151,6 +180,25 @@ pub(crate) mod test_support {
         let available = AvailableProviders::all(&catalog);
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
         Ok(ResolvedCall::new(request, route, CallContext::new()))
+    }
+
+    /// Resolves an evaluation against a caller-supplied catalog layer.
+    ///
+    /// The route resolves from the evaluation's model selector through a
+    /// stand-in request, as `Client::resolve_evaluation_route` does.
+    pub(crate) fn evaluation_in(
+        toml: &str,
+        evaluation: Evaluation,
+    ) -> Result<ResolvedEvaluation, Box<dyn StdError>> {
+        let catalog = Catalog::builder().toml_layer("test", toml)?.build()?;
+        let available = AvailableProviders::all(&catalog);
+        let stand_in = Request::stand_in(evaluation.model(), "state".to_owned());
+        let route = CatalogResolver.resolve(&stand_in, &catalog, &available)?;
+        Ok(ResolvedEvaluation::new(
+            evaluation,
+            route,
+            CallContext::new(),
+        ))
     }
 
     /// The `alpha/one` route from the one-provider test catalog.

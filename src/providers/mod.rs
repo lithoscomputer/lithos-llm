@@ -6,6 +6,7 @@ mod bedrock;
 mod gemini;
 mod openai;
 mod openai_compatible;
+mod vercel_evaluation;
 
 use crate::adapter::AdapterRegistry;
 use crate::catalog::adapter_ids;
@@ -15,6 +16,7 @@ pub(crate) fn register_builtin(registry: &mut AdapterRegistry) {
     registry.register_factory(adapter_ids::ANTHROPIC, anthropic::Factory);
     registry.register_factory(adapter_ids::GEMINI, gemini::Factory);
     registry.register_factory(adapter_ids::OPENAI_COMPATIBLE, openai_compatible::Factory);
+    registry.register_factory(adapter_ids::VERCEL_EVALUATION, vercel_evaluation::Factory);
     #[cfg(feature = "bedrock")]
     registry.register_factory(adapter_ids::BEDROCK, bedrock::Factory);
 }
@@ -88,6 +90,29 @@ pub(super) mod http {
         })
     }
 
+    /// Reads the credentials for one provider attempt.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErrorKind::Authentication`] with the store's failure as its
+    /// source when the provider's credentials cannot be resolved.
+    pub(in crate::providers) async fn resolve_credentials(
+        credentials: &dyn CredentialProvider,
+        provider: &CatalogProvider,
+    ) -> Result<Credentials, Error> {
+        credentials.credentials(provider).await.map_err(|source| {
+            Error::new(
+                ErrorKind::Authentication,
+                format!(
+                    "credentials for provider {} could not be resolved",
+                    provider.id()
+                ),
+            )
+            .with_provider(provider.id().clone())
+            .with_source(source)
+        })
+    }
+
     /// Builds the shared HTTP adapter for one catalog provider.
     ///
     /// # Errors
@@ -146,20 +171,7 @@ pub(super) mod http {
         }
 
         async fn resolve_credentials(&self, call: &ResolvedCall) -> Result<Credentials, Error> {
-            self.credentials
-                .credentials(call.route().provider())
-                .await
-                .map_err(|source| {
-                    Error::new(
-                        ErrorKind::Authentication,
-                        format!(
-                            "credentials for provider {} could not be resolved",
-                            call.route().provider().id()
-                        ),
-                    )
-                    .with_provider(call.route().provider().id().clone())
-                    .with_source(source)
-                })
+            resolve_credentials(self.credentials.as_ref(), call.route().provider()).await
         }
 
         /// Completes by running the streaming path and taking its one response.
