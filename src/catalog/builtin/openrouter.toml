@@ -28,8 +28,6 @@ base_url = "https://openrouter.ai/api/v1"
 priority = 25
 allow_passthrough = true
 default_model = "claude-sonnet-5"
-# Opt-in: operators enable this provider in their own catalog overlay.
-enabled = false
 
 [providers.openrouter.auth]
 type = "bearer"

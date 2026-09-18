@@ -41,7 +41,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 ```
 
 `Client::from_env()` uses the built-in catalog, the default HTTP client, and
-conventional provider environment variables such as `OPENAI_API_KEY`.
+conventional provider environment variables such as `OPENAI_API_KEY`. The
+built-in catalog covers the first-party APIs (Anthropic, OpenAI, Gemini,
+Bedrock) and the routers that front many models behind one key: OpenRouter
+(`OPENROUTER_API_KEY`), Venice (`VENICE_API_KEY`), and Vercel AI Gateway
+(`AI_GATEWAY_API_KEY`).
 
 `ConventionalCredentials` is the table behind that: which named secrets each
 provider expects and how they shape into its authentication. Where a named
@@ -487,11 +491,13 @@ provider has no adapter), and `api_key_url`. Model rows carry the wire id,
 limits, capabilities, protocol options, pricing, and display facts (`family`,
 `training_cutoff`, `knowledge_cutoff`, `estimated_output_tps`), plus
 `small_default` and `probe`, which name the provider's model for cheap utility
-calls and for connectivity probes. Built-in providers that need
-deployment-specific setup ship with `enabled = false`; an overlay turns one on:
+calls and for connectivity probes. A built-in provider that needs only an API
+key ships enabled; credentials decide whether it is ready. A provider that
+needs deployment-specific setup or has no portable model roster (Bedrock,
+LiteLLM, Modal, Ollama) ships with `enabled = false`; an overlay turns one on:
 
 ```toml
-[providers.openrouter]
+[providers.ollama]
 enabled = true
 ```
 

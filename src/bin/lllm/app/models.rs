@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use lithos_llm::Client;
-use lithos_llm::catalog::{CatalogModel, CatalogProvider, ModelCapabilities};
+use lithos_llm::catalog::{CatalogModel, CatalogProvider, ModelCapabilities, ProviderId};
 use lithos_llm::resolver::ModelSelectionError;
 use lithos_llm::types::{Message, Request, ResponseFormat, Role};
 use serde::Serialize;
@@ -69,11 +69,23 @@ fn select_query(
             ),
         });
     }
+    // An exact id or alias match beats a substring match; among equals the
+    // higher-priority provider wins, the same order the resolver applies to a
+    // bare selector, so a query never lands on a router when the first-party
+    // provider serves the same model.
+    let priority = |model: &ModelEntry| {
+        model
+            .selector
+            .split_once('/')
+            .and_then(|(provider, _)| client.catalog().provider_by_id(&ProviderId::new(provider)))
+            .map_or(i32::MIN, CatalogProvider::priority)
+    };
     models.sort_by(|left, right| {
         let left_exact = is_exact(left, terms);
         let right_exact = is_exact(right, terms);
         right_exact
             .cmp(&left_exact)
+            .then_with(|| priority(right).cmp(&priority(left)))
             .then_with(|| left.selector.len().cmp(&right.selector.len()))
             .then_with(|| left.selector.cmp(&right.selector))
     });

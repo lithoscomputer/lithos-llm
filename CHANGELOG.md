@@ -6,6 +6,26 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Vercel AI Gateway joins the built-in catalog as `vercel`: 29 models
+  mirroring the OpenRouter roster (every OpenRouter row the gateway lists,
+  under the same ids and aliases) with the gateway's namespaced wire ids,
+  limits, effort levels, and upstream rates from its public model listing,
+  checked against live probes on 2026-09-17. The gateway reports cost and
+  Anthropic-style cache counters in-band, forwards `cache_control`
+  breakpoints and `reasoning_effort`, and returns `reasoning_details` the
+  Chat codec already replays, so no adapter or codec change was needed.
+  `ConventionalCredentials::new()` (and so `Client::from_env()`) reads
+  `AI_GATEWAY_API_KEY`, then `VERCEL_OIDC_TOKEN`. The live E2E suite gains a
+  `vercel` module, a seventh twin, and a committed recording.
+
+- OpenRouter and Fireworks now ship enabled. Both need only an API key, so
+  credentials already decide whether they are ready; the `enabled = false`
+  gate stays on the providers that need deployment-specific setup or have no
+  portable roster (Bedrock, Bedrock OpenAI, LiteLLM, Modal, Ollama). An
+  application that layers the built-in catalog with an `OPENROUTER_API_KEY`
+  or `FIREWORKS_API_KEY` present now resolves routes through those providers
+  at their catalog priorities (25 and 30) without an overlay.
+
 - One usage type. `types::Usage` pairs a `TokenCounts` with an optional
   `Cost`: what a call or a run used and, when known, what it cost. On the
   wire the two sit side by side as `tokens` and `cost`, with `cost` omitted
