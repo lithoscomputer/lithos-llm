@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- A model row may name its own `adapter`, and the client honors it. A row
+  with `adapter = "..."` gets a second adapter from that factory, built with
+  its provider's credentials and base URL; every `complete`, `stream`,
+  `count_input_tokens`, and `evaluate` on that row goes to it, while the
+  provider's own adapter keeps serving the provider's other rows.
+  `Client::available_providers` still reads the provider-level outcome only.
+  `ProviderBuildIssue` gains `model: Option<ModelId>`: `Some` names a row
+  whose own adapter did not build (the provider stays available), `None` is
+  the provider-level failure it always reported. `ClientBuilder::adapter`
+  replaces the provider-level adapter only; a row override always comes from
+  a factory. `ModelHandle` now derives `Ord` and `PartialOrd`, ordering by
+  provider then model.
+
 - Breaking: the `openai`, `anthropic`, `gemini`, and `openai-compatible`
   features are gone. Each expanded to `runtime` and pulled no dependency of
   its own, so the four HTTP adapters now compile whenever `runtime` is on;

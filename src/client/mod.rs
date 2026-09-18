@@ -15,7 +15,10 @@ use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, AdapterRegistry,
     DEFAULT_STREAM_IDLE_TIMEOUT, InputTokenCount, ProviderAdapter,
 };
-use crate::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, ProviderId, adapter_ids};
+use crate::catalog::{
+    AdapterId, Catalog, CatalogError, CatalogModel, CatalogProvider, ModelHandle, ModelId,
+    ProviderId, adapter_ids,
+};
 #[cfg(all(feature = "builtin-catalog", feature = "environment-credentials"))]
 use crate::credentials::ConventionalCredentials;
 use crate::credentials::{self, CredentialError, CredentialProvider, NoCredentials};
@@ -631,6 +634,13 @@ impl ClientBuilder {
         self
     }
 
+    /// Uses `adapter` for `provider` instead of building one from the
+    /// provider's `adapter` factory.
+    ///
+    /// This replaces the provider-level adapter only. A model row that names
+    /// its own `adapter` still gets that adapter from the registered factory,
+    /// so the row is served by the factory's adapter and every other row by
+    /// this one.
     pub fn adapter(
         mut self,
         provider: impl Into<ProviderId>,
@@ -656,6 +666,14 @@ impl ClientBuilder {
     /// adapters go to the client and provider-local failures go to
     /// [`ClientBuild::issues`] in that same order. A client with no available
     /// provider is a valid outcome. Credentials are never read here.
+    ///
+    /// A model row that names its own `adapter` gets a second adapter from
+    /// that factory, built with the provider's credentials and base URL, and
+    /// every call on that row goes to it. The provider's own adapter still
+    /// serves the provider's other rows. A row whose adapter cannot be built
+    /// is reported as an issue naming the row; the provider stays available
+    /// for its other rows, and [`Client::available_providers`] reads only the
+    /// provider-level outcome.
     ///
     /// # Errors
     ///
@@ -743,6 +761,7 @@ impl ClientBuilder {
             .with_retain_raw_response(self.policy.retain_raw)
             .with_application(self.application);
         let mut adapters = BTreeMap::new();
+        let mut row_adapters = BTreeMap::new();
         let mut issues = Vec::new();
         let mut ready = Vec::new();
         for provider in catalog.providers() {
@@ -779,9 +798,27 @@ impl ClientBuilder {
                 }
                 Err(cause) => issues.push(ProviderBuildIssue {
                     provider: provider.id().clone(),
+                    model: None,
                     adapter: provider.adapter().clone(),
                     cause,
                 }),
+            }
+            // A row that names its own adapter is built whether or not the
+            // provider's adapter was: its outcome is the row's, and the
+            // issue list should say so.
+            for (model, adapter_id) in overriding_rows(provider) {
+                match build_row_adapter(&self.registry, provider, adapter_id, &context) {
+                    Ok(adapter) => {
+                        let handle = ModelHandle::new(provider.id().clone(), model.id().clone());
+                        row_adapters.insert(handle, adapter);
+                    }
+                    Err(cause) => issues.push(ProviderBuildIssue {
+                        provider: provider.id().clone(),
+                        model: Some(model.id().clone()),
+                        adapter: adapter_id.clone(),
+                        cause,
+                    }),
+                }
             }
         }
         let available = AvailableProviders::new(adapters.keys().cloned());
@@ -797,11 +834,47 @@ impl ClientBuilder {
                     policy: self.policy,
                     middleware: self.middleware,
                     adapters,
+                    row_adapters,
                 }),
             },
             issues,
         })
     }
+}
+
+/// Builds the adapter one model row names in place of its provider's.
+///
+/// The row's adapter always comes from a factory: an explicit
+/// [`ClientBuilder::adapter`] registration is provider-level and does not
+/// reach here.
+fn build_row_adapter(
+    registry: &AdapterRegistry,
+    provider: &CatalogProvider,
+    adapter: &AdapterId,
+    context: &AdapterContext,
+) -> Result<Arc<dyn ProviderAdapter>, ProviderBuildCause> {
+    if let Some(factory) = registry.factory(adapter) {
+        factory
+            .create(provider, context)
+            .map_err(ProviderBuildCause::Adapter)
+    } else if is_disabled_builtin_adapter(adapter) {
+        Err(ProviderBuildCause::AdapterFeatureDisabled {
+            adapter: adapter.clone(),
+        })
+    } else {
+        Err(ProviderBuildCause::MissingAdapterFactory {
+            adapter: adapter.clone(),
+        })
+    }
+}
+
+/// The provider's rows that name their own adapter, with that adapter id.
+fn overriding_rows(
+    provider: &CatalogProvider,
+) -> impl Iterator<Item = (&CatalogModel, &AdapterId)> {
+    provider
+        .models()
+        .filter_map(|model| model.adapter().map(|adapter| (model, adapter)))
 }
 
 /// The evaluation's state as the one user message of a stand-in request.
@@ -842,11 +915,18 @@ pub struct ClientBuild {
     pub issues:            Vec<ProviderBuildIssue>,
 }
 
-/// One provider that could not be constructed.
+/// One provider, or one model row with its own adapter, that could not be
+/// constructed.
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct ProviderBuildIssue {
     pub provider: ProviderId,
+    /// The model row whose own `adapter` failed to build. `None` when the
+    /// provider's adapter is the one that failed; then the provider is not
+    /// available. `Some` leaves the provider available for its other rows.
+    pub model:    Option<ModelId>,
+    /// The adapter that could not be built: the row's when `model` is
+    /// `Some`, else the provider's.
     pub adapter:  AdapterId,
     pub cause:    ProviderBuildCause,
 }
@@ -897,7 +977,7 @@ mod tests {
     use crate::adapter::{
         AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter, ResolvedCall,
     };
-    use crate::catalog::{AdapterId, Catalog, CatalogProvider, ProviderId};
+    use crate::catalog::{AdapterId, Catalog, CatalogProvider, ModelId, ProviderId};
     use crate::credentials::{CredentialError, CredentialProvider, Credentials, StaticCredentials};
     use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
     use crate::types::{
@@ -1597,6 +1677,127 @@ mod tests {
 
         assert_eq!(build.ready, ["alpha", "beta", "gamma"].map(ProviderId::new));
         assert!(build.credential_issues.is_empty());
+        Ok(())
+    }
+
+    /// Adds a second `alpha` row whose own adapter is `row-adapter`.
+    const ROW_OVERRIDE_OVERLAY: &str = r#"
+        [providers.alpha.models.two]
+        display_name = "Two"
+        api_model = "alpha-two-v1"
+        adapter = "row-adapter"
+        capabilities = { text = true }
+    "#;
+
+    fn row_override_catalog() -> Result<Catalog, Box<dyn StdError>> {
+        Ok(Catalog::builder()
+            .overlay_toml(TEST_CATALOG)?
+            .overlay_toml(ROW_OVERRIDE_OVERLAY)?
+            .build()?)
+    }
+
+    #[tokio::test]
+    async fn a_row_override_without_a_factory_is_an_issue_naming_the_row()
+    -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(row_override_catalog()?)
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .adapter_factory("beta-adapter", CountingFactory::default())
+            .adapter_factory("gamma-adapter", CountingFactory::default())
+            .build()?;
+
+        assert_eq!(build.issues.len(), 1);
+        let issue = &build.issues[0];
+        assert_eq!(issue.provider.as_str(), "alpha");
+        assert_eq!(issue.model.as_ref().map(ModelId::as_str), Some("two"));
+        assert_eq!(issue.adapter.as_str(), "row-adapter");
+        assert!(matches!(
+            issue.cause,
+            ProviderBuildCause::MissingAdapterFactory { ref adapter } if adapter.as_str() == "row-adapter"
+        ));
+
+        // The provider's own adapter built, so its plain row still serves.
+        assert_eq!(available_ids(&build.client), ["alpha", "beta", "gamma"]);
+        let request = Request::builder().model("alpha/one").user("hi").build()?;
+        let response = build.client.complete(request).await?;
+        assert_eq!(response.model.to_string(), "alpha/one");
+        Ok(())
+    }
+
+    #[test]
+    fn a_row_override_whose_factory_fails_is_an_issue_naming_the_row()
+    -> Result<(), Box<dyn StdError>> {
+        let build = Client::builder()
+            .catalog(row_override_catalog()?)
+            .adapter_factory("alpha-adapter", CountingFactory::default())
+            .adapter_factory("row-adapter", FailingFactory)
+            .enabled_providers(["alpha"])
+            .build()?;
+
+        assert_eq!(build.issues.len(), 1);
+        let issue = &build.issues[0];
+        assert_eq!(issue.provider.as_str(), "alpha");
+        assert_eq!(issue.model.as_ref().map(ModelId::as_str), Some("two"));
+        assert_eq!(issue.adapter.as_str(), "row-adapter");
+        assert!(matches!(
+            issue.cause,
+            ProviderBuildCause::Adapter(AdapterBuildError::UnsupportedCodec { .. })
+        ));
+        assert_eq!(available_ids(&build.client), ["alpha"]);
+        Ok(())
+    }
+
+    #[test]
+    fn available_providers_come_from_the_provider_adapter_alone() -> Result<(), Box<dyn StdError>> {
+        let provider_factory = CountingFactory::default();
+        let row_factory = CountingFactory::default();
+        let build = Client::builder()
+            .catalog(row_override_catalog()?)
+            .adapter_factory("alpha-adapter", provider_factory.clone())
+            .adapter_factory("row-adapter", row_factory.clone())
+            .enabled_providers(["alpha"])
+            .build()?;
+
+        // A row override that builds adds no issue and no provider.
+        assert!(build.issues.is_empty());
+        assert_eq!(available_ids(&build.client), ["alpha"]);
+        assert_eq!(provider_factory.created.load(Ordering::SeqCst), 1);
+        assert_eq!(row_factory.created.load(Ordering::SeqCst), 1);
+
+        // A provider whose own adapter failed is unavailable even though its
+        // row override built; the issue list names the provider, not the row.
+        let row_factory = CountingFactory::default();
+        let build = Client::builder()
+            .catalog(row_override_catalog()?)
+            .adapter_factory("alpha-adapter", FailingFactory)
+            .adapter_factory("row-adapter", row_factory.clone())
+            .enabled_providers(["alpha"])
+            .build()?;
+
+        assert!(available_ids(&build.client).is_empty());
+        assert_eq!(build.issues.len(), 1);
+        assert_eq!(build.issues[0].provider.as_str(), "alpha");
+        assert_eq!(build.issues[0].model, None);
+        assert_eq!(build.issues[0].adapter.as_str(), "alpha-adapter");
+        assert_eq!(row_factory.created.load(Ordering::SeqCst), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn an_explicit_provider_adapter_leaves_the_row_override_to_its_factory()
+    -> Result<(), Box<dyn StdError>> {
+        let row_factory = CountingFactory::default();
+        let build = Client::builder()
+            .catalog(row_override_catalog()?)
+            .adapter("alpha", FakeAdapter {
+                id: AdapterId::new("alpha-adapter"),
+            })
+            .adapter_factory("row-adapter", row_factory.clone())
+            .enabled_providers(["alpha"])
+            .build()?;
+
+        assert!(build.issues.is_empty());
+        assert_eq!(row_factory.created.load(Ordering::SeqCst), 1);
         Ok(())
     }
 

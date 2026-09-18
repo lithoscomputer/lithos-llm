@@ -29,7 +29,7 @@ use tokio::sync::Notify;
 pub use tracing_layer::TracingMiddleware;
 
 use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall, ResolvedEvaluation};
-use crate::catalog::ProviderId;
+use crate::catalog::{ModelHandle, ProviderId};
 use crate::evaluation::{Evaluation, Verdict};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
@@ -405,9 +405,13 @@ impl Next {
 }
 
 pub(crate) struct Pipeline {
-    pub policy:     ResponsePolicy,
-    pub middleware: Vec<Arc<dyn Middleware>>,
-    pub adapters:   BTreeMap<ProviderId, Arc<dyn ProviderAdapter>>,
+    pub policy:       ResponsePolicy,
+    pub middleware:   Vec<Arc<dyn Middleware>>,
+    /// One adapter per available provider, from the provider's `adapter`.
+    pub adapters:     BTreeMap<ProviderId, Arc<dyn ProviderAdapter>>,
+    /// The adapters of model rows that name their own `adapter`. A row here
+    /// is served by this adapter instead of its provider's.
+    pub row_adapters: BTreeMap<ModelHandle, Arc<dyn ProviderAdapter>>,
 }
 
 impl Pipeline {
@@ -418,10 +422,11 @@ impl Pipeline {
         }
     }
 
-    /// The adapter that serves `route`.
+    /// The adapter that serves `route`: the row's own when the row names an
+    /// `adapter`, else its provider's.
     ///
     /// Every dispatch and the client's evaluation path look the adapter up
-    /// here, so a per-row adapter override needs to change only this lookup.
+    /// here, so this is the one place the per-row override applies.
     ///
     /// # Errors
     ///
@@ -430,8 +435,9 @@ impl Pipeline {
         &self,
         route: &ResolvedRoute,
     ) -> Result<Arc<dyn ProviderAdapter>, Error> {
-        self.adapters
-            .get(route.provider().id())
+        self.row_adapters
+            .get(&route.handle())
+            .or_else(|| self.adapters.get(route.provider().id()))
             .cloned()
             .ok_or_else(|| {
                 Error::new(

@@ -89,7 +89,10 @@ pub mod codec_ids {
 }
 
 /// A resolved provider and model identity.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+///
+/// Handles order by provider, then model, so a sorted collection keyed by
+/// handle lists one provider's rows together.
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct ModelHandle {
     provider: ProviderId,
     model:    ModelId,

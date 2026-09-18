@@ -8,7 +8,7 @@
 //! reader guesses it sends.
 
 use httpmock::{Method, MockServer};
-use lithos_llm::catalog::{adapter_ids, codec_ids};
+use lithos_llm::catalog::{Catalog, adapter_ids, codec_ids};
 use lithos_llm::types::ErrorKind;
 use lithos_llm::{Evaluation, Verdict};
 use serde_json::{Value, json};
@@ -30,8 +30,10 @@ const LIVE_BODY: &str = r#"{"answers":{"department":{"type":"choice","choice":"b
 /// The 400 the gateway returns when a language model id reaches this path.
 const MISMATCH_400_BODY: &str = r#"{"error":{"message":"Model 'anthropic/claude-haiku-4.5' is a language model, not an evaluation model. Use the language generation API instead.","type":"invalid_request_error","param":{"error":"Model 'anthropic/claude-haiku-4.5' is a language model, not an evaluation model. Use the language generation API instead.","type":"invalid_request_error","statusCode":400,"name":"ModelTypeMismatchError","message":"Model 'anthropic/claude-haiku-4.5' is a language model, not an evaluation model. Use the language generation API instead."}},"providerMetadata":{"gateway":{"routing":{"originalModelId":"anthropic/claude-haiku-4.5","resolvedProvider":"claudeaws","fallbacksAvailable":["anthropic","bedrock","vertexAnthropic"],"canonicalSlug":"anthropic/claude-haiku-4.5","modelAttemptCount":1,"modelAttempts":[{"canonicalSlug":"anthropic/claude-haiku-4.5","success":false,"providerAttemptCount":0,"providerAttempts":[]}],"totalProviderAttemptCount":0},"generationId":"gen_01M2RV50YV78ZJ714K3YEJ65TV"}}}"#;
 
-/// The provider-level adapter is this adapter, because the per-row override
-/// lands in a later step. The codec id is ignored by the factory.
+/// The provider-level adapter is this adapter, so the wire tests below pin
+/// the codec with nothing else in the way. The codec id is ignored by the
+/// factory. The per-row form the built-in catalog uses is covered by
+/// [`overriding_row_catalog`].
 fn provider() -> WireProvider<'static> {
     WireProvider::new(
         PROVIDER,
@@ -42,6 +44,26 @@ fn provider() -> WireProvider<'static> {
     .with_api_model(API_MODEL)
     .with_auth("{ type = \"bearer\" }")
     .with_capabilities(EVALUATION_CAPABILITIES)
+}
+
+/// A provider on the generation adapter, as the built-in `vercel` provider
+/// is, whose one row names this adapter in place of the provider's.
+fn overriding_row_catalog(base_url: &str) -> Catalog {
+    let mut toml = WireProvider::new(
+        PROVIDER,
+        adapter_ids::OPENAI_COMPATIBLE,
+        codec_ids::OPENAI_CHAT,
+        MODEL,
+    )
+    .with_api_model(API_MODEL)
+    .with_auth("{ type = \"bearer\" }")
+    .with_capabilities(EVALUATION_CAPABILITIES)
+    .toml(base_url);
+    // The rendered document ends inside the model table.
+    toml.push_str("adapter = \"");
+    toml.push_str(adapter_ids::VERCEL_EVALUATION);
+    toml.push_str("\"\n");
+    support::catalog_from_toml("wire", &toml)
 }
 
 /// The interface plan's three questions, which [`LIVE_BODY`] answers.
@@ -99,6 +121,30 @@ async fn encodes_the_evaluation_request_and_decodes_the_verdict() {
     assert_eq!(wire.path, PATH);
     crate::json_snapshot!(wire);
     crate::json_snapshot!(verdict);
+}
+
+#[tokio::test]
+async fn a_row_override_dispatches_to_this_adapter_over_a_generation_provider() {
+    let server = MockServer::start_async().await;
+    let catalog = overriding_row_catalog(&server.base_url());
+    // `client_for` fails if either the provider's adapter or the row's did
+    // not build.
+    let client = support::client_for(catalog, PROVIDER, support::bearer_credentials());
+    let (mock, _slot) = support::mount_capture(&server, PATH, &body(LIVE_BODY));
+
+    let verdict = client
+        .evaluate(evaluation())
+        .await
+        .expect("the row override should evaluate");
+
+    mock.assert_async().await;
+    assert_eq!(
+        verdict
+            .choice("department")
+            .expect("the verdict answers the choice")
+            .choice,
+        "billing"
+    );
 }
 
 #[tokio::test]
