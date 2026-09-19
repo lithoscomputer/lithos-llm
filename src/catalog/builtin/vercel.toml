@@ -18,7 +18,7 @@
 # Completions codec has no speed control, so `speed.fast` stays unclaimed
 # even where the gateway prices a fast tier (Claude Opus 5, GPT-5.6).
 #
-# Probe findings that shaped the rows (all 2026-09-17):
+# Probe findings that shaped the rows (2026-09-17 unless dated otherwise):
 # - The gateway reports cost in-band: `usage.cost` on every response, plus
 #   `cache_creation_input_tokens` and `prompt_tokens_details.cached_tokens`.
 #   A `cache_control` breakpoint on Claude Sonnet 5 wrote 15,381 tokens on
@@ -33,10 +33,13 @@
 # - Reasoning text comes back as `reasoning` plus `reasoning_details`
 #   (`reasoning.text`, or `reasoning.summary` and `reasoning.encrypted` on
 #   OpenAI and Grok), which the codec already stores and replays. The Claude
-#   rows returned no reasoning text at any effort, only `reasoning_tokens`.
+#   rows returned no reasoning text on 2026-09-17, only `reasoning_tokens`;
+#   on 2026-09-19 Opus 5, Fable 5, and Fable 5.1 all returned signed
+#   `reasoning.text` entries.
 # - The listing says Sonnet 5 and Kimi K3 take no temperature, but the
 #   gateway accepted one on both without a warning, so both claim sampling.
-#   Opus 5 and Fable 5 could not be probed (see below) and stay unclaimed.
+#   Opus 5 and Fable 5, listed the same way, took one on 2026-09-19 once
+#   they could be probed (200, no warning), so every Claude row claims it.
 # - Fable 5.1 answers a forced tool choice with Anthropic's 400
 #   (`tool_choice: type "tool" and "any" are not supported for this
 #   model.`), so its row claims tools without forced choice. Every other
@@ -51,17 +54,16 @@
 # - Stop sequences are ignored by the GPT rows, MiMo, MiniMax, and Grok, and
 #   Nemotron rejects the field outright. No capability records stop support;
 #   the E2E suite pins these.
-# - The gateway applies a per-model rate limit to Claude Opus 5, Fable 5,
-#   and Fable 5.1 on the team behind the probes: one request per model in
-#   each five-to-six-minute window, every later request answered `429
-#   rate_limit_exceeded` / `No access to this model at this time` with zero
-#   provider attempts in the routing metadata. Measured 19:28-19:55 UTC on
-#   2026-09-17, unchanged by a credit purchase during the window; Vercel's
-#   rate-limits page describes such per-model limits for the free tier. No
-#   other roster row is limited this way. Those three rows' sampling,
-#   forced-choice, and structured-output flags therefore follow the listing
-#   and the Sonnet 5 probes rather than a live probe. Re-probe when the team
-#   is on the paid tier.
+# - On 2026-09-17 the gateway applied a per-model rate limit to Claude Opus
+#   5, Fable 5, and Fable 5.1 on the team behind the probes: one request per
+#   model in each five-to-six-minute window, every later request answered
+#   `429 rate_limit_exceeded` / `No access to this model at this time` with
+#   zero provider attempts in the routing metadata (measured 19:28-19:55
+#   UTC, unchanged by a credit purchase during the window). Vercel lifted
+#   the limit on 2026-09-19, confirmed by a live probe the same day (six
+#   rapid requests to each model, all 200), and the three rows were then
+#   probed like the rest; their comments carry the findings. No other
+#   roster row was ever limited this way.
 # - `prompt_cache_key` is accepted but nothing documents sticky routing, so
 #   no row claims `cache_routing`.
 #
@@ -93,11 +95,18 @@ profile = "openai"
 
 # The one Claude row that takes no forced tool choice: the upstream 400
 # (`tool_choice: type "tool" and "any" are not supported for this model.`)
-# came straight through the gateway on 2026-09-17. The listing is the one
-# Claude 5 row with `temperature: true`, and cache reads are $0.25/MTok, a
-# quarter of Fable 5's rate. Sampling and structured output are unprobed
-# (see the per-model rate limit in the header) and follow the listing and
-# the Sonnet 5 row.
+# came straight through the gateway on 2026-09-17 and again on 2026-09-19.
+# The listing is the one Claude 5 row with `temperature: true`, and cache
+# reads are $0.25/MTok, a quarter of Fable 5's rate. Probed live on
+# 2026-09-19 once the per-model rate limit was lifted (see the header):
+# sampling, JSON object and JSON Schema output (blocking and streamed),
+# vision, and stop sequences all verified, and every effort level was
+# accepted. Reasoning is selective: `low`, `medium`, and `high` each
+# answered with zero reasoning tokens and the working written into the
+# reply (three of three at `high`), while `xhigh` and `max` reasoned (288
+# and 264 tokens) and returned signed `reasoning.text` entries. A
+# `cache_control` breakpoint wrote 8,315 tokens and read them all back five
+# seconds later.
 [providers.vercel.models."claude-fable-5.1"]
 display_name = "Claude Fable 5.1 (via Vercel)"
 api_model = "anthropic/claude-fable-5.1"
@@ -109,31 +118,47 @@ pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_milli
 [providers.vercel.models."claude-fable-5.1".metadata.agent]
 profile = "claude-5"
 
-# Not probed live (see the per-model rate limit in the header); the flags
-# mirror the Sonnet 5 row except sampling, which the listing denies.
+# Probed live on 2026-09-19 once the per-model rate limit was lifted (see
+# the header). The gateway accepted a temperature and `top_p` with a 200 and
+# no warning although the listing says `temperature: false`, so the row
+# claims sampling as Sonnet 5's does. A named tool choice, JSON object and
+# JSON Schema output (blocking and streamed), vision, and stop sequences
+# verified. Every effort level was accepted and reasoned (`low` 75 tokens
+# through `xhigh` 247); `max` was accepted too (164 tokens) but stays
+# unclaimed because the listing omits it, as on Sonnet 5. Reasoning text
+# arrives as signed `reasoning.text` entries. A `cache_control` breakpoint
+# wrote 8,316 tokens and read them all back five seconds later.
 [providers.vercel.models."claude-fable-5"]
 display_name = "Claude Fable 5 (via Vercel)"
 aliases = ["fable", "claude-fable"]
 api_model = "anthropic/claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
 
 [providers.vercel.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
 
-# One `max`-effort completion verified (10 reasoning tokens counted); the
-# per-model rate limit in the header blocked every further probe, so the
-# other flags mirror the Sonnet 5 row except sampling, which the listing
-# denies. The listing also prices a `fast` tier at twice these rates, which
-# the Chat codec cannot request.
+# Probed live on 2026-09-19 once the per-model rate limit was lifted (see
+# the header). The gateway accepted a temperature and `top_p` with a 200 and
+# no warning although the listing says `temperature: false`, so the row
+# claims sampling as Sonnet 5's does. A named tool choice, JSON object and
+# JSON Schema output (blocking and streamed), vision, and stop sequences
+# verified. All five effort levels were accepted with rising reasoning
+# counts (`low` 134, `medium` 173, `high` 217, `xhigh` 218, `max` 236
+# tokens), returned as signed `reasoning.text` entries. A `cache_control`
+# breakpoint wrote 8,315 tokens and read them all back, but only on the
+# same upstream: the gateway routes this model across Anthropic, Vertex,
+# and Bedrock, and one follow-up that failed over to Bedrock wrote the
+# prefix again instead of reading it. The listing also prices a `fast` tier
+# at twice these rates, which the Chat codec cannot request.
 [providers.vercel.models."claude-opus-5"]
 display_name = "Claude Opus 5 (via Vercel)"
 aliases = ["opus", "claude-opus"]
 api_model = "anthropic/claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
-capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
 
