@@ -6,6 +6,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The three Claude 5 flagships on Vercel — `claude-opus-5`, `claude-fable-5`,
+  and `claude-fable-5.1` — join the Vercel E2E roster, recorded on
+  2026-09-19 after Vercel lifted the per-model rate limit measured on
+  2026-09-17. One catalog correction from the run: `claude-opus-5` and
+  `claude-fable-5` now claim `sampling`, because the gateway accepted a
+  temperature on both with a 200 and no warning where the listing says
+  `temperature: false`. Every other claim on the three rows held: JSON
+  object and JSON Schema output conformed, every listed effort level was
+  accepted, a `cache_control` breakpoint wrote and read back, and Fable
+  5.1's forced tool choice is still refused upstream with a 400.
+
 - The `systemone` codec (`codec_ids::SYSTEMONE`) speaks TypeSafe's System
   One evaluation protocol, and the built-in catalog gains the `typesafe`
   provider (`catalog::builtin::ids::TYPESAFE`, bearer auth from

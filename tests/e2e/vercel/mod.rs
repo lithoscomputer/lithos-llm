@@ -54,17 +54,20 @@ const CATALOG_TOML: &str = include_str!("../vercel_catalog.toml");
 /// model id. Every generated test is ignored, so the roster only runs under
 /// `mise run test:e2e`.
 ///
-/// Three catalog rows have no cells: on the team behind the recording, the
-/// gateway limits Claude Fable 5.1, Fable 5, and Opus 5 to one request per
-/// model in each five-to-six-minute window and answers the rest with `429
-/// No access to this model at this time` (measured 2026-09-17, matching the
-/// per-model limits Vercel documents for its free tier). A suite that sends
-/// hundreds of requests per model cannot run under that limit. The
-/// preflight listing check still covers their wire ids; add them back here
-/// once the team is on the paid tier.
+/// Every generation row is in the roster, the three Claude 5 flagships
+/// included. On 2026-09-17 the gateway limited Claude Fable 5.1, Fable 5,
+/// and Opus 5 to one request per model in each five-to-six-minute window on
+/// the team behind the recording, answering the rest with `429 No access to
+/// this model at this time`, so those rows first shipped without cells.
+/// Vercel lifted the limit on 2026-09-19, confirmed by a live probe on
+/// 2026-09-19 (six rapid requests to each model, all `200`), and the rows
+/// joined the roster the same day.
 macro_rules! model_tests {
     ($runner:path) => {
         model_tests!(@expand $runner,
+            claude_fable_5_1 "claude-fable-5.1",
+            claude_fable_5 "claude-fable-5",
+            claude_opus_5 "claude-opus-5",
             claude_sonnet_5 "claude-sonnet-5",
             claude_opus_4_8 "claude-opus-4.8",
             claude_opus_4_7 "claude-opus-4.7",

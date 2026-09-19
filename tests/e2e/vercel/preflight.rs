@@ -6,22 +6,32 @@
 use std::env;
 
 use lithos_llm::Evaluation;
-use lithos_llm::types::{ErrorKind, ResponseFormat};
+use lithos_llm::types::{ErrorKind, ResponseFormat, ToolChoice, ToolDefinition};
+use serde_json::json;
 
 use crate::support::{self, TestResult};
 use crate::vercel;
 
+/// Every generation row on this gateway claims sampling (the gateway
+/// accepted a temperature on Opus 5 and Fable 5 on 2026-09-19, as it had on
+/// Sonnet 5), so the one unclaimed control on the roster is Fable 5.1's
+/// forced tool choice, which its upstream answers with a 400.
 #[tokio::test]
-async fn sampling_is_rejected_locally_where_unclaimed() -> TestResult {
+async fn a_forced_tool_choice_is_rejected_locally_where_unclaimed() -> TestResult {
     let client = vercel::client_with_key("preflight-key");
-    let request = vercel::request("claude-opus-5")
-        .user("Hello")
-        .temperature(0.0)
+    let request = vercel::request("claude-fable-5.1")
+        .user("What is the weather in Paris?")
+        .tool(ToolDefinition::function(
+            "get_weather",
+            "Reads the current weather for a city",
+            json!({ "type": "object" }),
+        ))
+        .tool_choice(ToolChoice::Required)
         .build()?;
     let error = client
         .complete(request)
         .await
-        .expect_err("claude-opus-5 claims no sampling, so the client must refuse");
+        .expect_err("claude-fable-5.1 claims no forced tool choice, so the client must refuse");
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.provider_code(), Some("unsupported_capability"));
     Ok(())
