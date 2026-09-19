@@ -28,8 +28,16 @@ pub(super) fn config() -> Config {
     Config::from_lookup(&|_| None).expect("explicit twin defaults")
 }
 
+/// The deadline one local operation gets: a request, a stream, a reset.
+pub(super) const LOCAL_DEADLINE: Duration = Duration::from_secs(20);
+
 pub(super) async fn bounded<T>(future: impl Future<Output = T>) -> T {
-    timeout(Duration::from_secs(20), future)
+    bounded_by(LOCAL_DEADLINE, future).await
+}
+
+/// `bounded` with an explicit deadline, for a batch whose size sets its own.
+pub(super) async fn bounded_by<T>(limit: Duration, future: impl Future<Output = T>) -> T {
+    timeout(limit, future)
         .await
         .expect("local operation deadline")
 }

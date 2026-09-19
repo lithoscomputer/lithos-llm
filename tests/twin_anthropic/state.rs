@@ -8,7 +8,9 @@ use serde_json::{Value, json};
 use twin_anthropic::config::{Config, Mode, RecordFormat};
 
 use super::contracts::{completed, expected, semantic, success};
-use super::support::{TempDir, Twin, bounded, collect, config, request, scenario};
+use super::support::{
+    LOCAL_DEADLINE, TempDir, Twin, bounded, bounded_by, collect, config, request, scenario,
+};
 
 async fn load(total: usize) {
     let twin = Twin::start(config()).await;
@@ -20,7 +22,14 @@ async fn load(total: usize) {
         twin.enqueue(&key, json!([script])).await;
         clients.push(twin.client(&key));
     }
-    let results: Vec<_> = bounded(
+    // The batch deadline grows with the batch. A fixed 20 seconds fits 1,024
+    // requests anywhere, but the 10,000-request stress case shares a CI
+    // runner with the release build and has run past it there (2026-09-19).
+    // One block of 1,024 requests per 20 seconds is well under the 7 seconds
+    // the full stress case takes on an idle machine.
+    let batch_deadline = LOCAL_DEADLINE * u32::try_from(total.div_ceil(1024)).expect("batch count");
+    let results: Vec<_> = bounded_by(
+        batch_deadline,
         stream::iter(0..total)
             .map(|n| {
                 let client = &clients[n % 32];
