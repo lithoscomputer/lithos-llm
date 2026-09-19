@@ -41,6 +41,7 @@ mod anthropic;
 mod bedrock;
 #[cfg(all(feature = "bedrock", feature = "builtin-catalog"))]
 mod bedrock_parity;
+mod codec_selection;
 mod gemini;
 #[cfg(feature = "builtin-catalog")]
 mod imported_providers;
@@ -49,4 +50,5 @@ mod judge;
 mod modal_parity;
 mod openai_chat;
 mod openai_responses;
+mod systemone;
 mod vercel_evaluation;

@@ -22,8 +22,6 @@ schema_version = 1
 [providers.venice]
 display_name = "Venice"
 aliases = ["venice-ai"]
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://api.venice.ai/api/v1"
 # Passthrough lets the negative suite send a model id the catalog does not
 # know, so the live NotFound classification can be observed.

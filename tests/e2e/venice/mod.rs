@@ -1,6 +1,6 @@
 //! The Venice live suite.
 //!
-//! Venice runs through the `openai-compatible` adapter and the `openai-chat`
+//! Venice runs through the default `http` adapter and the `openai-chat`
 //! codec, so this suite is both the endpoint check for Venice itself and the
 //! live exercise of that shared code path. The Venice-specific behavior under
 //! test is the in-band top-level `cost` field and the classification of

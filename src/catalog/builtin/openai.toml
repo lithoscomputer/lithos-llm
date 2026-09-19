@@ -55,8 +55,7 @@ schema_version = 1
 [providers.openai]
 display_name = "OpenAI"
 aliases = ["oa"]
-adapter = "openai"
-codec = "openai-responses"
+codecs = ["openai-responses"]
 base_url = "https://api.openai.com"
 # Fabro's source catalog orders anthropic (100) above openai (90); keeping
 # that gap makes the built-in `default` selector unambiguous rather than

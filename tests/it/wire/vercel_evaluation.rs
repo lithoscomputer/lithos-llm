@@ -1,4 +1,4 @@
-//! Wire parity for the `vercel-evaluation` adapter: `Client::evaluate` on a
+//! Wire parity for the `vercel-evaluation` codec: `Client::evaluate` on a
 //! row that speaks the Vercel AI Gateway's evaluation protocol.
 //!
 //! The success body is a real 200 the gateway returned on 2026-09-17 for the
@@ -8,7 +8,7 @@
 //! reader guesses it sends.
 
 use httpmock::{Method, MockServer};
-use lithos_llm::catalog::{Catalog, adapter_ids, codec_ids};
+use lithos_llm::catalog::{Catalog, codec_ids};
 use lithos_llm::types::ErrorKind;
 use lithos_llm::{Evaluation, Verdict};
 use serde_json::{Value, json};
@@ -30,39 +30,30 @@ const LIVE_BODY: &str = r#"{"answers":{"department":{"type":"choice","choice":"b
 /// The 400 the gateway returns when a language model id reaches this path.
 const MISMATCH_400_BODY: &str = r#"{"error":{"message":"Model 'anthropic/claude-haiku-4.5' is a language model, not an evaluation model. Use the language generation API instead.","type":"invalid_request_error","param":{"error":"Model 'anthropic/claude-haiku-4.5' is a language model, not an evaluation model. Use the language generation API instead.","type":"invalid_request_error","statusCode":400,"name":"ModelTypeMismatchError","message":"Model 'anthropic/claude-haiku-4.5' is a language model, not an evaluation model. Use the language generation API instead."}},"providerMetadata":{"gateway":{"routing":{"originalModelId":"anthropic/claude-haiku-4.5","resolvedProvider":"claudeaws","fallbacksAvailable":["anthropic","bedrock","vertexAnthropic"],"canonicalSlug":"anthropic/claude-haiku-4.5","modelAttemptCount":1,"modelAttempts":[{"canonicalSlug":"anthropic/claude-haiku-4.5","success":false,"providerAttemptCount":0,"providerAttempts":[]}],"totalProviderAttemptCount":0},"generationId":"gen_01M2RV50YV78ZJ714K3YEJ65TV"}}}"#;
 
-/// The provider-level adapter is this adapter, so the wire tests below pin
-/// the codec with nothing else in the way. The codec id is ignored by the
-/// factory. The per-row form the built-in catalog uses is covered by
-/// [`overriding_row_catalog`].
+/// The provider lists this codec alone, so the wire tests below pin the
+/// codec with nothing else in the way. The mixed form the built-in catalog
+/// uses is covered by [`mixed_provider_catalog`].
 fn provider() -> WireProvider<'static> {
-    WireProvider::new(
-        PROVIDER,
-        adapter_ids::VERCEL_EVALUATION,
-        codec_ids::VERCEL_EVALUATION,
-        MODEL,
-    )
-    .with_api_model(API_MODEL)
-    .with_auth("{ type = \"bearer\" }")
-    .with_capabilities(EVALUATION_CAPABILITIES)
+    WireProvider::new(PROVIDER, codec_ids::VERCEL_EVALUATION, MODEL)
+        .with_api_model(API_MODEL)
+        .with_auth("{ type = \"bearer\" }")
+        .with_capabilities(EVALUATION_CAPABILITIES)
 }
 
-/// A provider on the generation adapter, as the built-in `vercel` provider
-/// is, whose one row names this adapter in place of the provider's.
-fn overriding_row_catalog(base_url: &str) -> Catalog {
-    let mut toml = WireProvider::new(
-        PROVIDER,
-        adapter_ids::OPENAI_COMPATIBLE,
-        codec_ids::OPENAI_CHAT,
-        MODEL,
-    )
-    .with_api_model(API_MODEL)
-    .with_auth("{ type = \"bearer\" }")
-    .with_capabilities(EVALUATION_CAPABILITIES)
-    .toml(base_url);
-    // The rendered document ends inside the model table.
-    toml.push_str("adapter = \"");
-    toml.push_str(adapter_ids::VERCEL_EVALUATION);
-    toml.push_str("\"\n");
+/// A provider that lists the Chat codec first and this codec second, as the
+/// built-in `vercel` provider does, whose one row derives this codec from
+/// its explicit evaluation claim. No row `adapter` line exists any more; the
+/// one `http` adapter holds both codecs and the client picks this one.
+fn mixed_provider_catalog(base_url: &str) -> Catalog {
+    let toml = provider().toml(base_url).replacen(
+        &format!("codecs = [\"{}\"]", codec_ids::VERCEL_EVALUATION),
+        &format!(
+            "codecs = [\"{}\", \"{}\"]",
+            codec_ids::OPENAI_CHAT,
+            codec_ids::VERCEL_EVALUATION
+        ),
+        1,
+    );
     support::catalog_from_toml("wire", &toml)
 }
 
@@ -124,18 +115,18 @@ async fn encodes_the_evaluation_request_and_decodes_the_verdict() {
 }
 
 #[tokio::test]
-async fn a_row_override_dispatches_to_this_adapter_over_a_generation_provider() {
+async fn an_evaluation_row_on_a_mixed_provider_reaches_this_codec() {
     let server = MockServer::start_async().await;
-    let catalog = overriding_row_catalog(&server.base_url());
-    // `client_for` fails if either the provider's adapter or the row's did
-    // not build.
+    let catalog = mixed_provider_catalog(&server.base_url());
+    // `client_for` fails if the provider's adapter, which holds both codecs,
+    // did not build.
     let client = support::client_for(catalog, PROVIDER, support::bearer_credentials());
     let (mock, _slot) = support::mount_capture(&server, PATH, &body(LIVE_BODY));
 
     let verdict = client
         .evaluate(evaluation())
         .await
-        .expect("the row override should evaluate");
+        .expect("the row's derived codec should evaluate natively");
 
     mock.assert_async().await;
     assert_eq!(
@@ -202,9 +193,14 @@ async fn a_completion_on_the_evaluation_row_is_refused_before_dispatch() {
         Err(error) => error,
     };
 
-    // The row claims no `text`, so the client's capability check refuses the
-    // request before the adapter's own refusal could.
+    // The row reaches no generation codec, so the client refuses the request
+    // before selecting one, and nothing reaches the adapter.
     assert_eq!(error.kind(), ErrorKind::InvalidRequest);
     assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert!(
+        error.message().contains("no generation codec"),
+        "{}",
+        error.message()
+    );
     mock.assert_calls_async(0).await;
 }

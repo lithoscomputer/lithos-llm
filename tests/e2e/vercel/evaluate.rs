@@ -1,7 +1,7 @@
 //! V2 — evaluation on the gateway's native evaluation model.
 //!
-//! `vercel/jev` is the one roster row on the `vercel-evaluation` adapter, so
-//! these cells are the live exercise of that adapter and codec: the
+//! `vercel/jev` is the one roster row on the `vercel-evaluation` codec, so
+//! these cells are the live exercise of that codec: the
 //! `/v4/ai/evaluation-model` path, the three protocol headers, and the
 //! metadata lifting that turns the gateway's body into a typed [`Verdict`].
 //! They record and replay through the twin like the rest of the suite; the

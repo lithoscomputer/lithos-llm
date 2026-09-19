@@ -98,9 +98,9 @@ The seven values are `anthropic`, `claude-5`, `openai`, `gemini`, `kimi`,
 serves it, so a Claude 5 row on an OpenAI-compatible provider still says
 `claude-5` and a Kimi row on Bedrock still says `kimi`. `claude-5` is
 scoped to the Claude 5 models trained against that harness; Claude 4.x rows
-take `anthropic`. Use the provider's own adapter family for the provider
+take `anthropic`. Use the provider's protocol family for the provider
 default: Anthropic and Bedrock `anthropic`, Gemini `gemini`, OpenAI and
-OpenAI-compatible `openai`. A row that reasons without being asked, where
+Chat Completions hosts `openai`. A row that reasons without being asked, where
 its capabilities alone cannot say so, adds `reasoning_by_default = true`
 in the same namespace. `every_builtin_row_resolves_a_known_agent_profile` in
 `src/catalog/loader.rs` enforces the coverage.
@@ -153,8 +153,14 @@ here is one red test you will not have to debug later.
 
 1. Create `src/catalog/builtin/<provider>.toml`. The build script picks it
    up automatically; there is no list to update.
-2. Choose the adapter and codec: `openai-compatible` + `openai-chat` for
-   gateways; the native adapter for OpenAI, Anthropic, or Gemini.
+2. Choose the codecs. A Chat Completions host writes nothing: `adapter`
+   defaults to `http` and `codecs` to `["openai-chat"]`. A host that speaks
+   another protocol writes `codecs = ["openai-responses"]`,
+   `["anthropic-messages"]`, `["gemini-generate"]`, or, for an evaluation
+   host, `["vercel-evaluation"]` or `["systemone"]`; a host that speaks
+   several lists them in preference order. Bedrock alone sets
+   `adapter = "bedrock"`. Put a codec's own options under
+   `codec_options.<codec>` and transport options under `adapter_options`.
 3. Set `allow_passthrough = true` if the negative tests will send unknown
    model ids. Add `default_options` for provider knobs every request
    should carry (Venice: `include_venice_system_prompt = false`).
@@ -164,18 +170,24 @@ here is one red test you will not have to debug later.
 6. Add loader tests for provider-specific resolution and behavior.
 7. Run `mise run test`. The catalog must parse, validate, and resolve.
 
-A model row may set `adapter = "<id>"` to speak through a different adapter
-from its provider; `vercel/jev` does this to reach the gateway's evaluation
-protocol while the provider's other rows generate text. The provider's own
-`adapter` and `codec` stay required. The loader checks only that the id is
-an identifier (`rejects_a_model_adapter_that_is_not_an_identifier` in
-`src/catalog/loader.rs`); the built-in catalog's invariant tests in the same
-file add that an override names a known adapter
-(`builtin_adapter_overrides_name_a_known_adapter`), that a row on an
-evaluation adapter claims `evaluation` explicitly and no generation
-capability (`builtin_evaluation_rows_claim_evaluation_and_no_generation`),
-and that any explicit `evaluation` claim rests on `json_schema` or a native
-adapter (`builtin_evaluation_claims_rest_on_json_schema_or_a_native_adapter`).
+Each row reaches a subset of the provider's codecs. Leave the row's `codecs`
+line out and the set follows its claims: a generation claim reaches the
+provider's generation codecs, an explicit `capabilities.evaluation` claim
+reaches its evaluation codecs, and a row with neither keeps the generation
+codecs. `vercel/jev` writes only the evaluation claim, so it alone reaches
+`vercel-evaluation` while the provider's other rows stay on Chat; the one
+`http` adapter holds both codecs and the client picks per call. Write
+`codecs = [...]` on a row only to narrow the set; a codec the provider does
+not list is a loader error. The built-in catalog's invariant tests in
+`src/catalog/loader.rs` check that every provider names a known adapter and
+known codecs (`builtin_providers_name_known_adapters_and_codecs`), that every
+row reaches a codec (`every_builtin_row_reaches_a_codec`), that evaluation
+codecs follow explicit claims only
+(`builtin_evaluation_codecs_follow_explicit_claims`), that a row on an
+evaluation codec claims no generation capability
+(`builtin_evaluation_rows_claim_no_generation`), and that any explicit
+`evaluation` claim rests on `json_schema` or a native codec
+(`builtin_evaluation_claims_rest_on_json_schema_or_a_native_codec`).
 
 ## Phase 4 — write the E2E module
 

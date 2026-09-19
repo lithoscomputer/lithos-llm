@@ -146,7 +146,25 @@ pub(crate) fn mount_capture<'server>(
     path: &str,
     response_body: &Value,
 ) -> (Mock<'server>, CaptureSlot) {
-    mount(server, path, "application/json", body_bytes(response_body))
+    mount_capture_with_headers(server, path, response_body, &[])
+}
+
+/// Mounts a `POST` mock that captures the request and answers with JSON
+/// plus the given response headers, for a protocol that reports something
+/// (such as its request id) outside the body.
+pub(crate) fn mount_capture_with_headers<'server>(
+    server: &'server MockServer,
+    path: &str,
+    response_body: &Value,
+    headers: &[(&str, &str)],
+) -> (Mock<'server>, CaptureSlot) {
+    mount(
+        server,
+        path,
+        "application/json",
+        body_bytes(response_body),
+        headers,
+    )
 }
 
 /// Mounts a `POST` mock that captures the request and answers with an SSE
@@ -161,6 +179,7 @@ pub(crate) fn mount_capture_sse<'server>(
         path,
         "text/event-stream",
         sse_body.as_bytes().to_vec(),
+        &[],
     )
 }
 
@@ -180,6 +199,7 @@ pub(crate) fn mount_capture_event_stream<'server>(
         path,
         "application/vnd.amazon.eventstream",
         frames.concat(),
+        &[],
     )
 }
 
@@ -188,11 +208,16 @@ fn mount<'server>(
     path: &str,
     content_type: &str,
     body: Vec<u8>,
+    headers: &[(&str, &str)],
 ) -> (Mock<'server>, CaptureSlot) {
     let slot: CaptureSlot = Arc::new(Mutex::new(None));
     let writer = Arc::clone(&slot);
     let path = path.to_owned();
     let content_type = content_type.to_owned();
+    let headers: Vec<(String, String)> = headers
+        .iter()
+        .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+        .collect();
     let mock = server.mock(move |when, then| {
         when.method(Method::POST)
             .path(path)
@@ -206,9 +231,11 @@ fn mount<'server>(
                     Some(capture_request(request));
                 true
             });
-        then.status(200)
-            .header("content-type", content_type)
-            .body(body);
+        let mut then = then.status(200).header("content-type", content_type);
+        for (name, value) in &headers {
+            then = then.header(name, value);
+        }
+        then.body(body);
     });
     (mock, slot)
 }
@@ -628,10 +655,13 @@ macro_rules! json_snapshot {
 /// The defaults suit the common case: no authentication, an API model equal to
 /// the catalog model id, and a model that claims every capability. A test that
 /// needs more catalog data than this — pricing, limits, default headers,
-/// adapter options — writes its own TOML and calls [`catalog_from_toml`].
+/// codec or adapter options — writes its own TOML and calls
+/// [`catalog_from_toml`].
+///
+/// The provider lists one codec. The adapter is the default `http` unless
+/// the codec is `bedrock-converse`, which rides on the `bedrock` adapter.
 pub(crate) struct WireProvider<'a> {
     pub(crate) provider:     &'a str,
-    pub(crate) adapter:      &'a str,
     pub(crate) codec:        &'a str,
     pub(crate) model:        &'a str,
     pub(crate) api_model:    &'a str,
@@ -643,10 +673,9 @@ pub(crate) struct WireProvider<'a> {
 
 impl<'a> WireProvider<'a> {
     /// Describes a provider with no authentication and every capability.
-    pub(crate) fn new(provider: &'a str, adapter: &'a str, codec: &'a str, model: &'a str) -> Self {
+    pub(crate) fn new(provider: &'a str, codec: &'a str, model: &'a str) -> Self {
         Self {
             provider,
-            adapter,
             codec,
             model,
             api_model: model,
@@ -678,12 +707,17 @@ impl<'a> WireProvider<'a> {
     /// A test that needs extra catalog facts can append to the returned TOML
     /// before handing it to [`catalog_from_toml`].
     pub(crate) fn toml(&self, base_url: &str) -> String {
+        let adapter = if self.codec == "bedrock-converse" {
+            "adapter = \"bedrock\"\n"
+        } else {
+            ""
+        };
         format!(
             "schema_version = 1\n\n\
              [providers.\"{provider}\"]\n\
              display_name = \"{provider}\"\n\
-             adapter = \"{adapter}\"\n\
-             codec = \"{codec}\"\n\
+             {adapter}\
+             codecs = [\"{codec}\"]\n\
              base_url = \"{base_url}\"\n\
              default_model = \"{model}\"\n\
              auth = {auth}\n\n\
@@ -692,7 +726,6 @@ impl<'a> WireProvider<'a> {
              api_model = \"{api_model}\"\n\
              capabilities = {capabilities}\n",
             provider = self.provider,
-            adapter = self.adapter,
             codec = self.codec,
             model = self.model,
             api_model = self.api_model,

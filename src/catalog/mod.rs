@@ -18,11 +18,11 @@ pub use capabilities::{
 pub use loader::CatalogBuilder;
 pub use model::{CatalogModel, LongContextPricing, ModelLimits, Pricing, SpeedPricing, SpeedRates};
 pub use offering::Offering;
-pub(crate) use provider::string_id;
 pub use provider::{
     AdapterId, AuthScheme, CatalogProvider, CodecId, Metadata, MetadataError, ModelHandle, ModelId,
     ProviderId, adapter_ids, codec_ids,
 };
+pub(crate) use provider::{CodecFamily, family, string_id};
 use serde::Deserialize;
 use thiserror::Error;
 use toml::de::Error as TomlError;
@@ -304,6 +304,32 @@ pub enum CatalogError {
     },
     #[error("provider {provider} cannot stand in for itself")]
     StandsInForItself { provider: ProviderId },
+    /// The provider wrote the retired one-codec `codec` field.
+    #[error("provider {provider}: `codec = \"{codec}\"` is now `codecs = [\"{codec}\"]`")]
+    RemovedCodecField {
+        provider: ProviderId,
+        codec:    String,
+    },
+    /// The provider named one of the four protocol-named adapter ids that
+    /// the `adapter` and `codecs` split retired.
+    #[error(
+        "provider {provider}: adapter `{adapter}` is no longer an adapter id; delete the line (the \
+         default is `http`) and set `codecs = [\"{codec}\"]`"
+    )]
+    RemovedAdapterId {
+        provider: ProviderId,
+        adapter:  AdapterId,
+        codec:    CodecId,
+    },
+    #[error("provider {provider} lists no codecs")]
+    EmptyCodecs { provider: ProviderId },
+    #[error("provider {provider} has `codec_options` for `{codec}`, which is not in its `codecs`")]
+    UnknownCodecOptions {
+        provider: ProviderId,
+        codec:    CodecId,
+    },
+    #[error("model {model} lists codec `{codec}`, which its provider does not")]
+    UnknownModelCodec { model: ModelHandle, codec: CodecId },
     #[error("model {model} has an output limit above its context limit")]
     InvalidModelLimits { model: ModelHandle },
     #[error("provider {provider} declares invalid default header name `{name}`")]
@@ -342,7 +368,7 @@ mod tests {
         display_name = "Test"
         aliases = ["alias"]
         adapter = "custom"
-        codec = "custom"
+        codecs = ["custom"]
         base_url = "https://example.com"
         auth = { type = "none" }
     "#;

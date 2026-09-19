@@ -1,0 +1,43 @@
+# The TypeSafe AI roster for the live E2E suite: the built-in rows without
+# pricing. TypeSafe reports no in-band cost, so a verdict from this catalog
+# carries no cost at all, which the suite pins; the built-in rows price
+# every verdict from the listed rates instead.
+#
+# Built on 2026-09-18 from the API's `GET /v1/models` listing and live
+# `POST /v1/systemone` probes. The listing names `jev-latest` and
+# `jev-preview`; `jev-1.13.0` is the version `jev-latest` resolved to that
+# day and is accepted by name. Answers come to two decimals with no rounding
+# declared; the codec declares 2/2. Score questions take 2 to 10 levels; no
+# option maximum is documented. The request id is the
+# `x-typesafe-request-id` response header. Errors are FastAPI shapes: a bad
+# key is a 401 `{"detail": {"error_type": "authentication_error", ...}}`.
+#
+# Under record and replay an overlay points `base_url` at the twin on
+# 127.0.0.1:3928, whose `/v1/systemone` passthrough records these cells.
+
+schema_version = 1
+
+[providers.typesafe]
+display_name = "TypeSafe AI"
+codecs = ["systemone"]
+base_url = "https://api.typesafe.ai/v1"
+priority = 28
+default_model = "jev-latest"
+
+[providers.typesafe.auth]
+type = "bearer"
+
+[providers.typesafe.models."jev-latest"]
+display_name = "TypeSafe AI Jev (latest)"
+api_model = "jev-latest"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+
+[providers.typesafe.models."jev-preview"]
+display_name = "TypeSafe AI Jev (preview)"
+api_model = "jev-preview"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+
+[providers.typesafe.models."jev-1.13.0"]
+display_name = "TypeSafe AI Jev 1.13.0"
+api_model = "jev-1.13.0"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }

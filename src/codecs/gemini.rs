@@ -829,7 +829,7 @@ impl GeminiStreamDecoder {
     fn new(route: &ResolvedRoute) -> Self {
         Self {
             route:       route.clone(),
-            assembler:   StreamAssembler::new(route),
+            assembler:   StreamAssembler::new(route).with_signatures(GEMINI_SIGNATURES),
             open:        None,
             texts:       0,
             reasonings:  0,

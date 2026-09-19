@@ -11,8 +11,6 @@ schema_version = 1
 
 [providers.deepseek]
 display_name = "DeepSeek"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://api.deepseek.com"
 priority = 75
 allow_passthrough = true

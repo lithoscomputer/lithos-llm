@@ -240,8 +240,6 @@ mod tests {
 
         [providers.high]
         display_name = "High"
-        adapter = "openai-compatible"
-        codec = "openai-chat"
         base_url = "http://127.0.0.1"
         priority = 100
         default_model = "big"
@@ -265,8 +263,6 @@ mod tests {
         [providers.low]
         display_name = "Low"
         aliases = ["lo"]
-        adapter = "openai-compatible"
-        codec = "openai-chat"
         base_url = "http://127.0.0.1"
         priority = 10
         default_model = "shared"
@@ -286,8 +282,6 @@ mod tests {
 
         [providers.off]
         display_name = "Off"
-        adapter = "openai-compatible"
-        codec = "openai-chat"
         base_url = "http://127.0.0.1"
         priority = 200
         enabled = false
@@ -301,8 +295,6 @@ mod tests {
 
         [providers.seat]
         display_name = "Seat"
-        adapter = "openai-compatible"
-        codec = "openai-chat"
         base_url = "http://127.0.0.1"
         priority = 99
         stands_in_for = "high"

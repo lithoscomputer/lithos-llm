@@ -73,8 +73,9 @@ schema_version = 1
 
 [providers.vercel]
 display_name = "Vercel AI Gateway"
-adapter = "openai-compatible"
-codec = "openai-chat"
+# Chat Completions for the language models and the gateway's own evaluation
+# protocol for `jev`; each row derives which it reaches from its claims.
+codecs = ["openai-chat", "vercel-evaluation"]
 base_url = "https://ai-gateway.vercel.sh/v1"
 priority = 30
 allow_passthrough = true
@@ -475,18 +476,17 @@ pricing = { input_usd_micros_per_million = 150000, output_usd_micros_per_million
 # `type: evaluation` and `context_window: 0`, so the row carries no limits.
 # The wire id is `typesafe-ai/jev`; the SDK example's `typesafe-ai/jev-latest`
 # is a 404 on the gateway. The listing prices $0.042 per million input
-# tokens and nothing for output. The row names its own adapter: the
-# provider stays on `openai-compatible` for its generation rows, and this
-# row alone speaks the gateway's evaluation protocol at
-# `/v4/ai/evaluation-model`, which the codec derives from the provider's
-# `/v1` base URL. It claims the three question kinds and no generation
-# capability, so `complete` refuses it before dispatch. A live smoke test on
+# tokens and nothing for output. The row writes no `codecs` line: its
+# explicit `evaluation` claim and the absence of any generation claim derive
+# `["vercel-evaluation"]`, so this row alone speaks the gateway's evaluation
+# protocol at `/v4/ai/evaluation-model`, which the codec derives from the
+# provider's `/v1` base URL, and `complete` refuses it before dispatch. Every
+# other row keeps Chat Completions. A live smoke test on
 # 2026-09-17 answered the three-question evaluation in about 300 ms for
 # $0.000016, with two-decimal rounding, a probability per option and per
 # level, and confidence on the choice and score answers.
 [providers.vercel.models."jev"]
 display_name = "TypeSafe AI Jev (via Vercel)"
 api_model = "typesafe-ai/jev"
-adapter = "vercel-evaluation"
 capabilities = { evaluation = { choice = true, score = true, boolean = true } }
 pricing = { input_usd_micros_per_million = 42000, output_usd_micros_per_million = 0 }

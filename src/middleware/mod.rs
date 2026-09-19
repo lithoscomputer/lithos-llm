@@ -9,7 +9,7 @@ mod retry;
 mod tracing_layer;
 
 use std::any::{Any, TypeId};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -29,7 +29,7 @@ use tokio::sync::Notify;
 pub use tracing_layer::TracingMiddleware;
 
 use crate::adapter::{InputTokenCount, ProviderAdapter, ResolvedCall, ResolvedEvaluation};
-use crate::catalog::{ModelHandle, ProviderId};
+use crate::catalog::{CodecId, ProviderId};
 use crate::evaluation::{Evaluation, Verdict};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
@@ -204,6 +204,8 @@ pub struct Call {
     pub(crate) route:      ResolvedRoute,
     pub(crate) mode:       Operation,
     pub(crate) context:    CallContext,
+    /// The codec the client selected for this call; see [`codec`](Self::codec).
+    pub(crate) codec:      Option<CodecId>,
 }
 
 impl Call {
@@ -230,6 +232,17 @@ impl Call {
     }
     pub fn operation(&self) -> Operation {
         self.mode
+    }
+    /// The codec the client selected for this call.
+    ///
+    /// `Some` when the route's provider is served by a built-in adapter: the
+    /// first codec in the row's codec set that serves this operation's
+    /// family, in the provider's order. `None` when an explicit or
+    /// custom-factory adapter serves the provider, because such an adapter
+    /// owns its own wire handling. The resolved call the adapter receives
+    /// carries the same value.
+    pub fn codec(&self) -> Option<&CodecId> {
+        self.codec.as_ref()
     }
     pub fn context(&self) -> &CallContext {
         &self.context
@@ -373,7 +386,8 @@ impl Next {
                 )
             })?;
             call.route.validate_evaluation(&evaluation)?;
-            let resolved = ResolvedEvaluation::new(*evaluation, call.route, call.context);
+            let resolved = ResolvedEvaluation::new(*evaluation, call.route, call.context)
+                .with_codec(call.codec);
             return adapter
                 .evaluate(&resolved)
                 .await
@@ -381,7 +395,8 @@ impl Next {
                 .map(Output::Verdict);
         }
         call.route.validate_request(&call.request)?;
-        let resolved = ResolvedCall::new(call.request, call.route, call.context);
+        let resolved =
+            ResolvedCall::new(call.request, call.route, call.context).with_codec(call.codec);
         match call.mode {
             Operation::Complete => adapter
                 .complete(&resolved)
@@ -405,13 +420,15 @@ impl Next {
 }
 
 pub(crate) struct Pipeline {
-    pub policy:       ResponsePolicy,
-    pub middleware:   Vec<Arc<dyn Middleware>>,
-    /// One adapter per available provider, from the provider's `adapter`.
-    pub adapters:     BTreeMap<ProviderId, Arc<dyn ProviderAdapter>>,
-    /// The adapters of model rows that name their own `adapter`. A row here
-    /// is served by this adapter instead of its provider's.
-    pub row_adapters: BTreeMap<ModelHandle, Arc<dyn ProviderAdapter>>,
+    pub policy:           ResponsePolicy,
+    pub middleware:       Vec<Arc<dyn Middleware>>,
+    /// One adapter per available provider, from the provider's `adapter` or
+    /// an explicit registration.
+    pub adapters:         BTreeMap<ProviderId, Arc<dyn ProviderAdapter>>,
+    /// The providers whose adapter is a built-in one this crate constructed,
+    /// as opposed to an explicit or custom-factory adapter. The client
+    /// selects a codec per call for these and for no others.
+    pub builtin_dispatch: BTreeSet<ProviderId>,
 }
 
 impl Pipeline {
@@ -422,11 +439,12 @@ impl Pipeline {
         }
     }
 
-    /// The adapter that serves `route`: the row's own when the row names an
-    /// `adapter`, else its provider's.
-    ///
-    /// Every dispatch and the client's evaluation path look the adapter up
-    /// here, so this is the one place the per-row override applies.
+    /// Whether the client selects codecs for calls on `route`'s provider.
+    pub(crate) fn dispatches_by_codec(&self, route: &ResolvedRoute) -> bool {
+        self.builtin_dispatch.contains(route.provider().id())
+    }
+
+    /// The adapter that serves `route`'s provider.
     ///
     /// # Errors
     ///
@@ -435,9 +453,8 @@ impl Pipeline {
         &self,
         route: &ResolvedRoute,
     ) -> Result<Arc<dyn ProviderAdapter>, Error> {
-        self.row_adapters
-            .get(&route.handle())
-            .or_else(|| self.adapters.get(route.provider().id()))
+        self.adapters
+            .get(route.provider().id())
             .cloned()
             .ok_or_else(|| {
                 Error::new(

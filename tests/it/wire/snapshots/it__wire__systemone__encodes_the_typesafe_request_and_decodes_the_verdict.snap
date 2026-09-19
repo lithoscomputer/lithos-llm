@@ -1,0 +1,66 @@
+---
+source: tests/it/wire/systemone.rs
+expression: rendered
+---
+{
+  "body": {
+    "model": "jev-latest",
+    "questions": {
+      "department": {
+        "criteria": {
+          "billing": "Charges and refunds",
+          "other": null,
+          "technical": "Bugs and outages"
+        },
+        "instructions": "Which team should handle this?",
+        "type": "choice"
+      },
+      "requests_refund": {
+        "criteria": {
+          "false": "Anything else",
+          "true": "The customer asks for money back"
+        },
+        "instructions": "Is the customer requesting money back?",
+        "type": "noul"
+      },
+      "severity": {
+        "criteria": [
+          "Cosmetic",
+          "Workaround exists",
+          "Blocking; no workaround"
+        ],
+        "instructions": "How severe is the issue?",
+        "type": "score"
+      }
+    },
+    "state": "I was charged twice. Please refund the duplicate."
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "573"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/v1/systemone"
+}

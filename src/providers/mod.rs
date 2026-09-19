@@ -1,28 +1,27 @@
 //! Built-in provider adapter factories.
+//!
+//! Two adapters serve every built-in codec: `http` speaks plain HTTPS with a
+//! bearer or header credential and holds every codec its provider lists;
+//! `bedrock` adds SigV4 signing and binary event-stream framing for the
+//! Converse codec. Each dispatches on the codec the client selected for the
+//! call, so one provider can speak several protocols.
 
-mod anthropic;
 #[cfg(feature = "bedrock")]
 mod bedrock;
-mod gemini;
-mod openai;
-mod openai_compatible;
-mod vercel_evaluation;
 
 use crate::adapter::AdapterRegistry;
 use crate::catalog::adapter_ids;
 
+/// Registers the two built-in factories under their catalog ids.
 pub(crate) fn register_builtin(registry: &mut AdapterRegistry) {
-    registry.register_factory(adapter_ids::OPENAI, openai::Factory);
-    registry.register_factory(adapter_ids::ANTHROPIC, anthropic::Factory);
-    registry.register_factory(adapter_ids::GEMINI, gemini::Factory);
-    registry.register_factory(adapter_ids::OPENAI_COMPATIBLE, openai_compatible::Factory);
-    registry.register_factory(adapter_ids::VERCEL_EVALUATION, vercel_evaluation::Factory);
+    registry.register_factory(adapter_ids::HTTP, http::Factory);
     #[cfg(feature = "bedrock")]
     registry.register_factory(adapter_ids::BEDROCK, bedrock::Factory);
 }
 
-/// The shared HTTP adapter every SSE-based provider factory builds on.
+/// The `http` adapter: every codec a provider lists, over one transport.
 pub(super) mod http {
+    use std::collections::BTreeMap;
     use std::mem::take;
     use std::sync::Arc;
 
@@ -30,29 +29,78 @@ pub(super) mod http {
     use futures_core::Stream;
     use futures_util::StreamExt as _;
     use futures_util::stream::{iter, unfold};
+    use serde::Deserialize;
     use serde::de::DeserializeOwned;
 
     use crate::adapter::{
-        AdapterBuildError, AdapterContext, InputTokenCount, ProviderAdapter, ResolvedCall,
+        AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
+        ResolvedCall, ResolvedEvaluation,
     };
-    use crate::catalog::{AdapterId, CatalogProvider};
-    use crate::codecs::{Codec, StreamDecoder};
+    use crate::catalog::{AdapterId, CatalogProvider, CodecId};
+    use crate::codecs::{self, BuiltCodec, Codec, CodecBuildError, EvaluationCodec, StreamDecoder};
     use crate::credentials::{CredentialProvider, Credentials};
+    use crate::evaluation::Verdict;
     use crate::transport::{EncodedRequest, HttpTransport, SseEvent};
     use crate::types::{
         Error, ErrorKind, RateLimits, Response, ResponsePolicy, ResponseStream, StreamEvent,
     };
 
-    /// Adapter behavior a factory selects from its typed catalog options.
+    /// Builds the `http` adapter for a catalog provider.
+    pub(super) struct Factory;
+
+    impl AdapterFactory for Factory {
+        /// Constructs every codec the provider lists, each from its own
+        /// `codec_options` table, and one adapter holding them all.
+        ///
+        /// # Errors
+        ///
+        /// [`AdapterBuildError::UnsupportedCodec`] for a codec id this crate
+        /// does not build and [`AdapterBuildError::InvalidCodecOptions`] for
+        /// one whose options do not parse. Either leaves the provider with no
+        /// adapter: a provider with a broken codec is not half-available.
+        fn create(
+            &self,
+            provider: &CatalogProvider,
+            context: &AdapterContext,
+        ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
+            let options: HttpAdapterOptions = adapter_options(provider)?;
+            let mut built = BTreeMap::new();
+            for id in provider.codecs() {
+                let codec =
+                    codecs::build(id, provider.codec_options(id)).map_err(|error| match error {
+                        CodecBuildError::UnknownCodec { codec } => {
+                            AdapterBuildError::UnsupportedCodec {
+                                provider: provider.id().clone(),
+                                codec,
+                            }
+                        }
+                        CodecBuildError::InvalidOptions { codec, source } => {
+                            AdapterBuildError::InvalidCodecOptions {
+                                provider: provider.id().clone(),
+                                codec,
+                                source,
+                            }
+                        }
+                    })?;
+                built.insert(id.clone(), codec);
+            }
+            Ok(build_http_adapter(provider, context, built, options))
+        }
+    }
+
+    /// The typed `adapter_options` table of an `http` provider.
     ///
-    /// Options that only change the wire body belong on the codec instead.
-    /// This carries the ones that change how the adapter dispatches.
-    #[derive(Clone, Copy, Debug, Default)]
+    /// Options that change the wire body belong in `codec_options` under
+    /// their codec's id. This carries the ones that change how the adapter
+    /// dispatches. Unknown keys are rejected so a misspelled option is a
+    /// build issue for one provider rather than a silently ignored setting.
+    #[derive(Clone, Copy, Debug, Default, Deserialize)]
+    #[serde(default, deny_unknown_fields)]
     pub(in crate::providers) struct HttpAdapterOptions {
         /// Completion runs the streaming path and assembles the one response.
         ///
         /// The OpenAI Codex endpoint accepts streaming requests only, so its
-        /// factory sets this and completion never sends `stream: false`.
+        /// catalog row sets this and completion never sends `stream: false`.
         pub force_streaming_complete: bool,
         /// Every request names the application in an `originator` header,
         /// when the client was given a name.
@@ -78,7 +126,13 @@ pub(super) mod http {
     pub(in crate::providers) fn adapter_options<T: Default + DeserializeOwned>(
         provider: &CatalogProvider,
     ) -> Result<T, AdapterBuildError> {
-        let options = provider.adapter_options();
+        typed_options(provider, provider.adapter_options())
+    }
+
+    fn typed_options<T: Default + DeserializeOwned>(
+        provider: &CatalogProvider,
+        options: &serde_json::Value,
+    ) -> Result<T, AdapterBuildError> {
         if options.is_null() {
             return Ok(T::default());
         }
@@ -113,28 +167,19 @@ pub(super) mod http {
         })
     }
 
-    /// Builds the shared HTTP adapter for one catalog provider.
+    /// Builds the `http` adapter over already-constructed codecs.
     ///
-    /// # Errors
-    ///
-    /// Returns [`AdapterBuildError::UnsupportedCodec`] when the catalog pairs
-    /// this adapter with a codec it does not implement.
+    /// `options` is the provider's typed `adapter_options`; the factory
+    /// reads it with [`adapter_options`], and a test can pass its own.
     pub(in crate::providers) fn build_http_adapter(
         provider: &CatalogProvider,
         context: &AdapterContext,
-        expected_codec: &str,
-        codec: impl Codec + 'static,
+        codecs: BTreeMap<CodecId, BuiltCodec>,
         options: HttpAdapterOptions,
-    ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        if provider.codec().as_str() != expected_codec {
-            return Err(AdapterBuildError::UnsupportedCodec {
-                provider: provider.id().clone(),
-                codec:    provider.codec().clone(),
-            });
-        }
-        Ok(Arc::new(HttpProviderAdapter {
+    ) -> Arc<dyn ProviderAdapter> {
+        Arc::new(HttpProviderAdapter {
             id: provider.adapter().clone(),
-            codec: Arc::new(codec),
+            codecs,
             transport: HttpTransport::new(context.http().clone())
                 .with_stream_idle_timeout(context.stream_idle_timeout())
                 .with_response_limits(context.response_limits()),
@@ -145,13 +190,15 @@ pub(super) mod http {
                 .then(|| context.application().map(str::to_owned))
                 .flatten(),
             options,
-        }))
+        })
     }
 
     struct HttpProviderAdapter {
         policy:      ResponsePolicy,
         id:          AdapterId,
-        codec:       Arc<dyn Codec>,
+        /// Every codec the provider lists, by id. The client names one per
+        /// call on the resolved call.
+        codecs:      BTreeMap<CodecId, BuiltCodec>,
         transport:   HttpTransport,
         credentials: Arc<dyn CredentialProvider>,
         options:     HttpAdapterOptions,
@@ -161,6 +208,80 @@ pub(super) mod http {
     }
 
     impl HttpProviderAdapter {
+        /// The generation codec the client selected for `call`.
+        ///
+        /// # Errors
+        ///
+        /// `Configuration` when no codec was selected, the selected codec is
+        /// not one this adapter holds, or it serves evaluation rather than
+        /// generation. The client selects from the same catalog this adapter
+        /// was built from, so any of these is an internal invariant failure
+        /// rather than a caller mistake.
+        fn generation_codec(
+            &self,
+            call: &ResolvedCall,
+            operation: &str,
+        ) -> Result<&dyn Codec, Error> {
+            match self.built_codec(call.route().provider(), call.codec(), operation)? {
+                BuiltCodec::Generation(codec) => Ok(codec.as_ref()),
+                BuiltCodec::Evaluation(_) => Err(wrong_family(
+                    call.route().provider(),
+                    call.codec(),
+                    operation,
+                    "generation",
+                )),
+            }
+        }
+
+        /// The evaluation codec the client selected for `call`.
+        ///
+        /// # Errors
+        ///
+        /// As [`generation_codec`](Self::generation_codec), for the
+        /// evaluation family.
+        fn evaluation_codec(
+            &self,
+            call: &ResolvedEvaluation,
+        ) -> Result<&dyn EvaluationCodec, Error> {
+            match self.built_codec(call.route().provider(), call.codec(), "evaluate")? {
+                BuiltCodec::Evaluation(codec) => Ok(codec.as_ref()),
+                BuiltCodec::Generation(_) => Err(wrong_family(
+                    call.route().provider(),
+                    call.codec(),
+                    "evaluate",
+                    "evaluation",
+                )),
+            }
+        }
+
+        fn built_codec(
+            &self,
+            provider: &CatalogProvider,
+            codec: Option<&CodecId>,
+            operation: &str,
+        ) -> Result<&BuiltCodec, Error> {
+            let Some(codec) = codec else {
+                return Err(internal_error(
+                    provider,
+                    &format!(
+                        "the http adapter received {operation} for provider {} with no codec \
+                         selected",
+                        provider.id()
+                    ),
+                ));
+            };
+            self.codecs.get(codec).ok_or_else(|| {
+                internal_error(
+                    provider,
+                    &format!(
+                        "the http adapter received {operation} for provider {} on codec {codec}, \
+                         which the provider does not list",
+                        provider.id()
+                    ),
+                )
+            })
+        }
+
         /// Adds the application header the provider expects, if any.
         fn identify(&self, encoded: &mut EncodedRequest) {
             if let Some(application) = &self.application {
@@ -170,8 +291,11 @@ pub(super) mod http {
             }
         }
 
-        async fn resolve_credentials(&self, call: &ResolvedCall) -> Result<Credentials, Error> {
-            resolve_credentials(self.credentials.as_ref(), call.route().provider()).await
+        async fn resolve_credentials(
+            &self,
+            provider: &CatalogProvider,
+        ) -> Result<Credentials, Error> {
+            resolve_credentials(self.credentials.as_ref(), provider).await
         }
 
         /// Completes by running the streaming path and taking its one response.
@@ -209,6 +333,33 @@ pub(super) mod http {
         }
     }
 
+    /// A codec that serves the other operation family was selected.
+    fn wrong_family(
+        provider: &CatalogProvider,
+        codec: Option<&CodecId>,
+        operation: &str,
+        family: &str,
+    ) -> Error {
+        let codec = codec.map(ToString::to_string).unwrap_or_default();
+        internal_error(
+            provider,
+            &format!(
+                "the http adapter received {operation} for provider {} on codec {codec}, which \
+                 does not serve {family}",
+                provider.id()
+            ),
+        )
+    }
+
+    /// A codec-selection invariant the client is expected to uphold failed.
+    fn internal_error(provider: &CatalogProvider, message: &str) -> Error {
+        Error::new(
+            ErrorKind::Configuration,
+            format!("internal error: {message}"),
+        )
+        .with_provider(provider.id().clone())
+    }
+
     #[async_trait]
     impl ProviderAdapter for HttpProviderAdapter {
         fn id(&self) -> &AdapterId {
@@ -216,11 +367,13 @@ pub(super) mod http {
         }
 
         async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
+            let codec = self.generation_codec(call, "complete")?;
             if self.options.force_streaming_complete {
                 return self.complete_by_streaming(call).await;
             }
-            let credentials = self.resolve_credentials(call).await?;
-            let mut encoded = self.codec.encode(call, false)?;
+            let provider = call.route().provider();
+            let credentials = self.resolve_credentials(provider).await?;
+            let mut encoded = codec.encode(call, false)?;
             self.identify(&mut encoded);
             let warnings = take(&mut encoded.warnings);
             // Cost estimation uses the speed the codec put on the wire, not
@@ -229,27 +382,31 @@ pub(super) mod http {
             let speed = encoded.applied_speed;
             let result = self
                 .transport
-                .execute_json(encoded, call.route().provider(), credentials)
+                .execute_json(encoded, provider, credentials)
                 .await?;
-            let mut response = self.codec.decode_response(call.route(), result.body)?;
+            let mut response = codec.decode_response(call.route(), result.body)?;
             response.rate_limits = result.rate_limits;
             response.warnings.extend(warnings);
-            call.route().apply_catalog_cost(&mut response, speed);
+            call.route()
+                .apply_catalog_cost(&mut response, call.codec(), speed);
             Ok(response)
         }
 
         async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
-            let credentials = self.resolve_credentials(call).await?;
-            let mut encoded = self.codec.encode(call, true)?;
+            let codec = self.generation_codec(call, "stream")?;
+            let provider = call.route().provider();
+            let credentials = self.resolve_credentials(provider).await?;
+            let mut encoded = codec.encode(call, true)?;
             self.identify(&mut encoded);
             let warnings = take(&mut encoded.warnings);
             let speed = encoded.applied_speed;
             let accepted = self
                 .transport
-                .sse_events(encoded, call.route().provider(), credentials)
+                .sse_events(encoded, provider, credentials)
                 .await?;
-            let decoder = self.codec.stream_decoder(call.route());
+            let decoder = codec.stream_decoder(call.route());
             let route = call.route().clone();
+            let selected = call.codec().cloned();
             let limits = iter(
                 accepted
                     .rate_limits
@@ -260,7 +417,7 @@ pub(super) mod http {
                 event.map(|mut event| {
                     if let StreamEvent::Ended { response } = &mut event {
                         response.warnings.extend(warnings.iter().cloned());
-                        route.apply_catalog_cost(response, speed);
+                        route.apply_catalog_cost(response, selected.as_ref(), speed);
                     }
                     event
                 })
@@ -272,17 +429,61 @@ pub(super) mod http {
             &self,
             call: &ResolvedCall,
         ) -> Result<Option<InputTokenCount>, Error> {
-            let Some(mut encoded) = self.codec.encode_count_tokens(call).transpose()? else {
+            let codec = self.generation_codec(call, "count_input_tokens")?;
+            let Some(mut encoded) = codec.encode_count_tokens(call).transpose()? else {
                 return Ok(None);
             };
             self.identify(&mut encoded);
-            let credentials = self.resolve_credentials(call).await?;
+            let provider = call.route().provider();
+            let credentials = self.resolve_credentials(provider).await?;
             let result = self
                 .transport
-                .execute_json(encoded, call.route().provider(), credentials)
+                .execute_json(encoded, provider, credentials)
                 .await?;
-            let tokens = self.codec.decode_count_tokens(call.route(), result.body)?;
+            let tokens = codec.decode_count_tokens(call.route(), result.body)?;
             Ok(Some(InputTokenCount::new(tokens, call.route().handle())))
+        }
+
+        async fn evaluate(&self, call: &ResolvedEvaluation) -> Result<Verdict, Error> {
+            let codec = self.evaluation_codec(call)?;
+            let provider = call.route().provider();
+            // A refusal the codec can make needs no credentials, so encoding
+            // comes first.
+            let mut encoded = codec.encode_evaluation(call)?;
+            self.identify(&mut encoded);
+            let warnings = take(&mut encoded.warnings);
+            let credentials = self.resolve_credentials(provider).await?;
+            let result = self
+                .transport
+                .execute_json(encoded, provider, credentials)
+                .await?;
+            let header_id = codec
+                .id_header()
+                .and_then(|header| result.header(header))
+                .map(ToOwned::to_owned);
+            let mut verdict = codec.decode_verdict(call, result.body)?;
+            // A protocol that carries the request id in a header rather than
+            // the body leaves `id` empty after decode; the header fills it.
+            if verdict.id.as_deref().is_none_or(str::is_empty) {
+                verdict.id = header_id;
+            }
+            verdict.rate_limits = result.rate_limits;
+            verdict.warnings.extend(warnings);
+            // Catalog pricing fills in only when the provider reported no
+            // cost, as `apply_catalog_cost` does for a response.
+            if verdict.cost.is_none() {
+                verdict.cost = call
+                    .route()
+                    .estimate_cost_for(call.codec(), verdict.usage, None);
+            }
+            Ok(verdict)
+        }
+
+        /// The client has already chosen the codec by the time a call
+        /// arrives here, so this adapter always says yes and the row's
+        /// codec set decides native versus judge.
+        fn evaluates_natively(&self) -> bool {
+            true
         }
     }
 
@@ -338,18 +539,28 @@ pub(super) mod http {
         use reqwest::Method as HttpMethod;
         use serde_json::{Value, json};
 
-        use super::{HttpAdapterOptions, build_http_adapter, decode_stream};
-        use crate::adapter::{AdapterContext, ProviderAdapter, ResolvedCall};
-        use crate::catalog::{Catalog, ProviderId};
-        use crate::codecs::{Codec, StreamDecoder};
+        use super::{
+            Factory, HttpAdapterOptions, adapter_options, build_http_adapter, decode_stream,
+        };
+        use crate::adapter::{
+            AdapterBuildError, AdapterContext, AdapterFactory as _, ProviderAdapter, ResolvedCall,
+            ResolvedEvaluation,
+        };
+        use crate::catalog::{Catalog, CodecId, ProviderId};
+        use crate::codecs::{BuiltCodec, Codec, EvaluationCodec, StreamDecoder};
         use crate::credentials::NoCredentials;
+        use crate::evaluation::{Evaluation, Verdict};
         use crate::middleware::CallContext;
         use crate::resolver::{AvailableProviders, CatalogResolver, ModelResolver, ResolvedRoute};
         use crate::transport::{EncodedRequest, SseEvent};
         use crate::types::{
-            ContentBlockId, Cost, CostSource, Error, ErrorKind, Request, Response, StreamEvent,
-            TokenCounts,
+            Answer, BooleanAnswer, ContentBlockId, Cost, CostSource, Error, ErrorKind, Request,
+            Response, StreamEvent, TokenCounts,
         };
+
+        /// The codec id the test catalog lists and every fake codec is
+        /// registered under.
+        const TEST_CODEC: &str = "test-codec";
 
         /// A codec that answers whatever the test needs, with no real protocol.
         #[derive(Clone, Debug, Default)]
@@ -462,7 +673,7 @@ pub(super) mod http {
                 [providers.alpha]
                 display_name = "Alpha"
                 adapter = "test-adapter"
-                codec = "test-codec"
+                codecs = ["test-codec"]
                 base_url = "{base_url}"
                 default_model = "one"
                 auth = {{ type = "none" }}
@@ -478,11 +689,13 @@ pub(super) mod http {
             Ok(Catalog::builder().toml_layer("test", &source)?.build()?)
         }
 
+        /// A call on the test codec, as the client would build it.
         fn call(catalog: &Catalog, model: &str) -> Result<ResolvedCall, Box<dyn StdError>> {
             let request = Request::builder().model(model).user("Hello").build()?;
             let available = AvailableProviders::all(catalog);
             let route = CatalogResolver.resolve(&request, catalog, &available)?;
-            Ok(ResolvedCall::new(request, route, CallContext::new()))
+            Ok(ResolvedCall::new(request, route, CallContext::new())
+                .with_codec(Some(CodecId::new(TEST_CODEC))))
         }
 
         fn adapter(
@@ -501,13 +714,320 @@ pub(super) mod http {
                 .provider_by_id(&ProviderId::new("alpha"))
                 .ok_or("the test catalog must define the alpha provider")?;
             let context = AdapterContext::new(reqwest::Client::new(), Arc::new(NoCredentials));
+            let codecs = [(
+                CodecId::new(TEST_CODEC),
+                BuiltCodec::Generation(Arc::new(codec)),
+            )]
+            .into_iter()
+            .collect();
+            Ok(build_http_adapter(provider, &context, codecs, options))
+        }
+
+        /// An evaluation codec that posts to `/evaluate` and answers one
+        /// boolean, naming `x-request-id` as its id header.
+        struct FakeEvaluationCodec;
+
+        impl EvaluationCodec for FakeEvaluationCodec {
+            fn encode_evaluation(
+                &self,
+                call: &ResolvedEvaluation,
+            ) -> Result<EncodedRequest, Error> {
+                Ok(EncodedRequest::new(
+                    HttpMethod::POST,
+                    format!("{}/evaluate", call.route().provider().base_url()),
+                    json!({}),
+                ))
+            }
+
+            fn decode_verdict(
+                &self,
+                call: &ResolvedEvaluation,
+                body: Value,
+            ) -> Result<Verdict, Error> {
+                let answers = call
+                    .evaluation()
+                    .questions()
+                    .keys()
+                    .map(|id| {
+                        (
+                            id.clone(),
+                            Answer::Boolean(BooleanAnswer { probability: 0.9 }),
+                        )
+                    })
+                    .collect();
+                let mut verdict = Verdict::new(
+                    call.route().provider().id().clone(),
+                    call.route().model().id().clone(),
+                    answers,
+                );
+                verdict.id = body
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned);
+                verdict.usage = TokenCounts {
+                    input: 1_000_000,
+                    ..TokenCounts::default()
+                };
+                Ok(verdict)
+            }
+
+            fn id_header(&self) -> Option<&'static str> {
+                Some("x-request-id")
+            }
+        }
+
+        /// An adapter holding the fake evaluation codec under the test id.
+        fn evaluation_adapter(
+            catalog: &Catalog,
+        ) -> Result<Arc<dyn ProviderAdapter>, Box<dyn StdError>> {
+            let provider = catalog
+                .provider_by_id(&ProviderId::new("alpha"))
+                .ok_or("the test catalog must define the alpha provider")?;
+            let context = AdapterContext::new(reqwest::Client::new(), Arc::new(NoCredentials));
+            let codecs = [(
+                CodecId::new(TEST_CODEC),
+                BuiltCodec::Evaluation(Arc::new(FakeEvaluationCodec)),
+            )]
+            .into_iter()
+            .collect();
             Ok(build_http_adapter(
                 provider,
                 &context,
-                "test-codec",
-                codec,
-                options,
-            )?)
+                codecs,
+                HttpAdapterOptions::default(),
+            ))
+        }
+
+        fn evaluation_call(
+            catalog: &Catalog,
+            codec: Option<&str>,
+        ) -> Result<ResolvedEvaluation, Box<dyn StdError>> {
+            let evaluation = Evaluation::builder()
+                .model("alpha/one")
+                .state("I was charged twice.")
+                .boolean("requests_refund", "Refund requested?")
+                .build()?;
+            let stand_in = Request::stand_in(evaluation.model(), "state".to_owned());
+            let available = AvailableProviders::all(catalog);
+            let route = CatalogResolver.resolve(&stand_in, catalog, &available)?;
+            Ok(
+                ResolvedEvaluation::new(evaluation, route, CallContext::new())
+                    .with_codec(codec.map(CodecId::new)),
+            )
+        }
+
+        #[tokio::test]
+        async fn a_call_with_no_codec_selected_is_an_internal_configuration_error()
+        -> Result<(), Box<dyn StdError>> {
+            let catalog = catalog("http://127.0.0.1:1")?;
+            let adapter = adapter(&catalog, FakeCodec::default())?;
+            let call = call(&catalog, "alpha/one")?.with_codec(None);
+
+            let error = adapter
+                .complete(&call)
+                .await
+                .expect_err("no codec means no dispatch");
+
+            assert_eq!(error.kind(), ErrorKind::Configuration);
+            assert!(
+                error.message().contains("complete") && error.message().contains("no codec"),
+                "{}",
+                error.message()
+            );
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn a_generation_call_on_an_evaluation_codec_names_the_family()
+        -> Result<(), Box<dyn StdError>> {
+            let catalog = catalog("http://127.0.0.1:1")?;
+            let adapter = evaluation_adapter(&catalog)?;
+
+            let error = adapter
+                .stream(&call(&catalog, "alpha/one")?)
+                .await
+                .err()
+                .ok_or("an evaluation codec cannot stream")?;
+
+            assert_eq!(error.kind(), ErrorKind::Configuration);
+            assert!(
+                error.message().contains(TEST_CODEC)
+                    && error.message().contains("stream")
+                    && error.message().contains("generation"),
+                "{}",
+                error.message()
+            );
+
+            let error = adapter
+                .evaluate(&evaluation_call(&catalog, Some("missing"))?)
+                .await
+                .expect_err("an unlisted codec is refused");
+            assert_eq!(error.kind(), ErrorKind::Configuration);
+            assert!(error.message().contains("missing"), "{}", error.message());
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn a_verdict_takes_rate_limits_a_header_id_and_a_catalog_price()
+        -> Result<(), Box<dyn StdError>> {
+            let server = MockServer::start_async().await;
+            let mock = server
+                .mock_async(|when, then| {
+                    when.method(Method::POST).path("/evaluate");
+                    then.status(200)
+                        .header("x-request-id", "req_from_header")
+                        .header("x-ratelimit-remaining-requests", "41")
+                        .json_body(json!({}));
+                })
+                .await;
+            let catalog = catalog(&server.base_url())?;
+            let adapter = evaluation_adapter(&catalog)?;
+            let call = evaluation_call(&catalog, Some(TEST_CODEC))?;
+
+            let verdict = adapter.evaluate(&call).await?;
+
+            mock.assert_async().await;
+            assert_eq!(verdict.id.as_deref(), Some("req_from_header"));
+            assert_eq!(
+                verdict
+                    .rate_limits
+                    .as_ref()
+                    .and_then(|limits| limits.request_remaining),
+                Some(41)
+            );
+            let cost = verdict.cost.ok_or("the catalog prices the verdict")?;
+            assert_eq!(cost.source, CostSource::Catalog);
+            assert_eq!(cost.usd_micros, 1_000_000, "one dollar per million input");
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn a_body_id_wins_over_the_header_id() -> Result<(), Box<dyn StdError>> {
+            let server = MockServer::start_async().await;
+            server
+                .mock_async(|when, then| {
+                    when.method(Method::POST).path("/evaluate");
+                    then.status(200)
+                        .header("x-request-id", "req_from_header")
+                        .json_body(json!({ "id": "req_from_body" }));
+                })
+                .await;
+            let catalog = catalog(&server.base_url())?;
+            let adapter = evaluation_adapter(&catalog)?;
+
+            let verdict = adapter
+                .evaluate(&evaluation_call(&catalog, Some(TEST_CODEC))?)
+                .await?;
+
+            assert_eq!(verdict.id.as_deref(), Some("req_from_body"));
+            assert!(verdict.rate_limits.is_none(), "no limit headers, no limits");
+            Ok(())
+        }
+
+        /// One provider whose options tables are written per test.
+        fn options_layer(codecs: &str, options: &str) -> String {
+            format!(
+                r#"
+                schema_version = 1
+
+                [providers.oai]
+                display_name = "OpenAI"
+                codecs = {codecs}
+                base_url = "http://127.0.0.1"
+                auth = {{ type = "none" }}
+                {options}
+                "#
+            )
+        }
+
+        fn create(
+            source: &str,
+        ) -> Result<Result<Arc<dyn ProviderAdapter>, AdapterBuildError>, Box<dyn StdError>>
+        {
+            let catalog = Catalog::builder().toml_layer("test", source)?.build()?;
+            let provider = catalog
+                .provider_by_id(&ProviderId::new("oai"))
+                .ok_or("the test catalog must define the oai provider")?;
+            let context = AdapterContext::new(reqwest::Client::new(), Arc::new(NoCredentials));
+            Ok(Factory.create(provider, &context))
+        }
+
+        #[test]
+        fn the_factory_builds_every_listed_codec() -> Result<(), Box<dyn StdError>> {
+            let adapter = create(&options_layer(
+                r#"["openai-chat", "openai-responses", "anthropic-messages", "gemini-generate", "vercel-evaluation"]"#,
+                "",
+            ))??;
+            assert_eq!(adapter.id().as_str(), "http");
+            assert!(adapter.evaluates_natively());
+            Ok(())
+        }
+
+        #[test]
+        fn an_unknown_codec_is_an_unsupported_codec_error() -> Result<(), Box<dyn StdError>> {
+            let error = create(&options_layer(r#"["openai-chat", "made-up"]"#, ""))?
+                .err()
+                .ok_or("an unknown codec fails the whole provider")?;
+            assert!(
+                matches!(&error, AdapterBuildError::UnsupportedCodec { codec, .. } if codec.as_str() == "made-up"),
+                "{error}"
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn invalid_codec_options_name_the_codec() -> Result<(), Box<dyn StdError>> {
+            for options in [
+                "codec_options = { openai-responses = { mode = \"turbo\" } }",
+                "codec_options = { openai-responses = { made_up = true } }",
+            ] {
+                let error = create(&options_layer(r#"["openai-responses"]"#, options))?
+                    .err()
+                    .ok_or("undeclared options are refused")?;
+                assert!(
+                    matches!(&error, AdapterBuildError::InvalidCodecOptions { codec, .. } if codec.as_str() == "openai-responses"),
+                    "{error}"
+                );
+            }
+            Ok(())
+        }
+
+        /// An `adapter_options` key that belongs to a codec is rejected, so a
+        /// row migrated by hand cannot leave `mode` in the wrong table.
+        #[test]
+        fn a_codec_option_in_the_adapter_table_is_rejected() -> Result<(), Box<dyn StdError>> {
+            let error = create(&options_layer(
+                r#"["openai-responses"]"#,
+                "adapter_options = { mode = \"codex\" }",
+            ))?
+            .err()
+            .ok_or("`mode` is a codec option")?;
+            assert!(
+                matches!(error, AdapterBuildError::InvalidAdapterOptions { .. }),
+                "{error}"
+            );
+            Ok(())
+        }
+
+        /// The Codex deployment is one word in the codec table and two in the
+        /// adapter table; the built-in row must set all three together.
+        #[cfg(feature = "builtin-catalog")]
+        #[test]
+        fn the_builtin_codex_row_sets_the_codec_mode_and_both_adapter_options()
+        -> Result<(), Box<dyn StdError>> {
+            let catalog = Catalog::builder().with_builtin().build()?;
+            let provider = catalog
+                .provider_by_id(&ProviderId::new("openai-codex"))
+                .ok_or("the built-in catalog defines openai-codex")?;
+
+            let adapter: HttpAdapterOptions = adapter_options(provider)?;
+            assert!(adapter.force_streaming_complete);
+            assert!(adapter.identify_application);
+            assert_eq!(
+                provider.codec_options(&CodecId::new("openai-responses")),
+                &json!({ "mode": "codex" })
+            );
+            Ok(())
         }
 
         #[tokio::test]

@@ -1846,8 +1846,7 @@ mod tests {
 
             [providers.openai]
             display_name = "OpenAI"
-            adapter = "openai"
-            codec = "openai-responses"
+            codecs = ["openai-responses"]
             base_url = "https://api.openai.com"
             default_model = "overlay"
             auth = { type = "bearer" }
@@ -1880,8 +1879,7 @@ mod tests {
 
             [providers.openai]
             display_name = "OpenAI"
-            adapter = "openai"
-            codec = "openai-responses"
+            codecs = ["openai-responses"]
             base_url = "https://api.openai.com"
             default_model = "routed"
             auth = { type = "bearer" }

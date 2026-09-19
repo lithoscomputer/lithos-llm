@@ -29,8 +29,7 @@ schema_version = 1
 [providers.gemini]
 display_name = "Google Gemini"
 aliases = ["google"]
-adapter = "gemini"
-codec = "gemini-generate"
+codecs = ["gemini-generate"]
 base_url = "https://generativelanguage.googleapis.com"
 priority = 80
 allow_passthrough = true

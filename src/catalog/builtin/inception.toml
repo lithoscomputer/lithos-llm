@@ -11,8 +11,6 @@ schema_version = 1
 
 [providers.inception]
 display_name = "Inception"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://api.inceptionlabs.ai/v1"
 priority = 40
 allow_passthrough = true

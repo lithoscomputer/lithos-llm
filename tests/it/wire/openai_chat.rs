@@ -24,7 +24,7 @@ use std::time::Duration;
 
 use futures_util::StreamExt as _;
 use httpmock::{Method, MockServer};
-use lithos_llm::catalog::{Catalog, adapter_ids, codec_ids};
+use lithos_llm::catalog::{Catalog, codec_ids};
 use lithos_llm::types::{
     ContentPart, CostSource, Error, ErrorKind, ImageContent, MediaSource, Message, ReasoningEffort,
     ResponseFormat, RetryClassification, Role, ToolCall, ToolChoice, ToolResult,
@@ -51,14 +51,9 @@ const PATH: &str = "/v1/chat/completions";
 // ===========================================================================
 
 fn provider() -> WireProvider<'static> {
-    WireProvider::new(
-        PROVIDER,
-        adapter_ids::OPENAI_COMPATIBLE,
-        codec_ids::OPENAI_CHAT,
-        MODEL,
-    )
-    .with_api_model(API_MODEL)
-    .with_auth("{ type = \"bearer\" }")
+    WireProvider::new(PROVIDER, codec_ids::OPENAI_CHAT, MODEL)
+        .with_api_model(API_MODEL)
+        .with_auth("{ type = \"bearer\" }")
 }
 
 fn selector() -> String {

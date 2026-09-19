@@ -6,6 +6,100 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The `systemone` codec (`codec_ids::SYSTEMONE`) speaks TypeSafe's System
+  One evaluation protocol, and the built-in catalog gains the `typesafe`
+  provider (`catalog::builtin::ids::TYPESAFE`, bearer auth from
+  `TYPESAFE_API_KEY`) with three evaluation rows: `jev-latest` (the
+  default), `jev-preview`, and `jev-1.13.0`, each priced at $0.042 per
+  million input tokens with free output. The codec posts
+  `{model, state, questions}` to `/v1/systemone` with `noul` as the yes/no
+  question type, refuses more than 10 score levels before dispatch with
+  code `invalid_evaluation` (TypeSafe documents no option maximum, so none
+  is enforced), and warns with `unsupported_control` on evaluation metadata
+  and on any provider options. It decodes the inline `confidence` on
+  choice and score answers, checks a score answer's `legend` against the
+  question's levels and drops it (a mismatch is `ResponseDecode`), rejects
+  an answer type outside `choice`, `score`, and `noul` (TypeSafe's
+  validation error lists an undocumented `bounding_box`), sets
+  `Verdict::served_by` from the body's versioned `model`, declares 2/2
+  rounding because the API answers to two decimals and declares none, and
+  names `x-typesafe-request-id` as the header the `http` adapter fills
+  `Verdict::id` from. A second dialect selected with
+  `codec_options = { systemone = { dialect = "openrouter" } }` speaks
+  OpenRouter's Decisions API at `/alpha/decisions`: it forwards
+  `session_id`, `user`, `trace`, and `provider` from the `openrouter`
+  provider-options namespace, and lifts the body's `id`, `usage.cost` (as
+  `CostSource::Provider`), and `provider` (into
+  `provider_metadata["openrouter"]`). The dialect ships in code and wire
+  tests only; no built-in row uses it until OpenRouter lists a decisions
+  model. The shared evaluation encoding and decoding helpers moved out of
+  the Vercel codec into `codecs::evaluation_common`; the Vercel wire is
+  unchanged. Error classification learned the FastAPI shapes TypeSafe
+  sends: `detail` as an object with `error_type` and `message`, and
+  `detail` as a validation array whose first entry carries `type` and
+  `msg`. The E2E suite gains a `typesafe` module with the mixed and
+  200-question evaluation cells recorded through an eighth twin on
+  127.0.0.1:3928, plus a preflight and a live-only bad-key cell, and
+  `twin-openai` moves to the revision that proxies `/v1/systemone` and
+  records the request id header (twins PR #12).
+
+- Breaking: the catalog schema names one adapter and many codecs per
+  provider. The provider `codec` field is removed; write `codecs = ["x"]`
+  in place of `codec = "x"`. The four protocol-named adapter ids are removed
+  and the loader rejects each with an error naming the fix: delete
+  `adapter = "openai-compatible"` (the defaults cover it), and replace
+  `adapter = "openai"` with `codecs = ["openai-responses"]`,
+  `adapter = "anthropic"` with `codecs = ["anthropic-messages"]`, and
+  `adapter = "gemini"` with `codecs = ["gemini-generate"]`. `adapter` now
+  defaults to `"http"`; its built-in values are `"http"` and `"bedrock"`,
+  and any other id still names a custom factory. `codecs` defaults to
+  `["openai-chat"]`, may list several codecs in preference order, and may
+  not be empty. `codec_options` is a new provider table keyed by codec id
+  that carries one codec's own options; a key naming an unlisted codec is
+  a loader error. Z.ai's `base_url_is_api_root` moves there under
+  `openai-chat`, and Codex splits into
+  `codec_options = { openai-responses = { mode = "codex" } }` plus
+  `adapter_options = { force_streaming_complete = true, identify_application
+  = true }`; `adapter_options` now carries transport concerns only.
+  `CatalogProvider::codec()` is replaced by `codecs() -> &[CodecId]` and
+  `codec_options(&CodecId) -> &Value`; `adapter_ids` shrinks to `HTTP` and
+  `BEDROCK` (`ANTHROPIC`, `GEMINI`, `OPENAI`, `OPENAI_COMPATIBLE`, and
+  `VERCEL_EVALUATION` are gone; `codec_ids::VERCEL_EVALUATION` stays).
+  Model rows gain `codecs`, an optional subset of the provider's list that
+  `CatalogModel::codecs()` returns; without it the set derives at load time
+  from the row's explicit claims only: a generation claim that is not
+  `false` reaches the provider's generation codecs, an explicit
+  `capabilities.evaluation` with a kind `true` reaches its evaluation
+  codecs, and a row claiming neither keeps the generation codecs. The
+  derived judge claim of a JSON Schema row never reaches an evaluation
+  codec. Passthrough rows get the generation codecs only. The row-level
+  `adapter` field and `CatalogModel::adapter()` added by the previous entry
+  are removed; `vercel/jev` derives `["vercel-evaluation"]` from its claim.
+  The built-in catalog and every test and documentation catalog migrate in
+  this change. The client now selects one codec per call: the operation's
+  family (generation for `complete`, `stream`, and `count_input_tokens`;
+  evaluation for `evaluate`) filters the row's codec set, and the first
+  match in the provider's list order wins. A generation call on a row that
+  reaches no generation codec is refused before dispatch with
+  `unsupported_capability` and a message naming the family; an evaluation
+  on a row that reaches an evaluation codec runs natively, and one on a row
+  that reaches none runs through the judge. The selected codec is exposed
+  as `Call::codec()`, `ResolvedCall::codec()`, and
+  `ResolvedEvaluation::codec()`, each `Option<CodecId>`; `ResolvedCall` and
+  `ResolvedEvaluation` gain `with_codec`. One `http` factory now builds
+  every codec a provider lists, so a provider may speak several protocols;
+  the `vercel-evaluation` adapter id is gone (the codec stays) and the
+  four one-codec factories with it. `AdapterBuildError` gains
+  `InvalidCodecOptions { provider, codec, source }`. `ProviderBuildIssue`
+  loses `model` (no row-level adapters remain: a provider with a codec
+  that does not build has no adapter at all) and gains
+  `codec: Option<CodecId>`, naming the codec that failed. `Verdict` gains
+  `rate_limits: Option<RateLimits>`, filled from the provider's headers as
+  on `Response`. Custom adapters are unaffected: an adapter registered
+  with `ClientBuilder::adapter` or built by a custom `adapter_factory`
+  receives every operation with `codec()` equal to `None`, and its own
+  `evaluates_natively()` still decides native versus judge.
+
 - Evaluation: typed questions about one piece of state. `Client::evaluate`
   answers an `Evaluation` with a `Verdict`; `evaluate_with_context` takes an
   application call context and `resolve_evaluation_route` returns the route it

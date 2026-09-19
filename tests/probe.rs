@@ -26,7 +26,7 @@ schema_version = 1
 [providers.test]
 display_name = "Test"
 adapter = "test-adapter"
-codec = "test-codec"
+codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 default_model = "chat"
 

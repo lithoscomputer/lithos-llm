@@ -15,8 +15,7 @@ schema_version = 1
 
 [providers.bedrock-openai]
 display_name = "Amazon Bedrock (OpenAI frontier)"
-adapter = "openai"
-codec = "openai-responses"
+codecs = ["openai-responses"]
 base_url = "https://bedrock-mantle.us-east-1.api.aws/v1"
 priority = 19
 allow_passthrough = true

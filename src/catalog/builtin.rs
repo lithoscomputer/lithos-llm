@@ -28,12 +28,13 @@ pub mod ids {
     pub const OPENAI_CODEX: &str = "openai-codex";
     pub const OPENROUTER: &str = "openrouter";
     pub const POOLSIDE: &str = "poolside";
+    pub const TYPESAFE: &str = "typesafe";
     pub const VENICE: &str = "venice";
     pub const VERCEL: &str = "vercel";
     pub const ZAI: &str = "zai";
 
     /// Every built-in provider id, in catalog order.
-    pub const ALL: [&str; 19] = [
+    pub const ALL: [&str; 20] = [
         ANTHROPIC,
         BEDROCK,
         BEDROCK_OPENAI,
@@ -50,6 +51,7 @@ pub mod ids {
         OPENAI_CODEX,
         OPENROUTER,
         POOLSIDE,
+        TYPESAFE,
         VENICE,
         VERCEL,
         ZAI,

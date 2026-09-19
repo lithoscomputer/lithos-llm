@@ -22,8 +22,6 @@ schema_version = 1
 
 [providers.openrouter]
 display_name = "OpenRouter"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://openrouter.ai/api/v1"
 priority = 25
 allow_passthrough = true

@@ -1,0 +1,72 @@
+---
+source: tests/it/wire/systemone.rs
+expression: rendered
+---
+{
+  "body": {
+    "model": "jev-latest",
+    "provider": {
+      "order": [
+        "typesafe"
+      ]
+    },
+    "questions": {
+      "department": {
+        "criteria": {
+          "billing": "Charges and refunds",
+          "other": null,
+          "technical": "Bugs and outages"
+        },
+        "instructions": "Which team should handle this?",
+        "type": "choice"
+      },
+      "requests_refund": {
+        "criteria": {
+          "false": "Anything else",
+          "true": "The customer asks for money back"
+        },
+        "instructions": "Is the customer requesting money back?",
+        "type": "noul"
+      },
+      "severity": {
+        "criteria": [
+          "Cosmetic",
+          "Workaround exists",
+          "Blocking; no workaround"
+        ],
+        "instructions": "How severe is the issue?",
+        "type": "score"
+      }
+    },
+    "session_id": "sess_42",
+    "state": "I was charged twice. Please refund the duplicate."
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "630"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/alpha/decisions"
+}

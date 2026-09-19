@@ -2,6 +2,7 @@
 
 mod assembler;
 mod common;
+mod evaluation_common;
 
 pub(crate) mod anthropic;
 #[cfg(feature = "bedrock")]
@@ -9,11 +10,18 @@ pub(crate) mod bedrock;
 pub(crate) mod gemini;
 pub(crate) mod openai;
 pub(crate) mod openai_chat;
+pub(crate) mod systemone;
 pub(crate) mod vercel_evaluation;
 
+use std::sync::Arc;
+
+use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
+use thiserror::Error as ThisError;
 
 use crate::adapter::{ResolvedCall, ResolvedEvaluation};
+use crate::catalog::{CodecId, codec_ids};
 use crate::evaluation::Verdict;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent};
@@ -78,8 +86,9 @@ pub(crate) trait Codec: Send + Sync {
 /// Translates one provider evaluation protocol.
 ///
 /// The evaluation analogue of [`Codec`]: stateless, shared across calls, and
-/// owned by an adapter that only evaluates. A second implementation is
-/// expected for TypeSafe's own API.
+/// held by the `http` adapter alongside the provider's generation codecs.
+/// Two implementations exist: the Vercel AI Gateway's evaluation protocol
+/// and TypeSafe's System One protocol.
 pub(crate) trait EvaluationCodec: Send + Sync {
     /// Encodes a resolved evaluation into one provider request.
     ///
@@ -99,6 +108,156 @@ pub(crate) trait EvaluationCodec: Send + Sync {
     /// Returns [`ErrorKind::ResponseDecode`] when the body does not match the
     /// protocol.
     fn decode_verdict(&self, call: &ResolvedEvaluation, body: Value) -> Result<Verdict, Error>;
+
+    /// The response header that carries the provider's request id, when the
+    /// protocol puts it there rather than in the body.
+    ///
+    /// The adapter sets [`Verdict::id`] from this header when
+    /// [`decode_verdict`](Self::decode_verdict) left `id` empty.
+    fn id_header(&self) -> Option<&'static str> {
+        None
+    }
+}
+
+/// One constructed codec, tagged with the operation family it serves.
+#[derive(Clone)]
+pub(crate) enum BuiltCodec {
+    /// Serves `complete`, `stream`, and `count_input_tokens`.
+    Generation(Arc<dyn Codec>),
+    /// Serves `evaluate`.
+    Evaluation(Arc<dyn EvaluationCodec>),
+}
+
+/// Why one codec could not be constructed for a provider.
+#[derive(Debug, ThisError)]
+pub(crate) enum CodecBuildError {
+    /// The id names no codec this crate builds.
+    #[error("codec {codec} is not one this crate builds")]
+    UnknownCodec { codec: CodecId },
+    /// The provider's `codec_options` table for this codec did not match the
+    /// codec's typed options.
+    #[error("codec {codec} has invalid options")]
+    InvalidOptions {
+        codec:  CodecId,
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
+/// Constructs the built-in codec `id` from a provider's raw `codec_options`
+/// table for it.
+///
+/// `options` is [`Value::Null`] when the catalog declares none, which is the
+/// codec's default configuration. A codec that takes no options rejects any
+/// non-empty table, so a misplaced key is a build issue rather than a
+/// silently ignored setting.
+///
+/// # Errors
+///
+/// [`CodecBuildError::UnknownCodec`] for an id this crate does not build and
+/// [`CodecBuildError::InvalidOptions`] when the table does not match the
+/// codec's typed shape.
+pub(crate) fn build(id: &CodecId, options: &Value) -> Result<BuiltCodec, CodecBuildError> {
+    let generation = |codec: Arc<dyn Codec>| BuiltCodec::Generation(codec);
+    Ok(match id.as_str() {
+        codec_ids::OPENAI_CHAT => {
+            let options: OpenAiChatOptions = typed_options(id, options)?;
+            generation(Arc::new(if options.base_url_is_api_root {
+                openai_chat::OpenAiChatCodec::at_api_root()
+            } else {
+                openai_chat::OpenAiChatCodec::default()
+            }))
+        }
+        codec_ids::OPENAI_RESPONSES => {
+            let options: OpenAiResponsesOptions = typed_options(id, options)?;
+            generation(Arc::new(openai::OpenAiResponsesCodec::new(
+                options.mode == OpenAiMode::Codex,
+            )))
+        }
+        codec_ids::ANTHROPIC_MESSAGES => {
+            let NoOptions {} = typed_options(id, options)?;
+            generation(Arc::new(anthropic::AnthropicMessagesCodec))
+        }
+        codec_ids::GEMINI_GENERATE => {
+            let NoOptions {} = typed_options(id, options)?;
+            generation(Arc::new(gemini::GeminiGenerateCodec))
+        }
+        #[cfg(feature = "bedrock")]
+        codec_ids::BEDROCK_CONVERSE => {
+            let NoOptions {} = typed_options(id, options)?;
+            generation(Arc::new(bedrock::BedrockConverseCodec))
+        }
+        codec_ids::VERCEL_EVALUATION => {
+            let NoOptions {} = typed_options(id, options)?;
+            BuiltCodec::Evaluation(Arc::new(vercel_evaluation::VercelEvaluationCodec))
+        }
+        codec_ids::SYSTEMONE => {
+            let options: systemone::SystemOneOptions = typed_options(id, options)?;
+            BuiltCodec::Evaluation(Arc::new(systemone::SystemOneCodec::new(options.dialect)))
+        }
+        _ => return Err(CodecBuildError::UnknownCodec { codec: id.clone() }),
+    })
+}
+
+/// Deserializes one codec's raw options into its typed shape; an absent
+/// table is the default.
+fn typed_options<T: Default + DeserializeOwned>(
+    codec: &CodecId,
+    options: &Value,
+) -> Result<T, CodecBuildError> {
+    if options.is_null() {
+        return Ok(T::default());
+    }
+    serde_json::from_value(options.clone()).map_err(|source| CodecBuildError::InvalidOptions {
+        codec: codec.clone(),
+        source,
+    })
+}
+
+/// The options shape of a codec that takes none: only an empty table passes.
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[expect(
+    clippy::empty_structs_with_brackets,
+    reason = "serde reads an empty table into a braced struct but not into a unit struct"
+)]
+struct NoOptions {}
+
+/// The typed `codec_options.openai-chat` table.
+///
+/// Some deployments publish their own versioned API root (for example,
+/// Z.ai's /api/coding/paas/v4) and must not receive an extra /v1 segment.
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct OpenAiChatOptions {
+    base_url_is_api_root: bool,
+}
+
+/// The typed `codec_options.openai-responses` table.
+///
+/// Unknown keys are rejected so a misspelled option is a build issue for one
+/// provider rather than a silently ignored setting.
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+struct OpenAiResponsesOptions {
+    #[serde(default)]
+    mode: OpenAiMode,
+}
+
+/// Which OpenAI Responses deployment a provider talks to.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+enum OpenAiMode {
+    /// The public `/v1/responses` API.
+    #[default]
+    Standard,
+    /// The Codex deployment, which rejects several generation fields.
+    ///
+    /// The deployment also streams every response and reads an `originator`
+    /// header; those are adapter concerns, set in `adapter_options` as
+    /// `force_streaming_complete` and `identify_application`. A factory test
+    /// pins that the built-in row sets both.
+    Codex,
 }
 
 /// Decodes one streaming provider response.
@@ -135,6 +294,108 @@ pub(crate) trait StreamDecoder: Send {
 }
 
 #[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{BuiltCodec, CodecBuildError, build};
+    use crate::catalog::{CodecId, codec_ids};
+
+    fn is_generation(codec: &BuiltCodec) -> bool {
+        matches!(codec, BuiltCodec::Generation(_))
+    }
+
+    #[test]
+    fn every_builtin_generation_codec_builds_with_no_options() -> Result<(), CodecBuildError> {
+        for id in [
+            codec_ids::OPENAI_CHAT,
+            codec_ids::OPENAI_RESPONSES,
+            codec_ids::ANTHROPIC_MESSAGES,
+            codec_ids::GEMINI_GENERATE,
+        ] {
+            let built = build(&CodecId::new(id), &serde_json::Value::Null)?;
+            assert!(is_generation(&built), "{id} serves generation");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn every_evaluation_codec_builds_as_an_evaluation_codec() -> Result<(), CodecBuildError> {
+        for id in [codec_ids::VERCEL_EVALUATION, codec_ids::SYSTEMONE] {
+            let built = build(&CodecId::new(id), &json!({}))?;
+            assert!(
+                matches!(built, BuiltCodec::Evaluation(_)),
+                "{id} serves evaluation"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn the_systemone_codec_takes_only_the_declared_dialects() {
+        for options in [json!({ "dialect": "vercel" }), json!({ "made_up": true })] {
+            let error = build(&CodecId::new(codec_ids::SYSTEMONE), &options)
+                .err()
+                .expect("undeclared options are refused");
+            assert!(matches!(&error, CodecBuildError::InvalidOptions { .. }));
+        }
+        let openrouter = build(
+            &CodecId::new(codec_ids::SYSTEMONE),
+            &json!({ "dialect": "openrouter" }),
+        );
+        assert!(openrouter.is_ok_and(|built| matches!(built, BuiltCodec::Evaluation(_))));
+    }
+
+    #[test]
+    fn an_unknown_id_is_reported_by_name() {
+        let error = build(&CodecId::new("test-codec"), &serde_json::Value::Null)
+            .err()
+            .expect("an unknown codec is refused");
+        assert!(
+            matches!(&error, CodecBuildError::UnknownCodec { codec } if codec.as_str() == "test-codec")
+        );
+    }
+
+    #[test]
+    fn options_on_a_codec_that_takes_none_are_rejected() {
+        let error = build(
+            &CodecId::new(codec_ids::ANTHROPIC_MESSAGES),
+            &json!({ "made_up": true }),
+        )
+        .err()
+        .expect("a stray key is refused");
+        assert!(matches!(
+            &error,
+            CodecBuildError::InvalidOptions { codec, .. }
+                if codec.as_str() == codec_ids::ANTHROPIC_MESSAGES
+        ));
+    }
+
+    #[test]
+    fn the_responses_codec_takes_only_the_declared_modes() {
+        for options in [json!({ "mode": "turbo" }), json!({ "made_up": true })] {
+            let error = build(&CodecId::new(codec_ids::OPENAI_RESPONSES), &options)
+                .err()
+                .expect("undeclared options are refused");
+            assert!(matches!(&error, CodecBuildError::InvalidOptions { .. }));
+        }
+        let codex = build(
+            &CodecId::new(codec_ids::OPENAI_RESPONSES),
+            &json!({ "mode": "codex" }),
+        );
+        assert!(codex.is_ok_and(|built| is_generation(&built)));
+    }
+
+    #[test]
+    fn the_chat_codec_takes_its_root_option() {
+        let built = build(
+            &CodecId::new(codec_ids::OPENAI_CHAT),
+            &json!({ "base_url_is_api_root": true }),
+        );
+        assert!(built.is_ok_and(|built| is_generation(&built)));
+    }
+}
+
+#[cfg(test)]
 pub(crate) mod test_support {
     use std::error::Error as StdError;
 
@@ -152,7 +413,7 @@ pub(crate) mod test_support {
         [providers.alpha]
         display_name = "Alpha"
         adapter = "test-adapter"
-        codec = "test-codec"
+        codecs = ["test-codec"]
         base_url = "http://127.0.0.1"
         default_model = "one"
         auth = { type = "none" }

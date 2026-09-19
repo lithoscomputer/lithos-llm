@@ -92,8 +92,6 @@ schema_version = 1
 
 [providers.local]
 display_name = "Local"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "http://127.0.0.1:1234/v1"
 auth = { type = "none" }
 default_model = "qwen"

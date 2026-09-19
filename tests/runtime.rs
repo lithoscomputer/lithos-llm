@@ -40,7 +40,7 @@ schema_version = 1
 [providers.test]
 display_name = "Test"
 adapter = "test-adapter"
-codec = "test-codec"
+codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 default_model = "model"
 
@@ -1175,7 +1175,7 @@ schema_version = 1
 [providers.test]
 display_name = "Test"
 adapter = "test-adapter"
-codec = "test-codec"
+codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 default_model = "model"
 
@@ -2116,7 +2116,7 @@ schema_version = 1
 [providers.test]
 display_name = "Test"
 adapter = "test-adapter"
-codec = "test-codec"
+codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 default_model = "judge"
 
@@ -2467,72 +2467,177 @@ async fn resolve_evaluation_route_agrees_with_evaluate() -> Result<(), Box<dyn S
 }
 
 // ===========================================================================
-// Per-row adapter override
+// Per-call codec selection
 // ===========================================================================
 
-/// One provider whose `two` row names its own adapter. The row claims `text`
-/// so a completion reaches dispatch instead of failing capability
-/// validation, which is what proves generation on the row hits the override.
-const ROW_OVERRIDE_CATALOG: &str = r#"
+/// A provider on the default `http` adapter that lists the Chat codec and
+/// the Vercel evaluation codec, with one generation row and one native
+/// evaluation row, as the built-in `vercel` provider does.
+const MIXED_HTTP_CATALOG: &str = r#"
 schema_version = 1
 
-[providers.test]
-display_name = "Test"
-adapter = "provider-adapter"
-codec = "test-codec"
-base_url = "http://127.0.0.1"
-default_model = "one"
+[providers.vercel]
+display_name = "Vercel"
+codecs = ["openai-chat", "vercel-evaluation"]
+base_url = "http://127.0.0.1:1"
+default_model = "chat"
 
-[providers.test.auth]
+[providers.vercel.auth]
 type = "none"
 
-[providers.test.models.one]
-display_name = "One"
-api_model = "one"
+[providers.vercel.models.chat]
+display_name = "Chat"
+api_model = "chat"
 capabilities = { text = true }
 
-[providers.test.models.two]
-display_name = "Two"
-api_model = "two"
-adapter = "row-adapter"
-capabilities = { text = true, evaluation = { choice = true, score = true, boolean = true } }
+[providers.vercel.models.jev]
+display_name = "Jev"
+api_model = "typesafe-ai/jev"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
 "#;
 
-/// Counts the calls it receives so a test can say which adapter served a
-/// route. The native form evaluates and refuses to complete, the way an
-/// evaluation-only adapter does.
-struct RecordingAdapter {
-    id:             AdapterId,
-    native:         bool,
-    complete_calls: Arc<AtomicUsize>,
-    evaluate_calls: Arc<AtomicUsize>,
-}
-
-impl RecordingAdapter {
-    fn new(id: &str, native: bool) -> Arc<Self> {
-        Arc::new(Self {
-            id: AdapterId::new(id),
-            native,
-            complete_calls: Arc::new(AtomicUsize::new(0)),
-            evaluate_calls: Arc::new(AtomicUsize::new(0)),
-        })
-    }
+/// Records the codec each call carried when it reached the middleware.
+struct CodecRecorder {
+    seen: Arc<Mutex<Vec<Option<String>>>>,
 }
 
 #[async_trait]
-impl ProviderAdapter for RecordingAdapter {
+impl Middleware for CodecRecorder {
+    async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
+        self.seen
+            .lock()
+            .expect("recorder")
+            .push(call.codec().map(ToString::to_string));
+        next.run(call).await
+    }
+}
+
+/// An evaluation-only row has no generation codec, so `complete` is refused
+/// before the pipeline runs, and the refusal names the family.
+#[tokio::test(start_paused = true)]
+async fn a_completion_on_an_evaluation_only_row_is_refused_before_dispatch()
+-> Result<(), Box<dyn StdError>> {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(
+            Catalog::builder()
+                .overlay_toml(MIXED_HTTP_CATALOG)?
+                .build()?,
+        )
+        .middleware(CodecRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+    // The row claims no `text` either, but the codec refusal comes first
+    // and names the family, which is the more useful message.
+    let request = Request::builder()
+        .model("vercel/jev")
+        .user("Hello")
+        .build()?;
+
+    let error = client
+        .complete(request.clone())
+        .await
+        .expect_err("no generation codec reaches the evaluation row");
+
+    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    assert_eq!(error.provider_code(), Some("unsupported_capability"));
+    assert_eq!(
+        error.message(),
+        "no generation codec reaches model vercel/jev"
+    );
+    assert!(
+        client.stream(request.clone()).await.is_err(),
+        "streaming applies the same gate"
+    );
+    assert!(client.count_input_tokens(request).await.is_err());
+    assert!(
+        seen.lock().expect("recorder").is_empty(),
+        "the refusal happens before any middleware runs"
+    );
+    Ok(())
+}
+
+/// The generation row on the same provider carries its codec into the
+/// pipeline, where middleware can read it.
+#[tokio::test(start_paused = true)]
+async fn middleware_sees_the_selected_codec_on_a_builtin_provider() -> Result<(), Box<dyn StdError>>
+{
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(
+            Catalog::builder()
+                .overlay_toml(MIXED_HTTP_CATALOG)?
+                .build()?,
+        )
+        .middleware(CodecRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+
+    // Port 1 refuses every connection, so the call fails at the transport,
+    // after the middleware has already recorded the codec.
+    let request = Request::builder()
+        .model("vercel/chat")
+        .user("Hello")
+        .build()?;
+    let error = client
+        .complete(request)
+        .await
+        .expect_err("nothing listens on port 1");
+    assert_eq!(error.kind(), ErrorKind::Network, "{error}");
+
+    let evaluation = Evaluation::builder()
+        .model("vercel/jev")
+        .state("I was charged twice.")
+        .boolean("requests_refund", "Refund requested?")
+        .build()?;
+    let error = client
+        .evaluate(evaluation)
+        .await
+        .expect_err("nothing listens on port 1");
+    assert_eq!(error.kind(), ErrorKind::Network, "{error}");
+
+    assert_eq!(*seen.lock().expect("recorder"), [
+        Some("openai-chat".to_owned()),
+        Some("vercel-evaluation".to_owned()),
+    ]);
+    Ok(())
+}
+
+/// An explicit adapter installed with `ClientBuilder::adapter` owns its own
+/// wire handling, so the client selects no codec for it.
+#[tokio::test(start_paused = true)]
+async fn middleware_sees_no_codec_on_an_explicit_adapter() -> Result<(), Box<dyn StdError>> {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", FakeAdapter::successful())
+        .middleware(CodecRecorder { seen: seen.clone() })
+        .build()?
+        .client;
+
+    client.complete(request()?).await?;
+
+    assert_eq!(*seen.lock().expect("recorder"), [None]);
+    Ok(())
+}
+
+/// An adapter a custom factory builds, which records the codec it received.
+struct CodecObservingAdapter {
+    id:     AdapterId,
+    codecs: Arc<Mutex<Vec<Option<String>>>>,
+}
+
+#[async_trait]
+impl ProviderAdapter for CodecObservingAdapter {
     fn id(&self) -> &AdapterId {
         &self.id
     }
 
     async fn complete(&self, call: &ResolvedCall) -> Result<Response, Error> {
-        self.complete_calls.fetch_add(1, Ordering::SeqCst);
-        if self.native {
-            return Err(Error::new(
-                ErrorKind::InvalidRequest,
-                format!("adapter {} evaluates only", self.id),
-            ));
-        }
+        self.codecs
+            .lock()
+            .expect("codecs")
+            .push(call.codec().map(ToString::to_string));
         Ok(success_response(call, "done"))
     }
 
@@ -2541,27 +2646,19 @@ impl ProviderAdapter for RecordingAdapter {
     }
 
     async fn evaluate(&self, call: &ResolvedEvaluation) -> Result<Verdict, Error> {
-        self.evaluate_calls.fetch_add(1, Ordering::SeqCst);
+        self.codecs
+            .lock()
+            .expect("codecs")
+            .push(call.codec().map(ToString::to_string));
         let answers = call
             .evaluation()
             .questions()
-            .iter()
-            .map(|(id, question)| {
-                let answer = match question.kind() {
-                    QuestionKind::Choice => Answer::Choice(ChoiceAnswer {
-                        choice:        "billing".to_owned(),
-                        probabilities: None,
-                        confidence:    None,
-                    }),
-                    QuestionKind::Score => Answer::Score(ScoreAnswer {
-                        score:         1.0,
-                        probabilities: None,
-                        confidence:    None,
-                    }),
-                    QuestionKind::Boolean => Answer::Boolean(BooleanAnswer { probability: 0.75 }),
-                    _ => unreachable!("the evaluation asks only the three known kinds"),
-                };
-                (id.clone(), answer)
+            .keys()
+            .map(|id| {
+                (
+                    id.clone(),
+                    Answer::Boolean(BooleanAnswer { probability: 0.5 }),
+                )
             })
             .collect();
         Ok(Verdict::new(
@@ -2572,115 +2669,140 @@ impl ProviderAdapter for RecordingAdapter {
     }
 
     fn evaluates_natively(&self) -> bool {
-        self.native
+        true
     }
 }
 
-/// Hands out one shared adapter, so the test keeps its counters.
-struct SharedFactory(Arc<RecordingAdapter>);
+struct CodecObservingFactory {
+    codecs: Arc<Mutex<Vec<Option<String>>>>,
+}
 
-impl AdapterFactory for SharedFactory {
+impl AdapterFactory for CodecObservingFactory {
     fn create(
         &self,
-        _provider: &CatalogProvider,
+        provider: &CatalogProvider,
         _context: &AdapterContext,
     ) -> Result<Arc<dyn ProviderAdapter>, AdapterBuildError> {
-        Ok(self.0.clone())
+        Ok(Arc::new(CodecObservingAdapter {
+            id:     provider.adapter().clone(),
+            codecs: self.codecs.clone(),
+        }))
     }
 }
 
+/// A custom factory registered under an opaque adapter id builds, serves
+/// `complete` and `evaluate`, and sees no codec on either: codecs are how
+/// the built-in adapters organize their protocols, not a contract every
+/// adapter must adopt.
 #[tokio::test(start_paused = true)]
-async fn a_row_that_names_an_adapter_is_served_by_that_adapter() -> Result<(), Box<dyn StdError>> {
-    let provider_adapter = RecordingAdapter::new("provider-adapter", false);
-    let row_adapter = RecordingAdapter::new("row-adapter", true);
+async fn a_custom_factory_serves_complete_and_evaluate_with_no_codec()
+-> Result<(), Box<dyn StdError>> {
+    let codecs = Arc::new(Mutex::new(Vec::new()));
     let build = Client::builder()
-        .catalog(
-            Catalog::builder()
-                .overlay_toml(ROW_OVERRIDE_CATALOG)?
-                .build()?,
-        )
-        .adapter_factory("provider-adapter", SharedFactory(provider_adapter.clone()))
-        .adapter_factory("row-adapter", SharedFactory(row_adapter.clone()))
+        .catalog(evaluation_catalog()?)
+        .adapter_factory("test-adapter", CodecObservingFactory {
+            codecs: codecs.clone(),
+        })
         .build()?;
     assert!(build.issues.is_empty(), "{:?}", build.issues);
     let client = build.client;
 
-    // The plain row goes to the provider's adapter.
-    let request = Request::builder().model("test/one").user("hi").build()?;
-    let response = client.complete(request).await?;
-    assert_eq!(response.model.to_string(), "test/one");
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(row_adapter.complete_calls.load(Ordering::SeqCst), 0);
+    let response = client
+        .complete(Request::builder().model("test/judge").user("hi").build()?)
+        .await?;
+    assert_eq!(response.text(), "done");
 
-    // The overriding row evaluates through its own adapter, natively: the
-    // provider's adapter sees neither a judge completion nor an evaluate.
-    let verdict = client.evaluate(evaluation("test/two")).await?;
-    assert_eq!(verdict.model.to_string(), "test/two");
-    assert_eq!(verdict.choice("department")?.choice, "billing");
-    assert_eq!(row_adapter.evaluate_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(provider_adapter.evaluate_calls.load(Ordering::SeqCst), 0);
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
-
-    // Generation on the overriding row reaches the override too, which
-    // refuses it; the provider's adapter is not consulted.
-    let request = Request::builder().model("test/two").user("hi").build()?;
-    let error = client
-        .complete(request)
-        .await
-        .expect_err("the row adapter refuses to complete");
-    assert_eq!(error.kind(), ErrorKind::InvalidRequest);
+    let evaluation = Evaluation::builder()
+        .model("test/judge")
+        .state("I was charged twice.")
+        .boolean("requests_refund", "Refund requested?")
+        .build()?;
+    let verdict = client.evaluate(evaluation).await?;
     assert!(
-        error.message().contains("row-adapter evaluates only"),
-        "{}",
-        error.message()
+        verdict
+            .answers
+            .contains_key(&QuestionId::new("requests_refund"))
     );
-    assert_eq!(row_adapter.complete_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
+
+    assert_eq!(*codecs.lock().expect("codecs"), [None, None]);
     Ok(())
 }
 
-#[tokio::test(start_paused = true)]
-async fn a_row_override_that_did_not_build_leaves_the_plain_row_serving()
--> Result<(), Box<dyn StdError>> {
-    let provider_adapter = RecordingAdapter::new("provider-adapter", false);
-    let build = Client::builder()
-        .catalog(
-            Catalog::builder()
-                .overlay_toml(ROW_OVERRIDE_CATALOG)?
-                .build()?,
-        )
-        .adapter_factory("provider-adapter", SharedFactory(provider_adapter.clone()))
+/// A provider whose codec has options that do not parse is one build issue
+/// naming the codec, and the provider builds no adapter.
+#[test]
+fn invalid_codec_options_are_one_issue_naming_the_codec() -> Result<(), Box<dyn StdError>> {
+    let catalog = Catalog::builder()
+        .overlay_toml(MIXED_HTTP_CATALOG)?
+        .overlay_toml(
+            r#"
+            [providers.vercel]
+            codec_options = { openai-chat = { base_url_is_api_root = "yes" } }
+            "#,
+        )?
         .build()?;
 
-    assert_eq!(build.issues.len(), 1);
-    assert_eq!(build.issues[0].provider.as_str(), "test");
-    assert_eq!(
-        build.issues[0].model.as_ref().map(ModelId::as_str),
-        Some("two")
+    let build = Client::builder().catalog(catalog).build()?;
+
+    assert!(build.client.available_providers().iter().next().is_none());
+    assert!(
+        matches!(
+            build.issues.as_slice(),
+            [issue] if issue.provider.as_str() == "vercel"
+                && issue.adapter.as_str() == "http"
+                && issue.codec.as_ref().map(ToString::to_string).as_deref() == Some("openai-chat")
+                && matches!(&issue.cause, ProviderBuildCause::Adapter(_))
+        ),
+        "{:?}",
+        build.issues
     );
-    assert_eq!(build.issues[0].adapter.as_str(), "row-adapter");
-    assert!(matches!(
-        build.issues[0].cause,
-        ProviderBuildCause::MissingAdapterFactory { .. }
-    ));
+    Ok(())
+}
+
+/// The E2E Vercel catalog's `jev` row writes no `adapter` line and no
+/// `codecs` line; its evaluation claim alone selects the native codec, and
+/// its sibling structured-output rows keep judging through Chat.
+#[test]
+fn the_vercel_catalog_derives_native_and_judge_rows_without_row_adapters()
+-> Result<(), Box<dyn StdError>> {
+    let catalog = Catalog::builder()
+        .toml_layer("vercel", include_str!("e2e/vercel_catalog.toml"))?
+        .build()?;
+    let build = Client::builder().catalog(catalog).build()?;
+    assert!(build.issues.is_empty(), "{:?}", build.issues);
+    let client = build.client;
+
+    let jev = client.resolve_evaluation_route(
+        &Evaluation::builder()
+            .model("vercel/jev")
+            .state("state")
+            .boolean("q", "Q?")
+            .build()?,
+    )?;
     assert_eq!(
-        build
-            .client
-            .available_providers()
+        jev.model()
+            .codecs()
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>(),
-        ["test"]
+        ["vercel-evaluation"]
     );
 
-    let request = Request::builder().model("test/one").user("hi").build()?;
-    build.client.complete(request).await?;
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 1);
-
-    // Without its own adapter the overriding row falls back to the
-    // provider's, whose judge path would need a completion.
-    let request = Request::builder().model("test/two").user("hi").build()?;
-    build.client.complete(request).await?;
-    assert_eq!(provider_adapter.complete_calls.load(Ordering::SeqCst), 2);
+    let sonnet = client.resolve_evaluation_route(
+        &Evaluation::builder()
+            .model("vercel/claude-sonnet-5")
+            .state("state")
+            .boolean("q", "Q?")
+            .build()?,
+    )?;
+    assert_eq!(
+        sonnet
+            .model()
+            .codecs()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+        ["openai-chat"]
+    );
     Ok(())
 }

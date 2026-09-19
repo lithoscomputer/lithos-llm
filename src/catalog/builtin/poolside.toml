@@ -10,8 +10,6 @@ schema_version = 1
 
 [providers.poolside]
 display_name = "Poolside"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://inference.poolside.ai/v1"
 priority = 65
 allow_passthrough = true

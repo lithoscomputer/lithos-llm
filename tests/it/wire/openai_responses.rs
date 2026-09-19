@@ -44,7 +44,7 @@ const COUNT_PATH: &str = "/v1/responses/input_tokens";
 /// The provider under test: bearer auth, every capability, a distinct API
 /// model.
 fn provider() -> support::WireProvider<'static> {
-    support::WireProvider::new(PROVIDER, "openai", "openai-responses", MODEL)
+    support::WireProvider::new(PROVIDER, "openai-responses", MODEL)
         .with_api_model(API_MODEL)
         .with_auth("{ type = \"bearer\" }")
 }
@@ -702,7 +702,9 @@ async fn an_incomplete_response_decodes_as_length() {
 async fn codex_mode_streams_a_complete_call_and_drops_sampling_controls() {
     let server = MockServer::start_async().await;
     let source = format!(
-        "{}\n[providers.\"{PROVIDER}\".adapter_options]\nmode = \"codex\"\n",
+        "{}\n[providers.\"{PROVIDER}\".codec_options.openai-responses]\nmode = \"codex\"\n\
+         [providers.\"{PROVIDER}\".adapter_options]\nforce_streaming_complete = true\n\
+         identify_application = true\n",
         provider().toml(&server.base_url())
     );
     let client = support::client_for(
@@ -773,7 +775,9 @@ async fn codex_mode_streams_a_complete_call_and_drops_sampling_controls() {
 async fn codex_mode_names_the_application_in_the_originator_header() {
     let server = MockServer::start_async().await;
     let source = format!(
-        "{}\n[providers.\"{PROVIDER}\".adapter_options]\nmode = \"codex\"\n",
+        "{}\n[providers.\"{PROVIDER}\".codec_options.openai-responses]\nmode = \"codex\"\n\
+         [providers.\"{PROVIDER}\".adapter_options]\nforce_streaming_complete = true\n\
+         identify_application = true\n",
         provider().toml(&server.base_url())
     );
     let build = Client::builder()
@@ -808,7 +812,9 @@ async fn codex_mode_names_the_application_in_the_originator_header() {
 /// A codex-mode client for the dialect tests below.
 fn codex_client(server: &httpmock::MockServer) -> lithos_llm::Client {
     let source = format!(
-        "{}\n[providers.\"{PROVIDER}\".adapter_options]\nmode = \"codex\"\n",
+        "{}\n[providers.\"{PROVIDER}\".codec_options.openai-responses]\nmode = \"codex\"\n\
+         [providers.\"{PROVIDER}\".adapter_options]\nforce_streaming_complete = true\n\
+         identify_application = true\n",
         provider().toml(&server.base_url())
     );
     support::client_for(

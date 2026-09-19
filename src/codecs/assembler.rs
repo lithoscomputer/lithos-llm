@@ -12,25 +12,12 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use crate::catalog::{ModelId, ProviderId, codec_ids};
+use crate::catalog::{ModelId, ProviderId};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
     ContentBlockId, ContentBlockKind, ContentPart, Cost, FinishReason, ReasoningContent, Response,
     StreamEvent, TokenCounts, ToolCall, ToolCallKind, ToolInput, Warning,
 };
-
-/// The signature family a route's codec mints reasoning signatures in.
-///
-/// The values match the constants in [`super::common`]; they are inlined here
-/// because those constants are feature-gated per codec while the assembler is
-/// always built.
-fn signature_family(route: &ResolvedRoute) -> Option<&'static str> {
-    match route.provider().codec().as_str() {
-        codec_ids::ANTHROPIC_MESSAGES | codec_ids::BEDROCK_CONVERSE => Some("anthropic"),
-        codec_ids::GEMINI_GENERATE => Some("gemini"),
-        _ => None,
-    }
-}
 
 /// One content block, open or already closed.
 #[derive(Clone, Debug)]
@@ -180,12 +167,14 @@ impl StreamAssembler {
     /// The route fixes the canonical
     /// [`ModelHandle`](crate::catalog::ModelHandle) on the completed
     /// response, so a provider that echoes a different model string cannot
-    /// change the response identity.
+    /// change the response identity. A codec whose protocol carries
+    /// reasoning signatures names their family with
+    /// [`with_signatures`](Self::with_signatures).
     pub(crate) fn new(route: &ResolvedRoute) -> Self {
         Self {
             provider:      route.provider().id().clone(),
             model:         route.model().id().clone(),
-            signatures:    signature_family(route),
+            signatures:    None,
             blocks:        Vec::new(),
             parts:         Vec::new(),
             usage:         TokenCounts::default(),
@@ -196,6 +185,14 @@ impl StreamAssembler {
             raw:           None,
             completed:     false,
         }
+    }
+
+    /// Names the signature family this stream's codec mints reasoning
+    /// signatures in; see [`super::common::ANTHROPIC_SIGNATURES`].
+    #[must_use]
+    pub(crate) fn with_signatures(mut self, family: &'static str) -> Self {
+        self.signatures = Some(family);
+        self
     }
 
     /// Opens a content block and returns its start event.

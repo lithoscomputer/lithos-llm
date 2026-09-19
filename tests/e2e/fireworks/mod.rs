@@ -1,6 +1,6 @@
 //! The Fireworks live suite.
 //!
-//! Fireworks runs through the `openai-compatible` adapter and the `openai-chat`
+//! Fireworks runs through the default `http` adapter and the `openai-chat`
 //! codec, so this suite is both the endpoint check for Fireworks itself and the
 //! live exercise of that shared code path. The Fireworks-specific behavior
 //! under test includes catalog-priced responses, automatic cache usage,

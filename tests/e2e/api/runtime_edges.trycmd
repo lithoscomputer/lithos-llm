@@ -30,7 +30,7 @@ $ lithos-llm-e2e client-builds client-builds.json
       "issues": [
         {
           "provider": "invalid-options",
-          "adapter": "openai",
+          "adapter": "http",
           "cause": "adapter construction failed",
           "source": "provider invalid-options has invalid adapter options"
         },
@@ -42,9 +42,9 @@ $ lithos-llm-e2e client-builds client-builds.json
         },
         {
           "provider": "wrong-codec",
-          "adapter": "openai",
+          "adapter": "http",
           "cause": "adapter construction failed",
-          "source": "provider wrong-codec uses unsupported codec anthropic-messages"
+          "source": "provider wrong-codec uses unsupported codec unknown-codec"
         }
       ]
     },

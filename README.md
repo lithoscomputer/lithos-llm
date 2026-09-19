@@ -8,9 +8,11 @@ The optional `cli` feature provides the stateless `lllm` command-line
 application. See the [CLI documentation](docs/cli.md) for installation and
 usage.
 
-Applications can use built-in OpenAI, Anthropic, Gemini,
-OpenAI-compatible, and optional Amazon Bedrock adapters. Applications can also
-register their own `ProviderAdapter` implementations.
+Applications can use the built-in `http` adapter with the OpenAI Chat
+Completions, OpenAI Responses, Anthropic Messages, Gemini, Vercel
+evaluation, and TypeSafe System One codecs, and the optional `bedrock`
+adapter with the Converse codec.
+Applications can also register their own `ProviderAdapter` implementations.
 
 The library does not execute tools or own an agent loop. It carries tool calls
 and tool results between an application and a provider.
@@ -43,9 +45,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 `Client::from_env()` uses the built-in catalog, the default HTTP client, and
 conventional provider environment variables such as `OPENAI_API_KEY`. The
 built-in catalog covers the first-party APIs (Anthropic, OpenAI, Gemini,
-Bedrock) and the routers that front many models behind one key: OpenRouter
-(`OPENROUTER_API_KEY`), Venice (`VENICE_API_KEY`), and Vercel AI Gateway
-(`AI_GATEWAY_API_KEY`).
+Bedrock, and TypeSafe AI with `TYPESAFE_API_KEY`) and the routers that
+front many models behind one key: OpenRouter (`OPENROUTER_API_KEY`), Venice
+(`VENICE_API_KEY`), and Vercel AI Gateway (`AI_GATEWAY_API_KEY`).
 
 `ConventionalCredentials` is the table behind that: which named secrets each
 provider expects and how they shape into its authentication. Where a named
@@ -373,17 +375,22 @@ async fn triage(client: &Client) -> Result<bool, Box<dyn Error>> {
 }
 ```
 
-Two kinds of model answer the same `Evaluation`. A row whose adapter
-evaluates natively (today `vercel/jev`, TypeSafe's Jev on the
-`vercel-evaluation` adapter) returns a probability per option or level, a
-`confidence` on each choice and score answer, and the provider's declared
-rounding. Every row that claims `response_format.json_schema` acts as a
-judge instead: the client runs one structured-output completion with a fixed
-system prompt and reads the JSON object back into answers. A judge returns
-point estimates, so `probabilities`, `confidence`, and `rounding` are absent
-on its `Verdict`. The same `Evaluation` and `Verdict` types serve both, so an
-application can run one question set against a native model and a judge and
-compare them.
+Two kinds of model answer the same `Evaluation`. A row that reaches an
+evaluation codec (today `vercel/jev`, TypeSafe's Jev through the
+`vercel-evaluation` codec) answers natively and returns a probability per
+option or level, a `confidence` on each choice and score answer, and the
+provider's declared rounding. `typesafe/jev-latest` evaluates natively too,
+through TypeSafe's own API on the `systemone` codec, and names the
+versioned model that answered in `Verdict::served_by`. Every other row that claims
+`response_format.json_schema` acts as a judge: the client runs one
+structured-output completion with a fixed system prompt and reads the JSON
+object back into answers. On a provider served by a built-in adapter the
+row's codec set makes that choice; on a provider served by an adapter the
+application registered, the adapter's own `evaluates_natively()` does. A
+judge returns point estimates, so `probabilities`, `confidence`, and
+`rounding` are absent on its `Verdict`. The same `Evaluation` and `Verdict`
+types serve both, so an application can run one question set against a
+native model and a judge and compare them.
 
 The client validates every verdict before it returns it: exactly the
 questions asked are answered, each with the matching kind, choices name a
@@ -392,7 +399,7 @@ one within the declared rounding. A malformed verdict is a `ResponseDecode`
 error and is never retried. The judge's system prompt is part of the crate's
 contract, because changing it changes answers; any change to it is called out
 in the changelog. See [Catalog overlays](#catalog-overlays) for the
-`evaluation` claim and the per-row `adapter` field.
+`evaluation` claim and how a row's codecs follow from it.
 
 ## Multimodal input
 
@@ -543,9 +550,10 @@ Unknown core provider and model fields are rejected. Application extensions
 belong under a namespaced `metadata` table, which Lithos preserves without
 interpreting.
 
-Provider rows carry routing facts (`adapter`, `codec`, `base_url`, `auth`,
-`priority`, `default_model`, `allow_passthrough`, `default_headers`,
-`adapter_options`, `default_options`) and offering policy: `enabled` (default
+Provider rows carry routing facts (`adapter`, `codecs`, `codec_options`,
+`base_url`, `auth`, `priority`, `default_model`, `allow_passthrough`,
+`default_headers`, `adapter_options`, `default_options`) and offering policy:
+`enabled` (default
 `true`; a disabled provider stays in the catalog but builds no adapter and
 resolves no route), `stands_in_for` (a provider this one answers for when that
 provider has no adapter), and `api_key_url`. Model rows carry the wire id,
@@ -562,15 +570,45 @@ LiteLLM, Modal, Ollama) ships with `enabled = false`; an overlay turns one on:
 enabled = true
 ```
 
+An adapter owns transport and signing; a codec owns one wire protocol. A
+provider names one adapter and lists the codecs its host speaks. `adapter`
+defaults to `"http"`, which holds every codec the provider lists and
+dispatches each call on the codec the client selected; `"bedrock"` adds
+SigV4 signing and event-stream framing for the Converse codec; any other id
+names a factory the application registered with
+`ClientBuilder::adapter_factory`, whose adapter owns its own wire handling
+and receives no codec selection. `codecs` defaults to `["openai-chat"]`, so
+a Chat Completions host needs neither line. OpenAI lists
+`["openai-responses"]`, Anthropic `["anthropic-messages"]`, Gemini
+`["gemini-generate"]`, Bedrock `["bedrock-converse"]`, Vercel
+`["openai-chat", "vercel-evaluation"]`, and TypeSafe `["systemone"]`. `codec_options` is a table keyed by
+codec id that carries one codec's own options, such as
+`codec_options = { openai-chat = { base_url_is_api_root = true } }` for a host
+whose base URL is already versioned; `adapter_options` carries transport
+concerns such as Codex's `force_streaming_complete` and
+`identify_application`. The old `codec` field and the four protocol-named
+adapter ids (`openai-compatible`, `openai`, `anthropic`, `gemini`) are
+rejected with an error that names the replacement.
+
+Each model row reaches a subset of its provider's codecs, and the client
+picks one per call by the operation's family, in provider order. A row may
+write `codecs = [...]` to narrow the set. Without that line the set follows
+the row's own capability claims: a generation claim (`text`, `tools`,
+`images`, `audio`, `documents`, or a `response_format` field) that is not
+`false` reaches every generation codec the provider lists; an explicit
+`capabilities.evaluation` with at least one kind `true` reaches every
+evaluation codec the provider lists; a row that claims neither keeps the
+generation codecs. A passthrough model gets the generation codecs only.
+
 A model row that claims `response_format.json_schema` also answers evaluation
 questions of every kind (`choice`, `score`, `boolean`): it judges by producing
 one schema-bound JSON object, so the catalog does not repeat the claim per
-row. A row writes `capabilities.evaluation = { choice = true, score = false,
-boolean = true }` to narrow that, or to claim evaluation on a model that
-speaks an evaluation protocol natively. Such a row also names
-`adapter = "..."` to speak through an adapter other than its provider's;
-every other row uses the provider's `adapter`. `ModelCapabilities::evaluation`
-and `evaluates` answer the question a caller asks.
+row. That derived claim never reaches an evaluation codec. A row writes
+`capabilities.evaluation = { choice = true, score = false, boolean = true }`
+to narrow the judge claim, or to claim evaluation on a model that speaks an
+evaluation protocol natively; only such a row derives its provider's
+evaluation codec, as `vercel/jev` does. `ModelCapabilities::evaluation` and
+`evaluates` answer the question a caller asks.
 
 Before it has a request, an application asks the catalog which providers are
 on and which model to pick for a job. `Catalog::enabled_providers` lists them
@@ -608,7 +646,7 @@ fn build(root: &str, openai: &str, anthropic: &str) -> Result<(), Box<dyn Error>
 | Feature | Default | Purpose |
 | --- | --- | --- |
 | `builtin-catalog` | yes | Embedded provider and model catalog |
-| `runtime` | yes | Client, public runtime extension points, and the OpenAI, Anthropic, Gemini, OpenAI-compatible, and Vercel evaluation adapters |
+| `runtime` | yes | Client, public runtime extension points, the `http` adapter, and the OpenAI Chat, OpenAI Responses, Anthropic, Gemini, and Vercel evaluation codecs |
 | `environment-credentials` | yes | Environment-backed credential provider |
 | `local-files` | no | Middleware that inlines local-path media as base64 |
 | `bedrock` | no | Bedrock Converse adapter with bearer-token authentication |

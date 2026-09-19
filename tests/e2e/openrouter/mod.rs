@@ -1,6 +1,6 @@
 //! The OpenRouter live suite.
 //!
-//! OpenRouter runs through the `openai-compatible` adapter and the
+//! OpenRouter runs through the default `http` adapter and the
 //! `openai-chat` codec, so this suite is both the endpoint check for OpenRouter
 //! itself and the live exercise of that shared code path. The
 //! OpenRouter-specific behavior under test is the in-band top-level `cost`

@@ -12,12 +12,12 @@ schema_version = 1
 
 [providers.zai]
 display_name = "Z.ai"
-adapter = "openai-compatible"
-codec = "openai-chat"
 base_url = "https://api.z.ai/api/coding/paas/v4"
 priority = 60
 allow_passthrough = true
-adapter_options = { base_url_is_api_root = true }
+# The Coding Plan root is already versioned, so the Chat codec must not add
+# `/v1`. This changes only the codec's URL rule, so it is a codec option.
+codec_options = { openai-chat = { base_url_is_api_root = true } }
 default_model = "glm-5.2"
 api_key_url = "https://open.bigmodel.cn/usercenter/apikeys"
 

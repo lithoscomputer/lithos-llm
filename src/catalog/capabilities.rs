@@ -281,6 +281,43 @@ impl ModelCapabilities {
         }
     }
 
+    /// The `evaluation` claim exactly as the row wrote it, with `Unknown`
+    /// for every kind the row left to derivation.
+    ///
+    /// [`evaluation`](Self::evaluation) hides whether a claim was written,
+    /// and codec derivation needs that fact: only a row that writes the
+    /// claim reaches a native evaluation codec.
+    pub(crate) fn explicit_evaluation(self) -> EvaluationSupport {
+        self.evaluation
+    }
+
+    /// Whether the row wrote `evaluation` with at least one kind `true`.
+    pub(crate) fn claims_native_evaluation(self) -> bool {
+        let explicit = self.explicit_evaluation();
+        [explicit.choice, explicit.score, explicit.boolean]
+            .iter()
+            .any(|support| support.is_supported())
+    }
+
+    /// Whether any generation claim (`text`, `tools`, `images`, `audio`,
+    /// `documents`, or a `response_format` field) is not `false`.
+    ///
+    /// `Unknown` counts as a claim: an unstated feature is left to the
+    /// provider to accept or reject, not refused before dispatch.
+    pub(crate) fn claims_generation(self) -> bool {
+        [
+            self.text,
+            self.tools,
+            self.images,
+            self.audio,
+            self.documents,
+            self.response_format.json_object,
+            self.response_format.json_schema,
+        ]
+        .iter()
+        .any(|support| !support.is_unsupported())
+    }
+
     /// The supported reasoning effort nearest to `requested`.
     ///
     /// A request written for one model often names an effort the fallback

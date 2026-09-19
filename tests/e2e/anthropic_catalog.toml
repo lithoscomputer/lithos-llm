@@ -20,8 +20,7 @@ schema_version = 1
 [providers.anthropic]
 display_name = "Anthropic"
 aliases = ["claude"]
-adapter = "anthropic"
-codec = "anthropic-messages"
+codecs = ["anthropic-messages"]
 base_url = "https://api.anthropic.com"
 allow_passthrough = true
 default_model = "claude-sonnet-5"
