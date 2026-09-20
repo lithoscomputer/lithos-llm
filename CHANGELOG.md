@@ -6,6 +6,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: `Observer::on_retry` takes one `middleware::RetryEvent` in
+  place of its four positional values. The struct carries `error`,
+  `attempt`, `delay`, and `stage` as named fields and is
+  `#[non_exhaustive]`, so a later field — the abandoned response, for
+  example — can be added without another breaking change. An observer
+  that read `(call, error, attempt, delay, stage)` reads
+  `(call, retry)` and the same values from `retry.error`, `retry.attempt`,
+  `retry.delay`, and `retry.stage`.
+
 - The three Claude 5 flagships on Vercel — `claude-opus-5`, `claude-fable-5`,
   and `claude-fable-5.1` — join the Vercel E2E roster, recorded on
   2026-09-19 after Vercel lifted the per-model rate limit measured on

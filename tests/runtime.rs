@@ -19,7 +19,8 @@ use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, Mod
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
 use lithos_llm::middleware::{
     Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
-    ObserverMiddleware, Operation, Output, RetryMiddleware, RetryPolicy, RetryStage, map_stream,
+    ObserverMiddleware, Operation, Output, RetryEvent, RetryMiddleware, RetryPolicy, RetryStage,
+    map_stream,
 };
 use lithos_llm::types::{
     Answer, BooleanAnswer, ChoiceAnswer, ContentBlockId, ContentBlockKind, ContentPart, Error,
@@ -734,23 +735,16 @@ impl RetryRecorder {
 }
 
 impl Observer for RetryRecorder {
-    fn on_retry(
-        &self,
-        call: &Call,
-        error: &Error,
-        attempt: u32,
-        delay: Duration,
-        stage: RetryStage,
-    ) {
+    fn on_retry(&self, call: &Call, retry: RetryEvent<'_>) {
         self.retries
             .lock()
             .expect("recorder mutex should not be poisoned")
             .push(RecordedRetry {
-                attempt,
+                attempt:         retry.attempt,
                 context_attempt: call.context().attempt(),
-                delay,
-                kind: error.kind(),
-                stage,
+                delay:           retry.delay,
+                kind:            retry.error.kind(),
+                stage:           retry.stage,
             });
     }
 }

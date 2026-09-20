@@ -9,7 +9,9 @@ use futures_util::StreamExt as _;
 use futures_util::stream::{empty, iter, unfold};
 use tokio::time::sleep;
 
-use super::{Call, CallGuard, Middleware, Next, Observer, Operation, Output, RetryStage};
+use super::{
+    Call, CallGuard, Middleware, Next, Observer, Operation, Output, RetryEvent, RetryStage,
+};
 use crate::types::{
     Error, ErrorKind, FinishReason, Response, ResponseStream, RetryClassification, StreamEvent,
 };
@@ -159,26 +161,26 @@ impl Retrier {
         else {
             return false;
         };
-        self.report(call, attempt, delay, error, stage);
+        self.report(call, RetryEvent::new(error, attempt, delay, stage));
         sleep(delay).await;
         call.context.set_attempt(attempt.saturating_add(1));
         true
     }
 
     /// Reports one retry to the trace and to the observer, when one is set.
-    fn report(&self, call: &Call, attempt: u32, delay: Duration, error: &Error, stage: RetryStage) {
+    fn report(&self, call: &Call, retry: RetryEvent<'_>) {
         tracing::warn!(
-            attempt,
-            delay_secs = delay.as_secs_f64(),
-            stage = ?stage,
-            error_kind = ?error.kind(),
-            status = error.status(),
-            provider_code = error.provider_code(),
-            error = ?error,
+            attempt = retry.attempt,
+            delay_secs = retry.delay.as_secs_f64(),
+            stage = ?retry.stage,
+            error_kind = ?retry.error.kind(),
+            status = retry.error.status(),
+            provider_code = retry.error.provider_code(),
+            error = ?retry.error,
             "the provider call failed and will be retried"
         );
         if let Some(observer) = &self.observer {
-            observer.on_retry(call, error, attempt, delay, stage);
+            observer.on_retry(call, retry);
         }
     }
 }
