@@ -1,0 +1,102 @@
+---
+source: tests/it/wire/bedrock.rs
+expression: rendered
+---
+{
+  "body": {
+    "inferenceConfig": {
+      "maxTokens": 128
+    },
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Apply the patch."
+          },
+          {
+            "cachePoint": {
+              "type": "default"
+            }
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "toolUse": {
+              "input": {},
+              "name": "apply_patch",
+              "toolUseId": "call_patch"
+            }
+          }
+        ],
+        "role": "assistant"
+      },
+      {
+        "content": [
+          {
+            "toolResult": {
+              "content": [
+                {
+                  "text": "applied"
+                }
+              ],
+              "toolUseId": "call_patch"
+            }
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "toolConfig": {
+      "tools": [
+        {
+          "toolSpec": {
+            "description": "Applies a unified patch to the working tree",
+            "inputSchema": {
+              "json": {
+                "properties": {},
+                "type": "object"
+              }
+            },
+            "name": "apply_patch"
+          }
+        },
+        {
+          "cachePoint": {
+            "type": "default"
+          }
+        }
+      ]
+    }
+  },
+  "headers": [
+    [
+      "accept",
+      "*/*"
+    ],
+    [
+      "authorization",
+      "[redacted]"
+    ],
+    [
+      "content-length",
+      "557"
+    ],
+    [
+      "content-type",
+      "application/json"
+    ],
+    [
+      "host",
+      "[host]"
+    ],
+    [
+      "user-agent",
+      "[user-agent]"
+    ]
+  ],
+  "method": "POST",
+  "path": "/model/anthropic.claude-sonnet-4-6/converse"
+}
