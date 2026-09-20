@@ -1024,6 +1024,186 @@ async fn a_retried_stream_starts_once() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
+/// Streams bookkeeping and closes a block, then ends without an `Ended`.
+struct TruncatedAdapter {
+    id:    AdapterId,
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl ProviderAdapter for TruncatedAdapter {
+    fn id(&self) -> &AdapterId {
+        &self.id
+    }
+
+    async fn complete(&self, _call: &ResolvedCall) -> Result<Response, Error> {
+        Err(Error::new(ErrorKind::Middleware, "not used"))
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let id = ContentBlockId::new("block-0");
+        Ok(ResponseStream::new(iter(vec![
+            Ok(StreamEvent::Started { id: None }),
+            Ok(StreamEvent::ContentBlockStart {
+                id:   id.clone(),
+                kind: ContentBlockKind::Text,
+            }),
+            Ok(StreamEvent::ContentBlockEnd {
+                id,
+                part: ContentPart::Text {
+                    text: String::new(),
+                },
+            }),
+        ])))
+    }
+}
+
+/// Answers every attempt after the first with a complete response, whatever
+/// the operation asked for.
+struct CompletesOnRetry;
+
+#[async_trait]
+impl Middleware for CompletesOnRetry {
+    async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
+        if call.context().attempt() < 2 {
+            return next.run(call).await;
+        }
+        Ok(Output::Complete(Response::new(
+            call.route().provider().id().clone(),
+            call.route().model().id().clone(),
+            vec![ContentPart::Text {
+                text: "complete".to_owned(),
+            }],
+        )))
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn exhausted_incomplete_retries_deliver_the_original_response_not_an_error()
+-> Result<(), Box<dyn StdError>> {
+    // An incomplete turn is retried as if it were a failure, but when the
+    // retries run out the caller gets the provider's actual answer back — the
+    // partial text with its `Incomplete` finish reason — never the synthetic
+    // error the retry loop classified it as. Both the complete path and the
+    // pre-visible stream path keep that rule.
+    for streaming in [false, true] {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let client = Client::builder()
+            .catalog(catalog()?)
+            .adapter("test", UnfinishedAdapter {
+                calls:               calls.clone(),
+                unfinished_attempts: usize::MAX,
+                reason:              FinishReason::Incomplete,
+                visible:             false,
+                id:                  AdapterId::new("test-adapter"),
+            })
+            .middleware(RetryMiddleware::new(
+                RetryPolicy::exponential()
+                    .max_attempts(2)
+                    .initial_delay(Duration::ZERO),
+            ))
+            .build()?
+            .client;
+
+        let response = if streaming {
+            let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+            assert!(
+                events.iter().all(Result::is_ok),
+                "no error reaches the caller: {events:?}"
+            );
+            let Some(Ok(StreamEvent::Ended { response })) = events.into_iter().last() else {
+                panic!("the stream ends with the provider's own response")
+            };
+            *response
+        } else {
+            client.complete(request()?).await?
+        };
+
+        assert_eq!(response.finish_reason, FinishReason::Incomplete);
+        assert_eq!(response.text(), "partial", "the original body survives");
+        assert_eq!(calls.load(Ordering::SeqCst), 2, "every attempt was spent");
+    }
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_stream_retry_that_yields_a_complete_response_is_a_middleware_error()
+-> Result<(), Box<dyn StdError>> {
+    // A reconnect must produce a stream. A layer below the retry that answers
+    // the second attempt with a complete response has broken the middleware
+    // contract, and the stream reports that as a `Middleware` error rather
+    // than fabricating events from the response or hanging.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut adapter = FakeAdapter::successful();
+    adapter.stream_calls = calls.clone();
+    adapter.stream_fails_initial = true;
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", adapter)
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential()
+                .max_attempts(3)
+                .initial_delay(Duration::ZERO),
+        ))
+        .middleware(CompletesOnRetry)
+        .build()?
+        .client;
+
+    let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+
+    let [Err(error)] = events.as_slice() else {
+        panic!("one terminal error and nothing else: {events:?}")
+    };
+    assert_eq!(error.kind(), ErrorKind::Middleware);
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "the second attempt never reached the adapter"
+    );
+    Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn bookkeeping_held_before_visible_output_is_released_when_the_stream_ends()
+-> Result<(), Box<dyn StdError>> {
+    // Protocol bookkeeping is held back until the first visible event so a
+    // reconnect can discard it. A stream that ends before anything visible
+    // arrives, and cannot be retried, still owes the caller that bookkeeping:
+    // the `ContentBlockEnd` a decoder synthesized at EOF is delivered ahead
+    // of the terminal error, not dropped with the attempt.
+    let calls = Arc::new(AtomicUsize::new(0));
+    let client = Client::builder()
+        .catalog(catalog()?)
+        .adapter("test", TruncatedAdapter {
+            id:    AdapterId::new("test-adapter"),
+            calls: calls.clone(),
+        })
+        .middleware(RetryMiddleware::new(
+            RetryPolicy::exponential().max_attempts(1),
+        ))
+        .build()?
+        .client;
+
+    let events = client.stream(request()?).await?.collect::<Vec<_>>().await;
+
+    assert!(
+        matches!(events.as_slice(), [
+            Ok(StreamEvent::Started { .. }),
+            Ok(StreamEvent::ContentBlockStart { .. }),
+            Ok(StreamEvent::ContentBlockEnd { .. }),
+            Err(_),
+        ]),
+        "held bookkeeping, then the terminal error: {events:?}"
+    );
+    let Some(Err(error)) = events.last() else {
+        unreachable!("matched above")
+    };
+    assert_eq!(error.kind(), ErrorKind::StreamDecode);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    Ok(())
+}
+
 #[tokio::test(start_paused = true)]
 async fn a_call_timeout_is_never_retried() -> Result<(), Box<dyn StdError>> {
     let calls = Arc::new(AtomicUsize::new(0));
