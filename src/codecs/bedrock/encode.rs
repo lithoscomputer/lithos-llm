@@ -6,14 +6,17 @@ use serde_json::{Map, Value, json};
 
 use super::NAMESPACE;
 use crate::adapter::ResolvedCall;
-use crate::codecs::content::{ANTHROPIC_SIGNATURES, Turns, plain_text, reject_audio, system_text};
+use crate::codecs::content::{
+    ANTHROPIC_SIGNATURES, Turns, flattens_system_content, flattens_tool_result_content, plain_text,
+    reject_audio, system_text,
+};
 use crate::codecs::errors::unsupported_capability;
 use crate::codecs::options::{endpoint, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
     ContentPart, Error, MediaSource, Message, ReasoningContent, ReasoningEffort, Request, Role,
-    ToolCall, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
+    Speed, ToolCall, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
 };
 
 /// Encodes the Bedrock `CountTokens` request for one call.
@@ -24,13 +27,9 @@ use crate::types::{
 /// points stay, because the body must describe the same prompt the Converse
 /// call would send.
 pub(super) fn encode_count_tokens(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
+    preflight(call)?;
     let request = call.request();
     let route = call.route();
-    reject_custom_tools(request, route)?;
-    // Counting refuses exactly what completion refuses. A request the provider
-    // would not accept must not come back with a token count.
-    reject_audio(route, request)?;
-    reject_unnameable_tools(request, route)?;
     let (_, controls) = wire_options(call);
     let cached = caches(route, controls.auto_cache);
 
@@ -46,32 +45,230 @@ pub(super) fn encode_count_tokens(call: &ResolvedCall) -> Result<EncodedRequest,
 
     Ok(EncodedRequest::new(
         Method::POST,
-        operation_url(route, "count-tokens"),
+        Operation::CountTokens.url(route),
         json!({ "input": { "converse": Value::Object(converse) } }),
     ))
 }
 
-/// The URL of one Bedrock runtime operation for a route.
+/// Refuses what no Bedrock runtime operation can carry.
 ///
-/// The model id is percent-encoded before it is interpolated into the path.
-/// The reference implementation interpolates it raw, which splits an ARN-style
-/// inference-profile id (`arn:aws:bedrock:…:inference-profile/name`) into extra
-/// path segments and makes the call unroutable. Encoding here is a deliberate
-/// difference: the signer signs the encoded URL, so client and server still
-/// apply exactly one encoding pass to the same bytes.
-pub(super) fn operation_url(route: &ResolvedRoute, operation: &str) -> String {
-    let model = route.api_model().replace('%', "%25").replace('/', "%2F");
-    endpoint(
-        route.provider().base_url(),
-        &format!("/model/{model}/{operation}"),
-    )
+/// Generation and counting share one pre-flight: a request the provider would
+/// not accept must not come back with a token count either.
+///
+/// # Errors
+///
+/// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
+/// for a custom tool definition, audio content, or a tool identifier
+/// Converse cannot carry.
+pub(super) fn preflight(call: &ResolvedCall) -> Result<(), Error> {
+    let request = call.request();
+    let route = call.route();
+    reject_custom_tools(request, route)?;
+    reject_audio(route, request)?;
+    reject_unnameable_tools(request, route)
+}
+
+/// The Bedrock runtime operations this codec speaks.
+///
+/// The three differ only in the last path segment and in whether the request
+/// names the event-stream framing it expects.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum Operation {
+    Converse,
+    ConverseStream,
+    CountTokens,
+}
+
+impl Operation {
+    /// The last segment of the operation path.
+    fn path(self) -> &'static str {
+        match self {
+            Self::Converse => "converse",
+            Self::ConverseStream => "converse-stream",
+            Self::CountTokens => "count-tokens",
+        }
+    }
+
+    /// The URL of this operation for a route.
+    ///
+    /// The model id is percent-encoded before it is interpolated into the
+    /// path. The reference implementation interpolates it raw, which splits
+    /// an ARN-style inference-profile id
+    /// (`arn:aws:bedrock:…:inference-profile/name`) into extra path segments
+    /// and makes the call unroutable. Encoding here is a deliberate
+    /// difference: the signer signs the encoded URL, so client and server
+    /// still apply exactly one encoding pass to the same bytes.
+    pub(super) fn url(self, route: &ResolvedRoute) -> String {
+        let model = route.api_model().replace('%', "%25").replace('/', "%2F");
+        endpoint(
+            route.provider().base_url(),
+            &format!("/model/{model}/{}", self.path()),
+        )
+    }
+
+    /// The dialect headers this operation sends.
+    ///
+    /// A streaming request names the framing it expects, which is what the
+    /// reference client always sent; a gateway that negotiates content types
+    /// answers with the event stream rather than something else.
+    pub(super) fn headers(self) -> Vec<(String, String)> {
+        match self {
+            Self::ConverseStream => vec![(
+                "accept".to_owned(),
+                "application/vnd.amazon.eventstream".to_owned(),
+            )],
+            Self::Converse | Self::CountTokens => Vec::new(),
+        }
+    }
+}
+
+/// Builds every typed field of a Converse body.
+///
+/// Raw provider options are merged over the result by the caller, so a field
+/// encoded here is only a default the application can replace. This mirrors
+/// the Anthropic codec's `message_body`.
+///
+/// # Errors
+///
+/// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
+/// for media held behind a URL, which Converse cannot fetch.
+pub(super) fn converse_body(
+    call: &ResolvedCall,
+    auto_cache: bool,
+) -> Result<Map<String, Value>, Error> {
+    let request = call.request();
+    let route = call.route();
+    let cached = caches(route, auto_cache);
+
+    let mut body = Map::new();
+    let system = system_blocks(request, cached);
+    if !system.is_empty() {
+        body.insert("system".to_owned(), Value::Array(system));
+    }
+    body.insert(
+        "messages".to_owned(),
+        Value::Array(conversation(request, route, cached)?),
+    );
+
+    let mut inference = inference_config(request);
+    if let Some(tool_config) = tool_config(request, cached) {
+        body.insert("toolConfig".to_owned(), tool_config);
+    }
+    // Effort has the same two wire dialects as the Anthropic codec,
+    // carried through `additionalModelRequestFields`: a model with effort
+    // levels takes `output_config.effort`, an older reasoning model takes
+    // an explicit thinking budget, and a forced tool choice suppresses
+    // both because the upstream model rejects thinking alongside it. The
+    // budget must sit strictly below `maxTokens`, and a request that
+    // sends none leaves AWS's per-model default in charge — a default at
+    // or below the budget draws a ValidationException. So a budget always
+    // travels with an explicit `maxTokens`, lifted when the budget would
+    // not fit under it, the same way the Anthropic encoder grows it.
+    if let Some(effort) = request.reasoning_effort()
+        && !forces_tool_use(request.tool_choice())
+    {
+        // A passthrough model takes the modern effort dialect, like
+        // the Anthropic codec: it is uncataloged precisely because it
+        // is newer than the catalog, and a guessed thinking budget is
+        // a manual toggle the always-adaptive models reject.
+        if route.model().protocol_options().reasoning_effort_levels
+            || route.model().is_passthrough()
+        {
+            body.insert(
+                "additionalModelRequestFields".to_owned(),
+                json!({ "output_config": { "effort": bedrock_effort(effort) } }),
+            );
+        } else {
+            let limit = budget_limit(call);
+            let budget = thinking_budget(effort, limit);
+            let max_tokens = if limit <= budget {
+                budget.saturating_add(MIN_THINKING_BUDGET)
+            } else {
+                limit
+            };
+            inference.insert("maxTokens".to_owned(), max_tokens.into());
+            body.insert(
+                "additionalModelRequestFields".to_owned(),
+                json!({ "thinking": { "type": "enabled", "budget_tokens": budget } }),
+            );
+        }
+    }
+    if !inference.is_empty() {
+        body.insert("inferenceConfig".to_owned(), Value::Object(inference));
+    }
+    if let Some(speed) = request.speed() {
+        let latency = if matches!(speed, Speed::Fast) {
+            "optimized"
+        } else {
+            "standard"
+        };
+        body.insert(
+            "performanceConfig".to_owned(),
+            json!({ "latency": latency }),
+        );
+    }
+    Ok(body)
+}
+
+/// The portable controls this request carries that the body did not encode.
+///
+/// Each is reported as an `unsupported_control` warning: the request still
+/// reaches the model, but not as the caller wrote it.
+///
+/// - Converse has no request-metadata field, so the map is reported rather than
+///   folded into some other field where it would change the prompt.
+/// - A forced tool choice suppresses the effort; the same report the Anthropic
+///   codec makes for this combination.
+/// - The tools stay on the wire despite `tool_choice: none` when the history
+///   carries tool blocks, because Converse rejects such a request without a
+///   `toolConfig`; the model may therefore still call a tool.
+/// - A reasoning part signed by another provider is skipped; see
+///   `ReasoningContent::has_foreign_signature`.
+/// - Converse has no portable structured-output field, so a caller who asked
+///   for JSON gets prose.
+/// - The `system` field takes text only.
+/// - `toolResult.content` carries text, JSON, images, and documents as
+///   themselves; only a part outside that union — reasoning, most of all — is
+///   dropped.
+pub(super) fn dropped_controls(request: &Request) -> Vec<&'static str> {
+    let mut dropped = Vec::new();
+    if !request.metadata().is_empty() {
+        dropped.push("request metadata");
+    }
+    if request.reasoning_effort().is_some() && forces_tool_use(request.tool_choice()) {
+        dropped.push("reasoning effort with a forced tool choice");
+    }
+    if keeps_tools_despite_none(request) {
+        dropped.push("tool_choice none alongside historical tool blocks");
+    }
+    if request.carries_foreign_signature(ANTHROPIC_SIGNATURES) {
+        dropped.push("reasoning signed by another provider");
+    }
+    if request.response_format().is_some() {
+        dropped.push("response formats");
+    }
+    if flattens_system_content(request) {
+        dropped.push("non-text system content");
+    }
+    if flattens_tool_result_content(request, |parts| parts.iter().all(carries_in_tool_result)) {
+        dropped.push("tool result content outside text, JSON, and media");
+    }
+    dropped
+}
+
+/// Whether `tool_choice: none` left the tools on the wire; see
+/// [`tool_config`].
+fn keeps_tools_despite_none(request: &Request) -> bool {
+    matches!(request.tool_choice(), Some(ToolChoice::None))
+        && !request.tools().is_empty()
+        && history_carries_tool_blocks(request)
 }
 
 /// Rejects a request carrying a tool Converse cannot express.
 ///
 /// Converse has function tools only. A custom tool is refused before dispatch
 /// rather than downgraded, so a caller never silently loses its grammar.
-pub(super) fn reject_custom_tools(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
+fn reject_custom_tools(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
     if request.tools().iter().any(ToolDefinition::is_custom) {
         return Err(unsupported_capability(route, "custom tools"));
     }
@@ -90,7 +287,7 @@ fn cache_point() -> Value {
 /// provider: a family that cannot cache rejects the whole request with a
 /// ValidationException rather than ignoring the marker. `auto_cache` is the
 /// caller's separate veto over markers this codec adds on its own.
-pub(super) fn caches(route: &ResolvedRoute, auto_cache: bool) -> bool {
+fn caches(route: &ResolvedRoute, auto_cache: bool) -> bool {
     auto_cache && route.model().capabilities().caching().is_supported()
 }
 
@@ -99,7 +296,7 @@ pub(super) fn caches(route: &ResolvedRoute, auto_cache: bool) -> bool {
 /// The Converse tool-result union takes text, structured JSON, images, and
 /// documents, so all four reach the model as themselves. Anything else —
 /// reasoning above all — has no member of that union and is dropped.
-pub(super) fn carries_in_tool_result(part: &ContentPart) -> bool {
+fn carries_in_tool_result(part: &ContentPart) -> bool {
     matches!(
         part,
         ContentPart::Text { .. }
@@ -110,7 +307,7 @@ pub(super) fn carries_in_tool_result(part: &ContentPart) -> bool {
 }
 
 /// The system blocks, with a cache point after the prompt when caching is on.
-pub(super) fn system_blocks(request: &Request, cached: bool) -> Vec<Value> {
+fn system_blocks(request: &Request, cached: bool) -> Vec<Value> {
     let system = system_text(request.messages());
     if system.is_empty() {
         return Vec::new();
@@ -128,7 +325,7 @@ pub(super) fn system_blocks(request: &Request, cached: bool) -> Vec<Value> {
 /// System and developer messages are excluded; they became the `system`
 /// blocks. A message whose every part is unencodable is dropped and
 /// consecutive same-role turns merge; see [`Turns`].
-pub(super) fn conversation(
+fn conversation(
     request: &Request,
     route: &ResolvedRoute,
     cached: bool,
@@ -372,7 +569,7 @@ fn media_format<'a>(media_type: Option<&'a str>, default: &'a str) -> Option<&'a
 }
 
 /// The `inferenceConfig` object, which is omitted when it would be empty.
-pub(super) fn inference_config(request: &Request) -> Map<String, Value> {
+fn inference_config(request: &Request) -> Map<String, Value> {
     let mut inference = Map::new();
     if let Some(max_tokens) = request.max_output_tokens() {
         inference.insert("maxTokens".to_owned(), max_tokens.into());
@@ -414,10 +611,7 @@ const TOOL_IDENTIFIER_MAX: usize = 64;
 /// # Errors
 ///
 /// Returns [`ErrorKind::InvalidRequest`] naming the first offending identifier.
-pub(super) fn reject_unnameable_tools(
-    request: &Request,
-    route: &ResolvedRoute,
-) -> Result<(), Error> {
+fn reject_unnameable_tools(request: &Request, route: &ResolvedRoute) -> Result<(), Error> {
     for tool in request.tools() {
         reject_tool_name(&tool.name, route)?;
     }
@@ -486,7 +680,7 @@ fn reject_tool_identifier(
 /// blocks. Converse requires `toolConfig` alongside those blocks, so the
 /// common agent-loop ending ("now answer in prose") keeps the tools on the
 /// wire and the encoder reports the choice it could not express.
-pub(super) fn tool_config(request: &Request, cached: bool) -> Option<Value> {
+fn tool_config(request: &Request, cached: bool) -> Option<Value> {
     if request.tools().is_empty() {
         return None;
     }
@@ -535,7 +729,7 @@ pub(super) fn tool_config(request: &Request, cached: bool) -> Option<Value> {
 }
 
 /// Whether the message history already carries toolUse or toolResult blocks.
-pub(super) fn history_carries_tool_blocks(request: &Request) -> bool {
+fn history_carries_tool_blocks(request: &Request) -> bool {
     request
         .messages()
         .iter()
@@ -560,7 +754,7 @@ fn tool_input_schema(schema: &Value) -> Value {
     }
 }
 
-pub(super) fn bedrock_effort(effort: ReasoningEffort) -> &'static str {
+fn bedrock_effort(effort: ReasoningEffort) -> &'static str {
     match effort {
         ReasoningEffort::Minimal | ReasoningEffort::Low => "low",
         ReasoningEffort::Medium => "medium",
@@ -572,13 +766,13 @@ pub(super) fn bedrock_effort(effort: ReasoningEffort) -> &'static str {
 
 /// The smallest `thinking.budget_tokens` the upstream model accepts, and the
 /// headroom kept above the budget when `maxTokens` must grow.
-pub(super) const MIN_THINKING_BUDGET: u32 = 1024;
+const MIN_THINKING_BUDGET: u32 = 1024;
 
 /// The output limit the thinking budget scales against.
 ///
 /// The request's own limit wins, then the model's catalog limit, then the
 /// same fallback the Anthropic codec uses.
-pub(super) fn budget_limit(call: &ResolvedCall) -> u32 {
+fn budget_limit(call: &ResolvedCall) -> u32 {
     if let Some(tokens) = call.request().max_output_tokens() {
         return tokens;
     }
@@ -591,13 +785,13 @@ pub(super) fn budget_limit(call: &ResolvedCall) -> u32 {
 ///
 /// The upstream model rejects extended thinking together with a forced tool
 /// choice, so a forced choice suppresses the effort encoding entirely.
-pub(super) fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
+fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
     choice.is_some_and(ToolChoice::is_forced)
 }
 
 /// The explicit thinking budget for a reasoning model without effort levels,
 /// scaling the same shares of the output limit as the Anthropic codec.
-pub(super) fn thinking_budget(effort: ReasoningEffort, limit: u32) -> u32 {
+fn thinking_budget(effort: ReasoningEffort, limit: u32) -> u32 {
     let limit = u64::from(limit);
     let share = match effort {
         ReasoningEffort::Minimal | ReasoningEffort::Low => limit / 4,

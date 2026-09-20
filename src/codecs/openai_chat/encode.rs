@@ -1,13 +1,154 @@
 //! Request encoding: messages, tools, and cache breakpoints.
 
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use super::OPAQUE_PREFIX;
-use crate::codecs::content::{data_url, plain_text, tool_result_text};
-use crate::types::{
-    ContentPart, ImageContent, Message, ReasoningEffort, ResponseFormat, Role, ToolCall,
-    ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
+use crate::adapter::ResolvedCall;
+use crate::codecs::content::{
+    data_url, flattens_tool_result_content, plain_text, reject_unencodable, text_or_json_only,
+    tool_result_text,
 };
+use crate::codecs::errors::unsupported_capability;
+use crate::codecs::options::sampling;
+use crate::types::{
+    ContentPart, Error, ImageContent, Message, ReasoningEffort, Request, ResponseFormat, Role,
+    ToolCall, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
+};
+
+/// Refuses what this dialect cannot carry.
+///
+/// A custom tool has no representation here and is never downgraded. Neither
+/// audio nor documents encode; dropping them silently would return a
+/// successful response for a prompt that never carried the caller's
+/// attachment.
+///
+/// # Errors
+///
+/// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
+/// naming the first unsupported capability.
+pub(super) fn preflight(call: &ResolvedCall) -> Result<(), Error> {
+    let request = call.request();
+    let route = call.route();
+    if request.tools().iter().any(ToolDefinition::is_custom) {
+        return Err(unsupported_capability(route, "custom tools"));
+    }
+    reject_unencodable(route, request, |part| match part {
+        ContentPart::Audio(_) => Some("audio content"),
+        ContentPart::Document(_) => Some("document content"),
+        _ => None,
+    })
+}
+
+/// Builds every typed field of a Chat Completions body, in wire order.
+///
+/// Raw provider options are merged over the result by the caller, so a field
+/// encoded here is only a default the application can replace.
+pub(super) fn body(call: &ResolvedCall, auto_cache: bool, stream: bool) -> Map<String, Value> {
+    let request = call.request();
+    let route = call.route();
+    let mut body = Map::new();
+    body.insert("model".to_owned(), route.api_model().into());
+
+    let mut messages: Vec<Value> = request.messages().iter().flat_map(encode_message).collect();
+    // An aggregator fronting an Anthropic model forwards the breakpoints
+    // upstream, and the catalog opts such a model in explicitly. A skin
+    // that caches automatically (DeepSeek, Moonshot) declares `caching`
+    // for its pricing without `cache_breakpoints`, and rewriting its
+    // string content into part arrays could get the request rejected. A
+    // caller can also turn breakpoints off with the `auto_cache` control.
+    if auto_cache
+        && route.model().capabilities().caching().is_supported()
+        && route.model().protocol_options().cache_breakpoints
+    {
+        mark_cache_breakpoints(&mut messages);
+    }
+    body.insert("messages".to_owned(), Value::Array(messages));
+
+    // A blocking request omits the `stream` member entirely, matching the
+    // reference encoder — a strict skin may reject an explicit
+    // `stream: false`.
+    if stream {
+        body.insert("stream".to_owned(), true.into());
+        // Without this the compatible skins never send a usage chunk, and
+        // a streamed response would report no tokens at all.
+        body.insert(
+            "stream_options".to_owned(),
+            json!({ "include_usage": true }),
+        );
+    }
+    if let Some(max_tokens) = request.max_output_tokens() {
+        body.insert("max_tokens".to_owned(), max_tokens.into());
+    }
+    if let Some(temperature) = request.temperature() {
+        body.insert("temperature".to_owned(), sampling(temperature));
+    }
+    if let Some(top_p) = request.top_p() {
+        body.insert("top_p".to_owned(), sampling(top_p));
+    }
+    if let Some(effort) = request.reasoning_effort() {
+        body.insert("reasoning_effort".to_owned(), effort_name(effort).into());
+    }
+    if !request.stop_sequences().is_empty() {
+        let stop = request
+            .stop_sequences()
+            .iter()
+            .map(|sequence| Value::from(sequence.as_str()))
+            .collect();
+        body.insert("stop".to_owned(), Value::Array(stop));
+    }
+    if !request.tools().is_empty() {
+        let tools: Vec<Value> = request.tools().iter().filter_map(encode_tool).collect();
+        body.insert("tools".to_owned(), Value::Array(tools));
+    }
+    if let Some(choice) = request.tool_choice() {
+        body.insert("tool_choice".to_owned(), encode_tool_choice(choice));
+    }
+    if let Some(format) = request.response_format() {
+        body.insert("response_format".to_owned(), encode_response_format(format));
+    }
+    body
+}
+
+/// The portable controls this request carries that the body did not encode.
+///
+/// Each is reported as an `unsupported_control` warning: the request still
+/// reaches the model, but not as the caller wrote it.
+///
+/// - Only OpenAI itself documents `metadata` on this endpoint, and a strict
+///   skin rejects the whole request over one unknown field. The tags are
+///   dropped rather than risking that; a caller who knows their skin accepts
+///   them can send them as a raw provider option.
+/// - Chat Completions has no speed control. The request is served and billed at
+///   standard speed.
+/// - A `tool` message has no error marker, so a failed tool result reaches the
+///   model looking like a successful one. The content still arrives.
+/// - An all-JSON tool result travels as the bare value, so only a mix that must
+///   flatten is reported.
+pub(super) fn dropped_controls(request: &Request) -> Vec<&'static str> {
+    let mut dropped = Vec::new();
+    if !request.metadata().is_empty() {
+        dropped.push("request metadata");
+    }
+    if request.speed().is_some() {
+        dropped.push("the speed control");
+    }
+    if has_failed_tool_result(request) {
+        dropped.push("the tool result error flag");
+    }
+    if flattens_tool_result_content(request, text_or_json_only) {
+        dropped.push("non-text tool result content");
+    }
+    dropped
+}
+
+/// Whether any tool result in the conversation is marked as an error.
+fn has_failed_tool_result(request: &Request) -> bool {
+    request
+        .messages()
+        .iter()
+        .flat_map(Message::content)
+        .any(|part| matches!(part, ContentPart::ToolResult(result) if result.is_error))
+}
 
 /// Marks the cacheable prefix of a conversation for an Anthropic upstream.
 ///
@@ -22,7 +163,7 @@ use crate::types::{
 /// the prompt: marking it would move the system breakpoint every time an agent
 /// loop appends one, and the prefix written on the previous turn would never
 /// be read back.
-pub(super) fn mark_cache_breakpoints(messages: &mut [Value]) {
+fn mark_cache_breakpoints(messages: &mut [Value]) {
     let leading = messages
         .iter()
         .position(|message| role_of(message) != Some("system"))
@@ -76,7 +217,7 @@ fn mark_cached(message: &mut Value) {
 ///
 /// A tool result is its own wire message in this protocol, so one canonical
 /// message that carries several results expands into several wire messages.
-pub(super) fn encode_message(message: &Message) -> Vec<Value> {
+fn encode_message(message: &Message) -> Vec<Value> {
     let results: Vec<Value> = message
         .content()
         .iter()
@@ -256,7 +397,7 @@ fn encode_tool_result(result: &ToolResult) -> Value {
 ///
 /// A custom tool has no representation here and is rejected by
 /// [`OpenAiChatCodec::encode`] before this runs, so it is never downgraded.
-pub(super) fn encode_tool(tool: &ToolDefinition) -> Option<Value> {
+fn encode_tool(tool: &ToolDefinition) -> Option<Value> {
     match &tool.kind {
         ToolDefinitionKind::Function { input_schema } => Some(json!({
             "type": "function",
@@ -270,7 +411,7 @@ pub(super) fn encode_tool(tool: &ToolDefinition) -> Option<Value> {
     }
 }
 
-pub(super) fn encode_tool_choice(choice: &ToolChoice) -> Value {
+fn encode_tool_choice(choice: &ToolChoice) -> Value {
     match choice {
         ToolChoice::Auto => json!("auto"),
         ToolChoice::None => json!("none"),
@@ -279,7 +420,7 @@ pub(super) fn encode_tool_choice(choice: &ToolChoice) -> Value {
     }
 }
 
-pub(super) fn encode_response_format(format: &ResponseFormat) -> Value {
+fn encode_response_format(format: &ResponseFormat) -> Value {
     match format {
         ResponseFormat::Text => json!({ "type": "text" }),
         ResponseFormat::JsonObject => json!({ "type": "json_object" }),
@@ -309,7 +450,7 @@ fn role_name(role: Role) -> &'static str {
 ///
 /// The canonical names are the wire vocabulary: this dialect passes the level
 /// through untranslated, and a skin that knows fewer levels clamps its own.
-pub(super) fn effort_name(effort: ReasoningEffort) -> &'static str {
+fn effort_name(effort: ReasoningEffort) -> &'static str {
     match effort {
         ReasoningEffort::Minimal => "minimal",
         ReasoningEffort::Low => "low",

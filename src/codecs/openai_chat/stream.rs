@@ -36,9 +36,59 @@ pub(super) struct ChatStreamDecoder {
 
 impl StreamDecoder for ChatStreamDecoder {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
-        // A chunk that is not JSON is indistinguishable from mid-stream
-        // corruption, so the failure is retryable like any other garbled
-        // stream.
+        let chunk = self.error_check(&event)?;
+        let mut events = self.start(&chunk);
+        let delta = chunk.pointer("/choices/0/delta").unwrap_or(&Value::Null);
+        events.extend(self.delta_events(delta)?);
+        events.extend(self.chunk_totals(&chunk));
+        Ok(events)
+    }
+
+    fn finish(&mut self) -> Result<Vec<StreamEvent>, Error> {
+        if !self.refusal.is_empty() {
+            return Err(refusal(&self.route, Some(&self.refusal), None));
+        }
+        // Opening a tool block does not mean its arguments finished. Without
+        // a finish reason, EOF may have cut the call at any fragment, including
+        // before its first argument. Never promote that prefix into a call.
+        if self.assembler.has_tool_call() && self.assembler.finish_reason().is_none() {
+            return Err(malformed_stream(
+                &self.route,
+                "the tool call stream ended without a finish reason",
+                None,
+            ));
+        }
+        // Some skins finish tool calls with `stop` instead of `tool_calls`.
+        if let Some(reason) = self.assembler.finish_reason().cloned() {
+            self.assembler
+                .set_finish_reason(promote_tool_finish(reason, self.assembler.has_tool_call()));
+        }
+        Ok(self.assembler.complete())
+    }
+}
+
+impl ChatStreamDecoder {
+    /// Creates the decoder for one stream on `route`.
+    pub(super) fn new(route: &ResolvedRoute) -> Self {
+        Self {
+            assembler: StreamAssembler::new(route),
+            route:     route.clone(),
+            started:   false,
+            details:   ReasoningDetails::default(),
+            slots:     BTreeMap::new(),
+            refusal:   String::new(),
+        }
+    }
+
+    /// Parses one chunk and fails the stream on an error payload.
+    ///
+    /// A chunk that is not JSON is indistinguishable from mid-stream
+    /// corruption, so the failure is retryable like any other garbled stream.
+    /// An error payload ends the stream: the same classifier runs here and on
+    /// the HTTP error path, so one provider code means one thing. An explicit
+    /// `"error": null` member is not an error — a skin spelling out the field
+    /// on success chunks must not fail every stream.
+    fn error_check(&self, event: &SseEvent) -> Result<Value, Error> {
         let chunk: Value = serde_json::from_str(&event.data).map_err(|source| {
             invalid_stream_event(
                 &self.route,
@@ -49,11 +99,6 @@ impl StreamDecoder for ChatStreamDecoder {
                 source,
             )
         })?;
-
-        // An error payload ends the stream. The same classifier runs here and
-        // on the HTTP error path, so one provider code means one thing. An
-        // explicit `"error": null` member is not an error — a skin spelling
-        // out the field on success chunks must not fail every stream.
         if chunk.get("error").is_some_and(|error| !error.is_null()) {
             return Err(provider_error(
                 self.route.provider(),
@@ -62,12 +107,16 @@ impl StreamDecoder for ChatStreamDecoder {
                 None,
             ));
         }
+        Ok(chunk)
+    }
 
-        let mut events = Vec::new();
+    /// Emits the `Started` event on the first chunk and records the id.
+    fn start(&mut self, chunk: &Value) -> Vec<StreamEvent> {
         let id = chunk
             .get("id")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned);
+        let mut events = Vec::new();
         if !self.started {
             self.started = true;
             events.push(self.assembler.started(id.clone()));
@@ -75,8 +124,12 @@ impl StreamDecoder for ChatStreamDecoder {
         if let Some(id) = id {
             self.assembler.set_id(id);
         }
+        events
+    }
 
-        let delta = chunk.pointer("/choices/0/delta").unwrap_or(&Value::Null);
+    /// Translates the first choice's delta into content events.
+    fn delta_events(&mut self, delta: &Value) -> Result<Vec<StreamEvent>, Error> {
+        let mut events = Vec::new();
         // The structured channel is coalesced across chunks, so the block
         // carries the whole array every time a fragment lands on it.
         if let Some(payload) = delta.get(REASONING_DETAILS) {
@@ -119,7 +172,14 @@ impl StreamDecoder for ChatStreamDecoder {
         {
             events.extend(self.decode_tool_call_delta(call)?);
         }
+        Ok(events)
+    }
 
+    /// Records the chunk-level totals: finish reason, cost, and usage.
+    ///
+    /// A later chunk's cost replaces an earlier one; usage arrives in a final
+    /// chunk whose `choices` array is empty.
+    fn chunk_totals(&mut self, chunk: &Value) -> Vec<StreamEvent> {
         if let Some(reason) = chunk
             .pointer("/choices/0/finish_reason")
             .and_then(Value::as_str)
@@ -127,52 +187,14 @@ impl StreamDecoder for ChatStreamDecoder {
             self.assembler
                 .set_finish_reason(finish_reason(Some(reason)));
         }
-        // A later chunk's cost replaces an earlier one; usage arrives in a
-        // final chunk whose `choices` array is empty.
-        if let Some(cost) = provider_cost(&chunk) {
+        if let Some(cost) = provider_cost(chunk) {
             self.assembler.set_cost(cost);
         }
+        let mut events = Vec::new();
         if let Some(usage) = chunk.get("usage").filter(|usage| usage.is_object()) {
             events.push(self.assembler.usage(token_counts(usage)));
         }
-
-        Ok(events)
-    }
-
-    fn finish(&mut self) -> Result<Vec<StreamEvent>, Error> {
-        if !self.refusal.is_empty() {
-            return Err(refusal(&self.route, Some(&self.refusal), None));
-        }
-        // Opening a tool block does not mean its arguments finished. Without
-        // a finish reason, EOF may have cut the call at any fragment, including
-        // before its first argument. Never promote that prefix into a call.
-        if self.assembler.has_tool_call() && self.assembler.finish_reason().is_none() {
-            return Err(malformed_stream(
-                &self.route,
-                "the tool call stream ended without a finish reason",
-                None,
-            ));
-        }
-        // Some skins finish tool calls with `stop` instead of `tool_calls`.
-        if let Some(reason) = self.assembler.finish_reason().cloned() {
-            self.assembler
-                .set_finish_reason(promote_tool_finish(reason, self.assembler.has_tool_call()));
-        }
-        Ok(self.assembler.complete())
-    }
-}
-
-impl ChatStreamDecoder {
-    /// Creates the decoder for one stream on `route`.
-    pub(super) fn new(route: &ResolvedRoute) -> Self {
-        Self {
-            assembler: StreamAssembler::new(route),
-            route:     route.clone(),
-            started:   false,
-            details:   ReasoningDetails::default(),
-            slots:     BTreeMap::new(),
-            refusal:   String::new(),
-        }
+        events
     }
 
     /// Applies one `tool_calls` fragment and returns the events it produced.

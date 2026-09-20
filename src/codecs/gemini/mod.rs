@@ -7,14 +7,11 @@ mod stream;
 mod tests;
 
 use decode::{decode_candidate, no_candidates, response_nonce, token_counts};
-use encode::{count_tokens_request, generate_body, model_endpoint};
+use encode::{count_tokens_request, dropped_controls, generate_body, model_endpoint};
 use reqwest::Method;
 use serde_json::Value;
 use stream::GeminiStreamDecoder;
 
-use super::content::{
-    GEMINI_SIGNATURES, flattens_system_content, flattens_tool_result_content, text_or_json_only,
-};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
@@ -50,40 +47,8 @@ impl Codec for GeminiGenerateCodec {
         // decodes on its own even when a proxy drops the blank line between
         // events.
         .with_data_line_framing();
-        if !call.request().metadata().is_empty() {
-            encoded = encoded.unsupported_control("request metadata");
-        }
-        // The system field of this protocol takes text only, so anything else
-        // a system message carries is dropped. The text still reaches the
-        // model, so it is reported rather than refused.
-        if flattens_system_content(call.request()) {
-            encoded = encoded.unsupported_control("non-text system content");
-        }
-        // An all-JSON result rides `functionResponse.response` natively, so
-        // only a mix that must flatten is reported.
-        if flattens_tool_result_content(call.request(), text_or_json_only) {
-            encoded = encoded.unsupported_control("non-text tool result content");
-        }
-        // This protocol has no latency tier, so the control is reported rather
-        // than guessed at.
-        if call.request().speed().is_some() {
-            encoded = encoded.unsupported_control("the speed control");
-        }
-        // Gemini 3 takes named thinking levels. Older and passthrough routes
-        // do not claim that dialect, so they keep the unsupported warning.
-        if call.request().reasoning_effort().is_some()
-            && !call
-                .route()
-                .model()
-                .protocol_options()
-                .reasoning_effort_levels
-        {
-            encoded = encoded.unsupported_control("the reasoning effort control");
-        }
-        // A skipped foreign-signed reasoning part never reaches the model,
-        // so the skip is reported; see `ReasoningContent::has_foreign_signature`.
-        if call.request().carries_foreign_signature(GEMINI_SIGNATURES) {
-            encoded = encoded.unsupported_control("reasoning signed by another provider");
+        for control in dropped_controls(call) {
+            encoded = encoded.unsupported_control(control);
         }
         Ok(encoded)
     }

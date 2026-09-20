@@ -4,54 +4,272 @@ use std::collections::BTreeSet;
 
 use serde_json::{Map, Value, json};
 
-use super::NAMESPACE;
-use crate::codecs::content::{data_url, plain_text, tool_result_text};
+use super::{NAMESPACE, REASONING_KIND};
+use crate::adapter::ResolvedCall;
+use crate::codecs::content::{
+    data_url, flattens_system_content, flattens_tool_result_content, plain_text, text_or_json_only,
+    tool_result_text,
+};
+use crate::codecs::options::sampling;
 use crate::types::{
     ContentPart, MediaSource, Message, Request, ResponseFormat, Role, Speed, ToolCall,
     ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
 };
 
-/// The fields the Codex deployment and the public API encode identically.
-pub(super) fn shared_body(request: &Request) -> Map<String, Value> {
-    let mut body = Map::new();
-
-    if let Some(effort) = request.reasoning_effort() {
-        let effort = serde_json::to_value(effort).unwrap_or(Value::Null);
-        body.insert("reasoning".to_owned(), json!({ "effort": effort }));
+/// The part this protocol cannot carry, or `None` for one it can.
+///
+/// This protocol carries no audio input. Refusing is deliberate: substituting
+/// a text placeholder would put words the caller never wrote into the prompt,
+/// which is worse than a clear failure.
+///
+/// An inline document must carry a name: the live API requires `filename`
+/// beside `file_data` (verified 2026-08-30, a 400 names the missing
+/// parameter), and inventing one would put a name the caller never wrote in
+/// front of the model. URL documents need no name — `file_url` stands alone.
+pub(super) fn unencodable_part(part: &ContentPart) -> Option<&'static str> {
+    match part {
+        ContentPart::Audio(_) => Some("audio content"),
+        ContentPart::Document(document)
+            if document.name.is_none() && matches!(document.source, MediaSource::Base64 { .. }) =>
+        {
+            Some("an inline document without a file name")
+        }
+        _ => None,
     }
-    if let Some(speed) = request.speed() {
-        let tier = match speed {
+}
+
+/// The portable controls this request carries that the body did not encode.
+///
+/// Each is reported as an `unsupported_control` warning: the request still
+/// reaches the model, but not as the caller wrote it. `codex` selects the
+/// Codex deployment's rules.
+pub(super) fn dropped_controls(request: &Request, codex: bool) -> Vec<&'static str> {
+    let mut dropped = Vec::new();
+    if replays_reasoning_text_without_an_item(request) {
+        dropped.push("replaying reasoning text");
+    }
+    // An all-JSON result travels as the bare value, so only a mix that must
+    // flatten is reported.
+    if flattens_tool_result_content(request, text_or_json_only) {
+        dropped.push("non-text tool result content");
+    }
+    if flattens_instruction_content(request, codex) {
+        dropped.push("non-text system content");
+    }
+    if codex {
+        dropped.extend(codex_sampling_controls(request));
+    }
+    // `/v1/responses` takes no stop parameter at all: the live API answers
+    // one with a 400 "Unknown parameter: 'stop'" on every model, reasoning
+    // or not (probed against gpt-5.6-luna, gpt-5.4, and gpt-4o on
+    // 2026-08-30). The sequences are dropped with a warning rather than
+    // sent or refused; a Responses-compatible skin that does take a stop
+    // member can still receive one through raw provider options.
+    if !request.stop_sequences().is_empty() {
+        dropped.push("stop sequences");
+    }
+    dropped
+}
+
+/// Whether a message carries reasoning text with no opaque item to replay it.
+///
+/// Reasoning text has no input item in this protocol; only an
+/// `openai.reasoning` opaque part replays. Dropping it is correct, but it must
+/// not be silent — unless an opaque reasoning item sits in the same message,
+/// because this codec's own decoder emits the readable part BESIDE the opaque
+/// item that replays the same text, and warning on the codec's own round trip
+/// would claim a loss on every turn.
+fn replays_reasoning_text_without_an_item(request: &Request) -> bool {
+    request.messages().iter().any(|message| {
+        let parts = message.content();
+        parts
+            .iter()
+            .any(|part| matches!(part, ContentPart::Reasoning(_)))
+            && !parts.iter().any(
+                |part| matches!(part, ContentPart::Opaque { kind, .. } if kind == REASONING_KIND),
+            )
+    })
+}
+
+/// Whether a system or developer message carries content the deployment
+/// drops.
+///
+/// Codex hoists system messages into `instructions`, which is a string, so
+/// anything but text in one is dropped. Standard mode keeps them as input
+/// items, but a system or developer item takes `input_text` and nothing
+/// else, so media in one is dropped there too — structured JSON still
+/// travels as text. Either way the text still reaches the model: a warning,
+/// not a refusal.
+fn flattens_instruction_content(request: &Request, codex: bool) -> bool {
+    if codex {
+        return flattens_system_content(request);
+    }
+    request
+        .messages()
+        .iter()
+        .filter(|message| message.is_instruction())
+        .flat_map(Message::content)
+        .any(|part| matches!(part, ContentPart::Image(_) | ContentPart::Document(_)))
+}
+
+/// The sampling controls the Codex deployment rejects and this codec drops.
+fn codex_sampling_controls(request: &Request) -> Vec<&'static str> {
+    [
+        (request.temperature().is_some(), "temperature in Codex mode"),
+        (request.top_p().is_some(), "top_p in Codex mode"),
+        (
+            request.max_output_tokens().is_some(),
+            "max_output_tokens in Codex mode",
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(present, control)| present.then_some(control))
+    .collect()
+}
+
+/// The typed fields of a `/v1/responses` body, one method per field.
+///
+/// Raw provider options are merged over the built body by the caller, so
+/// every field here is overridable. `codex` selects the Codex deployment's
+/// field set: it takes the system prompt as `instructions` rather than as
+/// input items and rejects the sampling controls.
+pub(super) struct ResponsesBody<'a> {
+    codex:  bool,
+    call:   &'a ResolvedCall,
+    stream: bool,
+}
+
+impl<'a> ResponsesBody<'a> {
+    pub(super) fn new(codex: bool, call: &'a ResolvedCall, stream: bool) -> Self {
+        Self {
+            codex,
+            call,
+            stream,
+        }
+    }
+
+    fn request(&self) -> &'a Request {
+        self.call.request()
+    }
+
+    /// Builds the body in wire order.
+    pub(super) fn build(&self) -> Map<String, Value> {
+        let request = self.request();
+        let mut body = Map::new();
+        body.insert("model".to_owned(), self.model());
+        if let Some(instructions) = self.instructions() {
+            body.insert("instructions".to_owned(), instructions);
+        }
+        body.insert("input".to_owned(), self.input());
+        body.insert("stream".to_owned(), Value::Bool(self.stream));
+        // This client keeps no server-side conversation state. Encrypted
+        // reasoning is asked for instead, so a reasoning item can be replayed
+        // from the transcript on the next turn.
+        body.insert("store".to_owned(), Value::Bool(false));
+        // Requested unconditionally, as the reference client did. Gating it
+        // on the catalog's `reasoning` flag silently breaks multi-turn tool
+        // calling for an overlay entry that omits the flag on a reasoning
+        // model, and a model without reasoning ignores the include.
+        body.insert("include".to_owned(), json!(["reasoning.encrypted_content"]));
+        body.extend(self.sampling());
+        if let Some(reasoning) = self.reasoning() {
+            body.insert("reasoning".to_owned(), reasoning);
+        }
+        if let Some(tier) = self.service_tier() {
+            body.insert("service_tier".to_owned(), tier);
+        }
+        if !request.tools().is_empty() {
+            body.insert("tools".to_owned(), self.tools());
+        }
+        if let Some(choice) = request.tool_choice() {
+            body.insert("tool_choice".to_owned(), tool_choice(choice));
+        }
+        if let Some(format) = request.response_format() {
+            body.insert(
+                "text".to_owned(),
+                json!({ "format": response_format(format) }),
+            );
+        }
+        if let Some(metadata) = self.metadata() {
+            body.insert("metadata".to_owned(), metadata);
+        }
+        body
+    }
+
+    fn model(&self) -> Value {
+        Value::String(self.call.route().api_model().to_owned())
+    }
+
+    /// Codex takes the system prompt as `instructions` and rejects system
+    /// input items, so those messages are hoisted out of the input.
+    fn instructions(&self) -> Option<Value> {
+        self.codex
+            .then(|| Value::String(instructions(self.request())))
+    }
+
+    fn input(&self) -> Value {
+        let request = self.request();
+        let custom = CustomTools::new(request);
+        Value::Array(
+            request
+                .messages()
+                .iter()
+                .filter(|message| !self.codex || !message.is_instruction())
+                .flat_map(|message| input_items(message, &custom))
+                .collect(),
+        )
+    }
+
+    /// The sampling controls, which the Codex deployment rejects.
+    fn sampling(&self) -> Map<String, Value> {
+        let request = self.request();
+        let mut fields = Map::new();
+        if self.codex {
+            return fields;
+        }
+        if let Some(tokens) = request.max_output_tokens() {
+            fields.insert("max_output_tokens".to_owned(), tokens.into());
+        }
+        if let Some(temperature) = request.temperature() {
+            fields.insert("temperature".to_owned(), sampling(temperature));
+        }
+        if let Some(top_p) = request.top_p() {
+            fields.insert("top_p".to_owned(), sampling(top_p));
+        }
+        fields
+    }
+
+    fn reasoning(&self) -> Option<Value> {
+        let effort = self.request().reasoning_effort()?;
+        let effort = serde_json::to_value(effort).unwrap_or(Value::Null);
+        Some(json!({ "effort": effort }))
+    }
+
+    fn service_tier(&self) -> Option<Value> {
+        let tier = match self.request().speed()? {
             Speed::Fast => "priority",
             Speed::Balanced => "auto",
             Speed::Economical => "flex",
         };
-        body.insert("service_tier".to_owned(), Value::String(tier.to_owned()));
-    }
-    if !request.tools().is_empty() {
-        body.insert(
-            "tools".to_owned(),
-            Value::Array(request.tools().iter().map(tool_definition).collect()),
-        );
-    }
-    if let Some(choice) = request.tool_choice() {
-        body.insert("tool_choice".to_owned(), tool_choice(choice));
-    }
-    if let Some(format) = request.response_format() {
-        body.insert(
-            "text".to_owned(),
-            json!({ "format": response_format(format) }),
-        );
-    }
-    if !request.metadata().is_empty() {
-        let metadata = request
-            .metadata()
-            .iter()
-            .map(|(key, value)| (key.clone(), Value::String(value.clone())))
-            .collect::<Map<String, Value>>();
-        body.insert("metadata".to_owned(), Value::Object(metadata));
+        Some(Value::String(tier.to_owned()))
     }
 
-    body
+    fn tools(&self) -> Value {
+        Value::Array(self.request().tools().iter().map(tool_definition).collect())
+    }
+
+    fn metadata(&self) -> Option<Value> {
+        let metadata = self.request().metadata();
+        if metadata.is_empty() {
+            return None;
+        }
+        Some(Value::Object(
+            metadata
+                .iter()
+                .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+                .collect(),
+        ))
+    }
 }
 
 /// The joined text of every system and developer message.
@@ -60,7 +278,7 @@ pub(super) fn shared_body(request: &Request) -> Map<String, Value> {
 /// text is only whitespace is kept here and dropped there. The reference
 /// client sent it, and no probe has shown Codex rejects it, so the behavior
 /// is retained and pinned by `codex_mode_keeps_a_whitespace_only_instruction`.
-pub(super) fn instructions(request: &Request) -> String {
+fn instructions(request: &Request) -> String {
     request
         .messages()
         .iter()
@@ -77,7 +295,7 @@ pub(super) fn instructions(request: &Request) -> String {
 /// `function_call_output`, and a result carries no kind of its own. The kind is
 /// recovered from the call it answers, from the tool it names, or from the
 /// message label the caller set.
-pub(super) struct CustomTools {
+struct CustomTools {
     /// Names declared as custom tools by this request.
     names: BTreeSet<String>,
     /// Call ids of custom tool calls earlier in this request.
@@ -85,7 +303,7 @@ pub(super) struct CustomTools {
 }
 
 impl CustomTools {
-    pub(super) fn new(request: &Request) -> Self {
+    fn new(request: &Request) -> Self {
         let names = request
             .tools()
             .iter()
@@ -125,7 +343,7 @@ impl CustomTools {
 /// function_call]` in any other order breaks the pairing. The parts that
 /// belong inside a single message item — text, JSON, images, documents — are
 /// collected into one item emitted where the first of them appeared.
-pub(super) fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
+fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value> {
     let has_result = message
         .content()
         .iter()
@@ -387,7 +605,7 @@ fn tool_definition(tool: &ToolDefinition) -> Value {
 }
 
 /// Encodes the tool selection mode.
-pub(super) fn tool_choice(choice: &ToolChoice) -> Value {
+fn tool_choice(choice: &ToolChoice) -> Value {
     match choice {
         ToolChoice::Auto => json!("auto"),
         ToolChoice::None => json!("none"),

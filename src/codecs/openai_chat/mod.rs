@@ -24,26 +24,20 @@ use decode::{
     decode_failure, decode_tool_call, message_text, no_choices, provider_cost, reasoning_text,
     token_counts,
 };
-use encode::{
-    effort_name, encode_message, encode_response_format, encode_tool, encode_tool_choice,
-    mark_cache_breakpoints,
-};
+use encode::{body, dropped_controls, preflight};
 use reasoning_details::complete_details;
 use reqwest::Method;
-use serde_json::{Map, Value, json};
+use serde_json::Value;
 use stream::ChatStreamDecoder;
 
-use super::content::{
-    finish_reason, flattens_tool_result_content, promote_tool_finish, reject_unencodable,
-    text_or_json_only,
-};
-use super::errors::{refusal, unsupported_capability};
-use super::options::{cache_routing_key, endpoint, merge_options, sampling, wire_options};
+use super::content::{finish_reason, promote_tool_finish};
+use super::errors::refusal;
+use super::options::{cache_routing_key, endpoint, merge_options, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{ContentPart, Error, Message, ReasoningContent, Response, ToolDefinition};
+use crate::types::{ContentPart, Error, ReasoningContent, Response};
 
 /// The prefix of an opaque content kind this dialect claims.
 ///
@@ -86,95 +80,18 @@ impl OpenAiChatCodec {
 
 impl Codec for OpenAiChatCodec {
     fn encode(&self, call: &ResolvedCall, stream: bool) -> Result<EncodedRequest, Error> {
-        let request = call.request();
-        let route = call.route();
-        if request.tools().iter().any(ToolDefinition::is_custom) {
-            return Err(unsupported_capability(route, "custom tools"));
-        }
-        // This dialect encodes neither audio nor documents. Dropping them
-        // silently would return a successful response for a prompt that never
-        // carried the caller's attachment.
-        reject_unencodable(route, request, |part| match part {
-            ContentPart::Audio(_) => Some("audio content"),
-            ContentPart::Document(_) => Some("document content"),
-            _ => None,
-        })?;
-
+        preflight(call)?;
         let (options, controls) = wire_options(call);
-        let mut body = Map::new();
-        body.insert("model".to_owned(), route.api_model().into());
-
-        let mut messages: Vec<Value> = request.messages().iter().flat_map(encode_message).collect();
-        // An aggregator fronting an Anthropic model forwards the breakpoints
-        // upstream, and the catalog opts such a model in explicitly. A skin
-        // that caches automatically (DeepSeek, Moonshot) declares `caching`
-        // for its pricing without `cache_breakpoints`, and rewriting its
-        // string content into part arrays could get the request rejected. A
-        // caller can also turn breakpoints off with the `auto_cache` control.
-        let capabilities = route.model().capabilities();
-        if controls.auto_cache
-            && capabilities.caching().is_supported()
-            && route.model().protocol_options().cache_breakpoints
-        {
-            mark_cache_breakpoints(&mut messages);
-        }
-        body.insert("messages".to_owned(), Value::Array(messages));
-
-        // A blocking request omits the `stream` member entirely, matching the
-        // reference encoder — a strict skin may reject an explicit
-        // `stream: false`.
-        if stream {
-            body.insert("stream".to_owned(), true.into());
-            // Without this the compatible skins never send a usage chunk, and
-            // a streamed response would report no tokens at all.
-            body.insert(
-                "stream_options".to_owned(),
-                json!({ "include_usage": true }),
-            );
-        }
-        if let Some(max_tokens) = request.max_output_tokens() {
-            body.insert("max_tokens".to_owned(), max_tokens.into());
-        }
-        if let Some(temperature) = request.temperature() {
-            body.insert("temperature".to_owned(), sampling(temperature));
-        }
-        if let Some(top_p) = request.top_p() {
-            body.insert("top_p".to_owned(), sampling(top_p));
-        }
-        if let Some(effort) = request.reasoning_effort() {
-            body.insert("reasoning_effort".to_owned(), effort_name(effort).into());
-        }
-        if !request.stop_sequences().is_empty() {
-            let stop = request
-                .stop_sequences()
-                .iter()
-                .map(|sequence| Value::from(sequence.as_str()))
-                .collect();
-            body.insert("stop".to_owned(), Value::Array(stop));
-        }
-        if !request.tools().is_empty() {
-            let tools: Vec<Value> = request.tools().iter().filter_map(encode_tool).collect();
-            body.insert("tools".to_owned(), Value::Array(tools));
-        }
-        if let Some(choice) = request.tool_choice() {
-            body.insert("tool_choice".to_owned(), encode_tool_choice(choice));
-        }
-        if let Some(format) = request.response_format() {
-            body.insert("response_format".to_owned(), encode_response_format(format));
-        }
-
+        let mut body = body(call, controls.auto_cache, stream);
         if let Some(key) = cache_routing_key(call, controls) {
             body.insert("prompt_cache_key".to_owned(), key.into());
         }
-
-        // Raw provider options are merged last so an application can override
-        // anything encoded above.
         merge_options(&mut body, options);
 
         let mut encoded = EncodedRequest::new(
             Method::POST,
             endpoint(
-                route.provider().base_url(),
+                call.route().provider().base_url(),
                 if self.base_url_is_api_root {
                     "/chat/completions"
                 } else {
@@ -187,33 +104,8 @@ impl Codec for OpenAiChatCodec {
         // skins and proxies separate them with single newlines rather than
         // the blank line the SSE specification requires.
         .with_data_line_framing();
-        // Only OpenAI itself documents `metadata` on this endpoint, and a
-        // strict skin rejects the whole request over one unknown field. The
-        // tags are dropped rather than risking that, and a caller who knows
-        // their skin accepts them can send them as a raw provider option.
-        if !request.metadata().is_empty() {
-            encoded = encoded.unsupported_control("request metadata");
-        }
-        // Chat Completions has no speed control. The request is served and
-        // billed at standard speed, so the dropped control is reported.
-        if request.speed().is_some() {
-            encoded = encoded.unsupported_control("the speed control");
-        }
-        // A `tool` message has no error marker in this protocol, so a failed
-        // tool result reaches the model looking like a successful one. The
-        // content still arrives, so this is a warning rather than a refusal.
-        if request
-            .messages()
-            .iter()
-            .flat_map(Message::content)
-            .any(|part| matches!(part, ContentPart::ToolResult(result) if result.is_error))
-        {
-            encoded = encoded.unsupported_control("the tool result error flag");
-        }
-        // An all-JSON result travels as the bare value, so only a mix that
-        // must flatten is reported.
-        if flattens_tool_result_content(request, text_or_json_only) {
-            encoded = encoded.unsupported_control("non-text tool result content");
+        for control in dropped_controls(call.request()) {
+            encoded = encoded.unsupported_control(control);
         }
         Ok(encoded)
     }

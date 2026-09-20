@@ -13,24 +13,20 @@ mod tests;
 
 use decode::{decode_block, missing_response_field, token_counts};
 use encode::{
-    beta_headers, count_tokens_request, forces_tool_use, headers, json_schema, message_body,
-    reject_custom_tools,
+    beta_headers, count_tokens_request, dropped_controls, headers, message_body, preflight,
 };
 use reqwest::Method;
 use serde_json::Value;
 use stream::AnthropicStreamDecoder;
 
-use super::content::{
-    ANTHROPIC_SIGNATURES, finish_reason, flattens_system_content, flattens_tool_result_content,
-    reject_audio,
-};
+use super::content::finish_reason;
 use super::errors::{malformed_success, refusal};
 use super::options::{endpoint, merge_options, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{ContentPart, Error, ErrorKind, Response};
+use crate::types::{Error, ErrorKind, Response};
 
 /// The opaque-part namespace this codec owns.
 ///
@@ -98,9 +94,7 @@ pub(crate) struct AnthropicMessagesCodec;
 
 impl Codec for AnthropicMessagesCodec {
     fn encode(&self, call: &ResolvedCall, stream: bool) -> Result<EncodedRequest, Error> {
-        reject_custom_tools(call)?;
-        reject_audio(call.route(), call.request())?;
-
+        preflight(call)?;
         let request = call.request();
         let (mut options, controls) = wire_options(call);
         let betas = beta_headers(&mut options, request.speed());
@@ -116,44 +110,8 @@ impl Codec for AnthropicMessagesCodec {
         )
         .with_headers(headers(&betas))
         .with_applied_speed(request.speed());
-        // The system field of this protocol takes text only, so anything else
-        // a system message carries is dropped. The text still reaches the
-        // model, so it is reported rather than refused.
-        if flattens_system_content(request) {
-            encoded = encoded.unsupported_control("non-text system content");
-        }
-        if flattens_tool_result_content(request, |parts| {
-            parts.iter().all(|part| {
-                matches!(
-                    part,
-                    ContentPart::Text { .. } | ContentPart::Json { .. } | ContentPart::Image(_)
-                )
-            })
-        }) {
-            encoded = encoded.unsupported_control("non-text tool result content");
-        }
-        // A skipped foreign-signed reasoning part never reaches the model,
-        // so the skip is reported; see `ReasoningContent::has_foreign_signature`.
-        if request.carries_foreign_signature(ANTHROPIC_SIGNATURES) {
-            encoded = encoded.unsupported_control("reasoning signed by another provider");
-        }
-        // A forced tool choice drops both output controls; see
-        // `forces_tool_use`. Neither reaches the model, so both are reported.
-        // A raw `thinking` option stays in the body — raw options are
-        // authoritative — but Anthropic rejects the pair, so it is reported
-        // too.
-        if forces_tool_use(request.tool_choice()) {
-            if request.reasoning_effort().is_some() {
-                encoded = encoded.unsupported_control("reasoning effort with a forced tool choice");
-            }
-            if request.response_format().and_then(json_schema).is_some() {
-                encoded =
-                    encoded.unsupported_control("structured output with a forced tool choice");
-            }
-            if raw_thinking {
-                encoded = encoded
-                    .unsupported_control("a thinking provider option with a forced tool choice");
-            }
+        for control in dropped_controls(request, raw_thinking) {
+            encoded = encoded.unsupported_control(control);
         }
         Ok(encoded)
     }

@@ -7,7 +7,10 @@ use serde_json::{Map, Value, json};
 
 use super::NAMESPACE;
 use crate::adapter::ResolvedCall;
-use crate::codecs::content::{GEMINI_SIGNATURES, Turns, plain_text, system_text};
+use crate::codecs::content::{
+    GEMINI_SIGNATURES, Turns, flattens_system_content, flattens_tool_result_content, plain_text,
+    system_text, text_or_json_only,
+};
 use crate::codecs::errors::unsupported_capability;
 use crate::codecs::options::{endpoint, merge_options, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
@@ -65,7 +68,90 @@ pub(super) fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, E
     let request = call.request();
     let route = call.route();
     let (options, _) = wire_options(call);
+    let declarations = function_declarations(request, route)?;
 
+    let mut body = Map::new();
+    let system = system_text(request.messages());
+    if !system.is_empty() {
+        body.insert(
+            "systemInstruction".to_owned(),
+            json!({ "parts": [{ "text": system }] }),
+        );
+    }
+    body.insert("contents".to_owned(), Value::Array(contents(request)));
+    let generation = generation_config(request, route);
+    if !generation.is_empty() {
+        body.insert("generationConfig".to_owned(), Value::Object(generation));
+    }
+    if !declarations.is_empty() {
+        body.insert(
+            "tools".to_owned(),
+            json!([{ "functionDeclarations": declarations }]),
+        );
+    }
+    if let Some(choice) = request.tool_choice() {
+        body.insert("toolConfig".to_owned(), encode_tool_choice(choice));
+    }
+
+    // Request metadata has no field in this protocol, so it is never sent.
+    // `encode` records an `unsupported_control` warning in its place.
+    merge_options(&mut body, options);
+    apply_default_safety_settings(&mut body);
+    Ok(body)
+}
+
+/// The portable controls this request carries that the body did not encode.
+///
+/// Each is reported as an `unsupported_control` warning: the request still
+/// reaches the model, but not as the caller wrote it.
+///
+/// - Request metadata has no field in this protocol.
+/// - The `systemInstruction` field takes text only.
+/// - An all-JSON tool result rides `functionResponse.response` natively, so
+///   only a mix that must flatten is reported.
+/// - This protocol has no latency tier, so the speed control is reported rather
+///   than guessed at.
+/// - Gemini 3 takes named thinking levels. Older and passthrough routes do not
+///   claim that dialect, so their effort is reported.
+/// - A reasoning part signed by another provider is skipped; see
+///   `ReasoningContent::has_foreign_signature`.
+pub(super) fn dropped_controls(call: &ResolvedCall) -> Vec<&'static str> {
+    let request = call.request();
+    let mut dropped = Vec::new();
+    if !request.metadata().is_empty() {
+        dropped.push("request metadata");
+    }
+    if flattens_system_content(request) {
+        dropped.push("non-text system content");
+    }
+    if flattens_tool_result_content(request, text_or_json_only) {
+        dropped.push("non-text tool result content");
+    }
+    if request.speed().is_some() {
+        dropped.push("the speed control");
+    }
+    if request.reasoning_effort().is_some() && !takes_thinking_levels(call.route()) {
+        dropped.push("the reasoning effort control");
+    }
+    if request.carries_foreign_signature(GEMINI_SIGNATURES) {
+        dropped.push("reasoning signed by another provider");
+    }
+    dropped
+}
+
+/// Whether the route's model takes named `thinkingLevel` values.
+fn takes_thinking_levels(route: &ResolvedRoute) -> bool {
+    route.model().protocol_options().reasoning_effort_levels
+}
+
+/// The `functionDeclarations` for the request's tools.
+///
+/// # Errors
+///
+/// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
+/// for a custom tool. This protocol has function tools only, and a custom
+/// tool is never downgraded.
+fn function_declarations(request: &Request, route: &ResolvedRoute) -> Result<Vec<Value>, Error> {
     let mut declarations = Vec::new();
     for tool in request.tools() {
         let ToolDefinitionKind::Function { input_schema } = &tool.kind else {
@@ -77,20 +163,17 @@ pub(super) fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, E
             "parametersJsonSchema": input_schema,
         }));
     }
+    Ok(declarations)
+}
 
-    let mut body = Map::new();
-
-    let system = system_text(request.messages());
-    if !system.is_empty() {
-        body.insert(
-            "systemInstruction".to_owned(),
-            json!({ "parts": [{ "text": system }] }),
-        );
-    }
-
+/// The `contents` array: every conversational turn, in wire order.
+///
+/// System and developer messages are excluded; they became the
+/// `systemInstruction`. Consecutive same-role turns merge; see `Turns`.
+/// Gemini's documented shape puts every `functionResponse` for a turn in
+/// one `user` entry.
+fn contents(request: &Request) -> Vec<Value> {
     let names = tool_call_names(request);
-    // Consecutive same-role turns merge; see `Turns`. Gemini's documented
-    // shape puts every `functionResponse` for a turn in one `user` entry.
     let mut contents = Turns::default();
     for message in request.messages() {
         if message.is_instruction() {
@@ -108,11 +191,12 @@ pub(super) fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, E
         };
         contents.push(role, parts);
     }
-    body.insert(
-        "contents".to_owned(),
-        Value::Array(contents.into_values("parts")),
-    );
+    contents.into_values("parts")
+}
 
+/// The `generationConfig` object: sampling, limits, thinking, and output
+/// format.
+fn generation_config(request: &Request, route: &ResolvedRoute) -> Map<String, Value> {
     let mut generation = Map::new();
     if let Some(max_tokens) = request.max_output_tokens() {
         generation.insert("maxOutputTokens".to_owned(), max_tokens.into());
@@ -136,7 +220,7 @@ pub(super) fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, E
         );
     }
     if let Some(effort) = request.reasoning_effort()
-        && route.model().protocol_options().reasoning_effort_levels
+        && takes_thinking_levels(route)
     {
         generation.insert(
             "thinkingConfig".to_owned(),
@@ -156,25 +240,7 @@ pub(super) fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, E
         }
         Some(ResponseFormat::Text) | None => {}
     }
-    if !generation.is_empty() {
-        body.insert("generationConfig".to_owned(), Value::Object(generation));
-    }
-
-    if !declarations.is_empty() {
-        body.insert(
-            "tools".to_owned(),
-            json!([{ "functionDeclarations": declarations }]),
-        );
-    }
-    if let Some(choice) = request.tool_choice() {
-        body.insert("toolConfig".to_owned(), encode_tool_choice(choice));
-    }
-
-    // Request metadata has no field in this protocol, so it is never sent.
-    // `encode` records an `unsupported_control` warning in its place.
-    merge_options(&mut body, options);
-    apply_default_safety_settings(&mut body);
-    Ok(body)
+    generation
 }
 
 /// Maps normalized effort onto the levels shared by the Gemini 3 roster.

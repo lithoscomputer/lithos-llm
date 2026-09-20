@@ -9,14 +9,17 @@ use super::{
     JSON_OBJECT_INSTRUCTION, MIN_THINKING_BUDGET, NAMESPACE,
 };
 use crate::adapter::ResolvedCall;
-use crate::codecs::content::{ANTHROPIC_SIGNATURES, Turns, plain_text, reject_audio, system_text};
+use crate::codecs::content::{
+    ANTHROPIC_SIGNATURES, Turns, flattens_system_content, flattens_tool_result_content, plain_text,
+    reject_audio, system_text,
+};
 use crate::codecs::errors::unsupported_capability;
 use crate::codecs::options::{endpoint, merge_options, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
-    ContentPart, Error, MediaSource, Message, ReasoningEffort, ResponseFormat, Role, Speed,
-    ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
+    ContentPart, Error, MediaSource, Message, ReasoningEffort, Request, ResponseFormat, Role,
+    Speed, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
 };
 
 /// The dialect headers both endpoints send.
@@ -67,7 +70,7 @@ pub(super) fn beta_headers(options: &mut Map<String, Value>, speed: Option<Speed
 /// what the model is asked to produce, so the call fails here rather than
 /// silently downgrading. Both a custom tool definition and a replayed custom
 /// tool call in the conversation are rejected.
-pub(super) fn reject_custom_tools(call: &ResolvedCall) -> Result<(), Error> {
+fn reject_custom_tools(call: &ResolvedCall) -> Result<(), Error> {
     let request = call.request();
     let defined = request.tools().iter().any(ToolDefinition::is_custom);
     let called = request
@@ -84,12 +87,74 @@ pub(super) fn reject_custom_tools(call: &ResolvedCall) -> Result<(), Error> {
     Ok(())
 }
 
+/// Refuses what neither endpoint of this protocol can carry.
+///
+/// Generation and counting share one pre-flight: a request the provider would
+/// not accept must not come back with a token count either.
+///
+/// # Errors
+///
+/// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
+/// for a custom tool, a replayed custom tool call, or audio content.
+pub(super) fn preflight(call: &ResolvedCall) -> Result<(), Error> {
+    reject_custom_tools(call)?;
+    reject_audio(call.route(), call.request())
+}
+
+/// The portable controls this request carries that the body did not encode.
+///
+/// Each is reported as an `unsupported_control` warning: the request still
+/// reaches the model, but not as the caller wrote it. `raw_thinking` says a
+/// raw `thinking` provider option is in the body.
+///
+/// - The `system` field takes text only, so anything else a system message
+///   carries is dropped; the text still arrives.
+/// - A tool result carries text, JSON, and images as blocks; anything else
+///   flattens to text.
+/// - A reasoning part signed by another provider is skipped; see
+///   `ReasoningContent::has_foreign_signature`.
+/// - A forced tool choice drops both output controls; see `forces_tool_use`. A
+///   raw `thinking` option stays in the body — raw options are authoritative —
+///   but Anthropic rejects the pair, so it is reported too.
+pub(super) fn dropped_controls(request: &Request, raw_thinking: bool) -> Vec<&'static str> {
+    let mut dropped = Vec::new();
+    if flattens_system_content(request) {
+        dropped.push("non-text system content");
+    }
+    if flattens_tool_result_content(request, carries_in_tool_result) {
+        dropped.push("non-text tool result content");
+    }
+    if request.carries_foreign_signature(ANTHROPIC_SIGNATURES) {
+        dropped.push("reasoning signed by another provider");
+    }
+    if forces_tool_use(request.tool_choice()) {
+        if request.reasoning_effort().is_some() {
+            dropped.push("reasoning effort with a forced tool choice");
+        }
+        if request.response_format().and_then(json_schema).is_some() {
+            dropped.push("structured output with a forced tool choice");
+        }
+        if raw_thinking {
+            dropped.push("a thinking provider option with a forced tool choice");
+        }
+    }
+    dropped
+}
+
+/// Whether a tool result's parts all have a block of their own; see
+/// [`tool_result_content`].
+fn carries_in_tool_result(parts: &[ContentPart]) -> bool {
+    parts.iter().all(|part| {
+        matches!(
+            part,
+            ContentPart::Text { .. } | ContentPart::Json { .. } | ContentPart::Image(_)
+        )
+    })
+}
+
 /// Encodes the count-token request, which narrows the generation body.
 pub(super) fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest, Error> {
-    reject_custom_tools(call)?;
-    // Counting refuses exactly what completion refuses. A request the provider
-    // would not accept must not come back with a token count.
-    reject_audio(call.route(), call.request())?;
+    preflight(call)?;
 
     let (mut options, controls) = wire_options(call);
     // Counting sends the same betas generation sends: a beta can change what
@@ -257,7 +322,7 @@ pub(super) fn output_config(call: &ResolvedCall) -> Map<String, Value> {
 /// `JsonObject` names no schema: it becomes the system-text instruction
 /// [`JSON_OBJECT_INSTRUCTION`] instead, because no schema in Anthropic's
 /// structured-output subset says "any JSON object".
-pub(super) fn json_schema(format: &ResponseFormat) -> Option<Value> {
+fn json_schema(format: &ResponseFormat) -> Option<Value> {
     match format {
         ResponseFormat::Text | ResponseFormat::JsonObject => None,
         ResponseFormat::JsonSchema { schema, .. } => Some(schema.clone()),
@@ -331,7 +396,7 @@ fn takes_effort_levels(route: &ResolvedRoute) -> bool {
 /// Anthropic rejects extended thinking together with a forced tool choice, so
 /// a forced choice suppresses both thinking and `output_config`. `auto` and
 /// `none` leave the model free to answer in prose and keep them.
-pub(super) fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
+fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
     choice.is_some_and(ToolChoice::is_forced)
 }
 
