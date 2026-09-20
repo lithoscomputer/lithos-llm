@@ -17,7 +17,7 @@ use futures_util::StreamExt as _;
 #[cfg(feature = "bedrock")]
 use futures_util::stream::iter;
 use futures_util::stream::unfold;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method, RequestBuilder, Response as HttpResponse};
 use serde_json::Value;
 use tokio::time::timeout;
@@ -29,19 +29,24 @@ use crate::types::{
     Error, ErrorKind, RateLimits, ResponseLimits, RetryClassification, Speed, Warning, limit_error,
 };
 
-/// A request whose headers and body bytes are already final.
+/// A request whose headers and body bytes are final: the one shape the
+/// transport sends.
 ///
-/// AWS SigV4 signs the exact method, URL, headers, and bytes that reach the
-/// wire, so a signed request cannot be assembled by the transport the way an
-/// [`EncodedRequest`] is. The caller prepares everything, signs it, and hands
-/// the result here unchanged.
-#[cfg(feature = "bedrock-aws")]
+/// [`EncodedRequest::prepare`] builds it: the codec headers, the provider's
+/// catalog default headers, and the credential headers are merged in that
+/// precedence, and the body is serialized once. AWS SigV4 signs the exact
+/// method, URL, headers, and bytes that reach the wire, so a signed request
+/// is prepared, then signed, then sent unchanged.
 pub(crate) struct PreparedRequest {
     pub method:  Method,
     pub url:     String,
     pub headers: HeaderMap,
     pub body:    Vec<u8>,
     pub timeout: Option<Duration>,
+    /// How the transport frames this request's response stream.
+    ///
+    /// Only the streaming path reads this; a JSON response has no frames.
+    pub framing: StreamFraming,
 }
 
 pub(crate) struct EncodedRequest {
@@ -62,10 +67,10 @@ pub(crate) struct EncodedRequest {
     /// cannot express the requested speed leaves this empty, so a request the
     /// provider serves at standard speed is billed at standard rates.
     pub applied_speed: Option<Speed>,
-    /// How the transport frames this request's SSE response stream.
+    /// How the transport frames this request's response stream.
     ///
     /// Only the streaming path reads this; a JSON response has no frames.
-    pub framing:       SseFraming,
+    pub framing:       StreamFraming,
 }
 
 impl EncodedRequest {
@@ -79,7 +84,7 @@ impl EncodedRequest {
             timeout: None,
             warnings: Vec::new(),
             applied_speed: None,
-            framing: SseFraming::Spec,
+            framing: StreamFraming::Sse,
         }
     }
 
@@ -113,20 +118,100 @@ impl EncodedRequest {
     /// requires, and every event is one `data:` line of JSON.
     #[must_use]
     pub(crate) fn with_data_line_framing(mut self) -> Self {
-        self.framing = SseFraming::DataLines;
+        self.framing = StreamFraming::SseDataLines;
         self
+    }
+
+    /// Frames the response stream as AWS `vnd.amazon.eventstream` frames.
+    #[cfg(feature = "bedrock")]
+    #[must_use]
+    pub(crate) fn with_aws_event_stream_framing(mut self) -> Self {
+        self.framing = StreamFraming::AwsEventStream;
+        self
+    }
+
+    /// Builds the final headers and bytes for this request.
+    ///
+    /// Header precedence is codec headers, then the provider's catalog
+    /// default headers, then the credential headers, so credentials win every
+    /// collision. The JSON content type goes in first, so any of those may
+    /// replace it.
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorKind::Configuration`] for a header name or value HTTP cannot
+    /// carry, [`ErrorKind::Authentication`] when the credentials do not match
+    /// the provider's scheme, and [`ErrorKind::InvalidRequest`] when the body
+    /// cannot be serialized.
+    pub(crate) fn prepare(
+        self,
+        provider: &CatalogProvider,
+        credentials: &Credentials,
+    ) -> Result<PreparedRequest, Error> {
+        self.prepare_with(provider, Some(credentials))
+    }
+
+    /// Builds the final headers and bytes with no credential headers.
+    ///
+    /// For a request the caller authenticates after preparation: AWS SigV4
+    /// signs the prepared headers and bytes and adds its own.
+    #[cfg(feature = "bedrock-aws")]
+    pub(crate) fn prepare_unauthenticated(
+        self,
+        provider: &CatalogProvider,
+    ) -> Result<PreparedRequest, Error> {
+        self.prepare_with(provider, None)
+    }
+
+    fn prepare_with(
+        self,
+        provider: &CatalogProvider,
+        credentials: Option<&Credentials>,
+    ) -> Result<PreparedRequest, Error> {
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        merge_headers(
+            &mut headers,
+            provider.id(),
+            provider.auth(),
+            &self.headers,
+            provider.default_headers(),
+            credentials,
+        )?;
+        let body = serde_json::to_vec(&self.body).map_err(|source| {
+            Error::new(
+                ErrorKind::InvalidRequest,
+                format!(
+                    "the request for provider {} could not be serialized",
+                    provider.id()
+                ),
+            )
+            .with_provider(provider.id().clone())
+            .with_source(source)
+        })?;
+        Ok(PreparedRequest {
+            method: self.method,
+            url: self.url,
+            headers,
+            body,
+            timeout: self.timeout,
+            framing: self.framing,
+        })
     }
 }
 
-/// How the transport splits an SSE byte stream into events.
+/// How the transport splits a response byte stream into events.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum SseFraming {
-    /// A blank line ends a frame, whose `data:` lines join with `\n`, as the
-    /// SSE specification requires.
-    Spec,
-    /// Every complete `data:` line is one event on its own, delivered as soon
-    /// as its newline arrives.
-    DataLines,
+pub(crate) enum StreamFraming {
+    /// SSE: a blank line ends a frame, whose `data:` lines join with `\n`, as
+    /// the specification requires.
+    Sse,
+    /// SSE where every complete `data:` line is one event on its own,
+    /// delivered as soon as its newline arrives.
+    SseDataLines,
+    /// AWS `vnd.amazon.eventstream` binary frames, each carrying one event.
+    #[cfg(feature = "bedrock")]
+    AwsEventStream,
 }
 
 #[derive(Clone, Debug)]
@@ -191,41 +276,47 @@ impl HttpTransport {
         self
     }
 
+    /// Sends one prepared request and decodes its JSON body.
     pub(crate) async fn execute_json(
-        &self,
-        request: EncodedRequest,
-        provider: &CatalogProvider,
-        credentials: Credentials,
-    ) -> Result<JsonResponse, Error> {
-        let response = self
-            .send(request, provider, credentials, TimeoutRetry::Never)
-            .await?;
-        json_response(response, provider, self.limits.body_bytes()).await
-    }
-
-    /// Executes an already-signed request and decodes a JSON body.
-    #[cfg(feature = "bedrock-aws")]
-    pub(crate) async fn execute_json_prepared(
         &self,
         request: PreparedRequest,
         provider: &CatalogProvider,
     ) -> Result<JsonResponse, Error> {
-        let response = self
-            .send_prepared(request, provider, TimeoutRetry::Never)
-            .await?;
+        let response = self.send(request, provider, TimeoutRetry::Never).await?;
         json_response(response, provider, self.limits.body_bytes()).await
     }
 
-    pub(crate) async fn sse_events(
+    /// Sends one prepared request and opens its response as an event stream,
+    /// framed as the request's [`StreamFraming`] directs.
+    pub(crate) async fn stream_events(
         &self,
-        request: EncodedRequest,
+        request: PreparedRequest,
         provider: &CatalogProvider,
-        credentials: Credentials,
     ) -> Result<EventResponse, Error> {
         let framing = request.framing;
-        let response = self
-            .send(request, provider, credentials, TimeoutRetry::Safe)
-            .await?;
+        let response = self.send(request, provider, TimeoutRetry::Safe).await?;
+        match framing {
+            StreamFraming::Sse | StreamFraming::SseDataLines => {
+                Ok(self.sse_response(response, provider, framing))
+            }
+            #[cfg(feature = "bedrock")]
+            StreamFraming::AwsEventStream => Ok(event_stream_response(
+                response,
+                provider,
+                self.stream_idle_timeout,
+                self.limits.frame_bytes(),
+                self.limits.output_bytes(),
+            )),
+        }
+    }
+
+    /// Reads rate limits and frames an SSE response.
+    fn sse_response(
+        &self,
+        response: HttpResponse,
+        provider: &CatalogProvider,
+        framing: StreamFraming,
+    ) -> EventResponse {
         let rate_limits = rate_limits(response.headers());
         let provider_id = provider.id().clone();
         let read_provider = provider_id.clone();
@@ -239,56 +330,17 @@ impl HttpTransport {
             })
         });
         let chunks = with_idle_timeout(chunks, self.stream_idle_timeout, provider_id);
-        Ok(EventResponse {
+        EventResponse {
             events: Box::pin(bound_event_data(
                 sse_frames(chunks, framing, self.limits.frame_bytes()),
                 self.limits.output_bytes(),
             )),
             rate_limits,
-        })
+        }
     }
 
-    #[cfg(feature = "bedrock")]
-    pub(crate) async fn event_stream_events(
-        &self,
-        request: EncodedRequest,
-        provider: &CatalogProvider,
-        credentials: Credentials,
-    ) -> Result<EventResponse, Error> {
-        let response = self
-            .send(request, provider, credentials, TimeoutRetry::Safe)
-            .await?;
-        Ok(event_stream_response(
-            response,
-            provider,
-            self.stream_idle_timeout,
-            self.limits.frame_bytes(),
-            self.limits.output_bytes(),
-        ))
-    }
-
-    /// Opens an already-signed AWS event stream.
-    #[cfg(feature = "bedrock-aws")]
-    pub(crate) async fn event_stream_events_prepared(
-        &self,
-        request: PreparedRequest,
-        provider: &CatalogProvider,
-    ) -> Result<EventResponse, Error> {
-        let response = self
-            .send_prepared(request, provider, TimeoutRetry::Safe)
-            .await?;
-        Ok(event_stream_response(
-            response,
-            provider,
-            self.stream_idle_timeout,
-            self.limits.frame_bytes(),
-            self.limits.output_bytes(),
-        ))
-    }
-
-    /// Sends a request whose headers and bytes are already final.
-    #[cfg(feature = "bedrock-aws")]
-    async fn send_prepared(
+    /// Sends a request whose headers and bytes are final.
+    async fn send(
         &self,
         request: PreparedRequest,
         provider: &CatalogProvider,
@@ -299,31 +351,6 @@ impl HttpTransport {
             .request(request.method, &request.url)
             .headers(request.headers)
             .body(request.body);
-        if let Some(timeout) = request.timeout {
-            builder = builder.timeout(timeout);
-        }
-        finish(builder, provider, on_timeout, self.limits.body_bytes()).await
-    }
-
-    async fn send(
-        &self,
-        request: EncodedRequest,
-        provider: &CatalogProvider,
-        credentials: Credentials,
-        on_timeout: TimeoutRetry,
-    ) -> Result<HttpResponse, Error> {
-        let headers = merge_headers(
-            provider.id(),
-            provider.auth(),
-            &request.headers,
-            provider.default_headers(),
-            &credentials,
-        )?;
-        let mut builder = self
-            .client
-            .request(request.method, &request.url)
-            .json(&request.body)
-            .headers(headers);
         if let Some(timeout) = request.timeout {
             builder = builder.timeout(timeout);
         }
@@ -588,7 +615,7 @@ where
 /// frame: the leftover buffer is flushed at end of stream rather than dropped.
 fn sse_frames<C, S>(
     chunks: S,
-    framing: SseFraming,
+    framing: StreamFraming,
     frame_limit: usize,
 ) -> impl Stream<Item = Result<SseEvent, Error>> + Send + 'static
 where
@@ -599,7 +626,7 @@ where
         chunks:  Pin<Box<S>>,
         buffer:  Vec<u8>,
         ready:   VecDeque<Result<SseEvent, Error>>,
-        framing: SseFraming,
+        framing: StreamFraming,
         ended:   bool,
     }
 
@@ -704,26 +731,31 @@ fn header_string(headers: &HeaderMap, names: &[&str]) -> Option<String> {
     })
 }
 
-/// Merges every header source for one request, later sources winning.
+/// Merges every header source for one request into `headers`, later sources
+/// winning.
 ///
 /// The order is codec headers, then provider default headers from the catalog,
 /// then credential headers. Credentials therefore win every collision.
+/// `credentials` is `None` for a request the caller authenticates afterwards,
+/// as the SigV4 signer does.
 fn merge_headers(
+    headers: &mut HeaderMap,
     provider: &ProviderId,
     scheme: &AuthScheme,
     codec_headers: &[(String, String)],
     default_headers: &BTreeMap<String, String>,
-    credentials: &Credentials,
-) -> Result<HeaderMap, Error> {
-    let mut headers = HeaderMap::new();
+    credentials: Option<&Credentials>,
+) -> Result<(), Error> {
     for (name, value) in codec_headers {
-        insert_header(&mut headers, provider, name, value)?;
+        insert_header(headers, provider, name, value)?;
     }
     for (name, value) in default_headers {
-        insert_header(&mut headers, provider, name, value)?;
+        insert_header(headers, provider, name, value)?;
     }
-    insert_credentials(&mut headers, provider, scheme, credentials)?;
-    Ok(headers)
+    if let Some(credentials) = credentials {
+        insert_credentials(headers, provider, scheme, credentials)?;
+    }
+    Ok(())
 }
 
 /// Applies the credential headers that the provider's scheme accepts.
@@ -959,7 +991,7 @@ pub(crate) fn provider_error(
     error
 }
 
-fn extract_frames(buffer: &mut Vec<u8>, framing: SseFraming) -> Vec<Result<SseEvent, Error>> {
+fn extract_frames(buffer: &mut Vec<u8>, framing: StreamFraming) -> Vec<Result<SseEvent, Error>> {
     let mut events = Vec::new();
     while let Some((end, delimiter_len)) = frame_end(buffer, framing) {
         let frame: Vec<_> = buffer.drain(..end).collect();
@@ -990,9 +1022,14 @@ fn flush_frame(buffer: &mut Vec<u8>) -> Vec<Result<SseEvent, Error>> {
     }
 }
 
-fn frame_end(buffer: &[u8], framing: SseFraming) -> Option<(usize, usize)> {
+fn frame_end(buffer: &[u8], framing: StreamFraming) -> Option<(usize, usize)> {
     match framing {
-        SseFraming::Spec => buffer
+        // Binary frames never reach the SSE splitter: `stream_events` routes
+        // them to the event-stream decoder. Nothing here can complete a
+        // frame, so the buffer is left to the frame limit.
+        #[cfg(feature = "bedrock")]
+        StreamFraming::AwsEventStream => None,
+        StreamFraming::Sse => buffer
             .windows(2)
             .position(|window| window == b"\n\n")
             .map(|index| (index, 2))
@@ -1004,7 +1041,7 @@ fn frame_end(buffer: &[u8], framing: SseFraming) -> Option<(usize, usize)> {
             }),
         // A newline never lands inside a multi-byte UTF-8 character, so a
         // frame that ends here always carries complete characters.
-        SseFraming::DataLines => buffer
+        StreamFraming::SseDataLines => buffer
             .iter()
             .position(|&byte| byte == b'\n')
             .map(|index| (index, 1)),
@@ -1124,15 +1161,15 @@ mod tests {
     async fn frame_limit_applies_across_chunks_but_not_across_frames() {
         use futures_util::{StreamExt as _, stream};
 
-        use super::{SseFraming, sse_frames};
+        use super::{StreamFraming, sse_frames};
 
         let chunks = stream::iter([Ok(b"data: 1\n\ndata: 2\n\n".to_vec())]);
-        let frames: Vec<_> = sse_frames(chunks, SseFraming::Spec, 9).collect().await;
+        let frames: Vec<_> = sse_frames(chunks, StreamFraming::Sse, 9).collect().await;
         assert_eq!(frames.len(), 2);
         assert!(frames.iter().all(Result::is_ok));
 
         let chunks = stream::iter([Ok(b"data: ".to_vec()), Ok(b"1234567890".to_vec())]);
-        let frames: Vec<_> = sse_frames(chunks, SseFraming::Spec, 9).collect().await;
+        let frames: Vec<_> = sse_frames(chunks, StreamFraming::Sse, 9).collect().await;
         assert_eq!(frames.len(), 1);
         assert_eq!(
             frames[0]
@@ -1154,7 +1191,7 @@ mod tests {
     use super::{
         AuthScheme, Client, CredentialHeader, Credentials, EncodedRequest, ErrorKind, HeaderMap,
         HeaderValue, HttpAuthentication, HttpTransport, Method, ProviderId, RetryClassification,
-        SecretValue, SseFraming, extract_frames, merge_headers, rate_limits, with_idle_timeout,
+        SecretValue, StreamFraming, extract_frames, merge_headers, rate_limits, with_idle_timeout,
     };
     use crate::codecs::test_support;
     use crate::credentials::HttpCredentials;
@@ -1175,13 +1212,16 @@ mod tests {
             .iter()
             .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
             .collect();
+        let mut headers = HeaderMap::new();
         merge_headers(
+            &mut headers,
             &ProviderId::new("openai"),
             scheme,
             &codec,
             &defaults,
-            credentials,
-        )
+            Some(credentials),
+        )?;
+        Ok(headers)
     }
 
     fn value(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -1277,9 +1317,9 @@ mod tests {
     #[test]
     fn parses_frames_across_chunks() {
         let mut buffer = b"event: delta\ndata: {\"text\":\"hel".to_vec();
-        assert!(extract_frames(&mut buffer, SseFraming::Spec).is_empty());
+        assert!(extract_frames(&mut buffer, StreamFraming::Sse).is_empty());
         buffer.extend_from_slice(b"lo\"}\n\ndata: [DONE]\n\n");
-        let events = extract_frames(&mut buffer, SseFraming::Spec);
+        let events = extract_frames(&mut buffer, StreamFraming::Sse);
         assert_eq!(events.len(), 1);
         let event = events[0].as_ref().expect("frame should parse");
         assert_eq!(event.event.as_deref(), Some("delta"));
@@ -1290,7 +1330,7 @@ mod tests {
     fn spec_framing_joins_single_newline_data_lines_into_one_frame() {
         let mut buffer = b"data: {\"n\":1}\ndata: {\"n\":2}\n\n".to_vec();
 
-        let events = extract_frames(&mut buffer, SseFraming::Spec);
+        let events = extract_frames(&mut buffer, StreamFraming::Sse);
 
         assert_eq!(events.len(), 1);
         let event = events[0].as_ref().expect("the frame should parse");
@@ -1301,7 +1341,7 @@ mod tests {
     fn data_line_framing_splits_single_newline_data_lines() {
         let mut buffer = b"data: {\"n\":1}\ndata: {\"n\":2}\n\n".to_vec();
 
-        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+        let events = extract_frames(&mut buffer, StreamFraming::SseDataLines);
 
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].as_ref().expect("line one").data, r#"{"n":1}"#);
@@ -1313,7 +1353,7 @@ mod tests {
     fn data_line_framing_skips_comments_terminators_and_non_data_lines() {
         let mut buffer = b": keep-alive\nevent: x\ndata: [DONE]\ndata: {\"n\":1}\n".to_vec();
 
-        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+        let events = extract_frames(&mut buffer, StreamFraming::SseDataLines);
 
         assert_eq!(events.len(), 1);
         assert_eq!(
@@ -1326,7 +1366,7 @@ mod tests {
     fn data_line_framing_handles_crlf_line_endings() {
         let mut buffer = b"data: {\"n\":1}\r\n\r\ndata: {\"n\":2}\r\n".to_vec();
 
-        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+        let events = extract_frames(&mut buffer, StreamFraming::SseDataLines);
 
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].as_ref().expect("line one").data, r#"{"n":1}"#);
@@ -1342,9 +1382,9 @@ mod tests {
 
         let bytes = text.as_bytes();
         let mut buffer = bytes[..split].to_vec();
-        assert!(extract_frames(&mut buffer, SseFraming::DataLines).is_empty());
+        assert!(extract_frames(&mut buffer, StreamFraming::SseDataLines).is_empty());
         buffer.extend_from_slice(&bytes[split..]);
-        let events = extract_frames(&mut buffer, SseFraming::DataLines);
+        let events = extract_frames(&mut buffer, StreamFraming::SseDataLines);
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].as_ref().expect("the line").data, r#"{"t":"é"}"#);
@@ -1373,7 +1413,7 @@ mod tests {
     fn flushes_a_last_frame_that_has_no_trailing_blank_line() {
         let mut buffer = b"data: {\"text\":\"bye\"}".to_vec();
 
-        assert!(extract_frames(&mut buffer, SseFraming::Spec).is_empty());
+        assert!(extract_frames(&mut buffer, StreamFraming::Sse).is_empty());
         let events = super::flush_frame(&mut buffer);
 
         assert_eq!(events.len(), 1);
@@ -1414,9 +1454,8 @@ mod tests {
 
         let error = transport
             .execute_json(
-                post(server.url("/chat")),
+                post(server.url("/chat")).prepare(route.provider(), &Credentials::none())?,
                 route.provider(),
-                Credentials::none(),
             )
             .await
             .expect_err("a truncated body should fail");
@@ -1442,9 +1481,8 @@ mod tests {
 
         let error = transport
             .execute_json(
-                post(server.url("/chat")),
+                post(server.url("/chat")).prepare(route.provider(), &Credentials::none())?,
                 route.provider(),
-                Credentials::none(),
             )
             .await
             .expect_err("a 400 should fail");
@@ -1479,9 +1517,8 @@ mod tests {
                 .with_response_limits(ResponseLimits::default().max_body_bytes(100));
             let error = transport
                 .execute_json(
-                    post(server.url(&path)),
+                    post(server.url(&path)).prepare(route.provider(), &Credentials::none())?,
                     route.provider(),
-                    Credentials::none(),
                 )
                 .await
                 .expect_err("body limit");
@@ -1507,10 +1544,9 @@ mod tests {
         let transport = HttpTransport::new(Client::new());
 
         let response = transport
-            .sse_events(
-                post(server.url("/stream")),
+            .stream_events(
+                post(server.url("/stream")).prepare(route.provider(), &Credentials::none())?,
                 route.provider(),
-                Credentials::none(),
             )
             .await?;
         let events: Vec<_> = response.events.collect().await;
@@ -1539,10 +1575,11 @@ mod tests {
         let transport = HttpTransport::new(Client::new());
 
         let response = transport
-            .sse_events(
-                post(server.url("/stream")).with_data_line_framing(),
+            .stream_events(
+                post(server.url("/stream"))
+                    .with_data_line_framing()
+                    .prepare(route.provider(), &Credentials::none())?,
                 route.provider(),
-                Credentials::none(),
             )
             .await?;
         let events: Vec<_> = response.events.collect().await;

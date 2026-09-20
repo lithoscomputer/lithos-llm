@@ -42,7 +42,8 @@ pub(super) mod http {
     use crate::evaluation::Verdict;
     use crate::transport::{EncodedRequest, HttpTransport, SseEvent};
     use crate::types::{
-        Error, ErrorKind, RateLimits, Response, ResponsePolicy, ResponseStream, StreamEvent,
+        Error, ErrorKind, RateLimits, Response, ResponsePolicy, ResponseStream, Speed, StreamEvent,
+        Warning,
     };
 
     /// Builds the `http` adapter for a catalog provider.
@@ -382,14 +383,16 @@ pub(super) mod http {
             let speed = encoded.applied_speed;
             let result = self
                 .transport
-                .execute_json(encoded, provider, credentials)
+                .execute_json(encoded.prepare(provider, &credentials)?, provider)
                 .await?;
-            let mut response = codec.decode_response(call.route(), result.body)?;
-            response.rate_limits = result.rate_limits;
-            response.warnings.extend(warnings);
-            call.route()
-                .apply_catalog_cost(&mut response, call.codec(), speed);
-            Ok(response)
+            let response = codec.decode_response(call.route(), result.body)?;
+            Ok(finish_response(
+                response,
+                result.rate_limits,
+                warnings,
+                call,
+                speed,
+            ))
         }
 
         async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
@@ -402,27 +405,16 @@ pub(super) mod http {
             let speed = encoded.applied_speed;
             let accepted = self
                 .transport
-                .sse_events(encoded, provider, credentials)
+                .stream_events(encoded.prepare(provider, &credentials)?, provider)
                 .await?;
-            let decoder = codec.stream_decoder(call.route());
-            let route = call.route().clone();
-            let selected = call.codec().cloned();
-            let limits = iter(
-                accepted
-                    .rate_limits
-                    .into_iter()
-                    .map(|rate_limits| Ok(StreamEvent::RateLimits { rate_limits })),
-            );
-            let decoded = decode_stream(accepted.events, decoder).map(move |event| {
-                event.map(|mut event| {
-                    if let StreamEvent::Ended { response } = &mut event {
-                        response.warnings.extend(warnings.iter().cloned());
-                        route.apply_catalog_cost(response, selected.as_ref(), speed);
-                    }
-                    event
-                })
-            });
-            Ok(ResponseStream::new(limits.chain(decoded)))
+            let decoded = decode_stream(accepted.events, codec.stream_decoder(call.route()));
+            Ok(finish_stream(
+                accepted.rate_limits,
+                decoded,
+                warnings,
+                call,
+                speed,
+            ))
         }
 
         async fn count_input_tokens(
@@ -438,7 +430,7 @@ pub(super) mod http {
             let credentials = self.resolve_credentials(provider).await?;
             let result = self
                 .transport
-                .execute_json(encoded, provider, credentials)
+                .execute_json(encoded.prepare(provider, &credentials)?, provider)
                 .await?;
             let tokens = codec.decode_count_tokens(call.route(), result.body)?;
             Ok(Some(InputTokenCount::new(tokens, call.route().handle())))
@@ -455,7 +447,7 @@ pub(super) mod http {
             let credentials = self.resolve_credentials(provider).await?;
             let result = self
                 .transport
-                .execute_json(encoded, provider, credentials)
+                .execute_json(encoded.prepare(provider, &credentials)?, provider)
                 .await?;
             let header_id = codec
                 .id_header()
@@ -493,13 +485,63 @@ pub(super) mod http {
         decoder: Box<dyn StreamDecoder>,
     }
 
+    /// Finishes a decoded response with what the adapter knows and the codec
+    /// does not: the response headers' rate limits, the encoder's warnings,
+    /// and the catalog cost at the speed the codec put on the wire.
+    ///
+    /// Cost estimation uses the applied speed, not the requested one, so a
+    /// protocol without a speed control is billed at the standard rates the
+    /// provider actually charges.
+    pub(in crate::providers) fn finish_response(
+        mut response: Response,
+        rate_limits: Option<RateLimits>,
+        warnings: Vec<Warning>,
+        call: &ResolvedCall,
+        speed: Option<Speed>,
+    ) -> Response {
+        response.rate_limits = rate_limits;
+        response.warnings.extend(warnings);
+        call.route()
+            .apply_catalog_cost(&mut response, call.codec(), speed);
+        response
+    }
+
+    /// Finishes a decoded stream the way [`finish_response`] finishes a
+    /// response: the response headers' rate limits lead the stream, and the
+    /// `Ended` event's response gains the warnings and the catalog cost.
+    pub(in crate::providers) fn finish_stream(
+        rate_limits: Option<RateLimits>,
+        decoded: impl Stream<Item = Result<StreamEvent, Error>> + Send + 'static,
+        warnings: Vec<Warning>,
+        call: &ResolvedCall,
+        speed: Option<Speed>,
+    ) -> ResponseStream {
+        let route = call.route().clone();
+        let selected = call.codec().cloned();
+        let limits = iter(
+            rate_limits
+                .into_iter()
+                .map(|rate_limits| Ok(StreamEvent::RateLimits { rate_limits })),
+        );
+        let finished = decoded.map(move |event| {
+            event.map(|mut event| {
+                if let StreamEvent::Ended { response } = &mut event {
+                    response.warnings.extend(warnings.iter().cloned());
+                    route.apply_catalog_cost(response, selected.as_ref(), speed);
+                }
+                event
+            })
+        });
+        ResponseStream::new(limits.chain(finished))
+    }
+
     /// Drives one [`StreamDecoder`] over the transport events.
     ///
     /// [`StreamDecoder::finish`] runs exactly once, and only when the transport
     /// ended without an error. Any error — from the transport or from the
     /// decoder — is the last item of the stream, so a failed stream can never
     /// carry a `Ended` event.
-    fn decode_stream<S>(
+    pub(in crate::providers) fn decode_stream<S>(
         events: S,
         decoder: Box<dyn StreamDecoder>,
     ) -> impl Stream<Item = Result<StreamEvent, Error>> + Send

@@ -59,6 +59,12 @@ impl Codec for BedrockConverseCodec {
         )
         .with_headers(operation.headers())
         .with_applied_speed(request.speed());
+        // The streaming operation answers with AWS event-stream frames, not
+        // SSE; the framing is protocol knowledge and is set where the
+        // operation is chosen.
+        if operation == Operation::ConverseStream {
+            encoded = encoded.with_aws_event_stream_framing();
+        }
         for control in dropped_controls(request, &plan) {
             encoded = encoded.unsupported_control(control);
         }

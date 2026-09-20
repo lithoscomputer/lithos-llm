@@ -1,44 +1,35 @@
 //! The Amazon Bedrock provider adapter.
 //!
-//! One HTTP path serves both Bedrock authentication methods. Every call
-//! resolves credentials, encodes through [`BedrockConverseCodec`], dispatches
-//! the resulting [`EncodedRequest`], and decodes through the same codec. A
-//! bearer request and a SigV4 request are built from that one encoded request,
-//! so they always carry the same method, URL, and body; only the
-//! authentication headers differ.
+//! The `http` adapter, but signed and event-stream framed. Every call resolves
+//! credentials, encodes through [`BedrockConverseCodec`], authenticates the
+//! one [`EncodedRequest`] into a [`PreparedRequest`], dispatches it, and
+//! decodes through the same codec. A bearer request and a SigV4 request are
+//! prepared from that one encoded request, so they always carry the same
+//! method, URL, and body; only the authentication headers differ.
 //!
 //! The `bedrock` feature alone gives bearer authentication and the Bedrock
 //! wire protocol with no AWS crates. `bedrock-aws` adds the AWS credential
 //! chain and SigV4 signing.
 
-use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures_core::Stream;
-use futures_util::StreamExt as _;
-use futures_util::stream::{iter, unfold};
-#[cfg(feature = "bedrock-aws")]
-use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 
+use super::http::{decode_stream, finish_response, finish_stream, resolve_credentials};
 use crate::adapter::{
     AdapterBuildError, AdapterContext, AdapterFactory, InputTokenCount, ProviderAdapter,
     ResolvedCall,
 };
 #[cfg(not(feature = "bedrock-aws"))]
 use crate::catalog::AuthScheme;
-#[cfg(feature = "bedrock-aws")]
-use crate::catalog::ProviderId;
 use crate::catalog::{AdapterId, CatalogProvider, codec_ids};
+use crate::codecs::Codec as _;
 use crate::codecs::bedrock::BedrockConverseCodec;
-use crate::codecs::{Codec as _, StreamDecoder};
 use crate::credentials::{CredentialProvider, Credentials};
 #[cfg(feature = "bedrock-aws")]
-use crate::transport::PreparedRequest;
-#[cfg(feature = "bedrock-aws")]
 use crate::transport::aws::AwsSigner;
-use crate::transport::{EncodedRequest, EventResponse, HttpTransport, JsonResponse, SseEvent};
-use crate::types::{Error, ErrorKind, Response, ResponseStream, StreamEvent};
+use crate::transport::{EncodedRequest, HttpTransport, PreparedRequest};
+use crate::types::{Error, ErrorKind, Response, ResponseStream};
 
 pub(super) struct Factory;
 
@@ -109,13 +100,19 @@ impl ProviderAdapter for BedrockAdapter {
         let encoded = self.codec.encode(call, false)?;
         let warnings = encoded.warnings.clone();
         let speed = encoded.applied_speed;
-        let result = self.json(call, encoded).await?;
-        let mut response = self.codec.decode_response(call.route(), result.body)?;
-        response.rate_limits = result.rate_limits;
-        response.warnings.extend(warnings);
-        call.route()
-            .apply_catalog_cost(&mut response, call.codec(), speed);
-        Ok(response)
+        let prepared = self.authenticate(call, encoded).await?;
+        let result = self
+            .transport
+            .execute_json(prepared, call.route().provider())
+            .await?;
+        let response = self.codec.decode_response(call.route(), result.body)?;
+        Ok(finish_response(
+            response,
+            result.rate_limits,
+            warnings,
+            call,
+            speed,
+        ))
     }
 
     async fn stream(&self, call: &ResolvedCall) -> Result<ResponseStream, Error> {
@@ -123,26 +120,19 @@ impl ProviderAdapter for BedrockAdapter {
         let encoded = self.codec.encode(call, true)?;
         let warnings = encoded.warnings.clone();
         let speed = encoded.applied_speed;
-        let accepted = self.events(call, encoded).await?;
+        let prepared = self.authenticate(call, encoded).await?;
+        let accepted = self
+            .transport
+            .stream_events(prepared, call.route().provider())
+            .await?;
         let decoded = decode_stream(accepted.events, self.codec.stream_decoder(call.route()));
-
-        let route = call.route().clone();
-        let codec = call.codec().cloned();
-        let finished = decoded.map(move |event| match event {
-            Ok(StreamEvent::Ended { mut response }) => {
-                response.warnings.extend(warnings.clone());
-                route.apply_catalog_cost(&mut response, codec.as_ref(), speed);
-                Ok(StreamEvent::Ended { response })
-            }
-            other => other,
-        });
-        let limits = iter(
-            accepted
-                .rate_limits
-                .into_iter()
-                .map(|rate_limits| Ok(StreamEvent::RateLimits { rate_limits })),
-        );
-        Ok(ResponseStream::new(limits.chain(finished)))
+        Ok(finish_stream(
+            accepted.rate_limits,
+            decoded,
+            warnings,
+            call,
+            speed,
+        ))
     }
 
     async fn count_input_tokens(
@@ -153,7 +143,11 @@ impl ProviderAdapter for BedrockAdapter {
         let Some(encoded) = self.codec.encode_count_tokens(call) else {
             return Ok(None);
         };
-        let result = self.json(call, encoded?).await?;
+        let prepared = self.authenticate(call, encoded?).await?;
+        let result = self
+            .transport
+            .execute_json(prepared, call.route().provider())
+            .await?;
         let tokens = self.codec.decode_count_tokens(call.route(), result.body)?;
         Ok(Some(InputTokenCount::new(tokens, call.route().handle())))
     }
@@ -196,157 +190,45 @@ fn expect_converse(call: &ResolvedCall, operation: &str) -> Result<(), Error> {
 }
 
 impl BedrockAdapter {
-    /// Sends one encoded request and returns its JSON body.
+    /// Authenticates one encoded request into the request the transport sends.
     ///
-    /// The credentials select the authentication arm. Both arms send the
-    /// `encoded` request unchanged, so the method, URL, and body cannot differ
+    /// The credentials select the authentication arm. A Bedrock API key
+    /// prepares with the bearer header; AWS default-chain credentials prepare
+    /// without credential headers and are then signed, so the signature covers
+    /// exactly the bytes and headers that reach the wire. Both arms prepare
+    /// the same `encoded` request, so the method, URL, and body cannot differ
     /// between them.
-    async fn json(
+    async fn authenticate(
         &self,
         call: &ResolvedCall,
         encoded: EncodedRequest,
-    ) -> Result<JsonResponse, Error> {
-        let provider = call.route().provider();
-        match self.credentials(call).await? {
-            credentials @ Credentials::BedrockBearer(_) => {
-                self.transport
-                    .execute_json(encoded, provider, credentials)
-                    .await
-            }
-            #[cfg(feature = "bedrock-aws")]
-            Credentials::AwsDefaultChain { region } => {
-                let prepared = self.sign(provider, encoded, region.as_deref()).await?;
-                self.transport
-                    .execute_json_prepared(prepared, provider)
-                    .await
-            }
-            #[cfg(not(feature = "bedrock-aws"))]
-            Credentials::AwsDefaultChain { .. } => Err(missing_feature(provider)),
-            _ => Err(scheme_mismatch(provider)),
-        }
-    }
-
-    /// Sends one encoded request and returns its event stream.
-    async fn events(
-        &self,
-        call: &ResolvedCall,
-        encoded: EncodedRequest,
-    ) -> Result<EventResponse, Error> {
-        let provider = call.route().provider();
-        match self.credentials(call).await? {
-            credentials @ Credentials::BedrockBearer(_) => {
-                self.transport
-                    .event_stream_events(encoded, provider, credentials)
-                    .await
-            }
-            #[cfg(feature = "bedrock-aws")]
-            Credentials::AwsDefaultChain { region } => {
-                let prepared = self.sign(provider, encoded, region.as_deref()).await?;
-                self.transport
-                    .event_stream_events_prepared(prepared, provider)
-                    .await
-            }
-            #[cfg(not(feature = "bedrock-aws"))]
-            Credentials::AwsDefaultChain { .. } => Err(missing_feature(provider)),
-            _ => Err(scheme_mismatch(provider)),
-        }
-    }
-
-    async fn credentials(&self, call: &ResolvedCall) -> Result<Credentials, Error> {
-        let provider = call.route().provider();
-        self.credentials
-            .credentials(provider)
-            .await
-            .map_err(|source| {
-                Error::new(
-                    ErrorKind::Authentication,
-                    format!(
-                        "credentials for provider {} could not be resolved",
-                        provider.id()
-                    ),
-                )
-                .with_provider(provider.id().clone())
-                .with_source(source)
-            })
-    }
-
-    /// Prepares one request and signs it with AWS SigV4.
-    ///
-    /// The body is serialized once and the header map is final before signing,
-    /// so the signature covers exactly the bytes and headers that reach the
-    /// wire.
-    #[cfg(feature = "bedrock-aws")]
-    async fn sign(
-        &self,
-        provider: &CatalogProvider,
-        encoded: EncodedRequest,
-        credential_region: Option<&str>,
     ) -> Result<PreparedRequest, Error> {
-        let mut prepared = prepare(provider, encoded)?;
-        let region = self
-            .signer
-            .resolve_region(credential_region, provider.auth(), provider.base_url())
-            .await?;
-        self.signer
-            .sign(
-                &region,
-                &prepared.method,
-                &prepared.url,
-                &mut prepared.headers,
-                &prepared.body,
-            )
-            .await?;
-        Ok(prepared)
-    }
-}
-
-/// The transport's undecoded event stream.
-type TransportEvents = Pin<Box<dyn Stream<Item = Result<SseEvent, Error>> + Send>>;
-
-/// Drives one stream decoder over the transport events.
-///
-/// The decoder's `finish` runs once when the byte stream ends without error.
-/// A decode failure ends the stream, so no `Ended` event follows one.
-fn decode_stream(
-    events: TransportEvents,
-    decoder: Box<dyn StreamDecoder>,
-) -> impl Stream<Item = Result<StreamEvent, Error>> + Send {
-    struct State {
-        events:  TransportEvents,
-        decoder: Box<dyn StreamDecoder>,
-        ended:   bool,
-    }
-
-    let state = State {
-        events,
-        decoder,
-        ended: false,
-    };
-    unfold(state, |mut state| async move {
-        if state.ended {
-            return None;
+        let provider = call.route().provider();
+        match resolve_credentials(self.credentials.as_ref(), provider).await? {
+            credentials @ Credentials::BedrockBearer(_) => encoded.prepare(provider, &credentials),
+            #[cfg(feature = "bedrock-aws")]
+            Credentials::AwsDefaultChain { region } => {
+                let mut prepared = encoded.prepare_unauthenticated(provider)?;
+                let region = self
+                    .signer
+                    .resolve_region(region.as_deref(), provider.auth(), provider.base_url())
+                    .await?;
+                self.signer
+                    .sign(
+                        &region,
+                        &prepared.method,
+                        &prepared.url,
+                        &mut prepared.headers,
+                        &prepared.body,
+                    )
+                    .await?;
+                Ok(prepared)
+            }
+            #[cfg(not(feature = "bedrock-aws"))]
+            Credentials::AwsDefaultChain { .. } => Err(missing_feature(provider)),
+            _ => Err(scheme_mismatch(provider)),
         }
-        let decoded = match state.events.next().await {
-            Some(Ok(event)) => state.decoder.decode(event),
-            Some(Err(error)) => {
-                state.ended = true;
-                return Some((vec![Err(error)], state));
-            }
-            None => {
-                state.ended = true;
-                state.decoder.finish()
-            }
-        };
-        let items = match decoded {
-            Ok(events) => events.into_iter().map(Ok).collect(),
-            Err(error) => {
-                state.ended = true;
-                vec![Err(error)]
-            }
-        };
-        Some((items, state))
-    })
-    .flat_map(iter)
+    }
 }
 
 #[cfg(not(feature = "bedrock-aws"))]
@@ -373,70 +255,6 @@ fn scheme_mismatch(provider: &CatalogProvider) -> Error {
     .with_provider(provider.id().clone())
 }
 
-/// Builds the final headers and bytes for one encoded request.
-///
-/// SigV4 signs the exact method, URL, headers, and bytes that reach the wire,
-/// so a signed request is assembled here rather than by the transport. Header
-/// precedence matches [`HttpTransport`]: the JSON content type first, then
-/// codec headers, then the provider's catalog default headers. Authentication
-/// is applied last, by the caller, so it wins every collision.
-#[cfg(feature = "bedrock-aws")]
-fn prepare(provider: &CatalogProvider, encoded: EncodedRequest) -> Result<PreparedRequest, Error> {
-    let mut headers = HeaderMap::new();
-    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    for (name, value) in &encoded.headers {
-        insert_header(&mut headers, provider.id(), name, value)?;
-    }
-    for (name, value) in provider.default_headers() {
-        insert_header(&mut headers, provider.id(), name, value)?;
-    }
-    let body = serde_json::to_vec(&encoded.body).map_err(|source| {
-        Error::new(
-            ErrorKind::InvalidRequest,
-            format!(
-                "the request for provider {} could not be serialized",
-                provider.id()
-            ),
-        )
-        .with_provider(provider.id().clone())
-        .with_source(source)
-    })?;
-    Ok(PreparedRequest {
-        method: encoded.method,
-        url: encoded.url,
-        headers,
-        body,
-        timeout: encoded.timeout,
-    })
-}
-
-#[cfg(feature = "bedrock-aws")]
-fn insert_header(
-    headers: &mut HeaderMap,
-    provider: &ProviderId,
-    name: &str,
-    value: &str,
-) -> Result<(), Error> {
-    let name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
-        Error::new(
-            ErrorKind::Configuration,
-            format!("provider {provider} has an invalid HTTP header name"),
-        )
-        .with_provider(provider.clone())
-        .with_source(source)
-    })?;
-    let value = HeaderValue::from_str(value).map_err(|source| {
-        Error::new(
-            ErrorKind::Configuration,
-            format!("provider {provider} has an invalid HTTP header value"),
-        )
-        .with_provider(provider.clone())
-        .with_source(source)
-    })?;
-    headers.insert(name, value);
-    Ok(())
-}
-
 #[cfg(all(test, feature = "builtin-catalog"))]
 mod tests {
     use std::error::Error as StdError;
@@ -447,9 +265,9 @@ mod tests {
     use reqwest::header::CONTENT_TYPE;
     use serde_json::json;
 
-    use super::Factory;
     #[cfg(feature = "bedrock-aws")]
-    use super::{BedrockConverseCodec, prepare};
+    use super::BedrockConverseCodec;
+    use super::Factory;
     use crate::adapter::{AdapterBuildError, AdapterContext, AdapterFactory as _, ResolvedCall};
     use crate::catalog::{Catalog, CatalogProvider, CodecId, ProviderId, codec_ids};
     #[cfg(feature = "bedrock-aws")]
@@ -586,7 +404,7 @@ mod tests {
         Ok(())
     }
 
-    /// Both authentication paths dispatch the one `EncodedRequest` the codec
+    /// Both authentication paths prepare the one `EncodedRequest` the codec
     /// produced, so they cannot disagree about the method, the URL, or the
     /// body. The signed path is checked directly: preparing a request for
     /// signing changes none of the three, and adds no authentication of its
@@ -605,7 +423,7 @@ mod tests {
         let url = encoded.url.clone();
         let body = encoded.body.clone();
 
-        let prepared = prepare(provider(&catalog)?, encoded)?;
+        let prepared = encoded.prepare_unauthenticated(provider(&catalog)?)?;
 
         assert_eq!(prepared.method, method);
         assert_eq!(prepared.url, url);
