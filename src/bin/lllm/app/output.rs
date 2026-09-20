@@ -57,6 +57,46 @@ pub(crate) fn write_delta(output: &mut impl Write, text: &str) -> CliResult<Outp
     Ok(OutputState::Written)
 }
 
+/// Writes streamed text and remembers whether the output ends on a line.
+///
+/// A stream owes the terminal exactly one trailing newline: the deltas
+/// themselves end the line when the last one ends in `\n`, and
+/// [`finish_line`](Self::finish_line) supplies one otherwise. An output that
+/// wrote nothing owes none.
+#[derive(Debug, Default)]
+pub(crate) struct DeltaWriter {
+    wrote_anything:    bool,
+    ends_with_newline: bool,
+}
+
+impl DeltaWriter {
+    /// Writes one delta, flushing so the reader sees it now.
+    pub(crate) fn write(&mut self, output: &mut impl Write, text: &str) -> CliResult<OutputState> {
+        self.wrote_anything = true;
+        if !text.is_empty() {
+            self.ends_with_newline = text.ends_with('\n');
+        }
+        write_delta(output, text)
+    }
+
+    /// Whether any delta was written, however short.
+    pub(crate) fn wrote_anything(&self) -> bool {
+        self.wrote_anything
+    }
+
+    /// Ends the current line when the deltas left it open.
+    ///
+    /// Answers `Written` without writing when nothing streamed or the last
+    /// delta already ended its line.
+    pub(crate) fn finish_line(&mut self, output: &mut impl Write) -> CliResult<OutputState> {
+        if !self.wrote_anything || self.ends_with_newline {
+            return Ok(OutputState::Written);
+        }
+        self.ends_with_newline = true;
+        write_delta(output, "\n")
+    }
+}
+
 fn output_error(error: io::Error) -> CliResult<OutputState> {
     if error.kind() == io::ErrorKind::BrokenPipe {
         Ok(OutputState::Closed)

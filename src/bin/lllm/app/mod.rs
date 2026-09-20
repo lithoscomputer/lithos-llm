@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::error::Error as StdError;
 use std::ffi::OsString;
 use std::fmt::Write as _;
+use std::future::Future;
 use std::io::{Error as IoError, Read, Write};
 use std::time::Duration;
 
@@ -132,6 +133,21 @@ impl ExitStatus {
 pub(crate) enum OutputState {
     Written,
     Closed,
+}
+
+/// Runs `future` unless the user interrupts first.
+///
+/// Cancellation is checked before the future is polled, so a signal that
+/// arrived before the call starts is honored without starting it.
+pub(crate) async fn cancellable<T>(
+    cancellation: &CancellationToken,
+    future: impl Future<Output = T>,
+) -> CliResult<T> {
+    tokio::select! {
+        biased;
+        () = cancellation.cancelled() => Err(CliError::Interrupted),
+        value = future => Ok(value),
+    }
 }
 
 pub(crate) async fn run<I, T, R, W, E>(
