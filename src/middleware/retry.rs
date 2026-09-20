@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::collections::hash_map::RandomState;
 use std::fmt;
 use std::hash::{BuildHasher as _, Hasher as _};
@@ -7,12 +6,12 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
-use futures_util::stream::{empty, unfold};
+use futures_util::stream::{empty, iter, unfold};
 use tokio::time::sleep;
 
 use super::{Call, CallGuard, Middleware, Next, Observer, Operation, Output, RetryStage};
 use crate::types::{
-    Error, ErrorKind, FinishReason, ResponseStream, RetryClassification, StreamEvent,
+    Error, ErrorKind, FinishReason, Response, ResponseStream, RetryClassification, StreamEvent,
 };
 
 /// The longest `Retry-After` this policy honors by default.
@@ -132,27 +131,103 @@ fn jittered(delay: Duration) -> Duration {
     Duration::from_nanos(floor + random % (span + 1))
 }
 
-/// Reports one retry to the trace and to the observer, when one is set.
-fn report_retry(
-    observer: Option<&Arc<dyn Observer>>,
-    call: &Call,
-    attempt: u32,
-    delay: Duration,
-    error: &Error,
-    stage: RetryStage,
-) {
-    tracing::warn!(
-        attempt,
-        delay_secs = delay.as_secs_f64(),
-        stage = ?stage,
-        error_kind = ?error.kind(),
-        status = error.status(),
-        provider_code = error.provider_code(),
-        error = ?error,
-        "the provider call failed and will be retried"
-    );
-    if let Some(observer) = observer {
-        observer.on_retry(call, error, attempt, delay, stage);
+/// The shared attempt loop: decides, reports, and waits out one retry.
+///
+/// Both the complete path and the pre-visible stream path retry the same
+/// way; only what they do after the wait differs. Holding the policy and the
+/// observer together keeps the report and the sleep in one place.
+#[derive(Clone)]
+struct Retrier {
+    policy:   RetryPolicy,
+    observer: Option<Arc<dyn Observer>>,
+}
+
+impl Retrier {
+    /// Waits before the next attempt, or answers `false` when this failure
+    /// ends the retries.
+    ///
+    /// On `true`, `call` already names the next attempt and the backoff has
+    /// elapsed, so the caller runs `next` immediately. The
+    /// [`CallGuard`] veto applies here: a wait the deadline could not survive
+    /// ends the retries the same way a spent budget does.
+    async fn wait_before_retry(&self, call: &mut Call, error: &Error, stage: RetryStage) -> bool {
+        let attempt = call.context.attempt();
+        let Some(delay) = self
+            .policy
+            .next_delay(attempt, error)
+            .filter(|delay| CallGuard::new(call.context()).permits_retry_after(*delay))
+        else {
+            return false;
+        };
+        self.report(call, attempt, delay, error, stage);
+        sleep(delay).await;
+        call.context.set_attempt(attempt.saturating_add(1));
+        true
+    }
+
+    /// Reports one retry to the trace and to the observer, when one is set.
+    fn report(&self, call: &Call, attempt: u32, delay: Duration, error: &Error, stage: RetryStage) {
+        tracing::warn!(
+            attempt,
+            delay_secs = delay.as_secs_f64(),
+            stage = ?stage,
+            error_kind = ?error.kind(),
+            status = error.status(),
+            provider_code = error.provider_code(),
+            error = ?error,
+            "the provider call failed and will be retried"
+        );
+        if let Some(observer) = &self.observer {
+            observer.on_retry(call, error, attempt, delay, stage);
+        }
+    }
+}
+
+/// An attempt the retry loop gave up on, kept until the loop decides whether
+/// another attempt replaces it.
+///
+/// A response that ended incomplete is retried as if it had failed, but if the
+/// retries run out the caller gets that response back rather than the error
+/// it was classified as. A new attempt supersedes the abandoned one entirely,
+/// including when opening that attempt fails.
+enum Abandoned {
+    Failed(Error),
+    /// The response the provider gave, and the error the retry policy
+    /// classifies it by. Boxed so the common failed attempt does not grow by
+    /// the response's size.
+    Incomplete {
+        response: Box<Response>,
+        error:    Error,
+    },
+}
+
+impl Abandoned {
+    fn incomplete(response: Box<Response>, call: &Call) -> Self {
+        Self::Incomplete {
+            response,
+            error: incomplete_error(call),
+        }
+    }
+
+    /// The error the retry policy classifies this attempt by.
+    fn error(&self) -> &Error {
+        match self {
+            Self::Failed(error) | Self::Incomplete { error, .. } => error,
+        }
+    }
+
+    /// What the caller receives when no further attempt is made.
+    fn into_output(self) -> Result<Box<Response>, Error> {
+        match self {
+            Self::Failed(error) => Err(error),
+            Self::Incomplete { response, .. } => Ok(response),
+        }
+    }
+
+    /// The stream item the caller receives when no further attempt is made.
+    fn into_item(self) -> Result<StreamEvent, Error> {
+        self.into_output()
+            .map(|response| StreamEvent::Ended { response })
     }
 }
 
@@ -160,15 +235,16 @@ fn report_retry(
 #[derive(Clone)]
 #[must_use]
 pub struct RetryMiddleware {
-    policy:   RetryPolicy,
-    observer: Option<Arc<dyn Observer>>,
+    retrier: Retrier,
 }
 
 impl RetryMiddleware {
     pub fn new(policy: RetryPolicy) -> Self {
         Self {
-            policy,
-            observer: None,
+            retrier: Retrier {
+                policy,
+                observer: None,
+            },
         }
     }
 
@@ -182,7 +258,7 @@ impl RetryMiddleware {
     }
 
     pub fn observer_arc(mut self, observer: Arc<dyn Observer>) -> Self {
-        self.observer = Some(observer);
+        self.retrier.observer = Some(observer);
         self
     }
 }
@@ -191,8 +267,8 @@ impl fmt::Debug for RetryMiddleware {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("RetryMiddleware")
-            .field("policy", &self.policy)
-            .field("observer", &self.observer.is_some())
+            .field("policy", &self.retrier.policy)
+            .field("observer", &self.retrier.observer.is_some())
             .finish()
     }
 }
@@ -200,49 +276,35 @@ impl fmt::Debug for RetryMiddleware {
 #[async_trait]
 impl Middleware for RetryMiddleware {
     async fn handle(&self, call: Call, next: Next) -> Result<Output, Error> {
-        let mut attempt = call.context.attempt();
         let mut current = call.clone();
         loop {
-            current.context.set_attempt(attempt);
-            let mut incomplete = None;
-            let outcome = match next.clone().run(current.clone()).await {
-                Ok(Output::Complete(response))
-                    if response.finish_reason == FinishReason::Incomplete =>
-                {
-                    incomplete = Some(response);
-                    Err(incomplete_error(&current))
-                }
-                outcome => outcome,
-            };
-            match outcome {
+            let abandoned = match next.clone().run(current.clone()).await {
                 Ok(Output::Stream(stream)) if call.mode == Operation::Stream => {
                     return Ok(Output::Stream(retry_stream(
                         stream,
                         current,
                         next,
-                        self.policy,
-                        self.observer.clone(),
+                        self.retrier.clone(),
                     )));
                 }
-                Ok(output) => return Ok(output),
-                Err(error) => {
-                    let delay = self.policy.next_delay(attempt, &error).filter(|delay| {
-                        CallGuard::new(current.context()).permits_retry_after(*delay)
-                    });
-                    let Some(delay) = delay else {
-                        return incomplete.map(Output::Complete).ok_or(error);
-                    };
-                    report_retry(
-                        self.observer.as_ref(),
-                        &current,
-                        attempt,
-                        delay,
-                        &error,
-                        RetryStage::Request,
-                    );
-                    sleep(delay).await;
-                    attempt = attempt.saturating_add(1);
+                // An incomplete response is retried as if it had failed; see
+                // `Abandoned`.
+                Ok(Output::Complete(response))
+                    if response.finish_reason == FinishReason::Incomplete =>
+                {
+                    Abandoned::incomplete(Box::new(response), &current)
                 }
+                Ok(output) => return Ok(output),
+                Err(error) => Abandoned::Failed(error),
+            };
+            if !self
+                .retrier
+                .wait_before_retry(&mut current, abandoned.error(), RetryStage::Request)
+                .await
+            {
+                return abandoned
+                    .into_output()
+                    .map(|response| Output::Complete(*response));
             }
         }
     }
@@ -271,138 +333,133 @@ fn retry_stream(
     stream: ResponseStream,
     call: Call,
     next: Next,
-    policy: RetryPolicy,
-    observer: Option<Arc<dyn Observer>>,
+    retrier: Retrier,
 ) -> ResponseStream {
-    struct State {
-        stream:   ResponseStream,
-        call:     Call,
-        next:     Next,
-        policy:   RetryPolicy,
-        observer: Option<Arc<dyn Observer>>,
-        attempt:  u32,
-        visible:  bool,
-        /// Bookkeeping from the current attempt, not yet delivered.
-        held:     Vec<StreamEvent>,
-        /// Items already decided on, waiting for the consumer to poll.
-        ready:    VecDeque<Result<StreamEvent, Error>>,
-        ended:    bool,
-    }
-
-    impl State {
-        /// Moves the held bookkeeping into the delivery queue.
-        fn release_held(&mut self) {
-            self.ready.extend(self.held.drain(..).map(Ok));
-        }
-    }
-
-    let state = State {
+    let state = StreamRetry {
         stream,
-        attempt: call.context.attempt(),
         call,
         next,
-        policy,
-        observer,
-        visible: false,
-        held: Vec::new(),
-        ready: VecDeque::new(),
-        ended: false,
+        retrier,
+        phase: Phase::Holding(Vec::new()),
     };
-    ResponseStream::new(unfold(state, |mut state| async move {
-        'read: loop {
-            if let Some(item) = state.ready.pop_front() {
-                return Some((item, state));
+    ResponseStream::new(
+        unfold(state, |mut state| async move {
+            Box::pin(state.step()).await.map(|batch| (batch, state))
+        })
+        .flat_map(iter),
+    )
+}
+
+/// Where one logical stream is in its life.
+enum Phase {
+    /// Before the first visible event: bookkeeping is held so a reconnect can
+    /// discard it.
+    Holding(Vec<StreamEvent>),
+    /// After the first visible event: everything passes through, and an
+    /// error is final because a replay would duplicate what the caller saw.
+    Delivering,
+}
+
+/// The state of one retrying stream, driven a step at a time.
+///
+/// Each step reads one item from the current attempt and answers with the
+/// batch of items the caller receives for it — usually one, none while
+/// bookkeeping is held, and several when held bookkeeping is released.
+struct StreamRetry {
+    stream:  ResponseStream,
+    call:    Call,
+    next:    Next,
+    retrier: Retrier,
+    phase:   Phase,
+}
+
+impl StreamRetry {
+    /// Reads one item and decides what the caller receives for it.
+    ///
+    /// `None` ends the stream. An exhausted retry swaps in an empty stream, so
+    /// the step after the terminal item hits EOF.
+    async fn step(&mut self) -> Option<Vec<Result<StreamEvent, Error>>> {
+        let item = self.stream.next().await;
+        let Phase::Holding(held) = &mut self.phase else {
+            // Delivering: errors and events alike pass through, and EOF ends
+            // the stream.
+            return item.map(|item| vec![item]);
+        };
+
+        let abandoned = match item {
+            Some(Ok(StreamEvent::Ended { response }))
+                if response.finish_reason == FinishReason::Incomplete =>
+            {
+                Abandoned::incomplete(response, &self.call)
             }
-            if state.ended {
-                return None;
+            // A decoder may synthesize closing blocks at EOF. Hold those
+            // until actual deltas or the terminal outcome reach the caller.
+            Some(Ok(event))
+                if !event.is_visible() || matches!(event, StreamEvent::ContentBlockEnd { .. }) =>
+            {
+                held.push(event);
+                return Some(Vec::new());
             }
-            let mut incomplete = None;
-            let item = match state.stream.next().await {
-                Some(Ok(StreamEvent::Ended { response }))
-                    if !state.visible && response.finish_reason == FinishReason::Incomplete =>
-                {
-                    incomplete = Some(response);
-                    Some(Err(incomplete_error(&state.call)))
+            Some(Ok(event)) => {
+                let mut released: Vec<_> = held.drain(..).map(Ok).collect();
+                released.push(Ok(event));
+                self.phase = Phase::Delivering;
+                return Some(released);
+            }
+            Some(Err(error)) => Abandoned::Failed(error),
+            None => {
+                let released: Vec<_> = held.drain(..).map(Ok).collect();
+                self.stream = ResponseStream::new(empty());
+                return Some(released);
+            }
+        };
+        Some(Box::pin(self.reconnect(abandoned)).await)
+    }
+
+    /// Replaces the abandoned attempt with a new one, or delivers the
+    /// abandoned outcome when the retries are spent.
+    async fn reconnect(&mut self, mut abandoned: Abandoned) -> Vec<Result<StreamEvent, Error>> {
+        // The failed attempt's stream must be dropped before the backoff
+        // sleep and the reconnect: a layer below may hold a resource — a
+        // concurrency permit, a connection — for exactly as long as its
+        // stream lives, and the reconnect re-enters that layer to acquire the
+        // same resource.
+        self.stream = ResponseStream::new(empty());
+        loop {
+            if !self
+                .retrier
+                .wait_before_retry(&mut self.call, abandoned.error(), RetryStage::Stream)
+                .await
+            {
+                break;
+            }
+            // A new attempt supersedes the abandoned response, including when
+            // opening that attempt fails.
+            match self.next.clone().run(self.call.clone()).await {
+                Ok(Output::Stream(stream)) => {
+                    // The abandoned attempt produced no visible output, so its
+                    // bookkeeping describes a stream nobody saw.
+                    self.stream = stream;
+                    self.phase = Phase::Holding(Vec::new());
+                    return Vec::new();
                 }
-                item => item,
-            };
-            match item {
-                // A decoder may synthesize closing blocks at EOF. Hold those
-                // until actual deltas or the terminal outcome reach the caller.
-                Some(Ok(event))
-                    if !state.visible
-                        && (!event.is_visible()
-                            || matches!(event, StreamEvent::ContentBlockEnd { .. })) =>
-                {
-                    state.held.push(event);
+                Ok(_) => {
+                    abandoned = Abandoned::Failed(Error::new(
+                        ErrorKind::Middleware,
+                        "stream retry returned a complete response",
+                    ));
+                    break;
                 }
-                Some(Ok(event)) => {
-                    state.visible = true;
-                    state.release_held();
-                    state.ready.push_back(Ok(event));
-                }
-                Some(Err(mut error)) if !state.visible => {
-                    // The failed attempt's stream must be dropped before the
-                    // backoff sleep and the reconnect: a layer below may hold
-                    // a resource — a concurrency permit, a connection — for
-                    // exactly as long as its stream lives, and the reconnect
-                    // re-enters that layer to acquire the same resource.
-                    state.stream = ResponseStream::new(empty());
-                    while let Some(delay) = state.policy.next_delay(state.attempt, &error) {
-                        if !CallGuard::new(state.call.context()).permits_retry_after(delay) {
-                            break;
-                        }
-                        report_retry(
-                            state.observer.as_ref(),
-                            &state.call,
-                            state.attempt,
-                            delay,
-                            &error,
-                            RetryStage::Stream,
-                        );
-                        sleep(delay).await;
-                        // A new attempt supersedes the abandoned response,
-                        // including when opening that attempt fails.
-                        incomplete = None;
-                        state.attempt = state.attempt.saturating_add(1);
-                        state.call.context.set_attempt(state.attempt);
-                        match state.next.clone().run(state.call.clone()).await {
-                            Ok(Output::Stream(stream)) => {
-                                // The abandoned attempt produced no visible
-                                // output, so its bookkeeping describes a
-                                // stream nobody saw.
-                                state.held.clear();
-                                state.stream = stream;
-                                continue 'read;
-                            }
-                            Ok(_) => {
-                                error = Error::new(
-                                    ErrorKind::Middleware,
-                                    "stream retry returned a complete response",
-                                );
-                                break;
-                            }
-                            Err(next_error) => error = next_error,
-                        }
-                    }
-                    state.release_held();
-                    state.ready.push_back(
-                        incomplete
-                            .map(|response| StreamEvent::Ended { response })
-                            .ok_or(error),
-                    );
-                    state.ended = true;
-                }
-                Some(Err(error)) => {
-                    state.ready.push_back(Err(error));
-                }
-                None => {
-                    state.release_held();
-                    state.ended = true;
-                }
+                Err(next_error) => abandoned = Abandoned::Failed(next_error),
             }
         }
-    }))
+        let Phase::Holding(held) = &mut self.phase else {
+            unreachable!("a reconnect only runs while holding");
+        };
+        let mut released: Vec<_> = held.drain(..).map(Ok).collect();
+        released.push(abandoned.into_item());
+        released
+    }
 }
 
 #[cfg(test)]
