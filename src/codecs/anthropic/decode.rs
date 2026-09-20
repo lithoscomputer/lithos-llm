@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 
 use super::NAMESPACE;
-use crate::codecs::common::ANTHROPIC_SIGNATURES;
+use crate::codecs::content::ANTHROPIC_SIGNATURES;
 use crate::types::{
     ContentBlockId, ContentPart, ReasoningContent, TokenCounts, ToolArguments, ToolCall, ToolInput,
 };
@@ -131,9 +131,10 @@ pub(super) fn field<'a>(value: &'a Value, key: &str) -> &'a str {
 /// from it. A `tool_use` block's own id is the provider's tool-call id and is
 /// kept in [`ContentBlockKind::ToolCall`] instead.
 pub(super) fn block_id(value: &Value) -> ContentBlockId {
-    let index = value
-        .get("index")
-        .and_then(Value::as_u64)
-        .unwrap_or_default();
-    ContentBlockId::new(format!("block-{index}"))
+    ContentBlockId::from_index(
+        value
+            .get("index")
+            .and_then(Value::as_u64)
+            .unwrap_or_default(),
+    )
 }

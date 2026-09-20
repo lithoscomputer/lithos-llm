@@ -252,6 +252,24 @@ fn each_speed_selects_its_service_tier() -> Result<(), Box<dyn StdError>> {
 }
 
 #[test]
+fn codex_mode_keeps_a_whitespace_only_instruction() -> Result<(), Box<dyn StdError>> {
+    // Retained behavior, pinned rather than changed: the Anthropic and Gemini
+    // encoders drop a whitespace-only system message, but this encoder sends
+    // it as the reference client did. Changing it needs a probe showing Codex
+    // rejects or ignores the blank.
+    let request = Request::builder()
+        .model(MODEL)
+        .system("   ")
+        .user("Hello")
+        .build()?;
+
+    let encoded = OpenAiResponsesCodec::new(true).encode(&call(request)?, false)?;
+
+    assert_eq!(encoded.body["instructions"], json!("   "));
+    Ok(())
+}
+
+#[test]
 fn codex_mode_hoists_instructions_and_drops_sampling_controls() -> Result<(), Box<dyn StdError>> {
     let request = Request::builder()
         .model(MODEL)

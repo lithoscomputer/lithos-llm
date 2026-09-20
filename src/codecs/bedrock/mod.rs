@@ -16,7 +16,7 @@ mod stream;
 #[cfg(all(test, feature = "builtin-catalog"))]
 mod tests;
 
-use decode::{decode_content_block, stop_reason, token_counts};
+use decode::{decode_content_block, token_counts};
 use encode::{
     MIN_THINKING_BUDGET, bedrock_effort, budget_limit, caches, carries_in_tool_result,
     conversation, encode_count_tokens, forces_tool_use, history_carries_tool_blocks,
@@ -27,17 +27,17 @@ use reqwest::Method;
 use serde_json::{Map, Value, json};
 use stream::BedrockStreamDecoder;
 
-use super::common::{
-    ANTHROPIC_SIGNATURES, flattens_system_content, flattens_tool_result_content, merge_options,
-    refusal, reject_unencodable, wire_options,
+use super::content::{
+    ANTHROPIC_SIGNATURES, finish_reason, flattens_system_content, flattens_tool_result_content,
+    reject_audio,
 };
+use super::errors::{malformed_success, refusal};
+use super::options::{merge_options, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{
-    ContentPart, Error, ErrorKind, Response, RetryClassification, Speed, ToolChoice,
-};
+use crate::types::{Error, Response, Speed, ToolChoice};
 
 /// The opaque replay namespace this codec claims.
 const NAMESPACE: &str = "bedrock";
@@ -50,11 +50,7 @@ impl Codec for BedrockConverseCodec {
         let request = call.request();
         let route = call.route();
         reject_custom_tools(request, route)?;
-        // Bedrock Converse carries no audio. Dropping it silently would let
-        // the model answer a prompt the caller never sent.
-        reject_unencodable(route, request, |part| {
-            matches!(part, ContentPart::Audio(_)).then_some("audio content")
-        })?;
+        reject_audio(route, request)?;
         reject_unnameable_tools(request, route)?;
         let (options, controls) = wire_options(call);
         let cached = caches(route, controls.auto_cache);
@@ -215,20 +211,14 @@ impl Codec for BedrockConverseCodec {
             .pointer("/output/message/content")
             .is_some_and(Value::is_array)
         {
-            // A structurally malformed 200 is indistinguishable from a
-            // garbled or truncated body, so a fresh attempt is safe — the
-            // same classification the transport gives a 200 whose body is
-            // not JSON at all.
-            return Err(Error::new(
-                ErrorKind::ResponseDecode,
+            return Err(malformed_success(
+                route,
                 format!(
                     "provider {} returned a 200 body without a Converse output message",
                     route.provider().id()
                 ),
-            )
-            .with_provider(route.provider().id().clone())
-            .with_raw_data(value)
-            .with_retry(RetryClassification::Safe));
+                Some(value),
+            ));
         }
 
         let content = value
@@ -244,7 +234,7 @@ impl Codec for BedrockConverseCodec {
             route.model().id().clone(),
             content,
         );
-        response.finish_reason = stop_reason(value.get("stopReason").and_then(Value::as_str));
+        response.finish_reason = finish_reason(value.get("stopReason").and_then(Value::as_str));
         response.usage = token_counts(value.get("usage"));
         response.raw = Some(value);
         response.suppress_unfinished_tool_calls();
@@ -264,14 +254,11 @@ impl Codec for BedrockConverseCodec {
             .get("inputTokens")
             .and_then(Value::as_u64)
             .ok_or_else(|| {
-                // Malformed like any other garbled 200, so retrying is safe.
-                Error::new(
-                    ErrorKind::ResponseDecode,
+                malformed_success(
+                    route,
                     "Bedrock returned a count-tokens body without an inputTokens count",
+                    Some(value),
                 )
-                .with_provider(route.provider().id().clone())
-                .with_raw_data(value)
-                .with_retry(RetryClassification::Safe)
             })
     }
 }

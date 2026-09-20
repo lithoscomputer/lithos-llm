@@ -1,6 +1,6 @@
 //! The Messages SSE stream decoder.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use serde_json::Value;
 
@@ -8,18 +8,16 @@ use super::NAMESPACE;
 use super::decode::{block_id, field, fold_usage};
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
-use crate::codecs::common::{ANTHROPIC_SIGNATURES, finish_reason, refusal};
+use crate::codecs::content::{ANTHROPIC_SIGNATURES, finish_reason};
+use crate::codecs::errors::{invalid_stream_event, lost_tool_start, refusal};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
-use crate::types::{
-    ContentBlockId, ContentBlockKind, Error, ErrorKind, RetryClassification, StreamEvent,
-    ToolCallKind,
-};
+use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
 
 /// Per-stream state for one Anthropic Messages response.
 pub(super) struct AnthropicStreamDecoder {
-    route:       ResolvedRoute,
-    assembler:   StreamAssembler,
+    route:     ResolvedRoute,
+    assembler: StreamAssembler,
     /// Unknown server-side blocks that may stream their `input`.
     ///
     /// A `server_tool_use` block arrives as a start snapshot with an empty
@@ -27,9 +25,7 @@ pub(super) struct AnthropicStreamDecoder {
     /// fragments accumulate here next to the snapshot and fold back into it
     /// when the block closes, so the replayed block matches what the blocking
     /// decoder keeps whole.
-    opaque:      BTreeMap<ContentBlockId, (Value, String)>,
-    /// The blocks a `content_block_start` opened as tool calls.
-    tool_blocks: BTreeSet<ContentBlockId>,
+    opaque:    BTreeMap<ContentBlockId, (Value, String)>,
 }
 
 impl StreamDecoder for AnthropicStreamDecoder {
@@ -38,13 +34,11 @@ impl StreamDecoder for AnthropicStreamDecoder {
         // corruption, so the failure is retryable like any other garbled
         // stream.
         let value: Value = serde_json::from_str(&event.data).map_err(|source| {
-            Error::new(
-                ErrorKind::StreamDecode,
+            invalid_stream_event(
+                &self.route,
                 "Anthropic returned an invalid stream event",
+                source,
             )
-            .with_provider(self.route.provider().id().clone())
-            .with_source(source)
-            .with_retry(RetryClassification::Safe)
         })?;
         let kind = value
             .get("type")
@@ -145,10 +139,9 @@ impl AnthropicStreamDecoder {
     /// Creates the decoder for one stream on `route`.
     pub(super) fn new(route: &ResolvedRoute) -> Self {
         Self {
-            route:       route.clone(),
-            assembler:   StreamAssembler::new(route).with_signatures(ANTHROPIC_SIGNATURES),
-            opaque:      BTreeMap::new(),
-            tool_blocks: BTreeSet::new(),
+            route:     route.clone(),
+            assembler: StreamAssembler::new(route).with_signatures(ANTHROPIC_SIGNATURES),
+            opaque:    BTreeMap::new(),
         }
     }
 
@@ -197,17 +190,14 @@ impl AnthropicStreamDecoder {
             }
             // The provider's tool-call id belongs to the call, not to the
             // block, so it stays here and never becomes the block id.
-            Some("tool_use") => {
-                self.tool_blocks.insert(id.clone());
-                self.assembler.start(id, ContentBlockKind::ToolCall {
-                    id:   field(block, "id").to_owned(),
-                    name: block
-                        .get("name")
-                        .and_then(Value::as_str)
-                        .map(ToOwned::to_owned),
-                    kind: ToolCallKind::Function,
-                })
-            }
+            Some("tool_use") => self.assembler.start(id, ContentBlockKind::ToolCall {
+                id:   field(block, "id").to_owned(),
+                name: block
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned),
+                kind: ToolCallKind::Function,
+            }),
             Some(kind) => {
                 let mut events = self.assembler.start(id.clone(), ContentBlockKind::Opaque {
                     kind: format!("{NAMESPACE}.{kind}"),
@@ -243,23 +233,9 @@ impl AnthropicStreamDecoder {
                     return Ok(Vec::new());
                 }
                 // Anthropic announces every tool call in a
-                // `content_block_start` carrying its id and name. A fragment
-                // for a block no start opened means the start was lost in
-                // transit; assembling the rest would fabricate a nameless
-                // call that poisons the replayed conversation, so the stream
-                // fails retryably instead — the same contract the Chat and
-                // Bedrock codecs apply.
-                if !self.tool_blocks.contains(&id) {
-                    return Err(Error::new(
-                        ErrorKind::StreamDecode,
-                        format!(
-                            "provider {} streamed tool-call input for a block whose start event \
-                             never arrived",
-                            self.route.provider().id()
-                        ),
-                    )
-                    .with_provider(self.route.provider().id().clone())
-                    .with_retry(RetryClassification::Safe));
+                // `content_block_start`; see `lost_tool_start`.
+                if !self.assembler.announced_tool_call(&id) {
+                    return Err(lost_tool_start(&self.route));
                 }
                 self.assembler.arguments(&id, fragment)
             }

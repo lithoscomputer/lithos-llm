@@ -42,11 +42,11 @@ use reqwest::Method;
 use serde_json::{Map, Value};
 
 use super::EvaluationCodec;
-use super::common::usd_micros;
 use super::evaluation_common::{
     MAX_LEVELS, QuestionLimits, answer_object, decode_choice, decode_failure, decode_score,
     encode_question, encode_state,
 };
+use super::options::usd_micros;
 use crate::adapter::ResolvedEvaluation;
 use crate::evaluation::{
     Answer, BooleanAnswer, Evaluation, Question, QuestionId, Rounding, Verdict,

@@ -33,17 +33,17 @@ use reqwest::Method;
 use serde_json::{Map, Value, json};
 use stream::ChatStreamDecoder;
 
-use super::common::{
-    cache_routing_key, endpoint, finish_reason, flattens_tool_result_content, merge_options,
-    refusal, reject_unencodable, sampling, unsupported_capability, wire_options,
+use super::content::{
+    finish_reason, flattens_tool_result_content, promote_tool_finish, reject_unencodable,
+    text_or_json_only,
 };
+use super::errors::{refusal, unsupported_capability};
+use super::options::{cache_routing_key, endpoint, merge_options, sampling, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{
-    ContentPart, Error, FinishReason, Message, ReasoningContent, Response, ToolDefinition,
-};
+use crate::types::{ContentPart, Error, Message, ReasoningContent, Response, ToolDefinition};
 
 /// The prefix of an opaque content kind this dialect claims.
 ///
@@ -212,14 +212,7 @@ impl Codec for OpenAiChatCodec {
         }
         // An all-JSON result travels as the bare value, so only a mix that
         // must flatten is reported.
-        if flattens_tool_result_content(request, |parts| {
-            parts
-                .iter()
-                .all(|part| matches!(part, ContentPart::Text { .. }))
-                || parts
-                    .iter()
-                    .all(|part| matches!(part, ContentPart::Json { .. }))
-        }) {
+        if flattens_tool_result_content(request, text_or_json_only) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
         Ok(encoded)
@@ -301,19 +294,17 @@ impl Codec for OpenAiChatCodec {
             .get("id")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned);
-        response.finish_reason = finish_reason(choice.get("finish_reason").and_then(Value::as_str));
         // Some skins answer a tool call with `finish_reason: "stop"` — qwen
         // on Venice does. The streaming path already lets an assembled tool
         // call win over a stop reason, and both paths must decode one
         // exchange the same way, so the complete path applies the same rule.
-        if response.finish_reason == FinishReason::Stop
-            && response
+        response.finish_reason = promote_tool_finish(
+            finish_reason(choice.get("finish_reason").and_then(Value::as_str)),
+            response
                 .content
                 .iter()
-                .any(|part| matches!(part, ContentPart::ToolCall(_)))
-        {
-            response.finish_reason = FinishReason::ToolCall;
-        }
+                .any(|part| matches!(part, ContentPart::ToolCall(_))),
+        );
         response.usage = value.get("usage").map(token_counts).unwrap_or_default();
         response.cost = provider_cost(&value);
         response.raw = Some(value);

@@ -6,18 +6,20 @@ mod stream;
 #[cfg(all(test, feature = "builtin-catalog"))]
 mod tests;
 
-use decode::{decode_candidate, decode_usage, no_candidates, response_nonce};
+use decode::{decode_candidate, no_candidates, response_nonce, token_counts};
 use encode::{count_tokens_request, generate_body, model_endpoint};
 use reqwest::Method;
 use serde_json::Value;
 use stream::GeminiStreamDecoder;
 
-use super::common::{GEMINI_SIGNATURES, flattens_system_content, flattens_tool_result_content};
+use super::content::{
+    GEMINI_SIGNATURES, flattens_system_content, flattens_tool_result_content, text_or_json_only,
+};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{ContentPart, Error, ErrorKind, Response};
+use crate::types::{Error, ErrorKind, Response};
 
 /// The replay namespace this codec claims.
 ///
@@ -59,14 +61,7 @@ impl Codec for GeminiGenerateCodec {
         }
         // An all-JSON result rides `functionResponse.response` natively, so
         // only a mix that must flatten is reported.
-        if flattens_tool_result_content(call.request(), |parts| {
-            parts
-                .iter()
-                .all(|part| matches!(part, ContentPart::Text { .. }))
-                || parts
-                    .iter()
-                    .all(|part| matches!(part, ContentPart::Json { .. }))
-        }) {
+        if flattens_tool_result_content(call.request(), text_or_json_only) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
         // This protocol has no latency tier, so the control is reported rather
@@ -111,7 +106,7 @@ impl Codec for GeminiGenerateCodec {
         let Some((content, finished)) = decoded else {
             return Err(no_candidates(route, value));
         };
-        let usage = decode_usage(value.get("usageMetadata").unwrap_or(&Value::Null));
+        let usage = token_counts(value.get("usageMetadata").unwrap_or(&Value::Null));
 
         let mut response = Response::new(
             route.provider().id().clone(),

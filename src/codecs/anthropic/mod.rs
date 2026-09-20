@@ -20,15 +20,17 @@ use reqwest::Method;
 use serde_json::Value;
 use stream::AnthropicStreamDecoder;
 
-use super::common::{
-    ANTHROPIC_SIGNATURES, endpoint, finish_reason, flattens_system_content,
-    flattens_tool_result_content, merge_options, refusal, reject_unencodable, wire_options,
+use super::content::{
+    ANTHROPIC_SIGNATURES, finish_reason, flattens_system_content, flattens_tool_result_content,
+    reject_audio,
 };
+use super::errors::{malformed_success, refusal};
+use super::options::{endpoint, merge_options, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{ContentPart, Error, ErrorKind, Response, RetryClassification};
+use crate::types::{ContentPart, Error, ErrorKind, Response};
 
 /// The opaque-part namespace this codec owns.
 ///
@@ -97,11 +99,7 @@ pub(crate) struct AnthropicMessagesCodec;
 impl Codec for AnthropicMessagesCodec {
     fn encode(&self, call: &ResolvedCall, stream: bool) -> Result<EncodedRequest, Error> {
         reject_custom_tools(call)?;
-        // Anthropic Messages carries no audio. Dropping it silently would let
-        // the model answer a prompt the caller never sent.
-        reject_unencodable(call.route(), call.request(), |part| {
-            matches!(part, ContentPart::Audio(_)).then_some("audio content")
-        })?;
+        reject_audio(call.route(), call.request())?;
 
         let request = call.request();
         let (mut options, controls) = wire_options(call);
@@ -175,17 +173,11 @@ impl Codec for AnthropicMessagesCodec {
         // envelope, or another protocol answering on this URL. Decoding it as
         // an empty success would report a model that said nothing.
         if let Some(field) = missing_response_field(&value) {
-            // A structurally malformed 200 is indistinguishable from a
-            // garbled or truncated body, so a fresh attempt is safe — the
-            // same classification the transport gives a 200 whose body is
-            // not JSON at all.
-            return Err(Error::new(
-                ErrorKind::ResponseDecode,
+            return Err(malformed_success(
+                route,
                 format!("Anthropic returned a response without the {field} field"),
-            )
-            .with_provider(route.provider().id().clone())
-            .with_raw_data(value)
-            .with_retry(RetryClassification::Safe));
+                Some(value),
+            ));
         }
 
         let content = value

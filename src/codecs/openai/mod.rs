@@ -12,20 +12,20 @@ mod stream;
 mod tests;
 
 use decode::{decode_document, decode_error};
-use encode::{CustomTools, input_items, instructions, is_system, shared_body};
+use encode::{CustomTools, input_items, instructions, shared_body};
 use reqwest::Method;
 use serde_json::{Map, Value, json};
 use stream::ResponsesStream;
 
-use super::common::{
-    cache_routing_key, endpoint, flattens_system_content, flattens_tool_result_content,
-    merge_options, reject_unencodable, sampling, wire_options,
+use super::content::{
+    flattens_system_content, flattens_tool_result_content, reject_unencodable, text_or_json_only,
 };
+use super::options::{cache_routing_key, endpoint, merge_options, sampling, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
-use crate::types::{ContentPart, Error, MediaSource, Message, Response, Role};
+use crate::types::{ContentPart, Error, MediaSource, Message, Response};
 
 /// The provider namespace this codec owns.
 ///
@@ -139,14 +139,7 @@ impl Codec for OpenAiResponsesCodec {
 
         // An all-JSON result travels as the bare value, so only a mix that
         // must flatten is reported.
-        if flattens_tool_result_content(request, |parts| {
-            parts
-                .iter()
-                .all(|part| matches!(part, ContentPart::Text { .. }))
-                || parts
-                    .iter()
-                    .all(|part| matches!(part, ContentPart::Json { .. }))
-        }) {
+        if flattens_tool_result_content(request, text_or_json_only) {
             encoded = encoded.unsupported_control("non-text tool result content");
         }
 
@@ -162,7 +155,7 @@ impl Codec for OpenAiResponsesCodec {
             && request
                 .messages()
                 .iter()
-                .filter(|message| matches!(message.role(), Role::System | Role::Developer))
+                .filter(|message| message.is_instruction())
                 .flat_map(Message::content)
                 .any(|part| matches!(part, ContentPart::Image(_) | ContentPart::Document(_)))
         {
@@ -291,7 +284,7 @@ impl OpenAiResponsesCodec {
                 request
                     .messages()
                     .iter()
-                    .filter(|message| !self.codex || !is_system(message))
+                    .filter(|message| !self.codex || !message.is_instruction())
                     .flat_map(|message| input_items(message, &custom))
                     .collect(),
             ),

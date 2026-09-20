@@ -9,10 +9,9 @@ use super::{
     JSON_OBJECT_INSTRUCTION, MIN_THINKING_BUDGET, NAMESPACE,
 };
 use crate::adapter::ResolvedCall;
-use crate::codecs::common::{
-    ANTHROPIC_SIGNATURES, endpoint, merge_options, plain_text, reject_unencodable, sampling,
-    system_text, unsupported_capability, wire_options,
-};
+use crate::codecs::content::{ANTHROPIC_SIGNATURES, Turns, plain_text, reject_audio, system_text};
+use crate::codecs::errors::unsupported_capability;
+use crate::codecs::options::{endpoint, merge_options, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
@@ -90,9 +89,7 @@ pub(super) fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest
     reject_custom_tools(call)?;
     // Counting refuses exactly what completion refuses. A request the provider
     // would not accept must not come back with a token count.
-    reject_unencodable(call.route(), call.request(), |part| {
-        matches!(part, ContentPart::Audio(_)).then_some("audio content")
-    })?;
+    reject_audio(call.route(), call.request())?;
 
     let (mut options, controls) = wire_options(call);
     // Counting sends the same betas generation sends: a beta can change what
@@ -162,17 +159,13 @@ pub(super) fn message_body(
         body.insert("system".to_owned(), system_value(system, cached));
     }
 
-    let mut messages = wire_messages(request.messages(), system_turns);
+    let mut turns = wire_turns(request.messages(), system_turns);
     if cached {
-        mark_conversation_prefix(&mut messages);
+        mark_conversation_prefix(&mut turns);
     }
     body.insert(
         "messages".to_owned(),
-        messages
-            .into_iter()
-            .map(WireMessage::into_value)
-            .collect::<Vec<_>>()
-            .into(),
+        Value::Array(turns.into_values("content")),
     );
 
     if let Some(temperature) = request.temperature() {
@@ -416,24 +409,6 @@ fn system_value(text: String, cached: bool) -> Value {
     json!([block])
 }
 
-/// One conversation turn translated into Anthropic content blocks.
-struct WireMessage {
-    /// `user` or `assistant`, or `system` on a model that takes system turns.
-    role:   &'static str,
-    blocks: Vec<Value>,
-}
-
-impl WireMessage {
-    fn into_value(self) -> Value {
-        json!({ "role": self.role, "content": self.blocks })
-    }
-}
-
-/// Whether a message carries system-prompt authority.
-fn is_system(message: &Message) -> bool {
-    matches!(message.role(), Role::System | Role::Developer)
-}
-
 /// The system and developer messages before the first conversational turn.
 ///
 /// This run is the system prompt proper: it is hoisted into the top-level
@@ -443,7 +418,7 @@ fn is_system(message: &Message) -> bool {
 fn leading_system_run(messages: &[Message]) -> &[Message] {
     let end = messages
         .iter()
-        .position(|message| !is_system(message))
+        .position(|message| !message.is_instruction())
         .unwrap_or(messages.len());
     &messages[..end]
 }
@@ -455,16 +430,16 @@ fn leading_system_run(messages: &[Message]) -> &[Message] {
 /// in place. A system turn carries text only, the same as the hoisted field,
 /// so `flattens_system_content` reports whatever else such a message held.
 /// Every remaining non-assistant role — a tool result above all — is a `user`
-/// turn. A turn whose parts all encode to nothing is dropped, because
-/// Anthropic rejects a message with empty content.
+/// turn. A turn whose parts all encode to nothing is dropped, and consecutive
+/// same-role turns merge; see [`Turns`].
 ///
 /// Turns go out in the order given. Anthropic requires a system turn to
 /// follow a `user` turn and to be last or followed by an `assistant` turn;
 /// the codec does not reorder or fold a misplaced one, so the provider's
 /// placement error reaches the caller as an invalid request.
-fn wire_messages(messages: &[Message], system_turns: bool) -> Vec<WireMessage> {
+fn wire_turns(messages: &[Message], system_turns: bool) -> Turns {
     let leading = leading_system_run(messages).len();
-    let mut wire: Vec<WireMessage> = Vec::new();
+    let mut turns = Turns::default();
     for (index, message) in messages.iter().enumerate() {
         let role = match message.role() {
             Role::System | Role::Developer if system_turns && index >= leading => "system",
@@ -482,20 +457,9 @@ fn wire_messages(messages: &[Message], system_turns: bool) -> Vec<WireMessage> {
         } else {
             message.content().iter().filter_map(content_block).collect()
         };
-        if blocks.is_empty() {
-            continue;
-        }
-        // This protocol alternates roles. Several canonical messages can map
-        // to one wire role — parallel tool results are the common case, since
-        // each result is its own message but they all answer one assistant
-        // turn — so consecutive same-role messages merge into one turn rather
-        // than being sent as a run the provider rejects.
-        match wire.last_mut() {
-            Some(last) if last.role == role => last.blocks.extend(blocks),
-            _ => wire.push(WireMessage { role, blocks }),
-        }
+        turns.push(role, blocks);
     }
-    wire
+    turns
 }
 
 /// Encodes the content a tool returned.
@@ -547,26 +511,15 @@ fn tool_result_content(parts: &[ContentPart]) -> Value {
 
 /// Marks the conversation prefix so the next agent-loop turn reuses it.
 ///
-/// The breakpoint lands on the **second-to-last** user turn. The prefix that
-/// ends there is exactly what the previous iteration wrote, so each iteration
-/// reads the cache the one before it created instead of paying to write the
-/// whole conversation again. A conversation with fewer than two user turns has
-/// no reusable prefix yet and gets no breakpoint.
-fn mark_conversation_prefix(messages: &mut [WireMessage]) {
-    let user_turns: Vec<usize> = messages
-        .iter()
-        .enumerate()
-        .filter(|(_, message)| message.role == "user")
-        .map(|(index, _)| index)
-        .collect();
-
-    let Some(turn) = user_turns.len().checked_sub(2).map(|last| user_turns[last]) else {
-        return;
-    };
-    let Some(block) = messages[turn].blocks.last_mut() else {
-        return;
-    };
-    mark_cached(block);
+/// The breakpoint goes on the last block of the turn
+/// [`Turns::prefix_cache_target`] names, as a `cache_control` field.
+fn mark_conversation_prefix(turns: &mut Turns) {
+    if let Some(block) = turns
+        .prefix_cache_target()
+        .and_then(|blocks| blocks.last_mut())
+    {
+        mark_cached(block);
+    }
 }
 
 /// Adds an ephemeral cache breakpoint to one wire object.
@@ -635,13 +588,12 @@ pub(super) fn content_block(part: &ContentPart) -> Option<Value> {
         })),
         // A part this codec produced replays verbatim; one belonging to another
         // provider is skipped so failover still encodes.
-        ContentPart::Opaque { kind, data } => match kind.split_once('.') {
-            Some((NAMESPACE, _)) => Some(data.clone()),
-            Some(_) | None => None,
-        },
-        // The Messages API has no audio input.
-        // Rejected before dispatch by `reject_unencodable`.
-        ContentPart::Audio(_) | ContentPart::Unknown(_) => None,
+        ContentPart::Opaque { data, .. } if part.opaque_namespace() == Some(NAMESPACE) => {
+            Some(data.clone())
+        }
+        // The Messages API has no audio input; it is rejected before dispatch
+        // by `reject_audio`.
+        ContentPart::Opaque { .. } | ContentPart::Audio(_) | ContentPart::Unknown(_) => None,
     }
 }
 

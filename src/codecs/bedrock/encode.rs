@@ -6,10 +6,9 @@ use serde_json::{Map, Value, json};
 
 use super::NAMESPACE;
 use crate::adapter::ResolvedCall;
-use crate::codecs::common::{
-    ANTHROPIC_SIGNATURES, endpoint, plain_text, reject_unencodable, sampling, system_text,
-    unsupported_capability, wire_options,
-};
+use crate::codecs::content::{ANTHROPIC_SIGNATURES, Turns, plain_text, reject_audio, system_text};
+use crate::codecs::errors::unsupported_capability;
+use crate::codecs::options::{endpoint, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
@@ -30,9 +29,7 @@ pub(super) fn encode_count_tokens(call: &ResolvedCall) -> Result<EncodedRequest,
     reject_custom_tools(request, route)?;
     // Counting refuses exactly what completion refuses. A request the provider
     // would not accept must not come back with a token count.
-    reject_unencodable(route, request, |part| {
-        matches!(part, ContentPart::Audio(_)).then_some("audio content")
-    })?;
+    reject_audio(route, request)?;
     reject_unnameable_tools(request, route)?;
     let (_, controls) = wire_options(call);
     let cached = caches(route, controls.auto_cache);
@@ -129,16 +126,16 @@ pub(super) fn system_blocks(request: &Request, cached: bool) -> Vec<Value> {
 /// The conversation messages, with the prefix cache point already placed.
 ///
 /// System and developer messages are excluded; they became the `system`
-/// blocks. A message whose every part is unencodable is dropped, because
-/// Converse rejects a message with an empty content list.
+/// blocks. A message whose every part is unencodable is dropped and
+/// consecutive same-role turns merge; see [`Turns`].
 pub(super) fn conversation(
     request: &Request,
     route: &ResolvedRoute,
     cached: bool,
 ) -> Result<Vec<Value>, Error> {
-    let mut messages: Vec<Value> = Vec::new();
+    let mut turns = Turns::default();
     for message in request.messages() {
-        if matches!(message.role(), Role::System | Role::Developer) {
+        if message.is_instruction() {
             continue;
         }
         let mut blocks = Vec::new();
@@ -159,58 +156,22 @@ pub(super) fn conversation(
                 false,
             ));
         }
-        if blocks.is_empty() {
-            continue;
-        }
         let role = if message.role() == Role::Assistant {
             "assistant"
         } else {
             // Converse has no tool role; tool results ride in user messages.
             "user"
         };
-        // Converse alternates roles. Parallel tool results arrive as one
-        // canonical message each but all answer a single assistant turn, so
-        // consecutive same-role messages merge into one turn rather than
-        // being sent as a run the provider rejects.
-        match messages.last_mut() {
-            Some(last) if last.get("role").and_then(Value::as_str) == Some(role) => {
-                if let Some(Value::Array(content)) = last.get_mut("content") {
-                    content.extend(blocks);
-                }
-            }
-            _ => messages.push(json!({ "role": role, "content": blocks })),
-        }
+        turns.push(role, blocks);
     }
 
-    if cached {
-        place_conversation_cache_point(&mut messages);
+    // The cache point is appended as its own block to the turn
+    // `prefix_cache_target` names — the same placement the Anthropic codec
+    // uses, with a block instead of a field.
+    if cached && let Some(blocks) = turns.prefix_cache_target() {
+        blocks.push(cache_point());
     }
-    Ok(messages)
-}
-
-/// Appends a cache point to the second-to-last user turn.
-///
-/// Placing it one turn back means each iteration of an agent loop reuses the
-/// prefix the previous iteration wrote, instead of paying to write a prefix
-/// that the next turn immediately invalidates. This is the same placement the
-/// Anthropic codec uses.
-fn place_conversation_cache_point(messages: &mut [Value]) {
-    let user_turns: Vec<usize> = messages
-        .iter()
-        .enumerate()
-        .filter(|(_, message)| message.get("role").and_then(Value::as_str) == Some("user"))
-        .map(|(index, _)| index)
-        .collect();
-
-    let Some(target) = user_turns.len().checked_sub(2).map(|nth| user_turns[nth]) else {
-        return;
-    };
-    if let Some(content) = messages[target]
-        .get_mut("content")
-        .and_then(Value::as_array_mut)
-    {
-        content.push(cache_point());
-    }
+    Ok(turns.into_values("content"))
 }
 
 /// Encodes one content part as a Converse content block.

@@ -7,10 +7,9 @@ use serde_json::{Map, Value, json};
 
 use super::NAMESPACE;
 use crate::adapter::ResolvedCall;
-use crate::codecs::common::{
-    GEMINI_SIGNATURES, endpoint, merge_options, plain_text, sampling, system_text,
-    unsupported_capability, wire_options,
-};
+use crate::codecs::content::{GEMINI_SIGNATURES, Turns, plain_text, system_text};
+use crate::codecs::errors::unsupported_capability;
+use crate::codecs::options::{endpoint, merge_options, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
@@ -90,9 +89,11 @@ pub(super) fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, E
     }
 
     let names = tool_call_names(request);
-    let mut contents: Vec<Value> = Vec::new();
+    // Consecutive same-role turns merge; see `Turns`. Gemini's documented
+    // shape puts every `functionResponse` for a turn in one `user` entry.
+    let mut contents = Turns::default();
     for message in request.messages() {
-        if matches!(message.role(), Role::System | Role::Developer) {
+        if message.is_instruction() {
             continue;
         }
         let parts: Vec<Value> = message
@@ -100,28 +101,17 @@ pub(super) fn generate_body(call: &ResolvedCall) -> Result<Map<String, Value>, E
             .iter()
             .filter_map(|part| encode_part(part, &names))
             .collect();
-        if parts.is_empty() {
-            continue;
-        }
         let role = if message.role() == Role::Assistant {
             "model"
         } else {
             "user"
         };
-        // Parallel tool results arrive as one canonical message each but all
-        // answer a single model turn, so consecutive same-role messages merge
-        // into one turn. Gemini's documented shape puts every
-        // `functionResponse` for a turn in one `user` entry.
-        match contents.last_mut() {
-            Some(last) if last.get("role").and_then(Value::as_str) == Some(role) => {
-                if let Some(Value::Array(existing)) = last.get_mut("parts") {
-                    existing.extend(parts);
-                }
-            }
-            _ => contents.push(json!({ "role": role, "parts": parts })),
-        }
+        contents.push(role, parts);
     }
-    body.insert("contents".to_owned(), Value::Array(contents));
+    body.insert(
+        "contents".to_owned(),
+        Value::Array(contents.into_values("parts")),
+    );
 
     let mut generation = Map::new();
     if let Some(max_tokens) = request.max_output_tokens() {
@@ -284,9 +274,7 @@ fn encode_part(part: &ContentPart, names: &HashMap<&str, &str>) -> Option<Value>
         // to reject. This does not validate that an object IS a valid `Part` —
         // only the provider can say that — it rules out the shapes that
         // certainly are not.
-        ContentPart::Opaque { kind, data } => kind
-            .split_once('.')
-            .is_some_and(|(namespace, _)| namespace == NAMESPACE)
+        ContentPart::Opaque { data, .. } => (part.opaque_namespace() == Some(NAMESPACE))
             .then(|| data.clone())
             .filter(Value::is_object),
     }

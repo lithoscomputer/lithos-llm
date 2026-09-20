@@ -9,13 +9,11 @@ use super::reasoning_details::{ReasoningDetails, details_kind};
 use super::{REASONING_BLOCK, REASONING_DETAILS, REASONING_DETAILS_BLOCK, TEXT_BLOCK};
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
-use crate::codecs::common::{finish_reason, refusal};
+use crate::codecs::content::{finish_reason, promote_tool_finish};
+use crate::codecs::errors::{invalid_stream_event, malformed_stream, refusal};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
-use crate::types::{
-    ContentBlockId, ContentBlockKind, Error, ErrorKind, FinishReason, RetryClassification,
-    StreamEvent, ToolCallKind,
-};
+use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
 
 /// The per-stream state for one Chat Completions response.
 ///
@@ -42,16 +40,14 @@ impl StreamDecoder for ChatStreamDecoder {
         // corruption, so the failure is retryable like any other garbled
         // stream.
         let chunk: Value = serde_json::from_str(&event.data).map_err(|source| {
-            Error::new(
-                ErrorKind::StreamDecode,
+            invalid_stream_event(
+                &self.route,
                 format!(
                     "provider {} returned an invalid stream chunk",
                     self.route.provider().id()
                 ),
+                source,
             )
-            .with_provider(self.route.provider().id().clone())
-            .with_source(source)
-            .with_retry(RetryClassification::Safe)
         })?;
 
         // An error payload ends the stream. The same classifier runs here and
@@ -151,18 +147,16 @@ impl StreamDecoder for ChatStreamDecoder {
         // a finish reason, EOF may have cut the call at any fragment, including
         // before its first argument. Never promote that prefix into a call.
         if self.assembler.has_tool_call() && self.assembler.finish_reason().is_none() {
-            return Err(Error::new(
-                ErrorKind::StreamDecode,
+            return Err(malformed_stream(
+                &self.route,
                 "the tool call stream ended without a finish reason",
-            )
-            .with_provider(self.route.provider().id().clone())
-            .with_retry(RetryClassification::Safe));
+                None,
+            ));
         }
         // Some skins finish tool calls with `stop` instead of `tool_calls`.
-        if self.assembler.has_tool_call()
-            && matches!(self.assembler.finish_reason(), Some(FinishReason::Stop))
-        {
-            self.assembler.set_finish_reason(FinishReason::ToolCall);
+        if let Some(reason) = self.assembler.finish_reason().cloned() {
+            self.assembler
+                .set_finish_reason(promote_tool_finish(reason, self.assembler.has_tool_call()));
         }
         Ok(self.assembler.complete())
     }
@@ -201,16 +195,14 @@ impl ChatStreamDecoder {
     /// any other garbled stream.
     fn decode_tool_call_delta(&mut self, call: &Value) -> Result<Vec<StreamEvent>, Error> {
         let Some(index) = call.get("index").and_then(Value::as_u64) else {
-            return Err(Error::new(
-                ErrorKind::StreamDecode,
+            return Err(malformed_stream(
+                &self.route,
                 format!(
                     "provider {} streamed a tool-call fragment without an index",
                     self.route.provider().id()
                 ),
-            )
-            .with_provider(self.route.provider().id().clone())
-            .with_raw_data(call.clone())
-            .with_retry(RetryClassification::Safe));
+                Some(call.clone()),
+            ));
         };
         let block = ContentBlockId::new(format!("tool-{index}"));
 

@@ -2,23 +2,8 @@
 
 use serde_json::{Value, json};
 
-use crate::codecs::common::{ANTHROPIC_SIGNATURES, finish_reason};
-use crate::types::{ContentPart, FinishReason, ReasoningContent, TokenCounts, ToolCall};
-
-/// Maps a Converse `stopReason` onto the normalized finish reason.
-///
-/// `model_context_window_exceeded` is Converse's own name for a generation that
-/// ran out of context, which is the same outcome as `max_tokens` and so maps
-/// onto the same reason. `refusal` never reaches here: both decode paths fail
-/// the call before they ask for a finish reason.
-pub(super) fn stop_reason(reason: Option<&str>) -> FinishReason {
-    match reason {
-        Some("stop_sequence") => FinishReason::Stop,
-        Some("model_context_window_exceeded") => FinishReason::Length,
-        Some("content_filtered" | "guardrail_intervened") => FinishReason::ContentFilter,
-        other => finish_reason(other),
-    }
-}
+use crate::codecs::content::ANTHROPIC_SIGNATURES;
+use crate::types::{ContentPart, ReasoningContent, TokenCounts, ToolCall};
 
 /// Reads a Converse usage object into the five disjoint buckets.
 ///

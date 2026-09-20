@@ -5,23 +5,19 @@ use std::collections::BTreeSet;
 
 use serde_json::Value;
 
-use super::decode::{stop_reason, token_counts};
+use super::decode::token_counts;
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
-use crate::codecs::common::{ANTHROPIC_SIGNATURES, refusal};
+use crate::codecs::content::{ANTHROPIC_SIGNATURES, finish_reason};
+use crate::codecs::errors::{invalid_stream_event, lost_tool_start, malformed_stream, refusal};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, classify};
-use crate::types::{
-    ContentBlockId, ContentBlockKind, Error, ErrorKind, RetryClassification, StreamEvent,
-    ToolCallKind,
-};
+use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
 
 /// Decodes one Bedrock ConverseStream.
 pub(super) struct BedrockStreamDecoder {
     route:           ResolvedRoute,
     assembler:       StreamAssembler,
-    /// The blocks a `contentBlockStart` opened as tool calls.
-    tool_blocks:     BTreeSet<ContentBlockId>,
     /// The blocks that received a sealed `redactedContent` payload.
     redacted_blocks: BTreeSet<ContentBlockId>,
     /// The blocks that received readable reasoning text.
@@ -34,13 +30,11 @@ impl StreamDecoder for BedrockStreamDecoder {
         // mid-stream corruption, so the failure is retryable like any other
         // garbled stream.
         let value: Value = serde_json::from_str(&event.data).map_err(|source| {
-            Error::new(
-                ErrorKind::StreamDecode,
+            invalid_stream_event(
+                &self.route,
                 "Bedrock returned an invalid stream event",
+                source,
             )
-            .with_provider(self.route.provider().id().clone())
-            .with_source(source)
-            .with_retry(RetryClassification::Safe)
         })?;
 
         if let Some(error) = self.exception(&value) {
@@ -62,7 +56,7 @@ impl StreamDecoder for BedrockStreamDecoder {
                 if reason == Some("refusal") {
                     return Err(refusal(&self.route, None, Some(payload.clone())));
                 }
-                self.assembler.set_finish_reason(stop_reason(reason));
+                self.assembler.set_finish_reason(finish_reason(reason));
                 Ok(Vec::new())
             }
             // `metadata` is the only usage event and it terminates the stream.
@@ -87,7 +81,6 @@ impl BedrockStreamDecoder {
         Self {
             route:           route.clone(),
             assembler:       StreamAssembler::new(route).with_signatures(ANTHROPIC_SIGNATURES),
-            tool_blocks:     BTreeSet::new(),
             redacted_blocks: BTreeSet::new(),
             text_blocks:     BTreeSet::new(),
         }
@@ -114,9 +107,7 @@ impl BedrockStreamDecoder {
                 .map(ToOwned::to_owned),
             kind: ToolCallKind::Function,
         };
-        let id = block_id(payload);
-        self.tool_blocks.insert(id.clone());
-        self.assembler.start(id, kind)
+        self.assembler.start(block_id(payload), kind)
     }
 
     fn content_block_delta(&mut self, payload: &Value) -> Result<Vec<StreamEvent>, Error> {
@@ -135,23 +126,10 @@ impl BedrockStreamDecoder {
             events.extend(self.assembler.text(&id, text));
         }
         if let Some(chunk) = delta.pointer("/toolUse/input").and_then(Value::as_str) {
-            // Converse announces every tool call in a `contentBlockStart`
-            // carrying its id and name. An input fragment for a block no
-            // start opened means the start was lost in transit; assembling
-            // the rest would fabricate a nameless call that poisons the
-            // replayed conversation, so the stream fails retryably instead —
-            // the same contract the Chat codec applies.
-            if !self.tool_blocks.contains(&id) {
-                return Err(Error::new(
-                    ErrorKind::StreamDecode,
-                    format!(
-                        "provider {} streamed tool-call input for a block whose start event never \
-                         arrived",
-                        self.route.provider().id()
-                    ),
-                )
-                .with_provider(self.route.provider().id().clone())
-                .with_retry(RetryClassification::Safe));
+            // Converse announces every tool call in a `contentBlockStart`;
+            // see `lost_tool_start`.
+            if !self.assembler.announced_tool_call(&id) {
+                return Err(lost_tool_start(&self.route));
             }
             events.extend(self.assembler.arguments(&id, chunk));
         }
@@ -193,16 +171,15 @@ impl BedrockStreamDecoder {
         }
         if let Some(sealed) = reasoning.get("redactedContent").and_then(Value::as_str) {
             if self.text_blocks.contains(id) {
-                return Err(Error::new(
-                    ErrorKind::StreamDecode,
+                return Err(malformed_stream(
+                    &self.route,
                     format!(
                         "provider {} streamed redacted reasoning into a block that already \
                          carried reasoning text",
                         self.route.provider().id()
                     ),
-                )
-                .with_provider(self.route.provider().id().clone())
-                .with_retry(RetryClassification::Safe));
+                    None,
+                ));
             }
             self.redacted_blocks.insert(id.clone());
             events.extend(self.assembler.set_redacted(id));
@@ -261,9 +238,10 @@ fn named_event<'a>(name: Option<&'a str>, value: &'a Value) -> Option<(&'a str, 
 /// Converse identifies a block only by its ordinal, so the ordinal becomes the
 /// id. A payload missing the field belongs to the first block.
 fn block_id(payload: &Value) -> ContentBlockId {
-    let index = payload
-        .get("contentBlockIndex")
-        .and_then(Value::as_u64)
-        .unwrap_or_default();
-    ContentBlockId::new(format!("block-{index}"))
+    ContentBlockId::from_index(
+        payload
+            .get("contentBlockIndex")
+            .and_then(Value::as_u64)
+            .unwrap_or_default(),
+    )
 }

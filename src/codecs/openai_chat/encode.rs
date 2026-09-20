@@ -1,12 +1,12 @@
 //! Request encoding: messages, tools, and cache breakpoints.
 
-use serde_json::{Value, json, to_string};
+use serde_json::{Value, json};
 
 use super::OPAQUE_PREFIX;
-use crate::codecs::common::plain_text;
+use crate::codecs::content::{data_url, plain_text, tool_result_text};
 use crate::types::{
-    ContentPart, ImageContent, MediaSource, Message, ReasoningEffort, ResponseFormat, Role,
-    ToolCall, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
+    ContentPart, ImageContent, Message, ReasoningEffort, ResponseFormat, Role, ToolCall,
+    ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
 };
 
 /// Marks the cacheable prefix of a conversation for an Anthropic upstream.
@@ -210,16 +210,9 @@ fn encode_content_part(part: &ContentPart) -> Option<Value> {
 }
 
 /// Encodes an image as the `image_url` part this protocol uses for both
-/// sources.
-///
-/// Inline bytes become a `data:` URL, which is how every compatible skin
-/// accepts them; there is no separate base64 shape.
+/// sources; see `data_url`.
 fn encode_image(image: &ImageContent) -> Value {
-    let url = match &image.source {
-        MediaSource::Url { url, .. } => url.clone(),
-        MediaSource::Base64 { data, media_type } => format!("data:{media_type};base64,{data}"),
-    };
-    let mut image_url = json!({ "url": url });
+    let mut image_url = json!({ "url": data_url(&image.source) });
     if let Some(detail) = &image.detail {
         image_url["detail"] = detail.as_str().into();
     }
@@ -248,53 +241,15 @@ fn wire_arguments(call: &ToolCall) -> String {
 /// Encodes one tool result as its own `tool` message.
 ///
 /// This protocol takes a string here and nothing else, so the content is
-/// flattened. Text wins when there is any, and text-only content sends its
-/// joined text even when that is empty — a command with no output answered
-/// with nothing, not with a serialized envelope. A result made only of JSON
-/// parts sends the bare values instead — a tool that answers with structured
-/// data means the data, not the `ContentPart` envelope that carried it.
+/// flattened by `tool_result_text`. A lone JSON string value sends its raw
+/// text unquoted, as the reference encoder did — the tool answered with that
+/// text, not with a JSON string literal.
 fn encode_tool_result(result: &ToolResult) -> Value {
-    let text = plain_text(&result.content);
-    let text_only = result
-        .content
-        .iter()
-        .all(|part| matches!(part, ContentPart::Text { .. }));
-    let content = if !text.is_empty() || text_only {
-        text
-    } else if let Some(json) = json_result_text(&result.content) {
-        json
-    } else {
-        to_string(&result.content).unwrap_or_default()
-    };
     json!({
         "role": "tool",
         "tool_call_id": result.tool_call_id,
-        "content": content,
+        "content": tool_result_text(result, true),
     })
-}
-
-/// The wire text of a tool result whose content is only JSON parts.
-///
-/// One part sends its value; several send an array of them. A lone value that
-/// is itself a string sends the raw text unquoted, as the reference encoder
-/// did — the tool answered with that text, not with a JSON string literal.
-/// Returns `None` when any part is something else, which leaves the caller
-/// its own fallback.
-fn json_result_text(content: &[ContentPart]) -> Option<String> {
-    let values: Vec<&Value> = content
-        .iter()
-        .map(|part| match part {
-            ContentPart::Json { value } => Some(value),
-            _ => None,
-        })
-        .collect::<Option<Vec<_>>>()?;
-
-    match values.as_slice() {
-        [] => None,
-        [Value::String(text)] => Some(text.clone()),
-        [value] => Some(value.to_string()),
-        values => Some(Value::Array(values.iter().map(|&v| v.clone()).collect()).to_string()),
-    }
 }
 
 /// Encodes one function tool definition.

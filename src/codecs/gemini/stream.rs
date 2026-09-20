@@ -4,16 +4,16 @@ use serde_json::{Value, json};
 
 use super::NAMESPACE;
 use super::decode::{
-    blocked_prompt, decode_usage, response_nonce, thought_signature, tool_call_finish, tool_call_id,
+    blocked_prompt, response_nonce, thought_signature, token_counts, tool_call_id,
 };
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
-use crate::codecs::common::{GEMINI_SIGNATURES, finish_reason};
+use crate::codecs::content::{GEMINI_SIGNATURES, finish_reason, promote_tool_finish};
+use crate::codecs::errors::invalid_stream_event;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
 use crate::types::{
-    ContentBlockId, ContentBlockKind, Error, ErrorKind, FinishReason, RetryClassification,
-    StreamEvent, ToolCallKind,
+    ContentBlockId, ContentBlockKind, Error, FinishReason, StreamEvent, ToolCallKind,
 };
 
 /// Which kind of run a streamed text part continues.
@@ -185,13 +185,11 @@ impl GeminiStreamDecoder {
         // corruption, so the failure is retryable like any other garbled
         // stream.
         let value: Value = serde_json::from_str(&event.data).map_err(|source| {
-            Error::new(
-                ErrorKind::StreamDecode,
+            invalid_stream_event(
+                &self.route,
                 "Gemini returned an invalid stream event",
+                source,
             )
-            .with_provider(self.route.provider().id().clone())
-            .with_source(source)
-            .with_retry(RetryClassification::Safe)
         })?;
 
         // An explicit `"error": null` member is not an error — a gateway
@@ -249,7 +247,7 @@ impl GeminiStreamDecoder {
         // Every chunk repeats the running totals, so the last chunk holds the
         // complete count: assign the snapshot rather than accumulating it.
         if let Some(metadata) = value.get("usageMetadata") {
-            events.push(self.assembler.usage(decode_usage(metadata)));
+            events.push(self.assembler.usage(token_counts(metadata)));
         }
         // The reason is held rather than recorded: whether it stays `Stop`
         // depends on whether a function call arrives, which the rest of the
@@ -284,7 +282,7 @@ impl StreamDecoder for GeminiStreamDecoder {
         // same tool-call correction the blocking path applies.
         if let Some(reason) = self.finished.take() {
             self.assembler
-                .set_finish_reason(tool_call_finish(reason, self.calls > 0));
+                .set_finish_reason(promote_tool_finish(reason, self.calls > 0));
         }
 
         // The protocol has no terminal event, so the byte-stream end is the

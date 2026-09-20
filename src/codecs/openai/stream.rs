@@ -5,18 +5,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Value, json};
 
 use super::decode::{
-    decode_document, decode_finish_reason, decode_usage, is_internal_call, message_text,
-    reasoning_text, refusal_text,
+    decode_document, decode_finish_reason, is_internal_call, message_text, reasoning_text,
+    refusal_text, token_counts,
 };
 use super::{MESSAGE_KIND, NAMESPACE, REASONING_KIND};
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
-use crate::codecs::common::refusal;
+use crate::codecs::content::promote_tool_finish;
+use crate::codecs::errors::refusal;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
-use crate::types::{
-    ContentBlockId, ContentBlockKind, Error, FinishReason, StreamEvent, ToolCallKind,
-};
+use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
 
 /// Decodes one `/v1/responses` stream.
 pub(super) struct ResponsesStream {
@@ -379,13 +378,10 @@ impl ResponsesStream {
         // The document's own output decides the reason, but a middlebox can
         // trim `output` in the terminal event — the streamed blocks are the
         // ground truth for whether the model called a tool.
-        let finish_reason =
-            if response.finish_reason == FinishReason::Stop && self.assembler.has_tool_call() {
-                FinishReason::ToolCall
-            } else {
-                response.finish_reason
-            };
-        self.assembler.set_finish_reason(finish_reason);
+        self.assembler.set_finish_reason(promote_tool_finish(
+            response.finish_reason,
+            self.assembler.has_tool_call(),
+        ));
         self.assembler.set_raw(document.clone());
 
         let mut events = vec![self.assembler.usage(response.usage)];
@@ -405,18 +401,14 @@ impl ResponsesStream {
         }
         if document.get("status").and_then(Value::as_str).is_some() {
             let reason = decode_finish_reason(document, &[]);
-            let reason = if reason == FinishReason::Stop && self.assembler.has_tool_call() {
-                FinishReason::ToolCall
-            } else {
-                reason
-            };
-            self.assembler.set_finish_reason(reason);
+            self.assembler
+                .set_finish_reason(promote_tool_finish(reason, self.assembler.has_tool_call()));
         }
         self.assembler.set_raw(document.clone());
 
         let mut events = Vec::new();
         if let Some(usage) = document.get("usage").filter(|usage| usage.is_object()) {
-            events.push(self.assembler.usage(decode_usage(Some(usage))));
+            events.push(self.assembler.usage(token_counts(Some(usage))));
         }
         events.extend(self.assembler.complete());
         events
@@ -449,12 +441,11 @@ fn block_id(value: &Value) -> ContentBlockId {
         .or_else(|| value.pointer("/item/id").and_then(Value::as_str));
     match named {
         Some(id) => ContentBlockId::new(id),
-        None => ContentBlockId::new(format!(
-            "block-{}",
+        None => ContentBlockId::from_index(
             value
                 .get("output_index")
                 .and_then(Value::as_u64)
-                .unwrap_or(0)
-        )),
+                .unwrap_or(0),
+        ),
     }
 }

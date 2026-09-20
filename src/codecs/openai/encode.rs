@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use serde_json::{Map, Value, json};
 
 use super::NAMESPACE;
-use crate::codecs::common::plain_text;
+use crate::codecs::content::{data_url, plain_text, tool_result_text};
 use crate::types::{
     ContentPart, MediaSource, Message, Request, ResponseFormat, Role, Speed, ToolCall,
     ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
@@ -55,20 +55,20 @@ pub(super) fn shared_body(request: &Request) -> Map<String, Value> {
 }
 
 /// The joined text of every system and developer message.
+///
+/// This differs from the shared `system_text` in one case: a message whose
+/// text is only whitespace is kept here and dropped there. The reference
+/// client sent it, and no probe has shown Codex rejects it, so the behavior
+/// is retained and pinned by `codex_mode_keeps_a_whitespace_only_instruction`.
 pub(super) fn instructions(request: &Request) -> String {
     request
         .messages()
         .iter()
-        .filter(|message| is_system(message))
+        .filter(|message| message.is_instruction())
         .map(|message| plain_text(message.content()))
         .filter(|text| !text.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
-}
-
-/// Whether a message carries system or developer instructions.
-pub(super) fn is_system(message: &Message) -> bool {
-    matches!(message.role(), Role::System | Role::Developer)
 }
 
 /// The tool kinds one request declared, used to route tool results.
@@ -178,9 +178,11 @@ pub(super) fn input_items(message: &Message, custom: &CustomTools) -> Vec<Value>
             // reference client skipped those.
             ContentPart::ToolCall(call) if call.name.is_empty() => {}
             ContentPart::ToolCall(call) => items.push(tool_call_item(call)),
+            // A lone JSON string result stays a JSON string literal here, as
+            // the reference client sent it; Chat Completions unquotes it.
             ContentPart::ToolResult(result) => items.push(tool_output_item(
                 &result.tool_call_id,
-                &result_output(result),
+                &tool_result_text(result, false),
                 result.is_error,
                 custom.answers_custom(result, message),
             )),
@@ -249,7 +251,7 @@ fn message_content(message: &Message, skip_text: bool) -> Vec<Value> {
             ContentPart::Image(image) => {
                 let mut item = json!({
                     "type": "input_image",
-                    "image_url": media_url(&image.source),
+                    "image_url": data_url(&image.source),
                 });
                 if let (Some(object), Some(detail)) = (item.as_object_mut(), image.detail.as_ref())
                 {
@@ -269,7 +271,7 @@ fn message_content(message: &Message, skip_text: bool) -> Vec<Value> {
                         MediaSource::Base64 { .. } => {
                             object.insert(
                                 "file_data".to_owned(),
-                                Value::String(media_url(&document.source)),
+                                Value::String(data_url(&document.source)),
                             );
                         }
                     }
@@ -361,51 +363,6 @@ fn tool_output_item(call_id: &str, output: &str, is_error: bool, custom: bool) -
         object.insert("status".to_owned(), Value::String("incomplete".to_owned()));
     }
     item
-}
-
-/// The text a tool result sends back.
-///
-/// A result whose content is only structured JSON sends the bare value — one
-/// value on its own, several as an array — rather than the `ContentPart`
-/// envelope that wraps it, because the tool's own JSON is what the model was
-/// promised. Text-only content sends the joined text even when it is empty —
-/// a command with no output answered with nothing, not with a serialized
-/// envelope. Anything else falls back to the serialized parts, which keeps
-/// mixed content readable instead of dropping the half this protocol has no
-/// field for.
-fn result_output(result: &ToolResult) -> String {
-    let text = plain_text(&result.content);
-    let text_only = result
-        .content
-        .iter()
-        .all(|part| matches!(part, ContentPart::Text { .. }));
-    if !text.is_empty() || text_only {
-        return text;
-    }
-
-    let values: Vec<&Value> = result
-        .content
-        .iter()
-        .filter_map(|part| match part {
-            ContentPart::Json { value } => Some(value),
-            _ => None,
-        })
-        .collect();
-    match values.as_slice() {
-        [value] if result.content.len() == 1 => serde_json::to_string(value).unwrap_or_default(),
-        values if !values.is_empty() && values.len() == result.content.len() => {
-            serde_json::to_string(values).unwrap_or_default()
-        }
-        _ => serde_json::to_string(&result.content).unwrap_or_default(),
-    }
-}
-
-/// Encodes one image or media source as the URL this protocol accepts.
-fn media_url(source: &MediaSource) -> String {
-    match source {
-        MediaSource::Url { url, .. } => url.clone(),
-        MediaSource::Base64 { data, media_type } => format!("data:{media_type};base64,{data}"),
-    }
 }
 
 /// Encodes one tool definition in the flat Responses shape.

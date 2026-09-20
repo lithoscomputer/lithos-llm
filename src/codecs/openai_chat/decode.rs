@@ -5,11 +5,11 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use crate::codecs::common::usd_micros;
+use crate::codecs::errors::malformed_success;
+use crate::codecs::options::usd_micros;
 use crate::resolver::ResolvedRoute;
 use crate::types::{
-    ContentPart, Cost, CostSource, Error, ErrorKind, RetryClassification, TokenCounts, ToolCall,
-    ToolCallKind, ToolInput,
+    ContentPart, Cost, CostSource, Error, TokenCounts, ToolCall, ToolCallKind, ToolInput,
 };
 
 /// The error a 200 with no choices decodes into.
@@ -17,17 +17,13 @@ pub(super) fn no_choices(route: &ResolvedRoute, value: Value) -> Error {
     decode_failure(route, "returned no choices in the response", value)
 }
 
+/// The error a malformed success body produces; see `malformed_success`.
 pub(super) fn decode_failure(route: &ResolvedRoute, detail: &str, value: Value) -> Error {
-    // A structurally malformed 200 is indistinguishable from a garbled or
-    // truncated body, so a fresh attempt is safe — the same classification
-    // the transport gives a 200 whose body is not JSON at all.
-    Error::new(
-        ErrorKind::ResponseDecode,
+    malformed_success(
+        route,
         format!("provider {} {detail}", route.provider().id()),
+        Some(value),
     )
-    .with_provider(route.provider().id().clone())
-    .with_raw_data(value)
-    .with_retry(RetryClassification::Safe)
 }
 
 /// Decodes one complete tool call from a response message.

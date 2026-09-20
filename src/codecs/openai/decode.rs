@@ -6,11 +6,11 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 
 use super::{MESSAGE_KIND, NAMESPACE, REASONING_KIND};
-use crate::codecs::common::refusal;
+use crate::codecs::errors::{malformed_success, refusal};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
-    ContentPart, Error, ErrorKind, FinishReason, ReasoningContent, Response, RetryClassification,
-    TokenCounts, ToolCall, ToolCallKind, ToolInput,
+    ContentPart, Error, FinishReason, ReasoningContent, Response, TokenCounts, ToolCall,
+    ToolCallKind, ToolInput,
 };
 
 /// Decodes one complete response document.
@@ -54,7 +54,7 @@ pub(super) fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Res
         .and_then(Value::as_str)
         .map(ToOwned::to_owned);
     response.finish_reason = decode_finish_reason(&value, &response.content);
-    response.usage = decode_usage(value.get("usage"));
+    response.usage = token_counts(value.get("usage"));
     // This protocol reports no in-band cost; the adapter prices the call from
     // the catalog instead.
     response.cost = None;
@@ -260,7 +260,7 @@ pub(super) fn decode_finish_reason(value: &Value, content: &[ContentPart]) -> Fi
 /// `input_tokens_details.cache_write_tokens` (observed live on 2026-08-30);
 /// models that bill no write omit the counter or send zero, which decodes to
 /// an empty bucket either way.
-pub(super) fn decode_usage(usage: Option<&Value>) -> TokenCounts {
+pub(super) fn token_counts(usage: Option<&Value>) -> TokenCounts {
     let Some(usage) = usage else {
         return TokenCounts::default();
     };
@@ -275,19 +275,13 @@ pub(super) fn decode_usage(usage: Option<&Value>) -> TokenCounts {
     )
 }
 
-/// The error a malformed success body produces.
-///
-/// A structurally malformed 200 is indistinguishable from a garbled or
-/// truncated body, so a fresh attempt is safe — the same classification the
-/// transport gives a 200 whose body is not JSON at all.
+/// The error a malformed success body produces; see `malformed_success`.
 pub(super) fn decode_error(route: &ResolvedRoute, detail: impl Into<String>, raw: Value) -> Error {
-    Error::new(
-        ErrorKind::ResponseDecode,
+    malformed_success(
+        route,
         format!("provider {} {}", route.provider().id(), detail.into()),
+        Some(raw),
     )
-    .with_provider(route.provider().id().clone())
-    .with_raw_data(raw)
-    .with_retry(RetryClassification::Safe)
 }
 
 /// Whether an output item is a tool call the caller cannot answer.

@@ -6,13 +6,10 @@ use std::hash::{BuildHasher as _, Hasher as _};
 use serde_json::{Value, json};
 
 use super::NAMESPACE;
-use crate::codecs::common::{GEMINI_SIGNATURES, finish_reason};
+use crate::codecs::content::{GEMINI_SIGNATURES, finish_reason, promote_tool_finish};
+use crate::codecs::errors::{content_filter, malformed_success};
 use crate::resolver::ResolvedRoute;
-use crate::transport::provider_error;
-use crate::types::{
-    ContentPart, Error, ErrorKind, FinishReason, ReasoningContent, RetryClassification,
-    TokenCounts, ToolCall,
-};
+use crate::types::{ContentPart, Error, FinishReason, ReasoningContent, TokenCounts, ToolCall};
 
 /// Decodes one candidate into its content and its finish reason.
 ///
@@ -38,26 +35,13 @@ pub(super) fn decode_candidate(
         }
     }
 
-    let finished = tool_call_finish(
+    // Gemini reports `STOP` even when the candidate is nothing but function
+    // calls; see `promote_tool_finish`.
+    let finished = promote_tool_finish(
         finish_reason(candidate.get("finishReason").and_then(Value::as_str)),
         calls > 0,
     );
     (content, finished)
-}
-
-/// Corrects a finish reason for a turn that called tools.
-///
-/// Gemini reports `STOP` even when the candidate is nothing but function
-/// calls, so a consumer that dispatches tools on [`FinishReason::ToolCall`]
-/// would never run them. Only `Stop` is corrected: a call cut off by
-/// `MAX_TOKENS`, or a candidate blocked mid-turn, keeps the reason the provider
-/// gave, which is the more specific fact. The OpenAI Responses codec infers the
-/// same way for the same reason.
-pub(super) fn tool_call_finish(reason: FinishReason, has_calls: bool) -> FinishReason {
-    match reason {
-        FinishReason::Stop if has_calls => FinishReason::ToolCall,
-        other => other,
-    }
 }
 
 /// The error for a 200 response that carried no candidates.
@@ -67,51 +51,36 @@ pub(super) fn tool_call_finish(reason: FinishReason, has_calls: bool) -> FinishR
 /// makes a blocked prompt indistinguishable from a model that had nothing to
 /// say, so it becomes a failure instead.
 ///
-/// A block reason is restated in the `error` shape the shared classifier reads,
-/// so that classifier — not this codec — decides the kind and the retry
-/// classification. The block reason becomes the provider code, and the message
-/// names the content policy, so the reasons beyond `SAFETY` — `BLOCKLIST`,
-/// `PROHIBITED_CONTENT`, and any Google adds — all classify as
-/// [`ErrorKind::ContentFilter`] rather than only the one spelling the
-/// classifier happens to recognize. That restated payload is thrown away
-/// afterward: the raw data is the provider's own document.
+/// The block reason becomes the provider code, so the reasons beyond `SAFETY`
+/// — `BLOCKLIST`, `PROHIBITED_CONTENT`, and any Google adds — all classify as
+/// [`ErrorKind::ContentFilter`](crate::types::ErrorKind::ContentFilter) rather
+/// than only the spellings the shared classifier happens to recognize.
 ///
 /// A body with neither candidates nor a block reason is malformed rather than
-/// blocked, so it decodes into [`ErrorKind::ResponseDecode`].
+/// blocked, so it decodes into
+/// [`ErrorKind::ResponseDecode`](crate::types::ErrorKind::ResponseDecode).
 pub(super) fn no_candidates(route: &ResolvedRoute, value: Value) -> Error {
     let Some(reason) = value
         .pointer("/promptFeedback/blockReason")
         .and_then(Value::as_str)
     else {
-        // A structurally malformed 200 is indistinguishable from a garbled
-        // or truncated body, so a fresh attempt is safe — the same
-        // classification the transport gives a 200 whose body is not JSON
-        // at all.
-        return Error::new(
-            ErrorKind::ResponseDecode,
+        return malformed_success(
+            route,
             "Gemini returned no candidates in the response",
-        )
-        .with_provider(route.provider().id().clone())
-        .with_raw_data(value)
-        .with_retry(RetryClassification::Safe);
+            Some(value),
+        );
     };
 
     blocked_prompt(route, reason).with_raw_data(value)
 }
 
 /// The classified error for a prompt Gemini blocked, streamed or not.
-///
-/// The restated `error` payload exists only for the shared classifier; the
-/// caller replaces it with the provider's own document as raw data.
 pub(super) fn blocked_prompt(route: &ResolvedRoute, reason: &str) -> Error {
-    let classified = json!({
-        "error": {
-            "status": reason,
-            "message":
-                format!("blocked the prompt under its content policy (block reason {reason})"),
-        }
-    });
-    provider_error(route.provider(), None, Some(classified), None)
+    content_filter(
+        route,
+        reason,
+        &format!("blocked the prompt under its content policy (block reason {reason})"),
+    )
 }
 
 /// Decodes a text part into visible text or reasoning.
@@ -231,7 +200,7 @@ pub(super) fn thought_signature(part: &Value) -> Option<&str> {
 ///
 /// `cache_write` is always zero: creating a Gemini cache is a separate
 /// `cachedContents` call, not part of `generateContent` usage.
-pub(super) fn decode_usage(metadata: &Value) -> TokenCounts {
+pub(super) fn token_counts(metadata: &Value) -> TokenCounts {
     let count = |key: &str| {
         metadata
             .get(key)
