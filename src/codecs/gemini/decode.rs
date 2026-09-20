@@ -1,11 +1,9 @@
 //! Blocking response decoding: candidates, tool-call identity, and usage.
 
-use std::collections::hash_map::RandomState;
-use std::hash::{BuildHasher as _, Hasher as _};
-
 use serde_json::{Value, json};
 
 use super::NAMESPACE;
+use super::identity::{thought_signature, tool_call_id};
 use crate::codecs::content::{GEMINI_SIGNATURES, finish_reason, promote_tool_finish};
 use crate::codecs::errors::{content_filter, malformed_success};
 use crate::resolver::ResolvedRoute;
@@ -130,60 +128,6 @@ fn decode_tool_call(
         );
     }
     ContentPart::ToolCall(call)
-}
-
-/// The identity of one function call.
-///
-/// A call Gemini gave an id keeps it. Gemini normally supplies none, so one is
-/// synthesized as `{name}-{ordinal}-{response_id}`:
-///
-/// - `{name}-{ordinal}` alone is deterministic, which a minted UUID is not —
-///   decoding one payload twice yields one id — but it repeats across turns, so
-///   a conversation with two `search` calls carries `search-0` twice. An
-///   application keyed by call id then collides, and the replayed history sends
-///   duplicate ids on the wire.
-/// - `responseId` is the provider's own name for one response, so appending it
-///   makes the id unique per response while staying a pure function of the
-///   payload. It is the fallback that is dropped, not the ordinal: the id stays
-///   readable, and the plain `{name}-{ordinal}` form remains its prefix.
-///
-/// A payload that carries no `responseId` — some gateways omit it — is scoped
-/// by a [`response_nonce`] minted once per decode instead. That trades the
-/// pure-function property for uniqueness: the bare `{name}-{ordinal}` form
-/// repeats across turns, so a multi-turn loop calling the same tool once per
-/// turn carried `search-0` twice — colliding in id-keyed applications and
-/// replaying duplicate `functionCall.id`/`functionResponse.id` values on the
-/// wire.
-pub(super) fn tool_call_id(
-    function_call: &Value,
-    name: &str,
-    response_id: &str,
-    ordinal: usize,
-) -> String {
-    if let Some(id) = function_call
-        .get("id")
-        .and_then(Value::as_str)
-        .filter(|id| !id.is_empty())
-    {
-        return id.to_owned();
-    }
-
-    format!("{name}-{ordinal}-{response_id}")
-}
-
-/// A random scope for the synthesized ids of one response without a
-/// `responseId`.
-///
-/// Every [`RandomState`] carries its own keys, so finishing an empty hasher
-/// yields a fresh value per call without a dependency on a randomness crate,
-/// which this crate deliberately avoids.
-pub(super) fn response_nonce() -> String {
-    format!("{:016x}", RandomState::new().build_hasher().finish())
-}
-
-/// The thought signature carried alongside a part, when it has one.
-pub(super) fn thought_signature(part: &Value) -> Option<&str> {
-    part.get("thoughtSignature").and_then(Value::as_str)
 }
 
 /// Normalizes `usageMetadata` into the five disjoint token buckets.

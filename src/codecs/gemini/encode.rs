@@ -6,6 +6,7 @@ use reqwest::Method;
 use serde_json::{Map, Value, json};
 
 use super::NAMESPACE;
+use super::identity::tool_call_names;
 use crate::adapter::ResolvedCall;
 use crate::codecs::content::{
     GEMINI_SIGNATURES, Turns, flattens_system_content, flattens_tool_result_content, plain_text,
@@ -16,8 +17,8 @@ use crate::codecs::options::{endpoint, merge_options, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
-    ContentPart, Error, MediaSource, Message, ReasoningContent, ReasoningEffort, Request,
-    ResponseFormat, Role, ToolCall, ToolChoice, ToolDefinitionKind, ToolResult,
+    ContentPart, Error, MediaSource, ReasoningContent, ReasoningEffort, Request, ResponseFormat,
+    Role, ToolCall, ToolChoice, ToolDefinitionKind, ToolResult,
 };
 
 /// The URL of one `models/{model}:{operation}` endpoint.
@@ -275,26 +276,6 @@ fn apply_default_safety_settings(body: &mut Map<String, Value>) {
             "threshold": "BLOCK_ONLY_HIGH",
         }]),
     );
-}
-
-/// Maps every tool-call id in the history to the function it called.
-///
-/// `functionResponse` identifies the call it answers by function name, and a
-/// canonical [`ToolResult`] carries the name only when the application kept it.
-/// The assistant turn that made the call always carries it, so the history is
-/// the reliable source. Without this, a result whose name is missing sends the
-/// call id as the function name, which matches no declared function.
-fn tool_call_names(request: &Request) -> HashMap<&str, &str> {
-    request
-        .messages()
-        .iter()
-        .filter(|message| message.role() == Role::Assistant)
-        .flat_map(Message::content)
-        .filter_map(|part| match part {
-            ContentPart::ToolCall(call) => Some((call.id.as_str(), call.name.as_str())),
-            _ => None,
-        })
-        .collect()
 }
 
 /// Encodes the permitted tool-selection behavior.

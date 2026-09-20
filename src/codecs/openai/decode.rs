@@ -9,8 +9,8 @@ use super::{MESSAGE_KIND, NAMESPACE, REASONING_KIND};
 use crate::codecs::errors::{malformed_success, refusal};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
-    ContentPart, Error, FinishReason, ReasoningContent, Response, TokenCounts, ToolCall,
-    ToolCallKind, ToolInput,
+    ContentBlockKind, ContentPart, Error, FinishReason, ReasoningContent, Response, TokenCounts,
+    ToolCall, ToolCallKind, ToolInput,
 };
 
 /// Decodes one complete response document.
@@ -80,32 +80,160 @@ fn decode_output(value: &Value) -> Vec<ContentPart> {
         .flatten();
 
     for item in items {
-        match item.get("type").and_then(Value::as_str) {
-            Some("message") => {
+        match ItemKind::of(item) {
+            ItemKind::Message => {
                 let text = message_text(item);
                 if !text.is_empty() {
                     content.push(ContentPart::Text { text });
                 }
                 content.push(ContentPart::opaque(MESSAGE_KIND, item.clone()));
             }
-            Some(kind @ ("function_call" | "custom_tool_call")) => {
-                let call_kind = match kind {
-                    "custom_tool_call" => ToolCallKind::Custom,
-                    _ => ToolCallKind::Function,
-                };
-                let call = decode_tool_call(item, call_kind);
-                if !call.name.is_empty() {
-                    content.push(ContentPart::ToolCall(call));
+            ItemKind::ToolCall(kind) => {
+                let identity = CallIdentity::of(item, kind);
+                if !identity.is_internal() {
+                    content.push(ContentPart::ToolCall(identity.into_call()));
                 }
             }
-            Some("reasoning") => content.extend(decode_reasoning(item)),
+            ItemKind::Reasoning => content.extend(decode_reasoning(item)),
             // Provider-side items such as `web_search_call` carry no portable
             // content. They stay available in `Response::raw`.
-            _ => {}
+            ItemKind::Other => {}
         }
     }
 
     content
+}
+
+/// The kind of one output item, read from its `type`.
+///
+/// Blocking and streaming decode both dispatch on this, so a new item type is
+/// one edit here rather than one per match on the wire string.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ItemKind {
+    Message,
+    Reasoning,
+    ToolCall(ToolCallKind),
+    /// A provider-side item such as `web_search_call`, which carries no
+    /// portable content.
+    Other,
+}
+
+impl ItemKind {
+    pub(super) fn of(item: &Value) -> Self {
+        match item.get("type").and_then(Value::as_str) {
+            Some("message") => Self::Message,
+            Some("reasoning") => Self::Reasoning,
+            Some("function_call") => Self::ToolCall(ToolCallKind::Function),
+            Some("custom_tool_call") => Self::ToolCall(ToolCallKind::Custom),
+            _ => Self::Other,
+        }
+    }
+}
+
+impl ToolCallKind {
+    /// The item field a call of this kind carries its input in.
+    pub(super) fn responses_input_key(self) -> &'static str {
+        match self {
+            Self::Function => "arguments",
+            Self::Custom => "input",
+        }
+    }
+}
+
+/// The identity of one tool-call item, read once and agreed on by both decode
+/// paths.
+///
+/// `call_id` is the identity a tool result answers, so it is the canonical
+/// id. The item id is a second identifier the protocol needs when the call is
+/// replayed, so it is kept in this codec's provider metadata namespace when
+/// the two differ.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct CallIdentity<'a> {
+    call_id: Option<&'a str>,
+    item_id: Option<&'a str>,
+    name:    &'a str,
+    kind:    ToolCallKind,
+    input:   &'a str,
+}
+
+impl<'a> CallIdentity<'a> {
+    pub(super) fn of(item: &'a Value, kind: ToolCallKind) -> Self {
+        let text = |key: &str| item.get(key).and_then(Value::as_str);
+        Self {
+            call_id: text("call_id"),
+            item_id: text("id"),
+            name: text("name").unwrap_or_default(),
+            kind,
+            input: text(kind.responses_input_key()).unwrap_or_default(),
+        }
+    }
+
+    /// The id a tool result answers: the call id, or the item id when the
+    /// item carries no separate call id.
+    pub(super) fn canonical_id(&self) -> &'a str {
+        self.call_id.or(self.item_id).unwrap_or_default()
+    }
+
+    pub(super) fn name(&self) -> Option<&'a str> {
+        (!self.name.is_empty()).then_some(self.name)
+    }
+
+    /// The call's input text, in the field its kind names.
+    pub(super) fn input(&self) -> &'a str {
+        self.input
+    }
+
+    /// Whether this is a tool call the caller cannot answer.
+    ///
+    /// A call with no name is model-internal. It has no tool to route to and
+    /// no result to send back, so it neither becomes content nor turns the
+    /// finish reason into [`FinishReason::ToolCall`].
+    pub(super) fn is_internal(&self) -> bool {
+        self.name.is_empty()
+    }
+
+    /// The provider metadata that lets the call be replayed, when the item
+    /// id differs from the call id.
+    pub(super) fn replay_metadata(&self) -> Option<Value> {
+        match (self.call_id, self.item_id) {
+            (Some(call_id), Some(item_id)) if call_id != item_id => {
+                Some(json!({ "item_id": item_id }))
+            }
+            _ => None,
+        }
+    }
+
+    /// The identity as the block kind a stream opens for it.
+    pub(super) fn block_kind(&self) -> ContentBlockKind {
+        ContentBlockKind::ToolCall {
+            id:   self.canonical_id().to_owned(),
+            name: self.name().map(ToOwned::to_owned),
+            kind: self.kind,
+        }
+    }
+
+    /// The complete tool call, for blocking decode.
+    pub(super) fn into_call(self) -> ToolCall {
+        let mut provider_metadata = BTreeMap::new();
+        if let Some(metadata) = self.replay_metadata() {
+            provider_metadata.insert(NAMESPACE.to_owned(), metadata);
+        }
+        ToolCall {
+            id: self.canonical_id().to_owned(),
+            name: self.name.to_owned(),
+            input: ToolInput::from_wire(self.kind, self.input.to_owned()),
+            provider_metadata,
+        }
+    }
+}
+
+/// Whether an output item is a tool call the caller cannot answer; see
+/// [`CallIdentity::is_internal`].
+pub(super) fn is_internal_call(item: &Value) -> bool {
+    match ItemKind::of(item) {
+        ItemKind::ToolCall(kind) => CallIdentity::of(item, kind).is_internal(),
+        ItemKind::Message | ItemKind::Reasoning | ItemKind::Other => false,
+    }
 }
 
 /// The refusal text carried by a document's message items, if any.
@@ -135,42 +263,6 @@ pub(super) fn message_text(item: &Value) -> String {
         .filter(|part| part.get("type").and_then(Value::as_str) == Some("output_text"))
         .filter_map(|part| part.get("text").and_then(Value::as_str))
         .collect()
-}
-
-/// Decodes one `function_call` or `custom_tool_call` output item.
-///
-/// `call_id` is the identity a tool result answers, so it is the canonical id.
-/// The item id is a second identifier the protocol needs when the call is
-/// replayed, so it is kept in this codec's provider metadata namespace when it
-/// differs.
-fn decode_tool_call(item: &Value, kind: ToolCallKind) -> ToolCall {
-    let call_id = item.get("call_id").and_then(Value::as_str);
-    let item_id = item.get("id").and_then(Value::as_str);
-    let raw = match kind {
-        ToolCallKind::Function => item.get("arguments"),
-        ToolCallKind::Custom => item.get("input"),
-    }
-    .and_then(Value::as_str)
-    .unwrap_or_default();
-
-    let mut call = ToolCall {
-        id:                call_id.or(item_id).unwrap_or_default().to_owned(),
-        name:              item
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned(),
-        input:             ToolInput::from_wire(kind, raw.to_owned()),
-        provider_metadata: BTreeMap::new(),
-    };
-    if let (Some(call_id), Some(item_id)) = (call_id, item_id)
-        && call_id != item_id
-    {
-        call.provider_metadata
-            .insert(NAMESPACE.to_owned(), json!({ "item_id": item_id }));
-    }
-
-    call
 }
 
 /// Decodes one `reasoning` output item into the parts it contributes.
@@ -282,22 +374,4 @@ pub(super) fn decode_error(route: &ResolvedRoute, detail: impl Into<String>, raw
         format!("provider {} {}", route.provider().id(), detail.into()),
         Some(raw),
     )
-}
-
-/// Whether an output item is a tool call the caller cannot answer.
-///
-/// A `function_call` with no name is model-internal. It has no tool to route
-/// to and no result to send back, so it neither becomes content nor turns the
-/// finish reason into [`FinishReason::ToolCall`].
-pub(super) fn is_internal_call(item: &Value) -> bool {
-    let is_call = matches!(
-        item.get("type").and_then(Value::as_str),
-        Some("function_call" | "custom_tool_call")
-    );
-    is_call
-        && item
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .is_empty()
 }

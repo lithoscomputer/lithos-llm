@@ -2,11 +2,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use super::decode::{
-    decode_document, decode_finish_reason, is_internal_call, message_text, reasoning_text,
-    refusal_text, token_counts,
+    CallIdentity, ItemKind, decode_document, decode_finish_reason, is_internal_call, message_text,
+    reasoning_text, refusal_text, token_counts,
 };
 use super::{MESSAGE_KIND, NAMESPACE, REASONING_KIND};
 use crate::codecs::StreamDecoder;
@@ -151,40 +151,20 @@ impl ResponsesStream {
             return Vec::new();
         }
 
-        match item.get("type").and_then(Value::as_str) {
-            Some(kind @ ("function_call" | "custom_tool_call")) => {
-                let call_kind = match kind {
-                    "custom_tool_call" => ToolCallKind::Custom,
-                    _ => ToolCallKind::Function,
-                };
-                let call_id = item.get("call_id").and_then(Value::as_str);
-                let item_id = item.get("id").and_then(Value::as_str);
-                let identity = ContentBlockKind::ToolCall {
-                    id:   call_id.or(item_id).unwrap_or_default().to_owned(),
-                    name: item
-                        .get("name")
-                        .and_then(Value::as_str)
-                        .map(ToOwned::to_owned),
-                    kind: call_kind,
-                };
-                let mut events = self.assembler.start(id.clone(), identity.clone());
-                // When a lost `output_item.added` let an early fragment latch
-                // the fallback block, the terminal item event lands here and
-                // restores the call id and name the fallback lost.
-                self.assembler.repair_tool_identity(id, identity);
-                if let (Some(call_id), Some(item_id)) = (call_id, item_id)
-                    && call_id != item_id
-                {
-                    events.extend(self.assembler.provider_metadata(
-                        id,
-                        NAMESPACE,
-                        json!({ "item_id": item_id }),
-                    ));
-                }
-                events
-            }
-            _ => Vec::new(),
+        let ItemKind::ToolCall(kind) = ItemKind::of(item) else {
+            return Vec::new();
+        };
+        let identity = CallIdentity::of(item, kind);
+        let block_kind = identity.block_kind();
+        let mut events = self.assembler.start(id.clone(), block_kind.clone());
+        // When a lost `output_item.added` let an early fragment latch the
+        // fallback block, the terminal item event lands here and restores
+        // the call id and name the fallback lost.
+        self.assembler.repair_tool_identity(id, block_kind);
+        if let Some(metadata) = identity.replay_metadata() {
+            events.extend(self.assembler.provider_metadata(id, NAMESPACE, metadata));
         }
+        events
     }
 
     /// Closes the block for one output item, delivering anything the deltas
@@ -204,7 +184,8 @@ impl ResponsesStream {
             // this is usually empty.
             return self.assembler.discard(id);
         }
-        if item.get("type").and_then(Value::as_str) == Some("reasoning") {
+        let kind = ItemKind::of(item);
+        if kind == ItemKind::Reasoning {
             return self.end_reasoning(id, item);
         }
 
@@ -213,18 +194,26 @@ impl ResponsesStream {
         events.extend(self.assembler.end(id));
 
         // The message item itself replays; the text block only carries what a
-        // reader sees. The opaque block takes a derived id when the item's
-        // own id already named a text block, and the item's id when no text
-        // arrived — the same pairing reasoning items use.
-        if item.get("type").and_then(Value::as_str) == Some("message") {
-            let opaque = if self.delivered.contains(id) {
-                ContentBlockId::new(format!("{}-item", id.as_str()))
-            } else {
-                id.clone()
-            };
+        // reader sees.
+        if kind == ItemKind::Message {
+            let opaque = self.replay_block_id(id);
             events.extend(self.opaque_item(&opaque, MESSAGE_KIND, item));
         }
         events
+    }
+
+    /// The block id an item's verbatim replay copy takes.
+    ///
+    /// A derived id when the item's own id already named a block that carried
+    /// content, and the item's id when nothing streamed under it — so both
+    /// parts of one item keep distinct stable ids, and an item with no visible
+    /// part keeps the id consumers saw announced.
+    fn replay_block_id(&self, id: &ContentBlockId) -> ContentBlockId {
+        if self.delivered.contains(id) {
+            ContentBlockId::new(format!("{}-item", id.as_str()))
+        } else {
+            id.clone()
+        }
     }
 
     /// Reconciles a block with its terminal item event, which carries the
@@ -235,13 +224,9 @@ impl ResponsesStream {
     /// tail appended, and a buffer that disagrees is replaced — so streaming
     /// and blocking decode the same response identically.
     fn reconcile_item(&mut self, id: &ContentBlockId, item: &Value) -> Vec<StreamEvent> {
-        let (kind, content) = match item.get("type").and_then(Value::as_str) {
-            Some("message") => (ContentBlockKind::Text, message_text(item)),
-            Some(kind @ ("function_call" | "custom_tool_call")) => {
-                let key = match kind {
-                    "custom_tool_call" => "input",
-                    _ => "arguments",
-                };
+        let (kind, content) = match ItemKind::of(item) {
+            ItemKind::Message => (ContentBlockKind::Text, message_text(item)),
+            ItemKind::ToolCall(call_kind) => {
                 let fallback = ContentBlockKind::ToolCall {
                     id:   id.as_str().to_owned(),
                     name: None,
@@ -249,13 +234,10 @@ impl ResponsesStream {
                 };
                 (
                     fallback,
-                    item.get(key)
-                        .and_then(Value::as_str)
-                        .unwrap_or_default()
-                        .to_owned(),
+                    CallIdentity::of(item, call_kind).input().to_owned(),
                 )
             }
-            _ => return Vec::new(),
+            ItemKind::Reasoning | ItemKind::Other => return Vec::new(),
         };
         if content.is_empty() {
             return Vec::new();
@@ -278,17 +260,12 @@ impl ResponsesStream {
                 assembler.reconcile(id, ContentBlockKind::Reasoning, &text)
             }));
         }
-        let visible = self.delivered.contains(id);
         self.reasoning_entries.remove(id);
         events.extend(self.assembler.end(id));
 
         // Every reasoning item is kept whole, summary-only ones included;
         // see `decode_reasoning` for the replay pairing that requires it.
-        let opaque = if visible {
-            ContentBlockId::new(format!("{}-item", id.as_str()))
-        } else {
-            id.clone()
-        };
+        let opaque = self.replay_block_id(id);
         events.extend(self.opaque_item(&opaque, REASONING_KIND, item));
         events
     }

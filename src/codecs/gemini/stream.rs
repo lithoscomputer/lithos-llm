@@ -3,18 +3,15 @@
 use serde_json::{Value, json};
 
 use super::NAMESPACE;
-use super::decode::{
-    blocked_prompt, response_nonce, thought_signature, token_counts, tool_call_id,
-};
+use super::decode::{blocked_prompt, token_counts};
+use super::identity::{response_nonce, thought_signature, tool_call_id};
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
 use crate::codecs::content::{GEMINI_SIGNATURES, finish_reason, promote_tool_finish};
 use crate::codecs::errors::invalid_stream_event;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
-use crate::types::{
-    ContentBlockId, ContentBlockKind, Error, FinishReason, StreamEvent, ToolCallKind,
-};
+use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
 
 /// Which kind of run a streamed text part continues.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -33,6 +30,47 @@ impl Run {
     }
 }
 
+/// The run identity of one stream: which run is open and how many of each
+/// kind have been opened.
+///
+/// The protocol supplies no block ids, so ids are assigned by kind and
+/// ordinal within the stream, and a run is closed as soon as the part kind
+/// changes or a signature seals it.
+#[derive(Debug, Default)]
+struct Runs {
+    /// The run currently accepting deltas, if any.
+    open:       Option<(ContentBlockId, Run)>,
+    texts:      usize,
+    reasonings: usize,
+}
+
+impl Runs {
+    /// Whether the open run, if any, is of another kind than `run`.
+    fn open_differs_from(&self, run: Run) -> bool {
+        self.open.as_ref().is_some_and(|(_, open)| *open != run)
+    }
+
+    /// The id of the open run, opening a new one when none is open.
+    fn id_for(&mut self, run: Run) -> ContentBlockId {
+        if let Some((id, _)) = &self.open {
+            return id.clone();
+        }
+        let ordinal = match run {
+            Run::Text => &mut self.texts,
+            Run::Reasoning => &mut self.reasonings,
+        };
+        let id = ContentBlockId::new(format!("{}-{ordinal}", run.prefix()));
+        *ordinal += 1;
+        self.open = Some((id.clone(), run));
+        id
+    }
+
+    /// Closes the open run, returning the id of the block to end.
+    fn close(&mut self) -> Option<ContentBlockId> {
+        self.open.take().map(|(id, _)| id)
+    }
+}
+
 /// Decodes one `streamGenerateContent` response.
 ///
 /// The protocol supplies neither block ids nor argument fragments, so this
@@ -42,10 +80,8 @@ impl Run {
 pub(super) struct GeminiStreamDecoder {
     route:       ResolvedRoute,
     assembler:   StreamAssembler,
-    /// The run currently accepting deltas, if any.
-    open:        Option<(ContentBlockId, Run)>,
-    texts:       usize,
-    reasonings:  usize,
+    runs:        Runs,
+    /// The function calls opened so far, which orders their synthesized ids.
     calls:       usize,
     /// Whether the stream's `Started` event has been emitted.
     started:     bool,
@@ -54,10 +90,6 @@ pub(super) struct GeminiStreamDecoder {
     /// The random scope for synthesized call ids when no chunk names the
     /// response; see [`tool_call_id`].
     nonce:       String,
-    /// The finish reason of the last chunk that reported one.
-    finished:    Option<FinishReason>,
-    /// Whether a chunk already failed, which forbids a completed response.
-    failed:      bool,
 }
 
 impl GeminiStreamDecoder {
@@ -65,15 +97,11 @@ impl GeminiStreamDecoder {
         Self {
             route:       route.clone(),
             assembler:   StreamAssembler::new(route).with_signatures(GEMINI_SIGNATURES),
-            open:        None,
-            texts:       0,
-            reasonings:  0,
+            runs:        Runs::default(),
             calls:       0,
             started:     false,
             response_id: None,
             nonce:       response_nonce(),
-            finished:    None,
-            failed:      false,
         }
     }
 
@@ -92,10 +120,10 @@ impl GeminiStreamDecoder {
             Run::Text
         };
         let mut events = Vec::new();
-        if self.open.as_ref().is_some_and(|(_, open)| *open != run) {
+        if self.runs.open_differs_from(run) {
             events.extend(self.close_run());
         }
-        let id = self.run_id(run);
+        let id = self.runs.id_for(run);
 
         events.extend(match run {
             Run::Text => self.assembler.text(&id, text),
@@ -155,26 +183,10 @@ impl GeminiStreamDecoder {
         events
     }
 
-    /// The id of the open run, opening a new one when the kind changed.
-    fn run_id(&mut self, run: Run) -> ContentBlockId {
-        if let Some((id, _)) = &self.open {
-            return id.clone();
-        }
-
-        let ordinal = match run {
-            Run::Text => &mut self.texts,
-            Run::Reasoning => &mut self.reasonings,
-        };
-        let id = ContentBlockId::new(format!("{}-{ordinal}", run.prefix()));
-        *ordinal += 1;
-        self.open = Some((id.clone(), run));
-        id
-    }
-
     /// Closes the open run, if there is one.
     fn close_run(&mut self) -> Vec<StreamEvent> {
-        match self.open.take() {
-            Some((id, _)) => self.assembler.end(&id),
+        match self.runs.close() {
+            Some(id) => self.assembler.end(&id),
             None => Vec::new(),
         }
     }
@@ -249,14 +261,15 @@ impl GeminiStreamDecoder {
         if let Some(metadata) = value.get("usageMetadata") {
             events.push(self.assembler.usage(token_counts(metadata)));
         }
-        // The reason is held rather than recorded: whether it stays `Stop`
-        // depends on whether a function call arrives, which the rest of the
-        // stream decides. `finish` records the final answer.
+        // The reason is recorded as reported; whether it stays `Stop` depends
+        // on whether a function call arrives, which the rest of the stream
+        // decides, so `finish` applies the tool-call correction.
         if let Some(reason) = value
             .pointer("/candidates/0/finishReason")
             .and_then(Value::as_str)
         {
-            self.finished = Some(finish_reason(Some(reason)));
+            self.assembler
+                .set_finish_reason(finish_reason(Some(reason)));
         }
         Ok(events)
     }
@@ -264,23 +277,17 @@ impl GeminiStreamDecoder {
 
 impl StreamDecoder for GeminiStreamDecoder {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
-        let decoded = self.chunk(&event);
-        if decoded.is_err() {
-            self.failed = true;
-        }
-        decoded
+        self.chunk(&event)
     }
 
+    /// Completes the response. The HTTP adapter ends a stream on its first
+    /// error and never calls this afterwards, so a failed stream cannot
+    /// complete here.
     fn finish(&mut self) -> Result<Vec<StreamEvent>, Error> {
-        // A failed stream ends on its error and never completes.
-        if self.failed {
-            return Ok(Vec::new());
-        }
-
         // A stream that reported no reason at all was cut short, and the
         // assembler says so on its own. One that reported a reason gets the
         // same tool-call correction the blocking path applies.
-        if let Some(reason) = self.finished.take() {
+        if let Some(reason) = self.assembler.finish_reason().cloned() {
             self.assembler
                 .set_finish_reason(promote_tool_finish(reason, self.calls > 0));
         }

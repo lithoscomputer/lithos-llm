@@ -53,6 +53,11 @@ const OPAQUE_PREFIX: &str = "openai_compatible.";
 /// [`encode_chat_message`] replays it into the same place.
 const REASONING_DETAILS: &str = "reasoning_details";
 
+/// The opaque content kind the structured reasoning channel replays as:
+/// [`OPAQUE_PREFIX`] followed by [`REASONING_DETAILS`]. Its inverse is the
+/// `strip_prefix` in `encode_chat_message`.
+const REASONING_DETAILS_KIND: &str = "openai_compatible.reasoning_details";
+
 /// The id of the single streamed text block.
 ///
 /// The protocol carries no block ids at all, so every text fragment of one
@@ -158,23 +163,16 @@ impl Codec for OpenAiChatCodec {
         if let Some(text) = message_text(message) {
             content.push(ContentPart::Text { text });
         }
-        let mut flaw = None;
-        for call in message
+        let calls: Result<Vec<ContentPart>, &'static str> = message
             .get("tool_calls")
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
-        {
-            match decode_tool_call(call) {
-                Ok(part) => content.push(part),
-                Err(detail) => {
-                    flaw = Some(detail);
-                    break;
-                }
-            }
-        }
-        if let Some(detail) = flaw {
-            return Err(decode_failure(route, detail, value));
+            .map(decode_tool_call)
+            .collect();
+        match calls {
+            Ok(calls) => content.extend(calls),
+            Err(detail) => return Err(decode_failure(route, detail, value)),
         }
 
         let mut response = Response::new(

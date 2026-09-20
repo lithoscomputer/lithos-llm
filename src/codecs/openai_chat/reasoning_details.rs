@@ -5,13 +5,8 @@ use std::slice::from_ref;
 
 use serde_json::Value;
 
-use super::{OPAQUE_PREFIX, REASONING_DETAILS};
+use super::{REASONING_DETAILS, REASONING_DETAILS_KIND};
 use crate::types::ContentPart;
-
-/// The opaque content kind the structured reasoning channel replays as.
-pub(super) fn details_kind() -> String {
-    format!("{OPAQUE_PREFIX}{REASONING_DETAILS}")
-}
 
 /// The structured reasoning channel of one response, in wire order.
 ///
@@ -121,5 +116,6 @@ pub(super) fn complete_details(message: &Value) -> Option<ContentPart> {
         payload @ Value::Object(_) => vec![payload.clone()],
         _ => Vec::new(),
     };
-    (!entries.is_empty()).then(|| ContentPart::opaque(details_kind(), Value::Array(entries)))
+    (!entries.is_empty())
+        .then(|| ContentPart::opaque(REASONING_DETAILS_KIND, Value::Array(entries)))
 }

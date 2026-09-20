@@ -4,9 +4,11 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use super::decode::{message_text, non_empty, provider_cost, token_counts};
-use super::reasoning_details::{ReasoningDetails, details_kind};
-use super::{REASONING_BLOCK, REASONING_DETAILS, REASONING_DETAILS_BLOCK, TEXT_BLOCK};
+use super::decode::{message_text, non_empty, provider_cost, reasoning_text, token_counts};
+use super::reasoning_details::ReasoningDetails;
+use super::{
+    REASONING_BLOCK, REASONING_DETAILS, REASONING_DETAILS_BLOCK, REASONING_DETAILS_KIND, TEXT_BLOCK,
+};
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
 use crate::codecs::content::{finish_reason, promote_tool_finish};
@@ -23,6 +25,8 @@ use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCal
 pub(super) struct ChatStreamDecoder {
     assembler: StreamAssembler,
     route:     ResolvedRoute,
+    /// The three synthesized block ids of this stream.
+    blocks:    SyntheticBlocks,
     /// Whether the `Started` event has been emitted for this stream.
     started:   bool,
     /// The structured reasoning channel, coalesced as its fragments arrive.
@@ -73,6 +77,7 @@ impl ChatStreamDecoder {
         Self {
             assembler: StreamAssembler::new(route),
             route:     route.clone(),
+            blocks:    SyntheticBlocks::default(),
             started:   false,
             details:   ReasoningDetails::default(),
             slots:     BTreeMap::new(),
@@ -135,29 +140,25 @@ impl ChatStreamDecoder {
         if let Some(payload) = delta.get(REASONING_DETAILS) {
             self.details.absorb(payload);
             if let Some(entries) = self.details.entries() {
-                let block = ContentBlockId::new(REASONING_DETAILS_BLOCK);
+                let block = &self.blocks.details;
                 events.extend(
                     self.assembler
                         .start(block.clone(), ContentBlockKind::Opaque {
-                            kind: details_kind(),
+                            kind: REASONING_DETAILS_KIND.to_owned(),
                         }),
                 );
-                events.extend(self.assembler.set_opaque_data(&block, entries));
+                events.extend(self.assembler.set_opaque_data(block, entries));
             }
         }
-        // OpenRouter spells it `reasoning`, DeepSeek `reasoning_content`.
-        if let Some(text) =
-            non_empty(delta, "reasoning").or_else(|| non_empty(delta, "reasoning_content"))
-        {
-            let block = ContentBlockId::new(REASONING_BLOCK);
-            events.extend(self.assembler.reasoning(&block, text));
+        // `reasoning_text` reads both spellings of the readable channel.
+        if let Some(text) = reasoning_text(delta) {
+            events.extend(self.assembler.reasoning(&self.blocks.reasoning, &text));
         }
         // `message_text` reads both wire shapes: a delta may carry the
         // part-array form just as a blocking message may, and dropping it
         // would complete the stream as an empty success.
         if let Some(text) = message_text(delta) {
-            let block = ContentBlockId::new(TEXT_BLOCK);
-            events.extend(self.assembler.text(&block, &text));
+            events.extend(self.assembler.text(&self.blocks.text, &text));
         }
         // Refusal fragments accumulate silently; the whole explanation fails
         // the stream once it ends, matching the blocking decoder's contract.
@@ -250,6 +251,26 @@ impl ChatStreamDecoder {
             events.extend(self.assembler.arguments(&block, fragment));
         }
         Ok(events)
+    }
+}
+
+/// The block ids this protocol never supplies, synthesized once per stream.
+///
+/// Every text fragment of one response belongs to the same block, and so does
+/// every reasoning fragment and every `reasoning_details` fragment.
+struct SyntheticBlocks {
+    text:      ContentBlockId,
+    reasoning: ContentBlockId,
+    details:   ContentBlockId,
+}
+
+impl Default for SyntheticBlocks {
+    fn default() -> Self {
+        Self {
+            text:      ContentBlockId::new(TEXT_BLOCK),
+            reasoning: ContentBlockId::new(REASONING_BLOCK),
+            details:   ContentBlockId::new(REASONING_DETAILS_BLOCK),
+        }
     }
 }
 

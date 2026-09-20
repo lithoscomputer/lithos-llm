@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 
 use serde_json::{Map, Value, json, to_string};
 
-use super::{Codec, OpenAiChatCodec};
+use super::{Codec, OPAQUE_PREFIX, OpenAiChatCodec, REASONING_DETAILS, REASONING_DETAILS_KIND};
 use crate::codecs::test_support::{resolved, resolved_in};
 use crate::resolver::ResolvedRoute;
 use crate::transport::SseEvent;
@@ -67,6 +67,16 @@ fn tool_parts(response: &Response) -> Vec<&ToolCall> {
             _ => None,
         })
         .collect()
+}
+
+#[test]
+fn the_details_kind_is_the_prefix_and_the_field() {
+    // The constant replaces a runtime `format!`; this keeps it honest against
+    // the two parts `encode_chat_message` splits it back into.
+    assert_eq!(
+        REASONING_DETAILS_KIND,
+        format!("{OPAQUE_PREFIX}{REASONING_DETAILS}")
+    );
 }
 
 #[test]

@@ -2,12 +2,14 @@
 
 mod decode;
 mod encode;
+mod identity;
 mod stream;
 #[cfg(all(test, feature = "builtin-catalog"))]
 mod tests;
 
-use decode::{decode_candidate, no_candidates, response_nonce, token_counts};
+use decode::{decode_candidate, no_candidates, token_counts};
 use encode::{count_tokens_request, dropped_controls, generate_body, model_endpoint};
+use identity::response_nonce;
 use reqwest::Method;
 use serde_json::Value;
 use stream::GeminiStreamDecoder;
