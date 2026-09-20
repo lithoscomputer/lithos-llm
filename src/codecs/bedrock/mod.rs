@@ -22,6 +22,7 @@ use reqwest::Method;
 use serde_json::Value;
 use stream::BedrockStreamDecoder;
 
+use super::claude::ThinkingPlan;
 use super::content::finish_reason;
 use super::errors::{malformed_success, refusal};
 use super::options::{merge_options, wire_options};
@@ -42,7 +43,8 @@ impl Codec for BedrockConverseCodec {
         preflight(call)?;
         let request = call.request();
         let (options, controls) = wire_options(call);
-        let mut body = converse_body(call, controls.auto_cache)?;
+        let plan = ThinkingPlan::for_call(call, false);
+        let mut body = converse_body(call, controls.auto_cache, &plan)?;
         merge_options(&mut body, options);
 
         let operation = if stream {
@@ -57,7 +59,7 @@ impl Codec for BedrockConverseCodec {
         )
         .with_headers(operation.headers())
         .with_applied_speed(request.speed());
-        for control in dropped_controls(request) {
+        for control in dropped_controls(request, &plan) {
             encoded = encoded.unsupported_control(control);
         }
         Ok(encoded)

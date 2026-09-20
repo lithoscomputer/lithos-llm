@@ -5,21 +5,21 @@ use reqwest::Method;
 use serde_json::{Map, Value, json};
 
 use super::{
-    API_VERSION, BETA_HEADERS_OPTION, COUNT_TOKENS_FIELDS, DEFAULT_MAX_TOKENS, FAST_MODE_BETA,
-    JSON_OBJECT_INSTRUCTION, MIN_THINKING_BUDGET, NAMESPACE,
+    API_VERSION, BETA_HEADERS_OPTION, COUNT_TOKENS_FIELDS, FAST_MODE_BETA, JSON_OBJECT_INSTRUCTION,
+    NAMESPACE,
 };
 use crate::adapter::ResolvedCall;
+use crate::codecs::claude::{Thinking, ThinkingPlan};
 use crate::codecs::content::{
     ANTHROPIC_SIGNATURES, Turns, flattens_system_content, flattens_tool_result_content, plain_text,
     reject_audio, system_text,
 };
 use crate::codecs::errors::unsupported_capability;
 use crate::codecs::options::{endpoint, merge_options, sampling, wire_options};
-use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
-    ContentPart, Error, MediaSource, Message, ReasoningEffort, Request, ResponseFormat, Role,
-    Speed, ToolCallKind, ToolChoice, ToolDefinition, ToolDefinitionKind,
+    ContentPart, Error, MediaSource, Message, Request, ResponseFormat, Role, Speed, ToolCallKind,
+    ToolChoice, ToolDefinition, ToolDefinitionKind,
 };
 
 /// The dialect headers both endpoints send.
@@ -104,8 +104,7 @@ pub(super) fn preflight(call: &ResolvedCall) -> Result<(), Error> {
 /// The portable controls this request carries that the body did not encode.
 ///
 /// Each is reported as an `unsupported_control` warning: the request still
-/// reaches the model, but not as the caller wrote it. `raw_thinking` says a
-/// raw `thinking` provider option is in the body.
+/// reaches the model, but not as the caller wrote it.
 ///
 /// - The `system` field takes text only, so anything else a system message
 ///   carries is dropped; the text still arrives.
@@ -113,10 +112,11 @@ pub(super) fn preflight(call: &ResolvedCall) -> Result<(), Error> {
 ///   flattens to text.
 /// - A reasoning part signed by another provider is skipped; see
 ///   `ReasoningContent::has_foreign_signature`.
-/// - A forced tool choice drops both output controls; see `forces_tool_use`. A
+/// - A forced tool choice drops the reasoning controls the plan names, and the
+///   structured-output format that shares `output_config` with the effort. A
 ///   raw `thinking` option stays in the body — raw options are authoritative —
-///   but Anthropic rejects the pair, so it is reported too.
-pub(super) fn dropped_controls(request: &Request, raw_thinking: bool) -> Vec<&'static str> {
+///   but Anthropic rejects the pair, so the plan reports it too.
+pub(super) fn dropped_controls(request: &Request, plan: &ThinkingPlan) -> Vec<&'static str> {
     let mut dropped = Vec::new();
     if flattens_system_content(request) {
         dropped.push("non-text system content");
@@ -127,16 +127,9 @@ pub(super) fn dropped_controls(request: &Request, raw_thinking: bool) -> Vec<&'s
     if request.carries_foreign_signature(ANTHROPIC_SIGNATURES) {
         dropped.push("reasoning signed by another provider");
     }
-    if forces_tool_use(request.tool_choice()) {
-        if request.reasoning_effort().is_some() {
-            dropped.push("reasoning effort with a forced tool choice");
-        }
-        if request.response_format().and_then(json_schema).is_some() {
-            dropped.push("structured output with a forced tool choice");
-        }
-        if raw_thinking {
-            dropped.push("a thinking provider option with a forced tool choice");
-        }
+    dropped.extend(plan.suppressed.iter().copied());
+    if plan.forced_tool_choice && request.response_format().and_then(json_schema).is_some() {
+        dropped.push("structured output with a forced tool choice");
     }
     dropped
 }
@@ -161,7 +154,8 @@ pub(super) fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest
     // the body means, and a count taken under different terms is not the
     // count the generation will be billed for.
     let betas = beta_headers(&mut options, call.request().speed());
-    let mut body = message_body(call, controls.auto_cache, options.contains_key("thinking"));
+    let plan = ThinkingPlan::for_call(call, options.contains_key("thinking"));
+    let mut body = message_body(call, controls.auto_cache, &plan);
     merge_options(&mut body, options);
     body.retain(|key, _| COUNT_TOKENS_FIELDS.contains(&key.as_str()));
 
@@ -179,18 +173,12 @@ pub(super) fn count_tokens_request(call: &ResolvedCall) -> Result<EncodedRequest
 /// Builds every typed field of a Messages body.
 ///
 /// Raw provider options are merged over the result by the caller, so a field
-/// encoded here is only a default the application can replace.
-///
-/// `thinking_overridden` says a raw `thinking` option will replace the
-/// derived object wholesale. The recursive option merge replaces matching
-/// keys only, so a derived budget under a raw `{"type": "disabled"}` would
-/// leave a stray `budget_tokens` the API rejects; with the override the codec
-/// derives no object and keeps `max_tokens` unlifted, leaving both entirely
-/// to the caller.
+/// encoded here is only a default the application can replace. `plan` is the
+/// reasoning policy for this call; see [`ThinkingPlan`].
 pub(super) fn message_body(
     call: &ResolvedCall,
     auto_cache: bool,
-    thinking_overridden: bool,
+    plan: &ThinkingPlan,
 ) -> Map<String, Value> {
     let request = call.request();
     let route = call.route();
@@ -248,29 +236,26 @@ pub(super) fn message_body(
 
     // Effort has two wire dialects. A model with effort levels takes
     // `output_config.effort` and an adaptive thinking object; an older
-    // reasoning model takes an explicit `thinking` budget instead. The budget
-    // must sit strictly below `max_tokens`, so the limit grows when the budget
-    // would not fit under it. The count endpoint drops `max_tokens` but keeps
-    // `thinking`, which is why both are encoded here rather than per endpoint.
-    let thinking_allowed = !forces_tool_use(request.tool_choice());
-    let mut max_tokens = output_limit(call);
-    if thinking_allowed && !thinking_overridden {
-        if let Some(budget) = thinking_budget(call, max_tokens) {
-            if max_tokens <= budget {
-                max_tokens = budget.saturating_add(MIN_THINKING_BUDGET);
-            }
+    // reasoning model takes an explicit `thinking` budget instead. The plan
+    // decided which, and lifted `max_tokens` above the budget. The count
+    // endpoint drops `max_tokens` but keeps `thinking`, which is why both are
+    // encoded here rather than per endpoint.
+    match plan.thinking {
+        Some(Thinking::Budget(budget)) => {
             body.insert(
                 "thinking".to_owned(),
                 json!({ "type": "enabled", "budget_tokens": budget }),
             );
-        } else if takes_adaptive_thinking(route) {
+        }
+        Some(Thinking::Adaptive) => {
             body.insert("thinking".to_owned(), json!({ "type": "adaptive" }));
         }
+        None => {}
     }
-    body.insert("max_tokens".to_owned(), max_tokens.into());
+    body.insert("max_tokens".to_owned(), plan.max_tokens.into());
 
-    if thinking_allowed {
-        let output_config = output_config(call);
+    if !plan.forced_tool_choice {
+        let output_config = output_config(request, plan);
         if !output_config.is_empty() {
             body.insert("output_config".to_owned(), output_config.into());
         }
@@ -295,17 +280,10 @@ pub(super) fn message_body(
 }
 
 /// The `output_config` object, which carries effort and structured output.
-pub(super) fn output_config(call: &ResolvedCall) -> Map<String, Value> {
-    let request = call.request();
+fn output_config(request: &Request, plan: &ThinkingPlan) -> Map<String, Value> {
     let mut config = Map::new();
-
-    // A model without effort levels gets a thinking budget instead; sending
-    // `effort` too would ask the provider to honor a control the model does
-    // not take.
-    if let Some(effort) = request.reasoning_effort()
-        && takes_effort_levels(call.route())
-    {
-        config.insert("effort".to_owned(), anthropic_effort(effort).into());
+    if let Some(effort) = plan.effort {
+        config.insert("effort".to_owned(), effort.into());
     }
     if let Some(schema) = request.response_format().and_then(json_schema) {
         config.insert(
@@ -327,103 +305,6 @@ fn json_schema(format: &ResponseFormat) -> Option<Value> {
         ResponseFormat::Text | ResponseFormat::JsonObject => None,
         ResponseFormat::JsonSchema { schema, .. } => Some(schema.clone()),
     }
-}
-
-/// Maps the normalized reasoning effort onto Anthropic's levels.
-fn anthropic_effort(effort: ReasoningEffort) -> &'static str {
-    match effort {
-        ReasoningEffort::Minimal | ReasoningEffort::Low => "low",
-        ReasoningEffort::Medium => "medium",
-        ReasoningEffort::High => "high",
-        ReasoningEffort::Xhigh => "xhigh",
-        ReasoningEffort::Max => "max",
-    }
-}
-
-/// The output-token limit this request sends as `max_tokens`.
-///
-/// Anthropic requires the field. The request's own limit wins; a request that
-/// names none takes the model's catalog limit, which is the largest answer the
-/// model can give, and only a model the catalog records no limit for falls back
-/// to [`DEFAULT_MAX_TOKENS`]. A small fixed default here would cut off a long
-/// generation with nothing but a `max_tokens` finish reason to show for it.
-fn output_limit(call: &ResolvedCall) -> u32 {
-    if let Some(tokens) = call.request().max_output_tokens() {
-        return tokens;
-    }
-    // A catalog limit past `u32` is not a real model limit, so a request that
-    // meets one keeps the largest value the field can carry.
-    call.route()
-        .model()
-        .limits()
-        .map_or(DEFAULT_MAX_TOKENS, |limits| {
-            u32::try_from(limits.max_output_tokens).unwrap_or(u32::MAX)
-        })
-}
-
-/// Whether this model wants an adaptive thinking object on every request.
-///
-/// A model with effort levels lets the provider size its own thinking, but it
-/// has to be told to: without a `thinking` object the model does not reason at
-/// all, which changes answer quality, latency, and spend for a caller who asked
-/// for nothing unusual. Effort does not replace it — effort guides how the
-/// allocation is spent — so a levels model gets both.
-///
-/// A model without levels is either natively adaptive, and rejects the toggle,
-/// or takes the explicit budget [`thinking_budget`] computes.
-///
-/// A caller who wants something else sets `thinking` in the raw provider
-/// options, which is merged over this.
-fn takes_adaptive_thinking(route: &ResolvedRoute) -> bool {
-    route.model().protocol_options().reasoning_effort_levels
-}
-
-/// Whether effort encodes as `output_config.effort` for this model.
-///
-/// A passthrough model is uncataloged precisely because it is newer than the
-/// catalog, so the modern effort dialect is the safer guess — the one the
-/// reference client made for unknown models. Guessing a thinking budget
-/// instead would send a manual toggle the always-adaptive models reject. The
-/// adaptive thinking object stays gated on the declared capability, so a
-/// passthrough request without an effort is encoded exactly as before.
-fn takes_effort_levels(route: &ResolvedRoute) -> bool {
-    let model = route.model();
-    model.protocol_options().reasoning_effort_levels || model.is_passthrough()
-}
-
-/// Whether the tool choice makes a tool call mandatory.
-///
-/// Anthropic rejects extended thinking together with a forced tool choice, so
-/// a forced choice suppresses both thinking and `output_config`. `auto` and
-/// `none` leave the model free to answer in prose and keep them.
-fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
-    choice.is_some_and(ToolChoice::is_forced)
-}
-
-/// The explicit thinking budget for a model without effort levels.
-///
-/// `None` when the request sets no effort or the model takes
-/// `output_config.effort` directly. The budget scales the same way effort
-/// levels scale — a share of the output limit — with the provider floor of
-/// [`MIN_THINKING_BUDGET`]. `Minimal` shares `Low`'s budget for the same
-/// reason [`anthropic_effort`] collapses them: the dialect has no smaller
-/// step.
-fn thinking_budget(call: &ResolvedCall, limit: u32) -> Option<u32> {
-    let effort = call.request().reasoning_effort()?;
-    if takes_effort_levels(call.route()) {
-        return None;
-    }
-
-    let limit = u64::from(limit);
-    let share = match effort {
-        ReasoningEffort::Minimal | ReasoningEffort::Low => limit / 4,
-        ReasoningEffort::Medium => limit / 2,
-        ReasoningEffort::High => limit * 3 / 4,
-        ReasoningEffort::Xhigh => limit * 7 / 8,
-        ReasoningEffort::Max => limit,
-    };
-    let budget = share.max(u64::from(MIN_THINKING_BUDGET));
-    Some(u32::try_from(budget).unwrap_or(u32::MAX))
 }
 
 /// Encodes the tool definitions, marking the last one as a cache breakpoint.

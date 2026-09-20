@@ -6,6 +6,7 @@ use serde_json::{Map, Value, json};
 
 use super::NAMESPACE;
 use crate::adapter::ResolvedCall;
+use crate::codecs::claude::{Thinking, ThinkingPlan};
 use crate::codecs::content::{
     ANTHROPIC_SIGNATURES, Turns, flattens_system_content, flattens_tool_result_content, plain_text,
     reject_audio, system_text,
@@ -15,8 +16,8 @@ use crate::codecs::options::{endpoint, sampling, wire_options};
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{
-    ContentPart, Error, MediaSource, Message, ReasoningContent, ReasoningEffort, Request, Role,
-    Speed, ToolCall, ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
+    ContentPart, Error, MediaSource, Message, ReasoningContent, Request, Role, Speed, ToolCall,
+    ToolChoice, ToolDefinition, ToolDefinitionKind, ToolResult,
 };
 
 /// Encodes the Bedrock `CountTokens` request for one call.
@@ -126,7 +127,8 @@ impl Operation {
 ///
 /// Raw provider options are merged over the result by the caller, so a field
 /// encoded here is only a default the application can replace. This mirrors
-/// the Anthropic codec's `message_body`.
+/// the Anthropic codec's `message_body`. `plan` is the reasoning policy for
+/// this call; see [`ThinkingPlan`].
 ///
 /// # Errors
 ///
@@ -135,6 +137,7 @@ impl Operation {
 pub(super) fn converse_body(
     call: &ResolvedCall,
     auto_cache: bool,
+    plan: &ThinkingPlan,
 ) -> Result<Map<String, Value>, Error> {
     let request = call.request();
     let route = call.route();
@@ -155,43 +158,27 @@ pub(super) fn converse_body(
         body.insert("toolConfig".to_owned(), tool_config);
     }
     // Effort has the same two wire dialects as the Anthropic codec,
-    // carried through `additionalModelRequestFields`: a model with effort
-    // levels takes `output_config.effort`, an older reasoning model takes
-    // an explicit thinking budget, and a forced tool choice suppresses
-    // both because the upstream model rejects thinking alongside it. The
-    // budget must sit strictly below `maxTokens`, and a request that
-    // sends none leaves AWS's per-model default in charge — a default at
-    // or below the budget draws a ValidationException. So a budget always
-    // travels with an explicit `maxTokens`, lifted when the budget would
-    // not fit under it, the same way the Anthropic encoder grows it.
-    if let Some(effort) = request.reasoning_effort()
-        && !forces_tool_use(request.tool_choice())
-    {
-        // A passthrough model takes the modern effort dialect, like
-        // the Anthropic codec: it is uncataloged precisely because it
-        // is newer than the catalog, and a guessed thinking budget is
-        // a manual toggle the always-adaptive models reject.
-        if route.model().protocol_options().reasoning_effort_levels
-            || route.model().is_passthrough()
-        {
-            body.insert(
-                "additionalModelRequestFields".to_owned(),
-                json!({ "output_config": { "effort": bedrock_effort(effort) } }),
-            );
-        } else {
-            let limit = budget_limit(call);
-            let budget = thinking_budget(effort, limit);
-            let max_tokens = if limit <= budget {
-                budget.saturating_add(MIN_THINKING_BUDGET)
-            } else {
-                limit
-            };
-            inference.insert("maxTokens".to_owned(), max_tokens.into());
+    // carried through `additionalModelRequestFields`; the shared plan decided
+    // which. Two retained differences from the Anthropic encoder: `maxTokens`
+    // goes on the wire only when a budget forces it — a request that sends
+    // none leaves AWS's per-model default in charge, and a default at or
+    // below the budget draws a ValidationException — and Bedrock never sends
+    // an adaptive thinking object, only `output_config.effort`.
+    match plan.thinking {
+        Some(Thinking::Budget(budget)) => {
+            inference.insert("maxTokens".to_owned(), plan.max_tokens.into());
             body.insert(
                 "additionalModelRequestFields".to_owned(),
                 json!({ "thinking": { "type": "enabled", "budget_tokens": budget } }),
             );
         }
+        Some(Thinking::Adaptive) | None => {}
+    }
+    if let Some(effort) = plan.effort {
+        body.insert(
+            "additionalModelRequestFields".to_owned(),
+            json!({ "output_config": { "effort": effort } }),
+        );
     }
     if !inference.is_empty() {
         body.insert("inferenceConfig".to_owned(), Value::Object(inference));
@@ -217,8 +204,8 @@ pub(super) fn converse_body(
 ///
 /// - Converse has no request-metadata field, so the map is reported rather than
 ///   folded into some other field where it would change the prompt.
-/// - A forced tool choice suppresses the effort; the same report the Anthropic
-///   codec makes for this combination.
+/// - A forced tool choice suppresses the effort, which the plan reports; the
+///   same report the Anthropic codec makes for this combination.
 /// - The tools stay on the wire despite `tool_choice: none` when the history
 ///   carries tool blocks, because Converse rejects such a request without a
 ///   `toolConfig`; the model may therefore still call a tool.
@@ -230,14 +217,12 @@ pub(super) fn converse_body(
 /// - `toolResult.content` carries text, JSON, images, and documents as
 ///   themselves; only a part outside that union — reasoning, most of all — is
 ///   dropped.
-pub(super) fn dropped_controls(request: &Request) -> Vec<&'static str> {
+pub(super) fn dropped_controls(request: &Request, plan: &ThinkingPlan) -> Vec<&'static str> {
     let mut dropped = Vec::new();
     if !request.metadata().is_empty() {
         dropped.push("request metadata");
     }
-    if request.reasoning_effort().is_some() && forces_tool_use(request.tool_choice()) {
-        dropped.push("reasoning effort with a forced tool choice");
-    }
+    dropped.extend(plan.suppressed.iter().copied());
     if keeps_tools_despite_none(request) {
         dropped.push("tool_choice none alongside historical tool blocks");
     }
@@ -752,54 +737,4 @@ fn tool_input_schema(schema: &Value) -> Value {
         }
         _ => json!({ "type": "object", "properties": {} }),
     }
-}
-
-fn bedrock_effort(effort: ReasoningEffort) -> &'static str {
-    match effort {
-        ReasoningEffort::Minimal | ReasoningEffort::Low => "low",
-        ReasoningEffort::Medium => "medium",
-        ReasoningEffort::High => "high",
-        ReasoningEffort::Xhigh => "xhigh",
-        ReasoningEffort::Max => "max",
-    }
-}
-
-/// The smallest `thinking.budget_tokens` the upstream model accepts, and the
-/// headroom kept above the budget when `maxTokens` must grow.
-const MIN_THINKING_BUDGET: u32 = 1024;
-
-/// The output limit the thinking budget scales against.
-///
-/// The request's own limit wins, then the model's catalog limit, then the
-/// same fallback the Anthropic codec uses.
-fn budget_limit(call: &ResolvedCall) -> u32 {
-    if let Some(tokens) = call.request().max_output_tokens() {
-        return tokens;
-    }
-    call.route().model().limits().map_or(65_536, |limits| {
-        u32::try_from(limits.max_output_tokens).unwrap_or(u32::MAX)
-    })
-}
-
-/// Whether the tool choice makes a tool call mandatory.
-///
-/// The upstream model rejects extended thinking together with a forced tool
-/// choice, so a forced choice suppresses the effort encoding entirely.
-fn forces_tool_use(choice: Option<&ToolChoice>) -> bool {
-    choice.is_some_and(ToolChoice::is_forced)
-}
-
-/// The explicit thinking budget for a reasoning model without effort levels,
-/// scaling the same shares of the output limit as the Anthropic codec.
-fn thinking_budget(effort: ReasoningEffort, limit: u32) -> u32 {
-    let limit = u64::from(limit);
-    let share = match effort {
-        ReasoningEffort::Minimal | ReasoningEffort::Low => limit / 4,
-        ReasoningEffort::Medium => limit / 2,
-        ReasoningEffort::High => limit * 3 / 4,
-        ReasoningEffort::Xhigh => limit * 7 / 8,
-        ReasoningEffort::Max => limit,
-    };
-    let budget = share.max(u64::from(MIN_THINKING_BUDGET));
-    u32::try_from(budget).unwrap_or(u32::MAX)
 }

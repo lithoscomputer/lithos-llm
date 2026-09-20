@@ -1,6 +1,7 @@
 //! Wire protocol encoders and decoders.
 
 mod assembler;
+mod claude;
 mod content;
 mod errors;
 mod evaluation_common;

@@ -19,6 +19,7 @@ use reqwest::Method;
 use serde_json::Value;
 use stream::AnthropicStreamDecoder;
 
+use super::claude::ThinkingPlan;
 use super::content::finish_reason;
 use super::errors::{malformed_success, refusal};
 use super::options::{endpoint, merge_options, wire_options};
@@ -38,14 +39,6 @@ const NAMESPACE: &str = "anthropic";
 /// The API version every request declares.
 const API_VERSION: &str = "2023-06-01";
 
-/// The `max_tokens` used when neither the request nor the catalog sets one.
-///
-/// Anthropic requires the field, so there is no "omit it" option. This is the
-/// last resort: a request that names no limit and a model the catalog records
-/// no output limit for. It is deliberately generous, because a limit picked
-/// here truncates a long generation silently.
-const DEFAULT_MAX_TOKENS: u32 = 65_536;
-
 /// The beta the `speed: "fast"` tier is gated behind.
 ///
 /// The body field alone is not enough: without this beta the endpoint ignores
@@ -57,12 +50,6 @@ const FAST_MODE_BETA: &str = "fast-mode-2026-02-01";
 /// This is a header control, not a body field, so the codec consumes it before
 /// the remaining options are merged into the body.
 const BETA_HEADERS_OPTION: &str = "beta_headers";
-
-/// The smallest `thinking.budget_tokens` the API accepts.
-///
-/// Doubles as the headroom kept above the budget when the output limit must
-/// grow, because the budget has to sit strictly below `max_tokens`.
-const MIN_THINKING_BUDGET: u32 = 1024;
 
 /// The instruction [`ResponseFormat::JsonObject`] appends to the system text.
 ///
@@ -98,8 +85,8 @@ impl Codec for AnthropicMessagesCodec {
         let request = call.request();
         let (mut options, controls) = wire_options(call);
         let betas = beta_headers(&mut options, request.speed());
-        let raw_thinking = options.contains_key("thinking");
-        let mut body = message_body(call, controls.auto_cache, raw_thinking);
+        let plan = ThinkingPlan::for_call(call, options.contains_key("thinking"));
+        let mut body = message_body(call, controls.auto_cache, &plan);
         body.insert("stream".to_owned(), stream.into());
         merge_options(&mut body, options);
 
@@ -110,7 +97,7 @@ impl Codec for AnthropicMessagesCodec {
         )
         .with_headers(headers(&betas))
         .with_applied_speed(request.speed());
-        for control in dropped_controls(request, raw_thinking) {
+        for control in dropped_controls(request, &plan) {
             encoded = encoded.unsupported_control(control);
         }
         Ok(encoded)
