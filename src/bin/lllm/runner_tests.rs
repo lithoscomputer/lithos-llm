@@ -96,6 +96,31 @@ impl ProviderAdapter for RecordingAdapter {
     }
 }
 
+/// Streams one visible delta with no trailing newline, then fails.
+struct MidStreamFailingAdapter;
+
+#[async_trait]
+impl ProviderAdapter for MidStreamFailingAdapter {
+    fn id(&self) -> &AdapterId {
+        static ID: OnceLock<AdapterId> = OnceLock::new();
+        ID.get_or_init(|| AdapterId::new("fake"))
+    }
+
+    async fn complete(&self, _call: &ResolvedCall) -> Result<Response, Error> {
+        Err(provider_error())
+    }
+
+    async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+        Ok(ResponseStream::new(stream::iter([
+            Ok(StreamEvent::TextDelta {
+                id:   ContentBlockId::new("text-0"),
+                text: "Partial answer".to_owned(),
+            }),
+            Err(provider_error()),
+        ])))
+    }
+}
+
 struct FailingAdapter;
 
 struct CredentialFailingAdapter;
@@ -405,6 +430,33 @@ async fn streams_only_text_deltas_and_adds_one_newline() {
     assert_eq!(status, ExitStatus::Success);
     assert_eq!(stdout, b"stream output\n");
     assert!(stderr.is_empty());
+}
+
+#[tokio::test]
+async fn a_mid_stream_error_after_deltas_ends_the_line_and_fails() {
+    // The deltas already on the terminal are the caller's; the error is
+    // reported on standard error after them. Without the newline the
+    // diagnostic would start mid-line on a terminal that merges the two
+    // streams, and a caller piping stdout would get a file with no final
+    // newline.
+    let build = client(MidStreamFailingAdapter);
+    let (status, stdout, stderr) = invoke(
+        &build.client,
+        &["lllm", "hello", "--model", "alpha/one"],
+        Vec::new(),
+        true,
+        CancellationToken::new(),
+    )
+    .await;
+
+    assert_eq!(status, ExitStatus::Failure);
+    assert_eq!(stdout, b"Partial answer\n");
+    let diagnostic = String::from_utf8(stderr).expect("the diagnostic should be UTF-8");
+    assert!(
+        diagnostic.starts_with("error: rate_limit: "),
+        "the failure is reported after the partial output: {diagnostic}"
+    );
+    assert!(diagnostic.contains("route=alpha/one"), "{diagnostic}");
 }
 
 #[tokio::test]

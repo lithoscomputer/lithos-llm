@@ -27,6 +27,12 @@
 //! - A tool name or `toolUseId` in the message history that Converse rejects
 //!   refuses the request. The reference rewrote both onto the Converse
 //!   character set with a hash suffix.
+//!
+//! One retained behavior is pinned as well: a replayed custom tool call —
+//! one whose input is free text rather than an object — is not refused the
+//! way a custom tool definition is. It reaches the wire as a `toolUse` whose
+//! `input` is coerced to `{}`. Refusing it instead needs a citation from the
+//! Converse `toolUse` documentation or a probe showing Bedrock rejects it.
 
 #[cfg(feature = "bedrock-aws")]
 use std::process::Command;
@@ -337,6 +343,57 @@ async fn refuses_a_custom_tool_before_dispatch() {
 
     assert_eq!(error.provider_code(), Some("unsupported_capability"));
     crate::json_snapshot!(error.data());
+}
+
+#[tokio::test]
+async fn a_replayed_custom_tool_call_is_coerced_to_an_empty_input() {
+    // RETAINED BEHAVIOR (ruling 2026-09-20). Anthropic refuses a replayed
+    // custom tool call outright; this codec refuses only the definition, so
+    // a conversation that carries a custom call from another provider still
+    // sends. `toolUse.input` must be an object, and a free-text input has no
+    // object form, so it is coerced to `{}`. This test pins the coercion so
+    // it stays deliberate: a change to refuse instead must cite the Converse
+    // documentation or a probe.
+    let request = Request::builder()
+        .model(selector())
+        .user("Apply the patch.")
+        .tool(ToolDefinition::function(
+            "apply_patch",
+            "Applies a unified patch to the working tree",
+            json!({ "type": "object", "properties": {} }),
+        ))
+        .message(Message::new(Role::Assistant, [ContentPart::ToolCall(
+            ToolCall::custom(
+                "call_patch",
+                "apply_patch",
+                "*** Begin Patch\n*** End Patch",
+            ),
+        )]))
+        .message(Message::new(Role::Tool, [ContentPart::ToolResult(
+            ToolResult {
+                tool_call_id: "call_patch".to_owned(),
+                name:         Some("apply_patch".to_owned()),
+                content:      vec![ContentPart::Text {
+                    text: "applied".to_owned(),
+                }],
+                is_error:     false,
+            },
+        )]))
+        .max_output_tokens(128)
+        .build()
+        .expect("the replayed custom call request should build");
+
+    let (capture, _response) = complete(request, &text_response()).await;
+
+    let tool_use = &capture.body["messages"][1]["content"][0]["toolUse"];
+    assert_eq!(tool_use["toolUseId"], json!("call_patch"));
+    assert_eq!(tool_use["name"], json!("apply_patch"));
+    assert_eq!(
+        tool_use["input"],
+        json!({}),
+        "a free-text input has no object form and is coerced"
+    );
+    crate::json_snapshot!(capture);
 }
 
 #[tokio::test]

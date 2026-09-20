@@ -25,6 +25,9 @@ struct Block {
     id:                ContentBlockId,
     kind:              ContentBlockKind,
     open:              bool,
+    /// Whether an explicit [`StreamAssembler::start`] opened the block, as
+    /// opposed to a delta that latched it.
+    announced:         bool,
     /// Text, reasoning text, or concatenated tool argument fragments.
     buffer:            String,
     signature:         Option<String>,
@@ -73,11 +76,13 @@ impl Block {
         id: ContentBlockId,
         kind: ContentBlockKind,
         signature_origin: Option<&'static str>,
+        announced: bool,
     ) -> Self {
         Self {
             id,
             kind,
             open: true,
+            announced,
             buffer: String::new(),
             signature: None,
             signature_origin,
@@ -188,7 +193,7 @@ impl StreamAssembler {
     }
 
     /// Names the signature family this stream's codec mints reasoning
-    /// signatures in; see [`super::common::ANTHROPIC_SIGNATURES`].
+    /// signatures in; see [`super::content::ANTHROPIC_SIGNATURES`].
     #[must_use]
     pub(crate) fn with_signatures(mut self, family: &'static str) -> Self {
         self.signatures = Some(family);
@@ -200,16 +205,21 @@ impl StreamAssembler {
     /// Returns an empty vector when a block with this id already exists, so
     /// calling it again for the same id never emits a duplicate start.
     pub(crate) fn start(&mut self, id: ContentBlockId, kind: ContentBlockKind) -> Vec<StreamEvent> {
-        if self.find(&id).is_some() {
-            return Vec::new();
-        }
+        self.open_block_with(id, kind, true)
+    }
 
-        let event = StreamEvent::ContentBlockStart {
-            id:   id.clone(),
-            kind: kind.clone(),
-        };
-        self.blocks.push(Block::new(id, kind, self.signatures));
-        vec![event]
+    /// Whether an explicit [`start`](Self::start) opened `id` as a tool call.
+    ///
+    /// A protocol that announces every tool call in a start event uses this
+    /// to tell a fragment for an announced call from one whose start was lost
+    /// in transit. A block a delta latched, a block of another kind, and an
+    /// unknown id all answer `false`; a closed announced tool call still
+    /// answers `true`.
+    pub(crate) fn announced_tool_call(&self, id: &ContentBlockId) -> bool {
+        self.find(id).is_some_and(|index| {
+            let block = &self.blocks[index];
+            block.announced && matches!(block.kind, ContentBlockKind::ToolCall { .. })
+        })
     }
 
     /// Appends visible text and returns the matching delta event.
@@ -626,10 +636,28 @@ impl StreamAssembler {
 
     /// Opens a block lazily for a codec that latches on its first delta.
     fn latch(&mut self, id: &ContentBlockId, kind: ContentBlockKind) -> Vec<StreamEvent> {
-        if self.find(id).is_some() {
+        self.open_block_with(id.clone(), kind, false)
+    }
+
+    /// Opens a block and returns its start event, or nothing when the id
+    /// already exists.
+    fn open_block_with(
+        &mut self,
+        id: ContentBlockId,
+        kind: ContentBlockKind,
+        announced: bool,
+    ) -> Vec<StreamEvent> {
+        if self.find(&id).is_some() {
             return Vec::new();
         }
-        self.start(id.clone(), kind)
+
+        let event = StreamEvent::ContentBlockStart {
+            id:   id.clone(),
+            kind: kind.clone(),
+        };
+        self.blocks
+            .push(Block::new(id, kind, self.signatures, announced));
+        vec![event]
     }
 }
 
@@ -724,6 +752,36 @@ mod tests {
         // A truncated stream must stay distinguishable from a model that
         // finished its answer.
         assert_eq!(response.finish_reason, FinishReason::Incomplete);
+        Ok(())
+    }
+
+    #[test]
+    fn only_an_explicit_start_announces_a_tool_call() -> Result<(), Box<dyn StdError>> {
+        let mut assembler = assembler()?;
+        let announced = ContentBlockId::new("block-0");
+        let latched = ContentBlockId::new("block-1");
+        let text = ContentBlockId::new("block-2");
+
+        assembler.start(announced.clone(), tool_kind("call-1", "lookup"));
+        assembler.arguments(&latched, "{");
+        assembler.start(text.clone(), ContentBlockKind::Text);
+
+        assert!(assembler.announced_tool_call(&announced));
+        assert!(
+            !assembler.announced_tool_call(&latched),
+            "a latch is not an announcement"
+        );
+        assert!(
+            !assembler.announced_tool_call(&text),
+            "a text block is not a tool call"
+        );
+        assert!(!assembler.announced_tool_call(&ContentBlockId::new("block-9")));
+
+        assembler.end(&announced);
+        assert!(
+            assembler.announced_tool_call(&announced),
+            "a closed announced tool call stays announced"
+        );
         Ok(())
     }
 

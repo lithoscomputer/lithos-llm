@@ -20,7 +20,7 @@
 //! # URL
 //!
 //! For TypeSafe the operation path is `/v1/systemone`, joined with
-//! [`common::endpoint`](super::common::endpoint) so a base URL that already
+//! [`options::endpoint`](super::options::endpoint) so a base URL that already
 //! ends in `/v1` keeps that segment once: `https://api.typesafe.ai/v1` and
 //! `http://127.0.0.1:3928` become `https://api.typesafe.ai/v1/systemone` and
 //! `http://127.0.0.1:3928/v1/systemone`. For OpenRouter a trailing `/v1`,
@@ -59,11 +59,11 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::EvaluationCodec;
-use super::common::{endpoint, usd_micros};
 use super::evaluation_common::{
     MAX_LEVELS, QuestionLimits, answer_object, decode_choice, decode_failure, decode_score,
     encode_description, encode_question, encode_state,
 };
+use super::options::{endpoint, usd_micros};
 use crate::adapter::ResolvedEvaluation;
 use crate::evaluation::{
     Answer, BooleanAnswer, Evaluation, Question, QuestionId, Rounding, State, Verdict,

@@ -9,7 +9,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
-use crate::types::{ErrorKind, RetryClassification};
+use crate::catalog::ProviderId;
+use crate::types::{Error, ErrorKind, RetryClassification};
 
 /// A normalized provider failure, ready to become an [`crate::types::Error`].
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -24,6 +25,41 @@ pub(crate) struct ProviderFailure {
     pub message:     Option<String>,
     /// The provider's stable error code, when the body carried one.
     pub code:        Option<String>,
+}
+
+impl ProviderFailure {
+    /// Turns this failure into the error the caller sees.
+    ///
+    /// The message is `provider {id} {detail}`, where the detail is the
+    /// provider's own message or `fallback` when the body carried none. The
+    /// status, code, advised wait, and raw body are attached when present.
+    /// HTTP error responses and mid-stream failures both end here, so the two
+    /// forms of one provider failure carry the same fields.
+    pub(crate) fn into_error(
+        self,
+        provider: &ProviderId,
+        status: Option<u16>,
+        data: Option<Value>,
+        fallback: &str,
+    ) -> Error {
+        let detail = self.message.unwrap_or_else(|| fallback.to_owned());
+        let mut error = Error::new(self.kind, format!("provider {provider} {detail}"))
+            .with_provider(provider.clone())
+            .with_retry(self.retry);
+        if let Some(delay) = self.retry_after {
+            error = error.with_provider_retry_after(delay);
+        }
+        if let Some(status) = status {
+            error = error.with_status(status);
+        }
+        if let Some(code) = self.code {
+            error = error.with_provider_code(code);
+        }
+        if let Some(data) = data {
+            error = error.with_raw_data(data);
+        }
+        error
+    }
 }
 
 /// Codes that report spent credit, a billing cap, or an exhausted plan quota.

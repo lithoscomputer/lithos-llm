@@ -28,6 +28,15 @@ impl ContentBlockId {
         Self(value.into())
     }
 
+    /// The id for a block a protocol names only by its position.
+    ///
+    /// Anthropic's `index`, Bedrock's `contentBlockIndex`, and the Responses
+    /// `output_index` fallback all become `block-{index}`, so a consumer that
+    /// reads ids across providers sees one spelling for positional blocks.
+    pub fn from_index(index: u64) -> Self {
+        Self(format!("block-{index}"))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

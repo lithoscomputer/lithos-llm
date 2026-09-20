@@ -17,6 +17,17 @@ pub enum Role {
     Tool,
 }
 
+impl Role {
+    /// Whether this role carries instructions to the model rather than a
+    /// conversational turn.
+    ///
+    /// `System` and `Developer` are the two: every protocol hoists, joins, or
+    /// otherwise treats them apart from the user and assistant turns.
+    pub fn is_instruction(self) -> bool {
+        matches!(self, Self::System | Self::Developer)
+    }
+}
+
 /// One message in a model conversation.
 ///
 /// `name` and `tool_call_id` are optional message-level labels that a few
@@ -81,6 +92,12 @@ impl Message {
     /// The tool call this message answers, when one was set.
     pub fn tool_call_id(&self) -> Option<&str> {
         self.tool_call_id.as_deref()
+    }
+
+    /// Whether this message carries instructions; see
+    /// [`Role::is_instruction`].
+    pub fn is_instruction(&self) -> bool {
+        self.role.is_instruction()
     }
 }
 
@@ -718,6 +735,18 @@ mod tests {
 
         assert!(!encoded.contains("x-fabro"));
         Ok(())
+    }
+
+    #[test]
+    fn only_system_and_developer_roles_are_instructions() {
+        for role in [Role::System, Role::Developer] {
+            assert!(role.is_instruction(), "{role:?}");
+            assert!(Message::text(role, "be brief").is_instruction());
+        }
+        for role in [Role::User, Role::Assistant, Role::Tool] {
+            assert!(!role.is_instruction(), "{role:?}");
+            assert!(!Message::text(role, "hello").is_instruction());
+        }
     }
 
     #[test]

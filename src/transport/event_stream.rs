@@ -10,8 +10,50 @@ use std::collections::BTreeMap;
 use std::str::from_utf8;
 
 use crc32fast::hash;
+use serde_json::Value;
 
+use super::classify;
+use super::sse::SseEvent;
+use super::stream::Framer;
+use crate::catalog::ProviderId;
 use crate::types::{Error, ErrorKind, RetryClassification, limit_error};
+
+/// Frames an AWS event stream into the [`SseEvent`]s the codecs decode.
+///
+/// Each decoded frame becomes one event whose `event` is the frame's
+/// `:event-type` header and whose `data` is the payload. An `exception` or
+/// `error` frame becomes a classified provider error rather than an event, so
+/// a mid-stream Bedrock failure reaches the caller through the same taxonomy
+/// as an HTTP failure. The protocol has no end-of-stream frame to flush.
+pub(super) struct EventStreamFramer {
+    provider:    ProviderId,
+    frame_limit: usize,
+    buffer:      Vec<u8>,
+}
+
+impl EventStreamFramer {
+    pub(super) fn new(provider: ProviderId, frame_limit: usize) -> Self {
+        Self {
+            provider,
+            frame_limit,
+            buffer: Vec::new(),
+        }
+    }
+}
+
+impl Framer for EventStreamFramer {
+    fn push(&mut self, chunk: &[u8]) -> Vec<Result<SseEvent, Error>> {
+        self.buffer.extend_from_slice(chunk);
+        extract_frames_with_limit(&mut self.buffer, self.frame_limit)
+            .into_iter()
+            .map(|frame| frame.and_then(|frame| frame.into_event(&self.provider)))
+            .collect()
+    }
+
+    fn finish(&mut self) -> Vec<Result<SseEvent, Error>> {
+        Vec::new()
+    }
+}
 
 /// The fixed prelude: total length, headers length, and the prelude CRC32.
 const PRELUDE_LENGTH: usize = 12;
@@ -73,6 +115,46 @@ impl EventStreamFrame {
     /// The stable code for a failure frame, from either class.
     pub(crate) fn failure_code(&self) -> Option<&str> {
         self.exception_type().or_else(|| self.error_code())
+    }
+
+    /// The decoded event this frame carries, or the classified failure it
+    /// reports.
+    ///
+    /// # Errors
+    ///
+    /// A payload that is not UTF-8 fails retryably like any other garbled
+    /// stream. A failure frame becomes the provider error it describes: an
+    /// `error` frame carries its diagnostics in the frame headers rather than
+    /// the payload, so the header values are the fallback for both the code
+    /// and the message.
+    fn into_event(self, provider: &ProviderId) -> Result<SseEvent, Error> {
+        let data = String::from_utf8(self.payload.clone()).map_err(|source| {
+            Error::new(
+                ErrorKind::StreamDecode,
+                "a Bedrock event payload was not UTF-8",
+            )
+            .with_provider(provider.clone())
+            .with_source(source)
+            .with_retry(RetryClassification::Safe)
+        })?;
+        if self.is_failure() {
+            let body = serde_json::from_str::<Value>(&data).ok();
+            let (message, code) = classify::extract(body.as_ref());
+            let code = code.or_else(|| self.failure_code().map(ToOwned::to_owned));
+            let message = message.or_else(|| self.error_message().map(ToOwned::to_owned));
+            return Err(
+                classify::classify(None, code.as_deref(), message.as_deref(), None).into_error(
+                    provider,
+                    None,
+                    body,
+                    "returned a stream failure",
+                ),
+            );
+        }
+        Ok(SseEvent {
+            event: self.event_type().map(ToOwned::to_owned),
+            data,
+        })
     }
 
     fn header(&self, name: &str) -> Option<&str> {

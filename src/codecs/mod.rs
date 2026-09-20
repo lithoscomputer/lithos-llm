@@ -1,8 +1,11 @@
 //! Wire protocol encoders and decoders.
 
 mod assembler;
-mod common;
+mod claude;
+mod content;
+mod errors;
 mod evaluation_common;
+mod options;
 
 pub(crate) mod anthropic;
 #[cfg(feature = "bedrock")]
@@ -36,7 +39,7 @@ pub(crate) trait Codec: Send + Sync {
     ///
     /// Typed request fields are encoded first and raw provider options are
     /// merged last, so raw options win. See
-    /// [`common::merge_options`](common::merge_options).
+    /// [`options::merge_options`](options::merge_options).
     ///
     /// # Errors
     ///

@@ -23,7 +23,7 @@ use futures_core::Stream;
 pub(crate) use guard::CallGuard;
 #[cfg(feature = "local-files")]
 pub use local_files::{InlineLocalFiles, media_type_for_path};
-pub use observer::{CallOutcome, Observer, ObserverMiddleware, RetryStage};
+pub use observer::{CallOutcome, Observer, ObserverMiddleware, RetryEvent, RetryStage};
 pub use retry::{RetryMiddleware, RetryPolicy};
 use tokio::sync::Notify;
 pub use tracing_layer::TracingMiddleware;

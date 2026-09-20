@@ -5,14 +5,14 @@ use std::time::Duration;
 use lithos_llm::Client;
 use lithos_llm::client::{ProbeOptions, ProbeOutcome, ProbeReport};
 use lithos_llm::middleware::CancellationToken;
-use lithos_llm::types::{ErrorData, ReasoningEffort, TokenCounts};
+use lithos_llm::types::{ErrorData, TokenCounts};
 use serde::Serialize;
 
-use crate::app::args::{ProbeArgs, ReasoningEffortArg};
+use crate::app::args::ProbeArgs;
 use crate::app::models::select_model;
 use crate::app::output::write_text;
 use crate::app::usage::{duration, grouped};
-use crate::app::{CliEnvironment, CliError, CliResult, ExitStatus, error_kind};
+use crate::app::{CliEnvironment, CliError, CliResult, ExitStatus, cancellable, error_kind};
 
 #[derive(Serialize)]
 struct JsonReport<'a> {
@@ -47,16 +47,12 @@ pub(crate) async fn run(
     )?;
     let mut options = ProbeOptions::new().tools(args.tools);
     if let Some(effort) = args.reasoning_effort {
-        options = options.reasoning_effort(reasoning_effort(effort));
+        options = options.reasoning_effort(effort.into());
     }
     if let Some(timeout) = args.timeout {
         options = options.timeout(timeout);
     }
-    let report = tokio::select! {
-        biased;
-        () = cancellation.cancelled() => return Err(CliError::Interrupted),
-        report = client.probe(selector.clone(), options) => report,
-    };
+    let report = cancellable(cancellation, client.probe(selector.clone(), options)).await?;
     let rendered = if args.json {
         render_json(&report)?
     } else {
@@ -137,15 +133,4 @@ const fn input_tokens(usage: TokenCounts) -> u64 {
 
 fn milliseconds(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
-}
-
-const fn reasoning_effort(value: ReasoningEffortArg) -> ReasoningEffort {
-    match value {
-        ReasoningEffortArg::Minimal => ReasoningEffort::Minimal,
-        ReasoningEffortArg::Low => ReasoningEffort::Low,
-        ReasoningEffortArg::Medium => ReasoningEffort::Medium,
-        ReasoningEffortArg::High => ReasoningEffort::High,
-        ReasoningEffortArg::Xhigh => ReasoningEffort::Xhigh,
-        ReasoningEffortArg::Max => ReasoningEffort::Max,
-    }
 }

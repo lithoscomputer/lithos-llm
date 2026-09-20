@@ -8,6 +8,7 @@ use clap::{
     ArgAction, ArgGroup, ArgMatches, CommandFactory as _, FromArgMatches as _, Parser, Subcommand,
     ValueEnum,
 };
+use lithos_llm::types::{ReasoningEffort, Speed};
 
 use crate::app::{CliError, CliResult};
 
@@ -275,11 +276,34 @@ pub(crate) enum ReasoningEffortArg {
     Max,
 }
 
+impl From<ReasoningEffortArg> for ReasoningEffort {
+    fn from(value: ReasoningEffortArg) -> Self {
+        match value {
+            ReasoningEffortArg::Minimal => Self::Minimal,
+            ReasoningEffortArg::Low => Self::Low,
+            ReasoningEffortArg::Medium => Self::Medium,
+            ReasoningEffortArg::High => Self::High,
+            ReasoningEffortArg::Xhigh => Self::Xhigh,
+            ReasoningEffortArg::Max => Self::Max,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(crate) enum SpeedArg {
     Fast,
     Balanced,
     Economical,
+}
+
+impl From<SpeedArg> for Speed {
+    fn from(value: SpeedArg) -> Self {
+        match value {
+            SpeedArg::Fast => Self::Fast,
+            SpeedArg::Balanced => Self::Balanced,
+            SpeedArg::Economical => Self::Economical,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

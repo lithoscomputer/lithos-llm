@@ -1,13 +1,13 @@
-//! Helpers shared by every provider codec.
+//! Raw provider options, controls, URL joining, and number encoding.
+//!
+//! Every codec splits the raw provider options into wire options and
+//! consumed [`Controls`], builds its operation URL with [`endpoint`], and
+//! merges the raw options over its typed body last with [`merge_options`].
 
 use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
-use crate::resolver::ResolvedRoute;
-use crate::transport::classify;
-use crate::types::{
-    CacheHint, ContentPart, Error, ErrorKind, FinishReason, Message, Request, Role,
-};
+use crate::types::{CacheHint, Request};
 
 /// Raw provider option keys a codec consumes as behavior controls.
 ///
@@ -15,21 +15,6 @@ use crate::types::{
 /// are merged into a request body, so a control never reaches the wire. Adding
 /// a control means adding its key here and reading it in [`Controls`].
 pub(crate) const CONTROL_KEYS: &[&str] = &["auto_cache"];
-
-/// The provider code a codec sets when a call ends in a model refusal.
-///
-/// [`classify`](crate::transport::classify) registers this code among the
-/// content-filter codes, which is what makes a refusal failover-eligible.
-const REFUSAL_CODE: &str = "refusal";
-
-/// The signature family of Claude-minted reasoning signatures.
-///
-/// The Anthropic Messages and Bedrock Converse protocols both carry them, so
-/// a conversation that moves between those providers keeps its signatures.
-pub(crate) const ANTHROPIC_SIGNATURES: &str = "anthropic";
-
-/// The signature family of Gemini thought signatures.
-pub(crate) const GEMINI_SIGNATURES: &str = "gemini";
 
 /// Codec behavior selected by control keys in the raw provider options.
 ///
@@ -169,7 +154,7 @@ fn prefix_fingerprint(request: &Request) -> String {
     let system: Vec<Value> = request
         .messages()
         .iter()
-        .filter(|message| matches!(message.role(), Role::System | Role::Developer))
+        .filter(|message| message.is_instruction())
         .map(|message| serde_json::to_value(message).unwrap_or(Value::Null))
         .collect();
     let tools: Vec<Value> = request
@@ -212,66 +197,6 @@ pub(crate) fn merge_options(body: &mut Map<String, Value>, options: Map<String, 
     }
 }
 
-/// Fails the call when a request carries content this protocol cannot encode.
-///
-/// Silently omitting content is the worst available outcome: the provider
-/// answers a prompt the caller never sent, and the caller sees a successful
-/// response with no indication that their attachment was discarded. Refusing
-/// before dispatch is the same rule the crate applies to custom tools.
-///
-/// `unencodable` names the capability for a part the codec drops, or returns
-/// `None` for a part it can encode.
-///
-/// # Errors
-///
-/// Returns [`ErrorKind::InvalidRequest`](crate::types::ErrorKind::InvalidRequest)
-/// naming the first unsupported capability found.
-pub(crate) fn reject_unencodable(
-    route: &ResolvedRoute,
-    request: &Request,
-    unencodable: fn(&ContentPart) -> Option<&'static str>,
-) -> Result<(), Error> {
-    let unsupported = request
-        .messages()
-        .iter()
-        .flat_map(Message::content)
-        .find_map(unencodable);
-    match unsupported {
-        Some(capability) => Err(unsupported_capability(route, capability)),
-        None => Ok(()),
-    }
-}
-
-/// Whether any tool result carries content this codec flattens to text.
-///
-/// Several protocols accept only a string for a tool result, so anything
-/// [`plain_text`] does not keep is lost. That is every non-text part: media,
-/// and structured JSON too, which is easy to overlook because it is not media.
-/// The text still reaches the model, so this is a warning rather than a
-/// refusal — unlike message content, where the caller's own attachment would
-/// vanish entirely.
-///
-/// `carries` names the result contents this codec keeps whole. It judges each
-/// result's parts together because carriage can depend on the mix: the OpenAI
-/// protocols send an all-JSON result as the bare value but flatten JSON that
-/// shares a result with other parts. A codec that falls back to serializing
-/// the whole content still hands the model a shape it did not ask for, so
-/// reporting that is not a false positive.
-pub(crate) fn flattens_tool_result_content(
-    request: &Request,
-    carries: fn(&[ContentPart]) -> bool,
-) -> bool {
-    request
-        .messages()
-        .iter()
-        .flat_map(Message::content)
-        .filter_map(|part| match part {
-            ContentPart::ToolResult(result) => Some(result),
-            _ => None,
-        })
-        .any(|result| !carries(&result.content))
-}
-
 /// Encodes a sampling parameter without its binary32 rounding error.
 ///
 /// `Request` carries `temperature` and `top_p` as `f32`. Widening one to `f64`
@@ -290,124 +215,6 @@ pub(crate) fn sampling(value: f32) -> Value {
         .map_or_else(|| Value::from(f64::from(value)), Value::Number)
 }
 
-/// The error every codec returns for a request feature it cannot encode.
-///
-/// Codecs raise this before any network dispatch — for example when a request
-/// carries a custom tool and the protocol has no custom tool. A capability is
-/// never silently downgraded.
-pub(crate) fn unsupported_capability(route: &ResolvedRoute, capability: &str) -> Error {
-    Error::new(
-        ErrorKind::InvalidRequest,
-        format!(
-            "provider {} does not support {capability}",
-            route.provider().id()
-        ),
-    )
-    .with_provider(route.provider().id().clone())
-    .with_provider_code("unsupported_capability")
-}
-
-/// Concatenates every text part in order, ignoring every other part.
-pub(crate) fn plain_text(parts: &[ContentPart]) -> String {
-    parts
-        .iter()
-        .filter_map(|part| match part {
-            ContentPart::Text { text } => Some(text.as_str()),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join("")
-}
-
-/// Joins the text of every system and developer message.
-///
-/// A message whose text is only whitespace contributes nothing — templating
-/// commonly produces one, and a whitespace-only system field is a blank block
-/// providers reject rather than an instruction.
-pub(crate) fn system_text(messages: &[Message]) -> String {
-    messages
-        .iter()
-        .filter(|message| matches!(message.role(), Role::System | Role::Developer))
-        .map(|message| plain_text(message.content()))
-        .filter(|text| !text.trim().is_empty())
-        .collect::<Vec<_>>()
-        .join("\n\n")
-}
-
-/// Whether a system message carries content the system field cannot hold.
-///
-/// [`system_text`] joins the text of every system and developer message, so
-/// anything else in one is dropped. The system fields of these protocols take
-/// text and nothing else, which makes the drop correct — but silent, and the
-/// caller put that content somewhere deliberately. The text still reaches the
-/// model, so this is a warning rather than a refusal.
-pub(crate) fn flattens_system_content(request: &Request) -> bool {
-    request
-        .messages()
-        .iter()
-        .filter(|message| matches!(message.role(), Role::System | Role::Developer))
-        .flat_map(Message::content)
-        .any(|part| !matches!(part, ContentPart::Text { .. }))
-}
-
-/// Maps a provider stop reason onto the normalized finish reason.
-///
-/// `stop_sequence` is a normal stop: the model ended on a sequence the caller
-/// asked it to stop at. Gemini's `RECITATION` is a content block, reported
-/// separately from `SAFETY` because the blocked material is quoted source
-/// rather than unsafe content.
-pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
-    match value {
-        None | Some("stop" | "end_turn" | "stop_sequence" | "STOP") => FinishReason::Stop,
-        Some("length" | "max_tokens" | "MAX_TOKENS") => FinishReason::Length,
-        Some("tool_calls" | "tool_use") => FinishReason::ToolCall,
-        Some("content_filter" | "SAFETY" | "RECITATION" | "BLOCKLIST" | "PROHIBITED_CONTENT") => {
-            FinishReason::ContentFilter
-        }
-        Some(other) => FinishReason::Other(other.to_owned()),
-    }
-}
-
-/// The error a codec returns when a response or stream ends in a refusal.
-///
-/// A refusal is a failure, not a short answer: the model declined the request
-/// and produced no usable content. Returning it as a successful empty response
-/// hides that from the caller and from the retry and failover middleware, so
-/// the codec fails the call instead.
-///
-/// The provider code is `refusal`, which
-/// [`classify`](crate::transport::classify::classify) already lists among the
-/// content-filter codes, so the shared classifier — not this helper — decides
-/// the kind and the retry classification. `explanation` is the provider's own
-/// account of the refusal, when the payload carried one, and `raw` is the
-/// payload the codec decoded.
-pub(crate) fn refusal(
-    route: &ResolvedRoute,
-    explanation: Option<&str>,
-    raw: Option<Value>,
-) -> Error {
-    let detail = match explanation {
-        Some(explanation) => format!("refused the request: {explanation}"),
-        None => "refused the request".to_owned(),
-    };
-    // The code alone decides the classification here. The refusal explanation
-    // is the model's prose, and running the message heuristics over it would
-    // let a phrase such as "not found" rewrite the kind.
-    let failure = classify::classify(None, Some(REFUSAL_CODE), None, None);
-
-    let mut error = Error::new(
-        failure.kind,
-        format!("provider {} {detail}", route.provider().id()),
-    )
-    .with_provider(route.provider().id().clone())
-    .with_provider_code(REFUSAL_CODE)
-    .with_retry(failure.retry);
-    if let Some(raw) = raw {
-        error = error.with_raw_data(raw);
-    }
-    error
-}
-
 /// Converts US dollars to the integer micros the cost type carries.
 #[expect(
     clippy::cast_possible_truncation,
@@ -420,6 +227,14 @@ pub(crate) fn usd_micros(usd: f64) -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error as StdError;
+
+    use serde_json::{Map, Value, json};
+
+    use super::{CONTROL_KEYS, endpoint, merge_options, wire_options};
+    use crate::codecs::test_support;
+    use crate::types::Request;
+
     #[test]
     fn sampling_sends_the_decimal_the_caller_wrote() {
         // `f32::into::<f64>()` would send 0.699999988079071 here.
@@ -428,17 +243,6 @@ mod tests {
         assert_eq!(super::sampling(0.0), serde_json::json!(0.0));
         assert_eq!(super::sampling(0.05), serde_json::json!(0.05));
     }
-
-    use std::error::Error as StdError;
-
-    use serde_json::{Map, Value, json};
-
-    use super::{
-        CONTROL_KEYS, endpoint, finish_reason, merge_options, refusal, unsupported_capability,
-        wire_options,
-    };
-    use crate::codecs::test_support;
-    use crate::types::{ErrorKind, FinishReason, Request, RetryClassification};
 
     fn object(value: Value) -> Result<Map<String, Value>, Box<dyn StdError>> {
         match value {
@@ -529,64 +333,6 @@ mod tests {
 
         assert!(wire.is_empty());
         assert!(controls.auto_cache);
-        Ok(())
-    }
-
-    #[test]
-    fn unsupported_capability_is_an_invalid_request() -> Result<(), Box<dyn StdError>> {
-        let route = test_support::test_route()?;
-
-        let error = unsupported_capability(&route, "custom tools");
-
-        assert_eq!(error.kind(), ErrorKind::InvalidRequest);
-        assert_eq!(error.provider_code(), Some("unsupported_capability"));
-        assert!(error.message().contains("custom tools"));
-        Ok(())
-    }
-
-    #[test]
-    fn a_stop_sequence_is_a_normal_stop() {
-        assert_eq!(finish_reason(Some("stop_sequence")), FinishReason::Stop);
-    }
-
-    #[test]
-    fn recitation_is_a_content_filter() {
-        assert_eq!(
-            finish_reason(Some("RECITATION")),
-            FinishReason::ContentFilter
-        );
-    }
-
-    #[test]
-    fn an_unknown_stop_reason_keeps_its_provider_spelling() {
-        assert_eq!(
-            finish_reason(Some("guardrail_intervened")),
-            FinishReason::Other("guardrail_intervened".to_owned())
-        );
-    }
-
-    #[test]
-    fn a_refusal_classifies_as_a_content_filter() -> Result<(), Box<dyn StdError>> {
-        let route = test_support::test_route()?;
-
-        let error = refusal(&route, Some("it asks for malware"), None);
-
-        assert_eq!(error.kind(), ErrorKind::ContentFilter);
-        assert_eq!(error.provider_code(), Some("refusal"));
-        assert_eq!(error.retry_classification(), RetryClassification::Never);
-        assert!(error.message().contains("it asks for malware"), "{error}");
-        Ok(())
-    }
-
-    #[test]
-    fn a_refusal_without_an_explanation_still_reports_one() -> Result<(), Box<dyn StdError>> {
-        let route = test_support::test_route()?;
-
-        let error = refusal(&route, None, Some(json!({ "stop_reason": "refusal" })));
-
-        assert_eq!(error.kind(), ErrorKind::ContentFilter);
-        assert!(error.message().contains("refused the request"), "{error}");
-        assert_eq!(error.raw_data(), Some(&json!({ "stop_reason": "refusal" })));
         Ok(())
     }
 

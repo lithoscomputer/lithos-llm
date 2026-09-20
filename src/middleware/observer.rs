@@ -34,6 +34,40 @@ pub enum RetryStage {
     Stream,
 }
 
+/// One retry decided by [`RetryMiddleware`](super::RetryMiddleware).
+///
+/// The fields describe the attempt that failed and the wait before the next
+/// one. The struct is `#[non_exhaustive]` so a later field — the abandoned
+/// response, say — is not a breaking change for observers.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub struct RetryEvent<'a> {
+    /// The error the failed attempt ended with, as the policy classified it.
+    pub error:   &'a Error,
+    /// The attempt that just failed, counted from 1 as
+    /// [`CallContext::attempt`](super::CallContext::attempt) does. The
+    /// middleware waits [`delay`](Self::delay) and then runs attempt
+    /// `attempt + 1`.
+    pub attempt: u32,
+    /// The wait before the next attempt.
+    pub delay:   Duration,
+    /// How far the failed attempt got: a request the provider never answered
+    /// with a stream, or a stream that failed before it delivered visible
+    /// output.
+    pub stage:   RetryStage,
+}
+
+impl<'a> RetryEvent<'a> {
+    pub(crate) fn new(error: &'a Error, attempt: u32, delay: Duration, stage: RetryStage) -> Self {
+        Self {
+            error,
+            attempt,
+            delay,
+            stage,
+        }
+    }
+}
+
 /// Receives synchronous lifecycle observations without changing a call.
 ///
 /// Every hook runs inline on the call path. An implementation must return
@@ -51,27 +85,16 @@ pub trait Observer: Send + Sync + 'static {
     /// Observes one retry decided by
     /// [`RetryMiddleware`](super::RetryMiddleware).
     ///
-    /// `attempt` is the attempt that just failed with `error`, counted from 1
-    /// as [`CallContext::attempt`](super::CallContext::attempt) does. The
-    /// middleware waits `delay` and then runs attempt `attempt + 1`. `stage`
-    /// names how far the failed attempt got: a request the provider never
-    /// answered with a stream, or a stream that failed before it delivered
-    /// visible output. Failures the policy refuses to retry are not reported
+    /// `retry` names the attempt that failed, its error, the wait before the
+    /// next attempt, and the stage the failure was decided at; see
+    /// [`RetryEvent`]. Failures the policy refuses to retry are not reported
     /// here; that error reaches the caller instead.
     ///
     /// This hook fires only for observers given to the retry middleware
     /// through [`RetryMiddleware::observer`](super::RetryMiddleware::observer).
     /// [`ObserverMiddleware`] never calls it, because a middleware outside the
     /// retry layer sees one logical call, not its attempts.
-    fn on_retry(
-        &self,
-        _call: &Call,
-        _error: &Error,
-        _attempt: u32,
-        _delay: Duration,
-        _stage: RetryStage,
-    ) {
-    }
+    fn on_retry(&self, _call: &Call, _retry: RetryEvent<'_>) {}
 }
 
 /// Adapts an observer into middleware.

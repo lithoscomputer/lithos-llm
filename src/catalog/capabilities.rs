@@ -5,7 +5,7 @@ use std::cmp::Reverse;
 use serde::{Deserialize, Serialize};
 
 use crate::evaluation::QuestionKind;
-use crate::types::{ReasoningEffort, ResponseFormat, Speed, ToolChoice};
+use crate::types::{ContentPart, ReasoningEffort, ResponseFormat, Speed, ToolChoice};
 
 /// Whether the catalog knows that a model supports a feature.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
@@ -242,6 +242,28 @@ impl ModelCapabilities {
         }
     }
 
+    /// Whether the model takes a content part of this kind.
+    ///
+    /// Text, images, audio, and documents map onto their own claims. A
+    /// reasoning part needs the `reasoning` claim, and a tool call or tool
+    /// result needs `tools`. Structured JSON, an opaque replay part, and an
+    /// unknown part make no catalog claim, so they answer `Unknown`; the
+    /// resolver refuses unknown content separately, and a codec decides what
+    /// it can carry of the rest.
+    pub fn content_part(self, part: &ContentPart) -> Support {
+        match part {
+            ContentPart::Text { .. } => self.text,
+            ContentPart::Image(_) => self.images,
+            ContentPart::Audio(_) => self.audio,
+            ContentPart::Document(_) => self.documents,
+            ContentPart::Reasoning(_) => self.reasoning,
+            ContentPart::ToolCall(_) | ContentPart::ToolResult(_) => self.tools,
+            ContentPart::Json { .. } | ContentPart::Opaque { .. } | ContentPart::Unknown(_) => {
+                Support::Unknown
+            }
+        }
+    }
+
     /// Whether the model answers evaluation questions of `kind`.
     ///
     /// The row's explicit `evaluation` claim wins when it has one for this
@@ -384,9 +406,52 @@ pub struct ModelProtocolOptions {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::{ModelCapabilities, Support};
     use crate::evaluation::QuestionKind;
-    use crate::types::{ReasoningEffort, ResponseFormat, Speed, ToolChoice};
+    use crate::types::{
+        ContentPart, ImageContent, MediaSource, ReasoningEffort, ResponseFormat, Speed, ToolChoice,
+        ToolResult,
+    };
+
+    #[test]
+    fn content_parts_map_onto_their_claims_and_the_rest_are_unknown() {
+        let capabilities: ModelCapabilities =
+            toml::from_str("text = true\nimages = false\ntools = true").expect("a valid row");
+
+        assert_eq!(
+            capabilities.content_part(&ContentPart::Text {
+                text: "hi".to_owned(),
+            }),
+            Support::Supported
+        );
+        assert_eq!(
+            capabilities.content_part(&ContentPart::Image(ImageContent::new(MediaSource::url(
+                "https://x/y.png"
+            )))),
+            Support::Unsupported
+        );
+        // Tool results ride on the `tools` claim, not a claim of their own.
+        assert_eq!(
+            capabilities.content_part(&ContentPart::ToolResult(ToolResult {
+                tool_call_id: "c".to_owned(),
+                name:         None,
+                content:      Vec::new(),
+                is_error:     false,
+            })),
+            Support::Supported
+        );
+        // No claim exists for structured JSON or an opaque replay part.
+        assert_eq!(
+            capabilities.content_part(&ContentPart::Json { value: json!(1) }),
+            Support::Unknown
+        );
+        assert_eq!(
+            capabilities.content_part(&ContentPart::opaque("openai.reasoning", json!({}))),
+            Support::Unknown
+        );
+    }
 
     const KINDS: [QuestionKind; 3] = [
         QuestionKind::Choice,

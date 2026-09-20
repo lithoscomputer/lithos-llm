@@ -26,8 +26,8 @@ use lithos_llm::credentials::{
 use lithos_llm::estimate::{EstimateWarning, request_tokens};
 use lithos_llm::middleware::{
     Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
-    ObserverMiddleware, Output, RetryMiddleware, RetryPolicy, RetryStage, finalize_stream,
-    inspect_stream, map_stream,
+    ObserverMiddleware, Output, RetryEvent, RetryMiddleware, RetryPolicy, RetryStage,
+    finalize_stream, inspect_stream, map_stream,
 };
 use lithos_llm::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
 use lithos_llm::types::{
@@ -1434,16 +1434,9 @@ impl Observer for RecordingObserver {
         self.events.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn on_retry(
-        &self,
-        _call: &Call,
-        _error: &Error,
-        _attempt: u32,
-        _delay: Duration,
-        stage: RetryStage,
-    ) {
+    fn on_retry(&self, _call: &Call, retry: RetryEvent<'_>) {
         self.retries.fetch_add(1, Ordering::Relaxed);
-        match stage {
+        match retry.stage {
             RetryStage::Request => self.request_retries.fetch_add(1, Ordering::Relaxed),
             RetryStage::Stream => self.stream_retries.fetch_add(1, Ordering::Relaxed),
             _ => 0,

@@ -7,7 +7,7 @@
 //!
 //! These tests drive the public client API against a local mock server and pin
 //! both halves of each exchange. The codec's own unit tests in
-//! `src/codecs/openai.rs` already cover translation in isolation; what is
+//! `src/codecs/openai/` already cover translation in isolation; what is
 //! pinned here is the HTTP-level contract — method, path, headers, the exact
 //! body bytes, and what a caller observes coming back.
 
