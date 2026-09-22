@@ -1,0 +1,26 @@
+{
+  "skill_name": "add-model",
+  "evals": [
+    {
+      "id": 1,
+      "name": "hypothetical-claude-release",
+      "prompt": "Anthropic just shipped Claude Sonnet 5.5 (API id claude-sonnet-5-5). Release notes say $2.50/$12.50 per MTok, cache reads $0.25, 1M context, 128K output, thinking always on, and forced tool choice returns a 400. Add it for all the providers that serve it. Also point the sonnet alias at it.",
+      "expected_output": "A step-by-step plan: gather listings for anthropic/openrouter/venice/vercel(/bedrock), probe forced choice with an unrelated prompt, sampling, effort; write builtin + E2E rows; add E2E cells beside the sibling; record gateways in append mode and check insertions-only; replay; move sonnet alias only after live cells pass on every provider that has it; one commit per provider + changelog; mise run check.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "gpt-release-on-three-providers",
+      "prompt": "gpt-5.7 is out today (openai id gpt-5.7). can you get it into our catalogs? i think openai, openrouter and vercel all have it already",
+      "expected_output": "A plan that confirms availability from each live listing rather than trusting the user's list, probes flags, adds rows and cells following the gpt-5.6 siblings, records openai (twin 3925) / openrouter (3922) / vercel (3927) in append mode, leaves aliases alone, one commit per provider, changelog, check gate.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "bedrock-docs-only-row",
+      "prompt": "Add Claude Fable 5.1 to the Bedrock catalog. We don't have AWS creds here.",
+      "expected_output": "A plan for a docs-only Bedrock row: source the id from Anthropic's docs, follow the us. inference-profile pattern, deny forced tool choice per the release notes, leave pricing off unless an official AWS price is found, state in the row comment and commit that it is unprobed, run unit tests, one commit, changelog.",
+      "files": []
+    }
+  ]
+}
