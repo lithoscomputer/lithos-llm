@@ -67864,6 +67864,1016 @@
           }
         }
       }
+    },
+    {
+      "scenario_id": "openrouter::sampling::accepted::claude_opus_5_5/0001",
+      "namespace": "openrouter::sampling::accepted::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "fdcff205828e434d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107841-46i3TUTLT1Mk6xfuk7N6",
+          "object": "chat.completion",
+          "created": 1790107841,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Hello, it's nice to meet you!",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 15,
+            "total_tokens": 34,
+            "cost": 0.000376,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000376,
+              "upstream_inference_prompt_cost": 0.000076,
+              "upstream_inference_completions_cost": 0.0003
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::round_trip::claude_opus_5_5/0001",
+      "namespace": "openrouter::reasoning::round_trip::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "dfea29438dc398a8"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107841-N3hF91S6f59hufnhW4mL",
+          "object": "chat.completion",
+          "created": 1790107841,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "tool_calls",
+              "native_finish_reason": "tool_use",
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "reasoning": null,
+                "tool_calls": [
+                  {
+                    "type": "function",
+                    "index": 0,
+                    "id": "toolu_01UjT81982nc9HHW1TShTJWa",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\": \"Paris\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 409,
+            "completion_tokens": 50,
+            "total_tokens": 459,
+            "cost": 0.002636,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.002636,
+              "upstream_inference_prompt_cost": 0.001636,
+              "upstream_inference_completions_cost": 0.001
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::basic_completion::claude_opus_5_5/0001",
+      "namespace": "openrouter::smoke::basic_completion::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6c2949e89634d5e6"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107843-6mQTnQyVh69Lr14gUMBU",
+          "object": "chat.completion",
+          "created": 1790107843,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Hello, it's great to meet you!",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 14,
+            "total_tokens": 33,
+            "cost": 0.000356,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000356,
+              "upstream_inference_prompt_cost": 0.000076,
+              "upstream_inference_completions_cost": 0.00028
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::presence::claude_opus_5_5/0001",
+      "namespace": "openrouter::reasoning::presence::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "1f9c4a2fd4e20ea3"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\"Sol\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"Sol\",\"format\":\"anthropic-claude-v1\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\"ving 7n+3p=118 with n,p≥1: since 118 mod 3 =1, need n≡1 mod3, giving n=1,4,7,10,13,16, all valid with\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"ving 7n+3p=118 with n,p≥1: since 118 mod 3 =1, need n≡1 mod3, giving n=1,4,7,10,13,16, all valid with\",\"format\":\"anthropic-claude-v1\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\" n≤16 (n=16 gives p=2). That's 6 solutions.\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\" n≤16 (n=16 gives p=2). That's 6 solutions.\",\"format\":\"anthropic-claude-v1\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":\"\\n\\n\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"\\n\\n\",\"format\":\"anthropic-claude-v1\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"signature\":\"CAQSmgUKEAgSGAI4AUIIdGhpbmtpbmcSDM5crDF3XewPQ4QXKRoMbl9lu9CBVV+kcg++IjDAn5LN50pGympDgy5gsiAlCzuSnE4dqkBZASqxkOAOutCKExAE6uxW2KYUmYSaX/cqtwQlEHBalMSVkHG3uoGKkjtsTuKUtu4koTOFz3+boHsIZb8dNz7rFdmc5hVy+25AMIj/mcV97Gg81uBqa7Js5lpy3fOxE5KqdQXkSfECxqFmQDnU6+IQMcJtpa1Gs3b9mY6hDtG5C8HXSiuj35hmzYJ8PxDbxn7BWaXVTTbI9oxQxA5DqnAa5oH2J/C4v6gyMYXWgFHpjrNBeaPNx2JvHgXi4S7ijhHIpdVw4k0eiwuDi99CbZdAaiuHRNGgI283Gjfw4cuO/r1a6ItSdS1m0bSWqx/8jU0KPpFElCztBIkYk1SmThE9gkTrEABhenYwYvyligFpAAU1N2cf3YspxGPDR2mlszwsiINY6ADNICeUdnK3U/JK1L30FTMfaya/kxR2SIoFSEGQ2W15bjtHW1ccHSkbPNbaEh+2wwAk408VTnvjIraJF5mkI9booounUDIUg/l+smgW+1vKescxWIgXn4OQONcLei6M5ZktPADBjcCFfhil5sevbNIf6jN9EGzSvahPeYQVRZ/04VHsUIRlYqpsLdJtcAAHzAOwqVliV0CD7+kz0HP2ZXzO2rN+mY59bxPHfLmXWjhLuoPn78K/0BE736kuIS1x6DDR5VgzWIB1dSc3Rr3yO8x11wQM3ZHsqzdQj3EMz1N78TSEPhFdjjd9dpPxe659pohcg9W46aJEsF8b6+mkvKM5Jz2ME5sVTUm5jbD+PLLqx0AOyQu8XGvGTO8CAmoE5ITbK09n9i3mwAsrtv0YAQ==\",\"format\":\"anthropic-claude-v1\",\"index\":0}]},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"6\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\",\"reasoning\":null},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107841-mSfagJOaeABSuUAGcvYc\",\"object\":\"chat.completion.chunk\",\"created\":1790107841,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"service_tier\":\"default\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}],\"usage\":{\"prompt_tokens\":78,\"completion_tokens\":108,\"total_tokens\":186,\"cost\":0.002472,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.002472,\"upstream_inference_prompt_cost\":0.000312,\"upstream_inference_completions_cost\":0.00216},\"completion_tokens_details\":{\"reasoning_tokens\":105,\"image_tokens\":0,\"audio_tokens\":0}}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::effort_probes::claude_opus_5_5/0001",
+      "namespace": "openrouter::reasoning::effort_probes::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "61fd81cf78fa6f47"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107841-zTMtPKnpxpIqHxMvognO",
+          "object": "chat.completion",
+          "created": 1790107841,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "refusal": null,
+                "reasoning": "For 7n+3p=118 with n,p≥1, I need n≡1 mod 3, so n=1,4,7,10,13,16 satisfy n≤16 while keeping p positive — that gives 6 valid solutions.\n\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "For 7n+3p=118 with n,p≥1, I need n≡1 mod 3, so n=1,4,7,10,13,16 satisfy n≤16 while keeping p positive — that gives 6 valid solutions.\n\n",
+                    "format": "anthropic-claude-v1",
+                    "index": 0,
+                    "signature": "CAQSpgUKEAgSGAI4AUIIdGhpbmtpbmcSDFTivN/sPrrckst25RoMB9nsklFGHmODLBWkIjAPRpu4bvBLAcg/Nt2sIoYneAcp3UUiOscysRN2WQbWhjMTmHtB8pX8Lrlq5jCietMqwwQKnuiqGyJvuFgK9l7MT4lI/uoe9l1wQyKzmRgO70zI3LPzrtnOXo9abCrF4KfrLwxAlC4dVbDb0/9KTCl+WiucIxpcgLzbzTzA2OqOO6Ps2inEyBg03eJECtzc2eo8ulHXd7/8l7YzH5zItIB6DzKNjfORxebjQVhwBHL4neuJZHxZiWNHAquIMpuLA4YiKNKiHXbDE3zGpOtZEiHfQDKpd4ULFYGe5O4rogh2sJDPmj1X/yXjh1QUVJZ4ITirSKiqCYdi3HlUipf4DdsNkIf/Bb+py/LwjDmPWHwOR6dPP9K2WndD6nNfsygLOiNAQvtBnBkC3zn291/HIwIvaJ/PT41wHJmpvn7Tyx800wrv4Tws5X45r1oS/n7G5vXIIgZHh+4PvIC9z+EQgMDjveUWK9X+UkDaYYn9I1n4PmDuJrejIlU2MXSriOtdT1iNj7LEveSviu04Atvyee/Dj4uYuEr+Z+oykbSiLcm8Ir6s0+IAyAuivAl4jq9X0XQ3lSk9W9nDwOlkO1tYaTX5BQjjenYtkgKePpNU3tIVYJ2IqEfh+eLinFTZL0bfl0EMaNzp3IZW/xMWjIBWtGko8gfrXWHdYFnULiG3Nn6XMrHj+ogh5MboFeRsdn050M1Y1iJ2PdMRviBL0IhmFWVph/H0U+CmvC1XE+BKsIeFq8g/BG+s79IuZ9+X/PCi5zpe7L26nmLlNjsCOS67W6dUX6jWM8z/NTX7s4fz07y5w+Xht5LnqN4a9g9pUqPpFbFrOuxM6TIYAQ=="
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 111,
+            "total_tokens": 189,
+            "cost": 0.002532,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.002532,
+              "upstream_inference_prompt_cost": 0.000312,
+              "upstream_inference_completions_cost": 0.00222
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 108,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::round_trip::claude_opus_5_5/0002",
+      "namespace": "openrouter::reasoning::round_trip::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "56a4f77decfec9f6"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107843-ukDv4YiK4ifyhS2GqvaK",
+          "object": "chat.completion",
+          "created": 1790107843,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Yes, it's good picnic weather. Paris is currently **21°C and sunny with a light breeze**, which is warm without being hot, and the breeze should keep things comfortable.\n\nA few tips:\n- **Sun:** Bring sunscreen and a hat, or find a spot with some shade, since you'll be outside for a while.\n- **Breeze:** Something to weigh down napkins and plates will help.\n- **Drinks:** Pack plenty of water, and use a cooler bag for anything that should stay cold.",
+                "refusal": null,
+                "reasoning": "I have the data I need to answer the question now.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "I have the data I need to answer the question now.",
+                    "format": "anthropic-claude-v1",
+                    "index": 0,
+                    "signature": "CAQSwwQKEAgSGAI4AUIIdGhpbmtpbmcSDOCvPal6wl/YTnNCIBoMTqHJAC2yJ2f0WOrVIjCfDunLc3xUZx8a0YHg0ZJroc9PV494ccJ+VWvgQUMhivnDf49ue7/3vVQDqw+VTpkq4AM2ZIpJ7xmVAeGkfYiDPeJU+tyr9bvJYVl5nFkaWEKwaabn+ACBx9iHGo7sKLX7wxm7ZvcClqNRqVNvUh8EtNpFjYTu2z1yGz6ngaVFpXyfF3QAOMptJnO0pCZBF7rJI5cj91yA7U/EL9U9Kz2ec95njL5ExWx5IrG5g/yZ+iiGFhYa3NRks+meNkBTP5RBaihbotxYgnGGD7YoRz1rrFR0XtXQOoFfEiHUCD10Morv6WHlWaAgNPlMRKEJkTHNCVNNtbtv7qLrb0Qz+B5xStNSxT+5e+GoLu09d1jLf3kT4ygeEDyM6+qKFkuD2zxTMMcMFN7ddBI/h6kvBySJ+yjzoYvtPqOjtDNGLg/oSWLgoutW+J21l8kcbWtoNZYwneht/xE+ft9cR5jNcgZkJAYecrc2W/dFMxwTHw/SUzc6z38evczoFM12ORbaZnfcDaoH+N4F0MPzov4nSjo/NeRzedmnWxFBYvvIMfpd9sGpHdMGaD94v9m9XJLYNoREFpfxEpzCWTWwobw/d8KoUibYWRDvwJFIGVivd7uwE1Sk//tqpN0lO6bb5a/PmzOA9jPqtwKacltM7dSJpYq675W7cru/mHZi/o7Y/fsipqDi5UtbB55N9d5IT1hDWxfGQ30YAQ=="
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 456,
+            "completion_tokens": 184,
+            "total_tokens": 640,
+            "cost": 0.005504,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.005504,
+              "upstream_inference_prompt_cost": 0.001824,
+              "upstream_inference_completions_cost": 0.00368
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 15,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::stop_sequence::claude_opus_5_5/0001",
+      "namespace": "openrouter::smoke::stop_sequence::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "abb82fb384265af9"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107847-85i46SueYg4MyWMjfOrC",
+          "object": "chat.completion",
+          "created": 1790107847,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "stop_sequence",
+              "message": {
+                "role": "assistant",
+                "content": "one two three four ",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 53,
+            "completion_tokens": 8,
+            "total_tokens": 61,
+            "cost": 0.000372,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000372,
+              "upstream_inference_prompt_cost": 0.000212,
+              "upstream_inference_completions_cost": 0.00016
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::multi_turn::claude_opus_5_5/0001",
+      "namespace": "openrouter::smoke::multi_turn::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "58f8a42181e46724"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107846-LnKqLUpSDpCmBz4lFlD8",
+          "object": "chat.completion",
+          "created": 1790107846,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Madrid.",
+                "refusal": null,
+                "reasoning": "This is a simple factual question, so I'll just answer with the city name: Madrid.\n\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "This is a simple factual question, so I'll just answer with the city name: Madrid.\n\n",
+                    "format": "anthropic-claude-v1",
+                    "index": 0,
+                    "signature": "CAQSgwUKEAgSGAI4AUIIdGhpbmtpbmcSDHs8wuPeK8Jlv0NF7xoMEM9rh9M9zWJaCv//IjDfpOSmRnWRJAqZXgkaJRnS5gcflOzIcGvMuqzWhI4vxqjFZhUyeCG/e9eisbTGOFUqoARy7Jfnq0yTGY1NQ7iSr3NYiFnjtHHJ/OHgYfs/52KbSjPFn7BjrtcIak1p+JKozwH+FdpN7tm7nJUCnEM72LeXwvHCL0GYyzgQKdhcsijxRW2t92haUYbrXWATZZH7iNmZ1bNJ8kktBA+oi541DX/4wuUNTljbl+jHHNdHsuowJO5xyUWuST9FGEet3Yo+pRYbEHiNCS+bOXqi/dsonWA0Ag39Kq3fZ256EY9eDXT20tmKDnzceoKNLO0tP9cfrZuEaITwgRRpYu2CwZQR/GzQLCO+przjEvNuZ0Gz6hkUl3EinYpyJUkUiQuKzPwcGVhnFjVE/dzNH1TYeY+5SN0nHE9OYfn+GmR7j53cm2FYVsOgjt4TZRyWiihPLPyop4KAf6fgenqW4TDDnINbT9PV63ZyvECCRcR2G6zGWQ+hnzkP6wCuZthif+kRsSVg5s7a8eZOAuJPnbSq1q1sZHMdZuBQgveXxZ3MD8Kg/bZeHRCfoX50cCXWp/KLRDFVl8tVWyH4G2LeiMinLauLOX5pcI6iiLaHXYk69RqVbHFs9UrZ9Wi61f8+MKpWPZzbTTvdEeGoz94BB85OhKnf8NAbmTprHBicO9itXasVmyKWe2HBJcDN9ZGLtHl1eF5NRgZtEW24kDSIUm+6ZX1142nZZhPVnOC91eH2L281ttNmcT3n8Eke1pNQXJ7gGhqjbDF//Yfjo2eKEq7JkZHg9qSxGAE="
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 40,
+            "completion_tokens": 36,
+            "total_tokens": 76,
+            "cost": 0.00088,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00088,
+              "upstream_inference_prompt_cost": 0.00016,
+              "upstream_inference_completions_cost": 0.00072
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 29,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::length_truncation::claude_opus_5_5/0001",
+      "namespace": "openrouter::smoke::length_truncation::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "c51f84e4ffe27b8b"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107845-SUikyQDGsck66TW5TM4h",
+          "object": "chat.completion",
+          "created": 1790107845,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "length",
+              "native_finish_reason": "max_tokens",
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "reasoning": "I can't actually count forever, so I should explain that limitation and offer to count as far as reasonably useful instead.\n\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "I can't actually count forever, so I should explain that limitation and offer to count as far as reasonably useful instead.\n\n",
+                    "format": "anthropic-claude-v1",
+                    "index": 0,
+                    "signature": "CAQS9wQKEAgSGAI4AUIIdGhpbmtpbmcSDJNBWfJByikdEg6b4RoMw+kn/9jeBxw0imlEIjCKDqrb/86Bmx+pDTKXcI+tIK1e5dfZulqy9sre+SKSIgGb04hYpxm7kWD4laRpLwsqlAS+zWJW7t4DTZTwoiWb5+O90XBsc68pFOIoJU+hOBf/Y1IP4Ng6CjwUFmatX2bMS9mtQCSXgl/1Z+79mdFy6AZmzSS3Kr9Zl8Wn/Oa4PlT0+OneoD994xFMws75R4G/9s0kkFyanofouAUogAKtmNpVn7RQKfM1MJSDP6dz8Lm/QFjPsCKOD6xayuxKihZs5aTABAqFeJUSp94dRqjyPf5DlJ0aeUna04VBfoDltQH2xbO7CRWL5hoixh8EgGncmv7hftlX6M5YZ4lU1uC8qgyv2ZKAwZAqBJqk4eVH2WyO41J0tsokZYDo8DblCIN/L+0awBWHZL//QEGLWJzTnebeUBVSsvYXgka5G2/cmfVS2XSZnyyNUaE4BjhaFewJhMeXLl/Fs6E2ZOX5Lb7HwUVx2RLggo0igeHl/mfFAoF9hBMzaCIhHKBgbW6OAECf3PTI8vL2fL9OoyH/77zZFdVmkIPcciwiptx1HeC+FQDk7d5bUJlaBTGLxyP1iXdF0NYtHVUNcrNh3qJJf7mD5D+6YSKzS5BjAHlFez8SzvukT/i3nFCo+QB2TPIcWnR5ThO1TZut9QvukUOFxaWJNoe900lPjS4p6MQTQ5GyQumQ15QqrcPS+zmyuPrygnwBMJWjj2tLJFEAkrPML1sjbA3kTSZ52otndb+eZJZTQefbkPzfGmi9Usqirwq/MO6vyKhMRKojGAE="
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 26,
+            "completion_tokens": 32,
+            "total_tokens": 58,
+            "cost": 0.000744,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000744,
+              "upstream_inference_prompt_cost": 0.000104,
+              "upstream_inference_completions_cost": 0.00064
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 32,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::stream_contract::claude_opus_5_5/0001",
+      "namespace": "openrouter::smoke::stream_contract::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "c59f0bd209234223"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen-1790107848-1mTzelayZ6JaA1XTUv7V\",\"object\":\"chat.completion.chunk\",\"created\":1790107848,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hey\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107848-1mTzelayZ6JaA1XTUv7V\",\"object\":\"chat.completion.chunk\",\"created\":1790107848,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" there! 👋😊\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107848-1mTzelayZ6JaA1XTUv7V\",\"object\":\"chat.completion.chunk\",\"created\":1790107848,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107848-1mTzelayZ6JaA1XTUv7V\",\"object\":\"chat.completion.chunk\",\"created\":1790107848,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"service_tier\":\"default\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}],\"usage\":{\"prompt_tokens\":27,\"completion_tokens\":12,\"total_tokens\":39,\"cost\":0.000348,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.000348,\"upstream_inference_prompt_cost\":0.000108,\"upstream_inference_completions_cost\":0.00024},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0,\"audio_tokens\":0}}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "openrouter::reasoning::effort_probes::claude_opus_5_5/0002",
+      "namespace": "openrouter::reasoning::effort_probes::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "78fec087b93739c5"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107846-4zkqZqsJ65qOjDp6dkSx",
+          "object": "chat.completion",
+          "created": 1790107846,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "refusal": null,
+                "reasoning": "Solving 7n+3p=118 with n,p≥1, I need n≡1 mod 3, giving n=1,4,7,10,13,16 (since n≤16). That's 6 valid solutions.\n\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "Solving 7n+3p=118 with n,p≥1, I need n≡1 mod 3, giving n=1,4,7,10,13,16 (since n≤16). That's 6 valid solutions.\n\n",
+                    "format": "anthropic-claude-v1",
+                    "index": 0,
+                    "signature": "CAQSmAUKEAgSGAI4AUIIdGhpbmtpbmcSDEQIEaBtqQSLj4xmnRoMEeniJFqiK9mdbyoZIjABYWYeN84v/CFpEZD2fsP071eg61vc+mCffm56rmTYOt9lTzGMubqDVKVs9GL93f4qtQTiBDId36tvqx+yUn3r3rbucoX2liDXu8uqWyk9Eh7IwXmYE3CIg0hYdMGoG4qj2AUGMhYLn2x8QdaKnvMZa/c84cZG96KwSzpZ6w3v76DHbuZQHW8VhABXKmRWNcA5ZJ6HDCx1UsLw4NNGYB4Rqmyx2OBHq62ovN9jTZC+rP5t/mQUjZEOJe4mz0oiscwrHvlTJ85lqzVGMfrOHgrwdXuf6DOn+My5J6CiQq6rcF4G98zfLj+k1MfGmG4GkJhwHsgyFoSMKl+h0EwuJ0akHWTCf2mO1bQfLTxz21h1Hu8u1CI93MVvZwC+OXDAq8/UdvBbT7RPWQwTDKwYKgIYuxTasm8bcoZnCZZ3pKK/VcWSJRVHwvoXEH+eUlnf8MNHcQ6arn5DEmUJrylLpQ0ApBhq2sYjDWDBgabuRTOXgtejbyaTmrrLB2k9MXIJ3/46LsTOkQreT/JkBIwH1iIqmCDVnEntljVCZfcrBYjrID/rxGXnCI6JGYcsniRADlIY8kjWceGLi2FgicnkORQ4pyzDgmOdvYJkjYwWu+9l2y7JQ4FR3MN7g7YlJ8e8z6AziyNAoExAqSFrE86xodicw/DKKOjKQ1B6yLQ5b1Y1L9IonuIWbxjdQI+YRlWFpcw+/Apqp5XISQX9fMGcud4tXxGH4mdtNFA4EbswpFkilE7B0PHtUZPLpRZLQ2+kcPTOuQmcumg2Hbp6uvK1g+hg4qPfxJWNZ/ObIuO8pkiL5ALb6KG6j7+pGAE="
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 106,
+            "total_tokens": 184,
+            "cost": 0.002432,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.002432,
+              "upstream_inference_prompt_cost": 0.000312,
+              "upstream_inference_completions_cost": 0.00212
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 103,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::smoke::system_prompt::claude_opus_5_5/0001",
+      "namespace": "openrouter::smoke::system_prompt::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "351194eb948aba22"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107850-3VWfygFG76lTjMo7n3gX",
+          "object": "chat.completion",
+          "created": 1790107850,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "PONG",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 35,
+            "completion_tokens": 5,
+            "total_tokens": 40,
+            "cost": 0.00024,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.00024,
+              "upstream_inference_prompt_cost": 0.00014,
+              "upstream_inference_completions_cost": 0.0001
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::tools::round_trip::claude_opus_5_5/0001",
+      "namespace": "openrouter::tools::round_trip::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "c0dabeea76ac9a86"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107852-mL9RrAlDwv6qd40A8CwY",
+          "object": "chat.completion",
+          "created": 1790107852,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "Paris is currently 18°C (about 64°F) with clear skies.",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 436,
+            "completion_tokens": 25,
+            "total_tokens": 461,
+            "cost": 0.002244,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.002244,
+              "upstream_inference_prompt_cost": 0.001744,
+              "upstream_inference_completions_cost": 0.0005
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::structured::json_schema::claude_opus_5_5/0001",
+      "namespace": "openrouter::structured::json_schema::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "ffdf95b3ac13d346"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107851-sK4LtJ3WidQKspzxbBW7",
+          "object": "chat.completion",
+          "created": 1790107851,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"population\":2100000}",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 241,
+            "completion_tokens": 17,
+            "total_tokens": 258,
+            "cost": 0.001304,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.001304,
+              "upstream_inference_prompt_cost": 0.000964,
+              "upstream_inference_completions_cost": 0.00034
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::structured::json_schema_streamed::claude_opus_5_5/0001",
+      "namespace": "openrouter::structured::json_schema_streamed::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "a2e3a5bf789c794f"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen-1790107851-7cCjfCKSJRpB358AcTHy\",\"object\":\"chat.completion.chunk\",\"created\":1790107851,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"city\\\":\\\"Paris\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107851-7cCjfCKSJRpB358AcTHy\",\"object\":\"chat.completion.chunk\",\"created\":1790107851,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\",\\\"population\\\":2100000}\",\"role\":\"assistant\"},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107851-7cCjfCKSJRpB358AcTHy\",\"object\":\"chat.completion.chunk\",\"created\":1790107851,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}]}"
+          },
+          {
+            "data": "{\"id\":\"gen-1790107851-7cCjfCKSJRpB358AcTHy\",\"object\":\"chat.completion.chunk\",\"created\":1790107851,\"model\":\"anthropic/claude-opus-5.5\",\"provider\":\"Claude Platform on AWS\",\"service_tier\":\"default\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"end_turn\"}],\"usage\":{\"prompt_tokens\":241,\"completion_tokens\":17,\"total_tokens\":258,\"cost\":0.001304,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":0.001304,\"upstream_inference_prompt_cost\":0.000964,\"upstream_inference_completions_cost\":0.00034},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0,\"audio_tokens\":0}}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "openrouter::structured::json_object::claude_opus_5_5/0001",
+      "namespace": "openrouter::structured::json_object::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "117b0261f2abc15f"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107851-2UFYAWce11C0I7KEcGHo",
+          "object": "chat.completion",
+          "created": 1790107851,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "```json\n{\n  \"landmark\": \"Eiffel Tower\",\n  \"city\": \"Paris\",\n  \"country\": \"France\",\n  \"approximate_population\": {\n    \"city_proper\": 2100000,\n    \"metropolitan_area\": 13000000\n  }\n}\n```",
+                "refusal": null,
+                "reasoning": "Paris proper has around 2.1 million people, with the metro area closer to 12 million.\n\n",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "Paris proper has around 2.1 million people, with the metro area closer to 12 million.\n\n",
+                    "format": "anthropic-claude-v1",
+                    "index": 0,
+                    "signature": "CAQS8gQKEAgSGAI4AUIIdGhpbmtpbmcSDNaz4nI5slE+WYNTiRoMxt5BBWg/XT1mrla6IjBYZzJxVyySy2b75lkHnQ5z6fgXmHaQvcSW+SssHBgH2AjASOmuaSYXOjURcA5PqZQqjwRk6ABQT1ep/smsu4fUlWbBXJwCK7tq8oQTANJWLxzbaBZII+EPGJn4WVXMfBxm5/vEPZeUqM5S0mDka/yDm9nVSQJ3DhtbJQrx0q5WVzWlYc8ReyYQrz4n62tC04STm17vD3O0X/v6f1/Bd5RuuAV9o0Iyliy5Et7zhWDSrmtyjhC7LlTHCLlvQ89Ef041gnT7Ukk0L1culbr2YpRLvAloSGldhHIwG1D1dV9e+EiEqIi8/TkER5j4Of+YnwGDrisTW4LtOYLXTLN3sVYtfvjxxPBwElsubs3jSS86bvleU2+vArq48zNakb0YM2ZfXt1Iy6uf4WU53ncxylHHteGr+dJLQF7g48U2pEQJQ3lO7+hDpUNy3qvhNKDdms3gmj4wqxO/MJDPLGkXmiNpnLz3tlmFKDoKymkOAf/x1l3BMKOjK2glsvLjd7roVeim98ceMeXizXrXP9btA2Q5HyP0cd9uTWVWyI15911YxFVWFvbQqn13cicT9O+P6dmVvDsujdeXDv0Xh6ucy+eLIXOw0wma9A0lGzk1k82TvML8qfmUtLV2Q8ltdQgm7wpltbp26KO/LpAXmgOOxrMvhZ3PfwpqyQRHC4SOHhkwato4f4Uxx1ZHEBaKrHBEx5OTyHU4KUEOv21EiptT0LNz9CjCdPmGKL9B79kw9dy8AufceHBBLxZj3zWsRVw8BOYi1RgB"
+                  }
+                ]
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 34,
+            "completion_tokens": 134,
+            "total_tokens": 168,
+            "cost": 0.002816,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.002816,
+              "upstream_inference_prompt_cost": 0.000136,
+              "upstream_inference_completions_cost": 0.00268
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 48,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "openrouter::vision::inline::claude_opus_5_5/0001",
+      "namespace": "openrouter::vision::inline::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b19e58bdd6e1917c"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen-1790107853-nNbx1rt0VhTgVvBmcfUX",
+          "object": "chat.completion",
+          "created": 1790107853,
+          "model": "anthropic/claude-opus-5.5",
+          "provider": "Claude Platform on AWS",
+          "system_fingerprint": null,
+          "service_tier": "default",
+          "choices": [
+            {
+              "index": 0,
+              "logprobs": null,
+              "finish_reason": "stop",
+              "native_finish_reason": "end_turn",
+              "message": {
+                "role": "assistant",
+                "content": "The image is filled entirely with **red**.",
+                "refusal": null,
+                "reasoning": null
+              }
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 36,
+            "completion_tokens": 15,
+            "total_tokens": 51,
+            "cost": 0.000444,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "cache_write_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": 0.000444,
+              "upstream_inference_prompt_cost": 0.000144,
+              "upstream_inference_completions_cost": 0.0003
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0,
+              "audio_tokens": 0
+            }
+          }
+        }
+      }
     }
   ]
 }

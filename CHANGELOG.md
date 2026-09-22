@@ -6,6 +6,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Claude Opus 5.5 joins the built-in catalog as `claude-opus-5.5` on
+  Anthropic, OpenRouter, Venice, Vercel, and Bedrock, and the `opus` and
+  `claude-opus` aliases move to it from Claude Opus 5 on every provider
+  that had them (Anthropic, OpenRouter, Vercel). Every row denies forced
+  tool choice. Anthropic and OpenRouter return a 400 for one. Venice and
+  Vercel drop it silently and answer in plain text, which is worse for a
+  caller who needs the call. The Anthropic row claims fast mode at $8/$40,
+  twice the $4/$20 base rate; cache reads are $0.20 everywhere Anthropic
+  sets the price, and Venice charges 1.2x. The Anthropic, OpenRouter,
+  Venice, and Vercel rows were verified live on 2026-09-22, with new E2E
+  cells (live for Anthropic, recorded in append mode for the three
+  gateways). The Bedrock row comes from the release notes alone: it is not
+  probed and not priced.
+
 - Breaking: `Observer::on_retry` takes one `middleware::RetryEvent` in
   place of its four positional values. The struct carries `error`,
   `attempt`, `delay`, and `stage` as named fields and is

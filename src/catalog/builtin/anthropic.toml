@@ -16,6 +16,9 @@
 #
 # Claude Fable 5.1 was added on 2026-09-01 from its release notes and the live
 # listing. The `fable` and `claude-fable` aliases stay on Fable 5 for now.
+#
+# Claude Opus 5.5 was added on 2026-09-22 the same way and took the `opus`
+# and `claude-opus` aliases from Opus 5 once its live cells passed.
 
 schema_version = 1
 
@@ -72,9 +75,30 @@ family = "claude-5"
 [providers.anthropic.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
 
+[providers.anthropic.models."claude-opus-5.5"]
+display_name = "Claude Opus 5.5"
+aliases = ["opus", "claude-opus"]
+api_model = "claude-opus-5-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+# Opus 5.5 always uses adaptive thinking (a disabled or budgeted `thinking`
+# object is a 400), takes all five effort levels, and rejects a temperature.
+# Like Fable 5.1 it returns a 400 for a forced tool choice (`tool_choice`
+# any/tool), so the row claims tools without forced_tool_choice. Rates are
+# $4/$20 with cache reads at $0.20/MTok (0.05x input) and fast mode at 2x.
+# Takes mid-conversation system turns. Verified 2026-09-22 against the
+# release notes, the live listing, and raw Messages API probes.
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = true, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000, speed = { fast = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 10000000 } } }
+family = "claude-5"
+training_cutoff = "2026-06-01"
+knowledge_cutoff = "Jun 2026"
+
+[providers.anthropic.models."claude-opus-5.5".metadata.agent]
+profile = "claude-5"
+
 [providers.anthropic.models."claude-opus-5"]
 display_name = "Claude Opus 5"
-aliases = ["opus", "claude-opus"]
 api_model = "claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Opus 5 takes all five effort levels and rejects non-default sampling values.

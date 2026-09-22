@@ -200,44 +200,58 @@ async fn a_system_turn_is_refused_upstream_where_unclaimed() -> TestResult {
     Ok(())
 }
 
-/// A Fable 5.1 row that leaves `forced_tool_choice` at its default, so a
-/// forced choice reaches the wire.
-const UNRESTRICTED_ROW: &str = r#"
+/// A one-row catalog for `model` that claims forced tool choice, so a forced
+/// choice reaches the wire.
+fn unrestricted_row(model: &str, api_model: &str) -> String {
+    format!(
+        r#"
 schema_version = 1
 
 [providers.anthropic]
 display_name = "Anthropic"
 codecs = ["anthropic-messages"]
 base_url = "https://api.anthropic.com"
-default_model = "claude-fable-5.1"
+default_model = "{model}"
 
 [providers.anthropic.auth]
 type = "header"
 name = "x-api-key"
 
-[providers.anthropic.models."claude-fable-5.1"]
-display_name = "Claude Fable 5.1, forced choice unrestricted"
-api_model = "claude-fable-5-1"
-capabilities = { text = true, tools = true, reasoning = true, tool_choice = { required = true, named = true } }
-protocol_options = { reasoning_effort_levels = true }
-"#;
+[providers.anthropic.models."{model}"]
+display_name = "{model}, forced choice unrestricted"
+api_model = "{api_model}"
+capabilities = {{ text = true, tools = true, reasoning = true, tool_choice = {{ required = true, named = true }} }}
+protocol_options = {{ reasoning_effort_levels = true }}
+"#
+    )
+}
 
-/// The catalog row for Fable 5.1 denies forced tool choice, so the client
-/// never sends one. This cell sends one anyway, through a one-row catalog that
-/// leaves the flag at its default, and pins the upstream 400 that justifies
-/// the denial. If Anthropic starts accepting forced choice on Fable 5.1, this
-/// turns red and the restriction comes off the row.
+/// The catalog rows for Fable 5.1 and Opus 5.5 deny forced tool choice, so
+/// the client never sends one. These cells send one anyway, through a one-row
+/// catalog that claims the capability, and pin the upstream 400 that justifies
+/// the denial. If Anthropic starts accepting forced choice on either model,
+/// its cell turns red and the restriction comes off the row.
 #[tokio::test]
 #[ignore = "live Anthropic call; run with `mise run test:e2e`"]
 async fn a_forced_tool_choice_is_refused_upstream_on_fable_5_1() -> TestResult {
+    refuses_a_forced_tool_choice_upstream("claude-fable-5.1", "claude-fable-5-1").await
+}
+
+#[tokio::test]
+#[ignore = "live Anthropic call; run with `mise run test:e2e`"]
+async fn a_forced_tool_choice_is_refused_upstream_on_opus_5_5() -> TestResult {
+    refuses_a_forced_tool_choice_upstream("claude-opus-5.5", "claude-opus-5-5").await
+}
+
+async fn refuses_a_forced_tool_choice_upstream(model: &str, api_model: &str) -> TestResult {
     if let Some(skip) = support::live_only("live 400 classification") {
         return skip;
     }
     let Ok(key) = env::var(anthropic::KEY_VARIABLE) else {
         return support::skip("ANTHROPIC_API_KEY is unset");
     };
-    let client = client_for_row(UNRESTRICTED_ROW, &key)?;
-    let request = anthropic::request("claude-fable-5.1")
+    let client = client_for_row(&unrestricted_row(model, api_model), &key)?;
+    let request = anthropic::request(model)
         .user("What is the weather in Paris?")
         .tool(ToolDefinition::function(
             "get_weather",
@@ -255,7 +269,7 @@ async fn a_forced_tool_choice_is_refused_upstream_on_fable_5_1() -> TestResult {
     let error = client
         .complete(request)
         .await
-        .expect_err("Fable 5.1 must reject a forced tool choice");
+        .expect_err("the model must reject a forced tool choice");
     assert_eq!(
         error.kind(),
         ErrorKind::InvalidRequest,
