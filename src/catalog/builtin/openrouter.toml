@@ -17,6 +17,9 @@
 #
 # Claude Fable 5.1 was added on 2026-09-01 from the live listing. The `fable`
 # and `claude-fable` aliases stay on Fable 5 for now.
+#
+# Claude Opus 5.5 was added on 2026-09-22 from the live listing and raw
+# probes, and took the `opus` and `claude-opus` aliases from Opus 5.
 
 schema_version = 1
 
@@ -64,9 +67,25 @@ pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_milli
 [providers.openrouter.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
 
+[providers.openrouter.models."claude-opus-5.5"]
+display_name = "Claude Opus 5.5 (via OpenRouter)"
+aliases = ["opus", "claude-opus"]
+api_model = "anthropic/claude-opus-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+# Opus 5.5 returns the upstream 400 for a forced tool choice although the
+# listing names `tool_choice`, so the row claims tools without
+# forced_tool_choice. A temperature was accepted with a 200, as on Opus 5.
+# Cache reads are $0.20/MTok. Verified 2026-09-22 against GET /api/v1/models
+# and raw probes.
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }
+
+[providers.openrouter.models."claude-opus-5.5".metadata.agent]
+profile = "claude-5"
+
 [providers.openrouter.models."claude-opus-5"]
 display_name = "Claude Opus 5 (via OpenRouter)"
-aliases = ["opus", "claude-opus"]
 api_model = "anthropic/claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
