@@ -67,6 +67,7 @@ macro_rules! model_tests {
         model_tests!(@expand $runner,
             claude_fable_5_1 "claude-fable-5.1",
             claude_fable_5 "claude-fable-5",
+            claude_opus_5_5 "claude-opus-5.5",
             claude_opus_5 "claude-opus-5",
             claude_sonnet_5 "claude-sonnet-5",
             claude_opus_4_8 "claude-opus-4.8",
