@@ -6,6 +6,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- GPT-6 Sol (`gpt-6-sol`) and GPT-6 Luna (`gpt-6-luna`) join the built-in
+  catalog on OpenAI, the OpenAI Codex seat, OpenRouter, Vercel, and Venice.
+  OpenAI's rates are $2/$10 for Sol and $0.10/$0.50 for Luna, with long-context
+  rates above 272K input tokens. OpenRouter and Vercel pass those rates
+  through, and Venice charges 1.25x. Both models reject `temperature` and
+  `top_p` on OpenAI and take effort `none` through `max` but not `minimal`.
+  Forced tool choice works on every route. Tool calls also work above effort
+  `none` through the gateways, although the model page limits Chat Completions
+  tool calls to effort `none`. The OpenRouter, Vercel, and Venice rows were
+  verified live, with E2E cells recorded in append mode. The OpenAI rows come
+  from the model pages plus parameter-validation probes only, because the API
+  account had no credits, so they have no cells yet, like GPT-6 Astra. The
+  Codex rows' cells passed live but could not be recorded: the twin records a
+  stream only when the upstream closes it, and the Codex deployment holds it
+  open. No aliases move.
+
 - Breaking: `Observer::on_retry` takes one `middleware::RetryEvent` in
   place of its four positional values. The struct carries `error`,
   `attempt`, `delay`, and `stage` as named fields and is
