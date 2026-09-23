@@ -223,6 +223,8 @@ async fn stops_at_the_stop_sequence(model: &str) -> TestResult {
         "gpt-5.6-luna",
         "gpt-5.6-sol",
         "gpt-5.6-terra",
+        "gpt-6-luna",
+        "gpt-6-sol",
         "glm-5.3",
         "grok-4.6",
         "kimi-k3",

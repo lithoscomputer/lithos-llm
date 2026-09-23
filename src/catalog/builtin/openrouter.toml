@@ -17,6 +17,9 @@
 #
 # Claude Fable 5.1 was added on 2026-09-01 from the live listing. The `fable`
 # and `claude-fable` aliases stay on Fable 5 for now.
+#
+# GPT-6 Sol and Luna were added on 2026-09-22 from the live listing and raw
+# probes; see the comment above their rows.
 
 schema_version = 1
 
@@ -137,6 +140,35 @@ pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_millio
 profile = "anthropic"
 
 # ---------- OpenAI via OpenRouter ----------
+# GPT-6 Sol and Luna, verified 2026-09-22 against GET /api/v1/models and raw
+# probes: a `required` and a named tool choice both produced the call on a
+# prompt with no reason to call the tool, tool calls worked at effort `high`
+# (the model page limits Chat Completions tool calls to effort `none`, but
+# this route does not), and effort `max` reasoned. A temperature came back
+# 200, but the upstream rejects it, so the rows make no sampling claim, as
+# on GPT-5.6.
+[providers.openrouter.models."gpt-6-sol"]
+display_name = "GPT-6 Sol (via OpenRouter)"
+api_model = "openai/gpt-6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 } }
+
+[providers.openrouter.models."gpt-6-sol".metadata.agent]
+profile = "gpt6"
+
+[providers.openrouter.models."gpt-6-luna"]
+display_name = "GPT-6 Luna (via OpenRouter)"
+api_model = "openai/gpt-6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 200000, output_usd_micros_per_million = 750000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000 } }
+
+[providers.openrouter.models."gpt-6-luna".metadata.agent]
+profile = "gpt6"
+
 # The long-context rates start at 272k prompt tokens. The listing expresses
 # this as `min_prompt_tokens = 272000`; Lithos selects the tier above that
 # input count.

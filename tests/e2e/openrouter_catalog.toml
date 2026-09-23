@@ -94,6 +94,27 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { cache_breakpoints = true }
 
 # ---------- OpenAI via OpenRouter ----------
+# GPT-6 Sol and Luna, verified 2026-09-22 against GET /api/v1/models and raw
+# probes: a `required` and a named tool choice both produced the call on a
+# prompt with no reason to call the tool, tool calls worked at effort `high`
+# (the model page limits Chat Completions tool calls to effort `none`, but
+# this route does not), and effort `max` reasoned. A temperature came back
+# 200, but the upstream rejects it, so the rows make no sampling claim, as
+# on GPT-5.6.
+[providers.openrouter.models."gpt-6-sol"]
+display_name = "GPT-6 Sol (via OpenRouter)"
+api_model = "openai/gpt-6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.openrouter.models."gpt-6-luna"]
+display_name = "GPT-6 Luna (via OpenRouter)"
+api_model = "openai/gpt-6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
 # The long-context rates start at 272k prompt tokens. The listing expresses
 # this as `min_prompt_tokens = 272000`; Lithos selects the tier above that
 # input count.
