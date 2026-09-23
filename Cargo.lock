@@ -2942,7 +2942,7 @@ dependencies = [
 [[package]]
 name = "twin-anthropic"
 version = "0.1.5"
-source = "git+https://github.com/lithoscomputer/twins?rev=ca45f0e50a6716d716aa2f638ca3cf767e88f613#ca45f0e50a6716d716aa2f638ca3cf767e88f613"
+source = "git+https://github.com/lithoscomputer/twins?branch=main#9e9861d714f8de2e4be127f96e67cee5d3a917f5"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2954,28 +2954,13 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "twin-core 0.1.5 (git+https://github.com/lithoscomputer/twins?rev=ca45f0e50a6716d716aa2f638ca3cf767e88f613)",
+ "twin-core",
 ]
 
 [[package]]
 name = "twin-core"
 version = "0.1.5"
-source = "git+https://github.com/lithoscomputer/twins?rev=9e9861d714f8de2e4be127f96e67cee5d3a917f5#9e9861d714f8de2e4be127f96e67cee5d3a917f5"
-dependencies = [
- "anyhow",
- "async-stream",
- "axum",
- "futures-util",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "twin-core"
-version = "0.1.5"
-source = "git+https://github.com/lithoscomputer/twins?rev=ca45f0e50a6716d716aa2f638ca3cf767e88f613#ca45f0e50a6716d716aa2f638ca3cf767e88f613"
+source = "git+https://github.com/lithoscomputer/twins?branch=main#9e9861d714f8de2e4be127f96e67cee5d3a917f5"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2990,7 +2975,7 @@ dependencies = [
 [[package]]
 name = "twin-openai"
 version = "0.1.5"
-source = "git+https://github.com/lithoscomputer/twins?rev=9e9861d714f8de2e4be127f96e67cee5d3a917f5#9e9861d714f8de2e4be127f96e67cee5d3a917f5"
+source = "git+https://github.com/lithoscomputer/twins?branch=main#9e9861d714f8de2e4be127f96e67cee5d3a917f5"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -3003,7 +2988,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "twin-core 0.1.5 (git+https://github.com/lithoscomputer/twins?rev=9e9861d714f8de2e4be127f96e67cee5d3a917f5)",
+ "twin-core",
 ]
 
 [[package]]
