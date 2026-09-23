@@ -36,6 +36,20 @@ adapter_options = { force_streaming_complete = true, identify_application = true
 [providers.openai-codex.auth]
 type = "bearer"
 
+[providers.openai-codex.models."gpt-6-sol"]
+display_name = "GPT-6 Sol"
+api_model = "gpt-6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.openai-codex.models."gpt-6-luna"]
+display_name = "GPT-6 Luna"
+api_model = "gpt-6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
 [providers.openai-codex.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"
 api_model = "gpt-5.6-sol"
