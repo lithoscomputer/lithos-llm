@@ -3,9 +3,9 @@
 //!
 //! The success body is a real 200 TypeSafe's API returned on 2026-09-18 for
 //! the interface plan's three questions, and the 401 is the body it returns
-//! for a rejected key. The OpenRouter body is hand-written from the
-//! documented Decisions schema: no decisions model was listed when this was
-//! written, so there is no live body to pin.
+//! for a rejected key. The OpenRouter body is a real 200 from OpenRouter's
+//! Decisions API on 2026-09-22 for the same questions, with the generation
+//! id replaced by a synthetic one of the same shape.
 
 use httpmock::{Method, MockServer};
 use lithos_llm::catalog::{Catalog, codec_ids};
@@ -35,9 +35,14 @@ const LIVE_BODY: &str = r#"{"model":"jev-1.13.0","answers":{"department":{"type"
 /// The 401 body TypeSafe returns for a rejected key, 2026-09-18.
 const UNAUTHORIZED_BODY: &str = r#"{"detail":{"error_type":"authentication_error","message":"Cannot authenticate with the server. Please check your API key and try again."}}"#;
 
-/// An OpenRouter Decisions body, hand-written from the documented schema:
-/// the TypeSafe answers plus `id`, `provider`, and `usage.cost`.
-const OPENROUTER_BODY: &str = r#"{"id":"dec_01K5J6R0X3T8V2W7Y9Z1A4B6C8","provider":"TypeSafe","model":"jev-1.13.0","answers":{"department":{"type":"choice","choice":"billing","confidence":1.0,"probabilities":{"billing":1.0,"other":0.0,"technical":0.0}},"severity":{"type":"score","score":1.08,"confidence":0.47,"legend":{"0":"Cosmetic","1":"Workaround exists","2":"Blocking; no workaround"},"probabilities":{"0":0.14,"1":0.64,"2":0.22}},"requests_refund":{"type":"noul","noul":0.98}},"usage":{"input_tokens":389,"output_tokens":70,"cost":0.000016338}}"#;
+/// A real 200 body from OpenRouter's `POST /api/alpha/decisions` for
+/// `typesafe/jev-1.13`, 2026-09-22: the TypeSafe answers, with whole-number
+/// probabilities written as integers, plus `id`, `provider`, and
+/// `usage.cost`. `model` is OpenRouter's dated slug, not TypeSafe's version.
+const OPENROUTER_BODY: &str = r#"{"model":"typesafe/jev-1.13-20260917","answers":{"department":{"type":"choice","choice":"billing","probabilities":{"other":0,"technical":0,"billing":1},"confidence":1},"severity":{"type":"score","score":1.08,"legend":{"0":"Cosmetic","1":"Workaround exists","2":"Blocking; no workaround"},"probabilities":{"0":0.14,"1":0.64,"2":0.22},"confidence":0.46},"requests_refund":{"type":"noul","noul":0.99}},"usage":{"input_tokens":413,"output_tokens":70,"cost":0.000017346},"id":"gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c","provider":"TypeSafe"}"#;
+
+/// The generation id in [`OPENROUTER_BODY`].
+const OPENROUTER_ID: &str = "gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c";
 
 fn typesafe() -> WireProvider<'static> {
     WireProvider::new(TYPESAFE, codec_ids::SYSTEMONE, MODEL)
@@ -150,9 +155,10 @@ async fn encodes_the_openrouter_request_and_lifts_its_extras() {
     mock.assert_async().await;
     let wire = support::captured(&slot);
     assert_eq!(wire.path, OPENROUTER_PATH);
+    assert_eq!(verdict.id.as_deref(), Some(OPENROUTER_ID));
     assert_eq!(
-        verdict.id.as_deref(),
-        Some("dec_01K5J6R0X3T8V2W7Y9Z1A4B6C8")
+        verdict.served_by.as_deref(),
+        Some("typesafe/jev-1.13-20260917")
     );
     assert_eq!(
         verdict.cost.map(|cost| cost.source),

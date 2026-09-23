@@ -15,9 +15,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   priced at $0.042 per million input tokens with free output. The rows
   derive `["systemone"]` from their evaluation claim, post to
   `/api/alpha/decisions`, and report the in-band `usage.cost` as
-  `CostSource::Provider`. Every other OpenRouter row stays on Chat
-  Completions. A bare `jev-latest` still resolves to the higher-priority
-  `typesafe` provider when both are enabled.
+  `CostSource::Provider`. Both rows answered a live evaluation on
+  2026-09-22, and `Verdict::served_by` names OpenRouter's dated slug,
+  `typesafe/jev-1.13-20260917`. The OpenRouter wire fixture is now that
+  real body in place of the hand-written one. Every other OpenRouter row
+  stays on Chat Completions. A bare `jev-latest` still resolves to the
+  higher-priority `typesafe` provider when both are enabled.
 
 - Breaking: `Observer::on_retry` takes one `middleware::RetryEvent` in
   place of its four positional values. The struct carries `error`,

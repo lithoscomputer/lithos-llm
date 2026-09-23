@@ -400,6 +400,12 @@ family = "nemotron-3"
 # provider, the rows carry no `limits`. The rows write no `codecs` line: the
 # explicit `evaluation` claim and the absence of any generation claim derive
 # `["systemone"]`, and `complete` refuses them before dispatch.
+#
+# A live evaluation on 2026-09-22 answered on both rows in about 250 ms for
+# $0.000017. The body's `model`, which becomes `Verdict::served_by`, is
+# OpenRouter's dated slug `typesafe/jev-1.13-20260917` rather than
+# TypeSafe's `jev-1.13.0`, and `jev-latest` resolved to it. The `id` is a
+# `gen-dec-` generation id, also sent as the `x-generation-id` header.
 [providers.openrouter.models."jev-latest"]
 display_name = "TypeSafe AI Jev (latest, via OpenRouter)"
 api_model = "~typesafe/jev-latest"
