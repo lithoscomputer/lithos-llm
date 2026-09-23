@@ -22,6 +22,12 @@ schema_version = 1
 
 [providers.openrouter]
 display_name = "OpenRouter"
+# Chat Completions for the language models and the Decisions dialect of
+# System One for Jev; each row derives which it reaches from its claims.
+# The codec drops the base URL's `/v1` Chat mount and posts to
+# `/alpha/decisions` on the API root.
+codecs = ["openai-chat", "systemone"]
+codec_options = { systemone = { dialect = "openrouter" } }
 base_url = "https://openrouter.ai/api/v1"
 priority = 25
 allow_passthrough = true
@@ -380,3 +386,34 @@ limits = { context_tokens = 1000000, max_output_tokens = 16384 }
 capabilities = { text = true, images = false, tools = true, reasoning = false, caching = false, sampling = true, tool_choice = { required = "unknown", named = "unknown" }, response_format = { json_object = "unknown", json_schema = "unknown" }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
 pricing = { input_usd_micros_per_million = 85000, output_usd_micros_per_million = 400000 }
 family = "nemotron-3"
+
+# ---------- TypeSafe AI via OpenRouter ----------
+
+# OpenRouter serves TypeSafe's Jev through its Decisions API. The public
+# `GET /api/v1/models?output_modalities=all` listing (2026-09-22) names two
+# rows with modality `text->decisions`: the versioned `typesafe/jev-1.13`
+# (canonical slug `typesafe/jev-1.13-20260917`) and the moving alias
+# `~typesafe/jev-latest`. Both price $0.042 per million input tokens and
+# nothing for output, the same as TypeSafe direct, and the response carries
+# `usage.cost`. The listing's 32,000-token context is TypeSafe's per-request
+# ceiling for the state plus the longest question, so, as on the `typesafe`
+# provider, the rows carry no `limits`. The rows write no `codecs` line: the
+# explicit `evaluation` claim and the absence of any generation claim derive
+# `["systemone"]`, and `complete` refuses them before dispatch.
+#
+# A live evaluation on 2026-09-22 answered on both rows in about 250 ms for
+# $0.000017. The body's `model`, which becomes `Verdict::served_by`, is
+# OpenRouter's dated slug `typesafe/jev-1.13-20260917` rather than
+# TypeSafe's `jev-1.13.0`, and `jev-latest` resolved to it. The `id` is a
+# `gen-dec-` generation id, also sent as the `x-generation-id` header.
+[providers.openrouter.models."jev-latest"]
+display_name = "TypeSafe AI Jev (latest, via OpenRouter)"
+api_model = "~typesafe/jev-latest"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+pricing = { input_usd_micros_per_million = 42000, output_usd_micros_per_million = 0 }
+
+[providers.openrouter.models."jev-1.13"]
+display_name = "TypeSafe AI Jev 1.13 (via OpenRouter)"
+api_model = "typesafe/jev-1.13"
+capabilities = { evaluation = { choice = true, score = true, boolean = true } }
+pricing = { input_usd_micros_per_million = 42000, output_usd_micros_per_million = 0 }

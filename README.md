@@ -381,7 +381,9 @@ evaluation codec (today `vercel/jev`, TypeSafe's Jev through the
 option or level, a `confidence` on each choice and score answer, and the
 provider's declared rounding. `typesafe/jev-latest` evaluates natively too,
 through TypeSafe's own API on the `systemone` codec, and names the
-versioned model that answered in `Verdict::served_by`. Every other row that claims
+versioned model that answered in `Verdict::served_by`. `openrouter/jev-latest`
+and `openrouter/jev-1.13` reach the same model through OpenRouter's Decisions
+API on the `systemone` codec's OpenRouter dialect. Every other row that claims
 `response_format.json_schema` acts as a judge: the client runs one
 structured-output completion with a fixed system prompt and reads the JSON
 object back into answers. On a provider served by a built-in adapter the
