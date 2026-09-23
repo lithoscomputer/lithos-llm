@@ -41,7 +41,6 @@ const UNAUTHORIZED_BODY: &str = r#"{"detail":{"error_type":"authentication_error
 /// `usage.cost`. `model` is OpenRouter's dated slug, not TypeSafe's version.
 const OPENROUTER_BODY: &str = r#"{"model":"typesafe/jev-1.13-20260917","answers":{"department":{"type":"choice","choice":"billing","probabilities":{"other":0,"technical":0,"billing":1},"confidence":1},"severity":{"type":"score","score":1.08,"legend":{"0":"Cosmetic","1":"Workaround exists","2":"Blocking; no workaround"},"probabilities":{"0":0.14,"1":0.64,"2":0.22},"confidence":0.46},"requests_refund":{"type":"noul","noul":0.99}},"usage":{"input_tokens":413,"output_tokens":70,"cost":0.000017346},"id":"gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c","provider":"TypeSafe"}"#;
 
-/// The generation id in [`OPENROUTER_BODY`].
 const OPENROUTER_ID: &str = "gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c";
 
 fn typesafe() -> WireProvider<'static> {
@@ -200,7 +199,8 @@ async fn a_rejected_key_401_is_an_authentication_error() {
     assert!(!error.is_retryable());
 }
 
-/// The built-in catalog's own OpenRouter Jev rows, not a test-only row.
+/// Wire tests against the built-in catalog's rows rather than a test-only
+/// catalog.
 #[cfg(feature = "builtin-catalog")]
 mod builtin {
     use httpmock::MockServer;
