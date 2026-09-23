@@ -232,6 +232,10 @@ const IGNORES_STOP: &[&str] = &[
     "gpt-5.6-terra",
     "gpt-5.6-luna",
     "gpt-5.5",
+    // Venice answers `stop` on the GPT-6 rows with a 400 ("stop is not
+    // supported by this model", 2026-09-22), as it now does on GPT-5.6.
+    "gpt-6-sol",
+    "gpt-6-luna",
 ];
 
 async fn stops_at_the_stop_sequence(model: &str) -> TestResult {

@@ -87,6 +87,8 @@ mod effort_probes {
         glm_5_3 "glm-5.3",
         claude_fable_5_1 "claude-fable-5.1",
         claude_fable_5 "claude-fable-5",
+        gpt_6_sol "gpt-6-sol",
+        gpt_6_luna "gpt-6-luna",
         gpt_5_6_sol "gpt-5.6-sol",
         gpt_5_6_terra "gpt-5.6-terra",
         gpt_5_6_luna "gpt-5.6-luna",

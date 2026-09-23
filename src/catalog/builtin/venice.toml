@@ -17,6 +17,9 @@
 # Claude Fable 5.1 was added on 2026-09-01 from the live listing and probes.
 # Venice lists it at Anthropic's own rates ($10/$50, cache reads $0.25),
 # below its marked-up Fable 5 rates; the listing wins.
+#
+# GPT-6 Sol and Luna were added on 2026-09-22 from the live listing and
+# probes; see the comment above their rows.
 
 schema_version = 1
 
@@ -194,6 +197,35 @@ pricing = { input_usd_micros_per_million = 6000000, output_usd_micros_per_millio
 
 [providers.venice.models."claude-opus-4.8".metadata.agent]
 profile = "anthropic"
+
+# GPT-6 Sol and Luna, verified 2026-09-22 against the live listing and raw
+# probes: a `required` and a named tool choice both produced the call on a
+# prompt with no reason to call the tool, tool calls worked at effort
+# `high`, a temperature was accepted, and effort `max` reasoned. `stop` is a
+# 400 ("stop is not supported by this model"), as it now is on GPT-5.6.
+# Venice lists both at 1.25x OpenAI's rates, with its own long-context tier
+# above 272,000 prompt tokens.
+[providers.venice.models."gpt-6-sol"]
+display_name = "GPT-6 Sol"
+api_model = "openai-gpt-6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 12500000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 3125000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 18750000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 } }
+
+[providers.venice.models."gpt-6-sol".metadata.agent]
+profile = "gpt6"
+
+[providers.venice.models."gpt-6-luna"]
+display_name = "GPT-6 Luna"
+api_model = "openai-gpt-6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 125000, output_usd_micros_per_million = 625000, cached_input_usd_micros_per_million = 12500, cache_write_usd_micros_per_million = 156250, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 250000, output_usd_micros_per_million = 937500, cached_input_usd_micros_per_million = 25000, cache_write_usd_micros_per_million = 312500 } }
+
+[providers.venice.models."gpt-6-luna".metadata.agent]
+profile = "gpt6"
 
 [providers.venice.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"

@@ -67,6 +67,8 @@ macro_rules! model_tests {
             claude_opus_5 "claude-opus-5",
             claude_sonnet_5 "claude-sonnet-5",
             claude_opus_4_8 "claude-opus-4.8",
+            gpt_6_sol "gpt-6-sol",
+            gpt_6_luna "gpt-6-luna",
             gpt_5_6_sol "gpt-5.6-sol",
             gpt_5_6_terra "gpt-5.6-terra",
             gpt_5_6_luna "gpt-5.6-luna",
