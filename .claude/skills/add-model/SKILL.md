@@ -58,6 +58,12 @@ changed. The recurring ones:
   `thinking: {"type": "disabled"}` if the notes say thinking is always on.
 - **System turns** (Anthropic codec). A `role: system` message must follow a
   `user` turn, so put it after the last user message when probing.
+- **An account without credits.** OpenAI checks parameters before billing,
+  so a "no credits remaining" account still answers unsupported `temperature`,
+  `top_p`, or effort values with their own 400s. Those rejections are
+  evidence; everything else on that route waits for credits, and its rows get
+  an E2E catalog row but no cells (the GPT-6 Astra precedent), because a cell
+  with no recorded scenario fails offline replay.
 - **Speed tiers.** Fast mode needs its beta header. This org's fast-mode quota
   is close to zero, so a 429 "rate limit of 0 fast mode input tokens" is an
   account limit, not a codec bug; one successful call with `usage.speed:
@@ -74,7 +80,7 @@ evidence says changed. Things to get right:
   `api_model` is the provider's wire id (`claude-opus-5-5` on Anthropic and
   Venice, `anthropic/claude-opus-5.5` on the gateways, `us.anthropic.…` on
   Bedrock).
-- Prices are USD micros per million tokens (`$4/MTok` → `4000000`). Use the
+- Prices are USD micros per million tokens (4 USD per MTok → `4000000`). Use the
   provider's own listing: Venice marks up Anthropic models (1.2x for Opus
   5.5), the other gateways pass list price through.
 - Deny forced choice with `tool_choice = { required = false, named = false }`.
@@ -175,6 +181,20 @@ e2e_twin`). `--success-output final` keeps the effort-probe lines ("probe:
 Then replay the provider's whole suite offline against the twin in replay
 mode; every cell, old and new, must pass. A deletion in the recording diff
 means an existing request changed — find out why before going further.
+
+If a recorded cell turns out to belong on a skip list (a gateway that
+ignores `stop`, for example), add it to the list and delete its scenarios
+from the recording by editing the text: find the scenario objects by their
+`namespace` and cut those lines. Parsing and re-serializing the JSON
+reformats the whole file and shows up as hundreds of deleted lines.
+
+The Codex twin (3926) cannot record at the moment: the twin writes a stream
+only when the upstream closes it, the deployment holds the stream open after
+`response.completed`, and the client stops reading there. Codex cells pass
+live through the twin but leave no scenarios, so run them to verify, then
+leave them out and say so in the row comment. New `openai` and
+`openai-codex` rows land in one commit, because the Codex roster test
+compares the two rosters.
 
 When a cell fails, decide whether the flag or the cell is wrong. A skipped
 cell ("the catalog does not claim …") is expected for denied capabilities.
