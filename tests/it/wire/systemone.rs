@@ -193,3 +193,70 @@ async fn a_rejected_key_401_is_an_authentication_error() {
     );
     assert!(!error.is_retryable());
 }
+
+/// The built-in catalog's own OpenRouter Jev rows, not a test-only row.
+#[cfg(feature = "builtin-catalog")]
+mod builtin {
+    use httpmock::MockServer;
+    use lithos_llm::Client;
+    use lithos_llm::catalog::Catalog;
+    use lithos_llm::credentials::StaticCredentials;
+    use lithos_llm::types::CostSource;
+
+    use super::{OPENROUTER, OPENROUTER_BODY, body, evaluation, openrouter};
+    use crate::support;
+
+    /// The built-in `openrouter` provider with only its origin moved to the
+    /// mock, so the `/api/v1` Chat mount the codec strips stays in place.
+    fn builtin_openrouter_client(server: &MockServer) -> Client {
+        let catalog = Catalog::builder()
+            .with_builtin()
+            .overlay_toml(&format!(
+                "schema_version = 1\n[providers.{OPENROUTER}]\nbase_url = \"{}/api/v1\"",
+                server.base_url()
+            ))
+            .expect("the mock origin overlay should parse")
+            .build()
+            .expect("the built-in catalog with the mock origin should build");
+        let build = Client::builder()
+            .catalog(catalog)
+            .enabled_providers([OPENROUTER])
+            .credentials(StaticCredentials::new().with(OPENROUTER, support::bearer_credentials()))
+            .build()
+            .expect("the wire test client should build");
+        assert!(build.issues.is_empty(), "{:?}", build.issues);
+        build.client
+    }
+
+    #[tokio::test]
+    async fn the_builtin_openrouter_jev_rows_post_decisions_under_the_api_root() {
+        for (model, wire_model) in [
+            ("jev-latest", "~typesafe/jev-latest"),
+            ("jev-1.13", "typesafe/jev-1.13"),
+        ] {
+            let server = MockServer::start_async().await;
+            let client = builtin_openrouter_client(&server);
+            let (mock, slot) =
+                support::mount_capture(&server, "/api/alpha/decisions", &body(OPENROUTER_BODY));
+            let evaluation = evaluation(&openrouter())
+                .into_builder()
+                .model(format!("{OPENROUTER}/{model}"))
+                .build()
+                .expect("the evaluation should build");
+
+            let verdict = client
+                .evaluate(evaluation)
+                .await
+                .expect("the evaluation should succeed");
+
+            mock.assert_async().await;
+            let wire = support::captured(&slot);
+            assert_eq!(wire.body["model"], wire_model);
+            assert_eq!(verdict.model.model().as_str(), model);
+            assert_eq!(
+                verdict.cost.map(|cost| cost.source),
+                Some(CostSource::Provider)
+            );
+        }
+    }
+}

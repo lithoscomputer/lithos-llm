@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The built-in `openrouter` provider serves TypeSafe's Jev through
+  OpenRouter's Decisions API, on the `OPENROUTER_API_KEY` credential it
+  already uses. It now lists `codecs = ["openai-chat", "systemone"]` with
+  `codec_options = { systemone = { dialect = "openrouter" } }`, and gains
+  two evaluation rows from the 2026-09-22 listing: `jev-latest`
+  (`~typesafe/jev-latest`) and `jev-1.13` (`typesafe/jev-1.13`), each
+  priced at $0.042 per million input tokens with free output. The rows
+  derive `["systemone"]` from their evaluation claim, post to
+  `/api/alpha/decisions`, and report the in-band `usage.cost` as
+  `CostSource::Provider`. Every other OpenRouter row stays on Chat
+  Completions. A bare `jev-latest` still resolves to the higher-priority
+  `typesafe` provider when both are enabled.
+
 - Breaking: `Observer::on_retry` takes one `middleware::RetryEvent` in
   place of its four positional values. The struct carries `error`,
   `attempt`, `delay`, and `stage` as named fields and is
@@ -50,9 +63,8 @@ This project follows [Semantic Versioning](https://semver.org/).
   `session_id`, `user`, `trace`, and `provider` from the `openrouter`
   provider-options namespace, and lifts the body's `id`, `usage.cost` (as
   `CostSource::Provider`), and `provider` (into
-  `provider_metadata["openrouter"]`). The dialect ships in code and wire
-  tests only; no built-in row uses it until OpenRouter lists a decisions
-  model. The shared evaluation encoding and decoding helpers moved out of
+  `provider_metadata["openrouter"]`). The built-in `openrouter` provider's
+  Jev rows use the dialect (see the OpenRouter Jev entry above). The shared evaluation encoding and decoding helpers moved out of
   the Vercel codec into `codecs::evaluation_common`; the Vercel wire is
   unchanged. Error classification learned the FastAPI shapes TypeSafe
   sends: `detail` as an object with `error_type` and `message`, and
