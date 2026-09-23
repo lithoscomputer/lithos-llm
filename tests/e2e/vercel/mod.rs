@@ -73,6 +73,8 @@ macro_rules! model_tests {
             claude_opus_4_7 "claude-opus-4.7",
             claude_sonnet_4_6 "claude-sonnet-4.6",
             claude_haiku_4_5 "claude-haiku-4.5",
+            gpt_6_sol "gpt-6-sol",
+            gpt_6_luna "gpt-6-luna",
             gpt_5_6_sol "gpt-5.6-sol",
             gpt_5_6_terra "gpt-5.6-terra",
             gpt_5_6_luna "gpt-5.6-luna",

@@ -200,6 +200,27 @@ protocol_options = { cache_breakpoints = true }
 # GPT rows ignore stop sequences through this gateway, and the listing's
 # `none` effort level has no lithos-llm equivalent.
 
+# GPT-6 Sol and Luna, probed live on 2026-09-22: a `required` and a named
+# tool choice both produced the call on a prompt with no reason to call the
+# tool, tool calls worked at effort `high` (the model page limits Chat
+# Completions tool calls to effort `none`; the gateway does not), and the
+# listing says `temperature: true` and a temperature came back 200, so the
+# rows claim sampling as the GPT-5.6 rows do. The listing's `-fast` variants
+# are separate ids and stay out of the catalog.
+[providers.vercel.models."gpt-6-sol"]
+display_name = "GPT-6 Sol (via Vercel)"
+api_model = "openai/gpt-6-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+[providers.vercel.models."gpt-6-luna"]
+display_name = "GPT-6 Luna (via Vercel)"
+api_model = "openai/gpt-6-luna"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+
 [providers.vercel.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol (via Vercel)"
 aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]

@@ -58,6 +58,8 @@ mod effort_levels {
         glm_5_3_high "glm-5.3" High,
         gemini_3_5_flash_minimal "gemini-3.5-flash" Minimal,
         gpt_5_6_luna_max "gpt-5.6-luna" Max,
+        gpt_6_sol_max "gpt-6-sol" Max,
+        gpt_6_luna_max "gpt-6-luna" Max,
         claude_sonnet_5_high "claude-sonnet-5" High,
     );
 }
@@ -89,6 +91,8 @@ mod effort_probes {
     probe_tests!(
         kimi_k3_medium "kimi-k3",
         glm_5_3_medium "glm-5.3",
+        gpt_6_sol "gpt-6-sol",
+        gpt_6_luna "gpt-6-luna",
         gpt_5_6_sol "gpt-5.6-sol",
         gpt_5_6_terra "gpt-5.6-terra",
         gpt_5_5 "gpt-5.5",

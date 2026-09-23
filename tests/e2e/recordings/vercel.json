@@ -85153,6 +85153,3300 @@
           "generationId": "gen_01M2X5KST29S90AHEB96JVVRG6"
         }
       }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_probes::gpt_6_sol/0001",
+      "namespace": "vercel::reasoning::effort_probes::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "7dffaae90d379d8b"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWHV9DK45TMJYYF4HA60W",
+          "object": "chat.completion",
+          "created": 1790123593,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning": "**Solving for variables**\n\nI need to solve the equation 7n + 3p = 118 with the constraints n ≥ 1 and p ≥ 1. The additional requirement is that n must equal 1 mod 3, meaning possible values for n are 1, 4, 7, 10, 13, and 16. For each corresponding n value, p comes out to 37, 30, 23, 16, 9, and 2. So, I'm checking if any of these satisfy all conditions, particularly focusing on n.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.summary",
+                    "summary": "**Solving for variables**\n\nI need to solve the equation 7n + 3p = 118 with the constraints n ≥ 1 and p ≥ 1. The additional requirement is that n must equal 1 mod 3, meaning possible values for n are 1, 4, 7, 10, 13, and 16. For each corresponding n value, p comes out to 37, 30, 23, 16, 9, and 2. So, I'm checking if any of these satisfy all conditions, particularly focusing on n.",
+                    "id": "rs_0eda2103076b0e98016ab31e483a7487d2b0b6f81c844fb771",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  },
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5Jwt3WE2ygVaZU9ZICRxiBYe-s4Aal_5Y4qIY9T0jC4lesU8QHlJ0j9TF8_oNhTP02SsivQO2wBB49uZ5OoWzKh3ki1x-v09SNv23Ty7rooNuUFB6UzN3ggOofpZ-2H22ZDJgpTf5dpYGeLxEah2yX00J6k6enA52Amyy7U9XfgsVlkMb0T8NySTZZuN7F_J5gmMx1w9m0CdCFIIdB2E43zZlJwocyazdj1kWbfKLzATv5yzT7EEiLV1hSGwQtptbmwVkW4A-dZPhZW4R7Mo0NzDWSnYR6pN_lpHP_q6TWvmBF89UfiytCEhoa4SgYqrXzS48Ln7oyuf_tg6CwpGHKkXVsFODswdya0mLbQg0zQX-J2m3Y6oc4530lBqwh3yMkbrVIV484REm_er779FTHhjpPH69d_gv2hoinu54ihRwBNJL3D5lJ-aBLv9dlfe2be3X9W3P9k6Xj-Z3UllBROEt9Il5yjoOKoxfzL-zLl7nUPUXmhJvKD87Ys430W4UKP88x22mu8PYiPCKlAGSSIV9jJ-XSGgDU2OEkhvIdopeKc72RF0jjIbXr-Nc2T9GzJUbKniVTGlRrtDyQH-yf1vpeGOjAZr_ytgRBTG4PmnEqDNeCCdiaeA0zfKYuU5G9CNfPknvOFuJ29j_CsY8i50zL3Tbz1Wc_P04iRMpg5Avtc1XcdXu0b8qCbEhBjCscQqRQDSyPjTyN5UKd6SaNb_BecIEmbT0Yhakmi3geRaPCp-3yHV9EiuPTFjL5bhJImO24yiGtc8QXszSopK7tPeKpFjOfBVPyeWM7MRTncV3P5W8komVcus5EXFrt6jWXOZASyP_lix6JSX2feHPiDpHVRQ4Yyl0ITkYS-jAHmiKaPySlWJ_WoyKFjazboe_Syz698Xy8zKkjEKrvMBfIn_4uriB9s3p_KqChetxWrd0aoIMn-5lqdwIeasE7t25ZHZgAqNKE--x2FWXPL7FGNSjA0PlBSkXxU9HoKcFBc0uuFlOxfYvdrAc4o5fWg3rzvW09-8tD2226VR8OyJ5KLvv4qpdKnavg2_iJCYMiRXcniYCG2RWDFRtRoxqiBJxHm9HwXPuS34N7tGHlPx6pJpUWRIGBO-P0p1fV1X9RRAIf1I_CdUI3ZoA07eZS6hpk0d-SzTtiIDP83LDyDLRb4PiLEy9Bxt-VwDrHrGUd37fCS58yM_EqDrjRlRHMzzFSlQer_hpph4c4-tc-K5c8qartfRQ-2TAM_geszn88L0ERAUkQI--wigFtSY7vxd-XUDPhRBCu8CFcSI9dOw4TJbxPCNP_FRawN-6g3WwfBF_I8bmJKtqCvAeYTgQlAzE7V_nuyj2JE0AW8hfoJNZ6CA==",
+                    "id": "rs_0eda2103076b0e98016ab31e483a7487d2b0b6f81c844fb771",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0eda2103076b0e98016ab31e47ab5c87d2b80991211d0101f4",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123591583,
+                              "endTime": 1790123593993,
+                              "providerRequestId": "req_3770fa86084340988820401930dd62b2",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0eda2103076b0e98016ab31e47ab5c87d2b80991211d0101f4"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000764",
+                    "marketCost": "0.000764",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000764",
+                    "inferenceCost": "0.000764",
+                    "inputInferenceCost": "0.000104",
+                    "outputInferenceCost": "0.00066",
+                    "generationId": "gen_01M35TWHV9DK45TMJYYF4HA60W"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 66,
+            "total_tokens": 118,
+            "cost": 0.000764,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 59,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000764,
+            "gateway_cost": 0.000764
+          },
+          "system_fingerprint": "fp_itjea96t85",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWHV9DK45TMJYYF4HA60W"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_probes::gpt_6_luna/0001",
+      "namespace": "vercel::reasoning::effort_probes::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "104f74eb886f4329"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWHVH571B5RZVVVVKWKHP",
+          "object": "chat.completion",
+          "created": 1790123594,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning": "**Solving for integers**\n\nI need to solve the equation 7n + 3p = 118 for positive integers n and p. First, I find the remainder of 118 when divided by 3, which gives me that n must be congruent to 1 modulo 3. I can consider positive values of n up to the floor of 115/7, which is 16. Then, I calculate possible values of p based on n, and I find six possible pairs. That seems to be the answer!",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.summary",
+                    "summary": "**Solving for integers**\n\nI need to solve the equation 7n + 3p = 118 for positive integers n and p. First, I find the remainder of 118 when divided by 3, which gives me that n must be congruent to 1 modulo 3. I can consider positive values of n up to the floor of 115/7, which is 16. Then, I calculate possible values of p based on n, and I find six possible pairs. That seems to be the answer!",
+                    "id": "rs_0e6bd991b5417e5e016ab31e48149087d2aee3d41a64327d1d",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  },
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5KpATzHiSy5QibMHwZ4kUnIFgMPPTZrtNOy9X9Pl2vRvP26OOgLgsc-Zdr9eWbMxiWDIgcD6PoOmrddtzlMwVp7-OExEZaYhh_6dM3KCI-HhVmr6uUZQWnvVIE5MmlCYT4zXhWPv3pOFTLcM0o8Qxz3bjlobuNvbCfSaIl5ZRSzvWvztAEr1bzp1McoeglTXtf07ruZed9Wf25NHOS1Unlgj4c-_53Lr9pL9ss3-HF-q5CTiQ4pOS1CCcgwiddAQI1R0YTpXPGCa0pqBsQrIHKAFs6ddYLxMgWfn-hVhORIyEs2TlnG3s7mZFkTf8mUzjSuJofx0kNMuMzdD4YSuQqKuo8ucJaFEqN04onZwrNcE6a4KAS7YIGcvxMwV08e89_r0tlISvHaeLRy4J7Y8-Lt2xoaHUlMH_GmhjKB31wCp-ZU-aWGRlcwcZGNWaSMhbhr1vy_Sd_qBmClN-IP-BGYwrDx_3Z3ZAmpR90dKpBN0WqpeTA06o_m5lZusqddWX-ZZeh68dVDfasVobKbjiQHvUbve4c-VpJ5sPWm8ZwZfc-RMjNShfKoCAAG3V3PJerBPz0W169v-iyLIIE-_T2RYJqgj2p-PWQA28OJMvOz-8xlRtdn9sTcNuyfl8sM1bJUzFdCf5QLPLnMsC7h27dtWWDVL8PutpNGdkC78xThrjR9snFlOnUVeBGcrYM9aNShPHVSlXgzpgV1xblptzgaJV1H811knULxk66zCvOHFEUod0QMd_hGZ0174II7ENDW3M1QtzPUpu_j27C8bQUBlrJBjainrVO-R27Bbars55_IOzAOD4DsjKEeamCawkcW4koFgzrkvguJ4IjourOGRj0aIHtq_aD-TfNf4mUCUxFyk_qh2CNy5b2qiijkFTj3c2D1ROu2SGd457srWAcur48jOPl3AD_D9J-kHyGI3atV--rtxFEhu_q1Eom7qJqs3D9Lo1aUF7n9brrFDjJteUKAXlk8XdSC3YAmykLVEbtjQN_P0hdwwbOiNwJkTeuQQgoOk9NK0OGHftuLGQ-4yQw-EqB4Rt1jZyi0jlr7G0L1M7rvgdYpYH1V0y8a6fe9d847W34laVxt4Ga_OwNE8isMysIbre-tsUpRx-8-SFHmyyREW8bSe1pQkOBTO0nN2C8CYJkYLpfPip3ZPtFG9T5z14VnHOGZrU0ObSw5xP6PJsPRmXD_YQLEbnb8kH3Jj-kDZWqrEOXLJ7sgBPYl1YVLIkYfx4RK3W28uW2uiYUhRgsjPm4QdqjxIDOqlBxORZjOs1qOxUe8CpQ4kb23tCenrsqK6MQ39t1twMEkMRT68AMh5BKR4EhvbMVcqGM6Ze2U5MfuXo27qlK-RTo_4HIc_uPkLtCwSQBJ_UXGISE25zJPCDB0hyk0aakdR8UA6RZzMIoUMk7AEwjXaRxpnBye1iSdRaTUN8TWSIKntwYADYmhHuoJ7W9TRFazaMss1pcl8nVHWMNTYMeqyQmUwMCeO2sMlF2atLml1F1RGljpCSpEAelaCBQOkqyB7U1",
+                    "id": "rs_0e6bd991b5417e5e016ab31e48149087d2aee3d41a64327d1d",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0e6bd991b5417e5e016ab31e47af4487d293b5ed7cfa7a9dbb",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123591585,
+                              "endTime": 1790123594321,
+                              "providerRequestId": "req_40f13cd4750448bf9bf0c5c58b8ec655",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0e6bd991b5417e5e016ab31e47af4487d293b5ed7cfa7a9dbb"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000567",
+                    "marketCost": "0.0000567",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000567",
+                    "inferenceCost": "0.0000567",
+                    "inputInferenceCost": "0.0000052",
+                    "outputInferenceCost": "0.0000515",
+                    "generationId": "gen_01M35TWHVH571B5RZVVVVKWKHP"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 103,
+            "total_tokens": 155,
+            "cost": 0.0000567,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 96,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000567,
+            "gateway_cost": 0.0000567
+          },
+          "system_fingerprint": "fp_ehfgxpxv9t",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWHVH571B5RZVVVVKWKHP"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_levels::gpt_6_luna_max/0001",
+      "namespace": "vercel::reasoning::effort_levels::gpt_6_luna_max",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "ca94f31fa605cd7d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWHW27TTPT8QBQCP52WTW",
+          "object": "chat.completion",
+          "created": 1790123594,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning": "**Solving integer equation**\n\nI need to solve the equation 7n + 3p = 118 where n and p are integers, both greater than or equal to 1. First, I'll consider it modulo 3, which shows that 7n is equivalent to 1 mod 3. This leads to n being 1 mod 3. Given n must be positive and less than or equal to 16 (because 7n must be less than or equal to 115), I find valid values for n: 1, 4, 7, 10, 13, 16. I'll check these values and their corresponding p values to confirm they are positive.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.summary",
+                    "summary": "**Solving integer equation**\n\nI need to solve the equation 7n + 3p = 118 where n and p are integers, both greater than or equal to 1. First, I'll consider it modulo 3, which shows that 7n is equivalent to 1 mod 3. This leads to n being 1 mod 3. Given n must be positive and less than or equal to 16 (because 7n must be less than or equal to 115), I find valid values for n: 1, 4, 7, 10, 13, 16. I'll check these values and their corresponding p values to confirm they are positive.",
+                    "id": "rs_095c39a45ef3671d016ab31e48037887d2b81578102cf7cde3",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  },
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5KhJh3RCH1X5-firlx0n47MRatjr-qglcFW9nI_-_YzVALz6qd-RRS2jVW4uAgvg2DAaGhARntbAselLJtjy7wywXnL-C4CcBwkzcilc9scr8TlxqHXUKqfAUg-LhuOzRRSJpc9E82KLlGl7OUlAxPMipLJKosz9RADZtYwmv9QkfSYZwBDPAHrgDrGAyj2Hd0olWiWfp7gGfJiVCHMu9fAaxD1bCh_ZhtN8XJ-FOnlc_lWZQUp5ZgDe8cStYSWuPXqAsqfIvmlYApq-nyKHbgaUl-ClRiSpMzhMOP10h6RPcJhDZMCatXYz1KR3V9IlYZDiGqIV4eNu7Jjx3pGmbMsTeUc_INJ_oN1q79LZakZNWewhHzhZjPOMGd36h7D3o8mgJKwcHR3wj95WQsU7gLE4X9V45nmxOvvIEAthmFZRknWcYmdoemZRbtJ09uY5n5ZBSFegU7McEvGslioEilcNBxXSciDbRWPEPmE394QLMKMMGN3CaHS5El1qiaoryrYhIMYFEso9hi2VAR9cQzEhLowELxu8a-aAJu6va7ujEkfatKqlCkRuCw2l_tZByDxOOK-PXZAEst9Qv_b5pUEspyw9vHOhCuXBG2unNLEbE_P2D8CxVtPZ9jCKV8kiQtI6hBOTZ3EleemgGfDMUBk3TJ1ySkBJZi_k3mlUztL2g4Xt-73wa9glF3YH40YVlDhi9p5k7jtZRfMwuHdfiS1BHeFMobUgJYuhgvkrFXJNgNNvJnRFqf8NhuKMDIRRCjQCl7ixkyO8vX74vF2Uo1T3kdqhByLJhnGvV37t_VHvMeUQT6VYhnYRjdNZaJlp6yJ1IwgGNB-GUjqhjF__7dp0bw02JKtMp7v4DIpIm6gvuzpXL9l9AuyYHkY5-HUFMnNoMyznk2pKl_tLBVVjXGvoZFULjgg5Uwc9r0DxJsU79SJlt958ChpGPFeLEWkbWbHSmCzpZ6OuKvFCh7QKf7ltgcVEoSM4wi74T3IxpPB3Q0NHaZ8ch5xrt32F5l0-e0Ww4dh6a1Evzyl7bzcYXGjGjDgBaRnvZYcs_JeE6JHykZcg7W4mAuAV24Mn-C1LDlphiW-EY3thAF_YMwm-We_tYkVaPOP-q-53HW1-bYGhrsXa6ogH8AS5XTejO1KbqL6001Emz8ViIuFf5O5CuiN8hu5fO_gogbIrpmRIgridRV4CaVmb4VzVA0zA0CHnWbrflbhq6xqfUJd2dHBy7f1lZ_rEivDSCygqu5tZ8_GSeG3oHBD2UIVv84Qos_5ImjebMEvyV_tw6eqwMC-D3qpjfcLgbfQz5aKhqTfb99skkg7m9YTfqZqyxAyk7KGQWQkdpj1rknvbsFBeKmKkTctZb3E8H_Oz6he1_z-ibJ7fWjWOpf-5-UqJzP5lMnIb9k0Aougg2HEwjSziEy-Fx0kZdcjwMT2Lms0Nr9scRjl5l3jAVyGNelhvRGuKt8xLCP8AGx6Ia2BxS_BvA0gEURMsnkTONpzIDeUHP1GrHw_Ev82c_Tm3m09lqtB_SZZjpZjRHcSroOpFU-JOY4PE_R61sLnn2ojL7Ab8inFtDQvZLD9vIXj_p_OtND65lPTMOX",
+                    "id": "rs_095c39a45ef3671d016ab31e48037887d2b81578102cf7cde3",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_095c39a45ef3671d016ab31e47ac2487d2bcd023010410e7ac",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123591596,
+                              "endTime": 1790123594529,
+                              "providerRequestId": "req_ff8a8f491ccd4a789e35f009c4dee5da",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_095c39a45ef3671d016ab31e47ac2487d2bcd023010410e7ac"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000662",
+                    "marketCost": "0.0000662",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000662",
+                    "inferenceCost": "0.0000662",
+                    "inputInferenceCost": "0.0000052",
+                    "outputInferenceCost": "0.000061",
+                    "generationId": "gen_01M35TWHW27TTPT8QBQCP52WTW"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 122,
+            "total_tokens": 174,
+            "cost": 0.0000662,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 115,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000662,
+            "gateway_cost": 0.0000662
+          },
+          "system_fingerprint": "fp_e3qu68zwrx",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWHW27TTPT8QBQCP52WTW"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_levels::gpt_6_sol_max/0001",
+      "namespace": "vercel::reasoning::effort_levels::gpt_6_sol_max",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "3f84cc7b42fa1cdf"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWHV9X4NKXCKXJ5JH928S",
+          "object": "chat.completion",
+          "created": 1790123594,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning": "**Solving Diophantine equations**\n\nI’m working on the Diophantine equation 7n + 3p = 118, with the constraints that n and p must be at least 1. Looking at this mod 3, I see that n must be congruent to 1 mod 3 because 7 is congruent to 1. This gives me potential values for n of 1, 4, 7, 10, 13, and 16 — totaling 6 solutions. The corresponding p values are 37, 30, 23, 16, 9, and 2.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.summary",
+                    "summary": "**Solving Diophantine equations**\n\nI’m working on the Diophantine equation 7n + 3p = 118, with the constraints that n and p must be at least 1. Looking at this mod 3, I see that n must be congruent to 1 mod 3 because 7 is congruent to 1. This gives me potential values for n of 1, 4, 7, 10, 13, and 16 — totaling 6 solutions. The corresponding p values are 37, 30, 23, 16, 9, and 2.",
+                    "id": "rs_080ef48c94600dd9016ab31e482e7087d2b163dcd81605353f",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  },
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5K-13eyl_3NWL3b97KvpLJ2-mAuHtvm39Mi2IWlK9tlTJWho3ZVZgtemtxBXN4Nt9A66LltIrzPOn6NKc2s6086IcGc4-fRfWLDUXUCt0sZZJPw8pHZxxsiJeIVXr0U92uwSkAldDPl40Bat0X4yyFsylYVUdhWGv3W1nlY44pWGFkxi2DT6IWyHDX36G7gaO9qtU8Z9sChAQaDUWwZ4G0ZYRA2g5EpyTLCIDs1XeFP5EsCVf_YlctU_27kbSdB0tcZQZqH7M2hqnv28JYceISM9nlIjYOqnvSusH27w-zRchgm0NaS1c0qEHkHjCDshd_xQ3v7Efsdn31WLYLCnjc30lVUTz9AhhpZfiuh5GgYXeoS06Xg9fbiPqr17hpapBsTTddamuwZ3h6K44BSa4TvsdBGv3NKSWWtPK4ztFExOmYGAROzHTxM59h57husKosqV6A99LxLMXbVAok5TF8vpgSW99cpfl4HInOVKUhsdwWhMxXyfoTaB2XpvZ2RIcrCI8cBUC3h-2jTQdOm4dQlD3xGTE_pqjvz29wIWBAFlIfT7bdsDSjDofh6g5XmzMcBFSb-je8-xO7JZMLwe8jv5MQaiT_zyD2SW38tzohVmwPZHic4dlmqIIddx8xWEnrFPLpgHAmPQkE-CjfiUSRmd_VGNXEaq-QdbiHtK4j08D8PdP91fpxYtd-5MHY7FWsYuxGxJYsaI_QnKib2VMgUyJmFM-25yKfhC4D04_TdLvOXGXwaEYRFFbU9U3EDqoPKPVf4Owz6MHlfROk8tUM8-cYLEY4BW1owFZziYazqukLSv7l2WWmK2PQSrIoaAiCHldAn0LfhatD-FvvSJ-GMFr2oFiddDzw028Ef04NFWCLsX5p1Qb3138UcucltM-jvbiwjjU2uX4i3X3Rap8oUEk9hscKsGkgc2IgZMe7YKfnPi7lERYcNmV-QOLGLJUHzmVMlB-VCqUGgyBDFkCzBujvVyTm0LoUA-OATNACoEvTaKK2NQ8bowi1fdRAW3DlBeSWv_U37PJPGnBPH5yT1xUAxNCzEXGTTWrcsLnisr0a8rjFH_hwnvQq50ejpKHL000KP_vcd54dsV-mDpF1VSGdcLGH2U0EQKXNw8v7DWWsI8OlmGF20YkDH2mzYZnhucYQfdKQ0v_di2xGAbxJUpGh_-WETOqczkI4ez9Qcev8p72Mn7_2wQg2OQTwUkS-RT6rl6Xr0RHbWGnR0jJI3imQC9997v0AAMJpq0vVDAR0G7DtyhfDEYUeqL_uhWDO0cKlCyLMwy8km0fwLcF9e98ApnvkHU5-wTJ3uZ1Z6KMG9KdIQ58fz1XTq3dr8wFYR19--n0nJcIjR5Z5O6TDQZUX4Yl0kvj-tp4BvFOMtGIKixtC2LMIW41Z_n1txiQLviMAC8z1iAmEPHuhbtveOwkxFHuWjNljZ-UqpdwcDF-wemiz_9AvQOJUu6wHN64dMyuWa-1Zvu_7UxV5iHrsBPfZKpvo0Ua_P3aVN7IIbLg=",
+                    "id": "rs_080ef48c94600dd9016ab31e482e7087d2b163dcd81605353f",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_080ef48c94600dd9016ab31e47a6dc87d2ae29acce23bd7cf8",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123591577,
+                              "endTime": 1790123594880,
+                              "providerRequestId": "req_ac8546af186140e39f1b6d512e6f5b91",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_080ef48c94600dd9016ab31e47a6dc87d2ae29acce23bd7cf8"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.001204",
+                    "marketCost": "0.001204",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.001204",
+                    "inferenceCost": "0.001204",
+                    "inputInferenceCost": "0.000104",
+                    "outputInferenceCost": "0.0011",
+                    "generationId": "gen_01M35TWHV9X4NKXCKXJ5JH928S"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 110,
+            "total_tokens": 162,
+            "cost": 0.001204,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 103,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.001204,
+            "gateway_cost": 0.001204
+          },
+          "system_fingerprint": "fp_pxktinqavz",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWHV9X4NKXCKXJ5JH928S"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::presence::gpt_6_luna/0001",
+      "namespace": "vercel::reasoning::presence::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "1347672296865419"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWMZJQZD5GJN9RFM5P9NP\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_6zbvu53ng8\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWMZJQZD5GJN9RFM5P9NP\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_details\":[{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABqsx5L1A2nyvTtyco_8Pbh9PgBO2eI2fu14C0Wp5HE4JakMi_OcICB8Kjo6l43nFSHJ4gfKXnQvCzJH9mEvLg3ea2N3C74dC5TJBVA-HeY5I1RUF3ABIhxPiBMqUAL1RoekPqJm1isVnXTbB6j_tIi3sez3XMrkKD-RUIEKaIwcyWHYyUfM4oV8-an8Z_2A3m9VQjWhXlJXr7epwPO0yNED5p2vvrHUXUzLzLIAkVvX-WsD0HhQS7tPZQOigTvCLq4KJ9mG4c6ZsW4aDEwntIRWawVnKbMvAIdgXY2FXtnJS42drkbp7KaFoCEIBADCy60N1y_vXkcWnuS1FObg81i6n7T1w_WyNI4HkJXYic3Qm3QahIjxZ_ugHuwRjqPLMByNpvUZ8B6-DLfRVydmi8Zo09W7dHnWni0eVlpI60BBpz-wpYv8_BzhTfQ2s4JHZHhGPjznM2ep8Z5sKyKqqjp2UjZdaYF6xF2-Lxtwarn0GyR83m_BqEinj9z4AqmUMWogl4WBhRzYfGgo2INnpMPASKgQGPqvFLCAErBKsVgIgiIH6JW1OjovsWN9oog6zFOQbm5aKnTWH_M5Gp6blB03xlzoCHNPgji7JTL-zy0lHsu4p__Ao7Zs51xNRq-a3d8xwamkxeoRmw_IkrlR4DYkUVn5Ugf_Ch004zzMrB0hlTLfuJQhfO5PR4WWI6qFj4yb0Y0Mzvsaj04bVpPbZiPRgm8p8-vW7PpJik7UGg-b2JBxOxryZNBGGCkKtosXUVL9p82ZBj-Ed71eXu_2PGcJTSdhhdX8ACw2f8BpHDX4Yyqb-L_dnBfgzw5cZvR9C7C9rENZgwufCKSWbVy96Zq-Ir0KwtD80JkOu4XAc5aZw9sJuOxuz2pSvdNMzrI7AaTvehjneJTj97MnLiKS8ZLkCGUYK5fI5XHUhLrWb4qvlSy5MuDnClz0jQ8QAFAYhVEoaZn9NkN05Gren0ECPetQ8h0KHlz30pptw2Da1K2TsyEFOqQs_BxsG9xpuvdBVyvzBa6_c6jJRNbdGSCS5zYswkNFf9TG_UCJ6Q48ufE-aeVUMrExAe0_v3eBzhcwr4ow3u6AjvBUk_pxZIw-NyfEsKbTXS4ItiyXKtr_-tFtyLjTC1hr78rYFrv0QdBVs7k-N7MKDq7SB4MtqhrWBuggscIfHQ_AYQ9GibMt4QjtLNu7NTfUo7Fje8AmuP2rvKTcapRx85InXi005_gInipOwVWmSXsukyJ8zaeFrQZQ9nRG6E=\",\"id\":\"rs_0b475dfe061e4006016ab31e4b266487d2b8b1ff9d1ee4b1e7\",\"format\":\"openai-responses-v1\",\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_6zbvu53ng8\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWMZJQZD5GJN9RFM5P9NP\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"6\",\"phase\":\"final_answer\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_6zbvu53ng8\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWMZJQZD5GJN9RFM5P9NP\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_0b475dfe061e4006016ab31e4ad2b087d28d9ae85f0b998821\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-luna\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-luna\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-luna\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123594764,\"endTime\":1790123596497,\"providerRequestId\":\"req_84def626b8d14c84bdda04117b46fa67\",\"statusCode\":200,\"providerResponseId\":\"resp_0b475dfe061e4006016ab31e4ad2b087d28d9ae85f0b998821\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.0000682\",\"marketCost\":\"0.0000682\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.0000682\",\"inferenceCost\":\"0.0000682\",\"inputInferenceCost\":\"0.0000052\",\"outputInferenceCost\":\"0.000063\",\"generationId\":\"gen_01M35TWMZJQZD5GJN9RFM5P9NP\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":52,\"completion_tokens\":126,\"total_tokens\":178,\"cost\":0.0000682,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":119,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.0000682,\"gateway_cost\":0.0000682},\"system_fingerprint\":\"fp_6zbvu53ng8\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWMZJQZD5GJN9RFM5P9NP\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::presence::gpt_6_sol/0001",
+      "namespace": "vercel::reasoning::presence::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "4d7a476c7700725f"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWNCZ4TVYH7PGDPZVY1J0\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_3ixhdd4wwd\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWNCZ4TVYH7PGDPZVY1J0\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_details\":[{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABqsx5LIuk8bGFMkbu1O52_bICilhBVvUIYT_B-BQSJnnOWWQ2d3-mHgaocJbn8Odv0KhKsVD5JuvSfEzn_MMyZnMFrUQOdcuHO_f9y2HDv4Aucr_XgclDlkNzEnA0B1KfnGSH1f0exlHcBxyejdCzrgltQLpSNqxc-MPBOwy_ABnmDXEjxwBMkZ82G4EveTyObHgubQrEfRLR3uWIXK-1PKlOKwhIN9iiOYGJXPwgCl38oNDmvs07AAqYwOwRLrKV6HkaiCzhPHwGyQoPLX-G2EgBLU4Wa7-lbAoXu2DcUZXG9Jyy0Ig1AZHsg4b5Wld9CunqG5NEVHyl0ib8Hsc3ZdYNAdSlBaMRansc5OOEC5RQ8MyENcJq8b9M7H7XZRgvO2VoAyXpFv0MQJyWA5S-TuWM8IzXIPXCHVH-RGJ9EQWug-1-LdNk2Q02wLe06tZoUDfrg8AJVUxUOslNH90gUZMNgNma0RX_w0X9ErRU0ZgcFsm0gmqwzqv_UtDKOpO67uvMhtUoW-CRo55jWLAZo_323MaNnMupPKbcosAQn243NuAspYbR-ixc_WezfAYuK4RWovaGPXuiLgEZHTH-yqCdA8N7infxRw04lxO2E3Q8rkJRGPu9tKvVaBU7TNYU1dDmGh7fViYNxDR09oSJD7r-RpSTmmLFhiOeYGchhzVWAA8KcEi18nNm5CBAT3yZcNk_FCc8_xaqsLFSRtNxVyk3M3PXbeMht15wvyJzNZY06wnJi3zwXKgf0WbptwZj6NxvaynL6mIGcYrXJopx8eEeyoWXgS73H0Oj4PdQcGVaGUw0YChxF_0jIuzjdChBIsf06FKj9fbU5NP0ijFjMTlxlY9pjnlFddhIlDBhLboqHwXvTTXSayovAsKF-Z5lyhoZIGxehhs03qAuEicuJs5NLfYb9UjO-W8EzNZIU8RKWuHwh1pI68DgwS2fvf34jdFbSxE7VerzfGL72FtTHy1CNTfEaS5dy8TVKHEEEoMDqSC7ZrlYWNY2SCXjv9HKdfwk0C70gihj9JJLabcxJUZ9-D_3e3zVmVVwuptpc7gRJr0gLS5b4RyQjvindFnCXYAWXdfrC0sgjHZmNvweMK-e9b1mCrStMJtugdaDpwf_ktkhxOSnL6kRvQ57FmPKhhEEgZrLtKkCMSZZwOBvXumRb4sgNu2Pavrxd8pO7Gn9LlV03B4ynCVb7hx6Cs4-qo4qkwJb3HYBqCWrEe4xueeqWYg==\",\"id\":\"rs_015487c1ef6c29bf016ab31e4be64087d2aede67e2df94e83a\",\"format\":\"openai-responses-v1\",\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_3ixhdd4wwd\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWNCZ4TVYH7PGDPZVY1J0\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"6\",\"phase\":\"final_answer\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_3ixhdd4wwd\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWNCZ4TVYH7PGDPZVY1J0\",\"object\":\"chat.completion.chunk\",\"created\":1790123595,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_015487c1ef6c29bf016ab31e4b520887d28af8ba433e71cd07\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-sol\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-sol\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-sol\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123595242,\"endTime\":1790123596874,\"providerRequestId\":\"req_684eccaa55334898beeb3eb38b032fd9\",\"statusCode\":200,\"providerResponseId\":\"resp_015487c1ef6c29bf016ab31e4b520887d28af8ba433e71cd07\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.000954\",\"marketCost\":\"0.000954\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.000954\",\"inferenceCost\":\"0.000954\",\"inputInferenceCost\":\"0.000104\",\"outputInferenceCost\":\"0.00085\",\"generationId\":\"gen_01M35TWNCZ4TVYH7PGDPZVY1J0\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":52,\"completion_tokens\":85,\"total_tokens\":137,\"cost\":0.000954,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":78,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.000954,\"gateway_cost\":0.000954},\"system_fingerprint\":\"fp_3ixhdd4wwd\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWNCZ4TVYH7PGDPZVY1J0\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_probes::gpt_6_luna/0002",
+      "namespace": "vercel::reasoning::effort_probes::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "502fa4f5c8378e6f"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWMS4B6Z3DPPR6Y0P4FTE",
+          "object": "chat.completion",
+          "created": 1790123597,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning": "**Solving positive integer equations**\n\nI need to solve the equation 7n + 3p = 118 for positive integers n and p. Starting with modulo 3, I find that n must be congruent to 1. The values of n can be 1, 4, 7, 10, 13, or 16, giving us 6 possible solutions. I also check limits to ensure p remains positive for each value of n, confirming the results align correctly, totaling 6 valid pairs.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.summary",
+                    "summary": "**Solving positive integer equations**\n\nI need to solve the equation 7n + 3p = 118 for positive integers n and p. Starting with modulo 3, I find that n must be congruent to 1. The values of n can be 1, 4, 7, 10, 13, or 16, giving us 6 possible solutions. I also check limits to ensure p remains positive for each value of n, confirming the results align correctly, totaling 6 valid pairs.",
+                    "id": "rs_03ad50e8c9881b3a016ab31e4b162487d2855656f1223987e5",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  },
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5NxmDhoYypqMlSvxGEdLodW4yrS_P5U74YBjxkuReLaSxhv6GKBv_GCB-_8PyueAFiAAwbhatUZ5QG3SzWwdRICdVtpk1J3N18GmV7UImZp7oXzazVgjEF7y_95xgGaFsHL-cf_Fdqka_PlkYn7ymzNcQFlJHxU2Vuiy1azqlUJfwb48AHc-q07F6EbGYxT5DrQQUPdHkt-764GnYLDDLmstMWd-RzgVFoSIJ5drVv3XJpwx05hgM_GOwgu33bubolgZLHKY6S_zNJwv4h1ffJlpVVNYL-B1Htf_1EF-ymqOm6oj6BU49NCKQGcQnttwLkTHLF6D8UExG_LNEgQJoexWzLTbLILHBwxtLKAVP7kzR9bDiEaVmJIkS73gvAocdP11HLKZ13-Exq6IBFnXCQPUMk-qQJ3_GH18-b6gtLGudFootw1tpq-f147cF90qjDeWF-j4NOgtoY38vLEKOF5VXE7shRgmrZ6kG5WJ7iLw5-4oMHpI8NS7mCt6P035IFW8Gai0rDis_xX6uQpGchDng5xGK21hk5zde7MNdrBuV9e_mXOOQUvqxLpTiHqDXlzkWseWZcUYw5x9j_ix6A-q3fdEoqLsnOOU18xgcF7pARwye1ubWA5i7IdsVOHrbzcVcPgoDn3A9ZInw6i_QbDtoofyAFA9NFJBg0KjWw1Ztr-f969F8JYR1KeNt_wVnZMEw89jz-AjF6W4I2-osrZMSDR4xX2REjYynt1CNXG712bHtTBxUDZV7faEK8msjhZwFuNseQKLdi78m-OpT6a-Ep32g1v5UW_gyg1wfYzRWDlmSX6wwPaw6M19cr0Lvn6mKVUN05Sy2OEfNy_FLtedJezCDj3n4yN-ZjXIiDUQX1i4HYrhnuNKC5myBloqMvo1rkokjktf9jmlOBabdlb6sKJ0ZjIwu_JCXL2IpyXoZclfXnghugJzDmvQpfCIKqvW8qo7cCYNzNUk73u7uu8Me-KBlmsGvtZKHzirzI_ex5F8QJVttYa8Zp5VTY7fsUr2UnIJXDjIKq94aAUsdpx3pBjysWCaHRg0ZNboQUFlTaceSNovmU-993dWRi8xg3CGLyUuoEvEQriDV8JvePw_tnsbFk_EHw8y-l8-CFSgg1rlJxsdsCvntT6KbUfXrZVXdYRmo1WpUKSAjuR5WWgQBoWMX1eeVavb7assqNtKMJXVsjbTaLKo8W8vfflwbu0yEQvglxxKt8NR-kRU2Uu9rToKxLwVsYTZzubl4PXIUZ7xZvPDwEahGWgM-yIR7UfdicZwr2Bx1G4EleGLB06W4UEbWCswaJh4-ChcxbFYcgv01tNvke1ZB03DGlAB_9fSDiSwI8FKY4Oqwl6tKwY2VNpWG924xef7xsLsmibmjaKIlikRQVz6qXEA8cbyksi4XW4bSPA9hxMyi32bMHPkOQJtbROAg0mYSt6a3UeU4xzJ_ULMYMI9eXHFtIX_C4eWPbMZHS1-u-s748oa7NJsYxr9nTIodecVzlt2m01FYd4JeWtelb4wC4LPiCy6pr044tIxUW9KsEi0anII1QCYD6TvhHwEKgOMAA1IOgt0yzH2brTzd96k6ldl3eIKXRsR173JvN2dzMUP08slTAuA==",
+                    "id": "rs_03ad50e8c9881b3a016ab31e4b162487d2855656f1223987e5",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_03ad50e8c9881b3a016ab31e4aaf5c87d2bf932fe02d566e2f",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123594568,
+                              "endTime": 1790123597246,
+                              "providerRequestId": "req_9b2be43109734944b3b735d96660f002",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_03ad50e8c9881b3a016ab31e4aaf5c87d2bf932fe02d566e2f"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000652",
+                    "marketCost": "0.0000652",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000652",
+                    "inferenceCost": "0.0000652",
+                    "inputInferenceCost": "0.0000052",
+                    "outputInferenceCost": "0.00006",
+                    "generationId": "gen_01M35TWMS4B6Z3DPPR6Y0P4FTE"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 120,
+            "total_tokens": 172,
+            "cost": 0.0000652,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 113,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000652,
+            "gateway_cost": 0.0000652
+          },
+          "system_fingerprint": "fp_yndcd0cghe",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWMS4B6Z3DPPR6Y0P4FTE"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_probes::gpt_6_sol/0002",
+      "namespace": "vercel::reasoning::effort_probes::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "f85c6af1a4432141"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWMF1ZWP8PQ8ZAZZPV1TX",
+          "object": "chat.completion",
+          "created": 1790123597,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning": "**Solving the equation**\n\nI’m trying to solve the equation 7n + 3p = 118, where n and p are both greater than or equal to 1. First, I’m checking the equation modulo 3. Since 118 mod 3 gives a remainder of 1, I find that n must also be congruent to 1 mod 3, which restricts n to values like 1, 4, 7, 10, 13, and 16. There are a total of 6 possibilities. Now checking n = 16, I see that it leaves me with certain conditions to fulfill.",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.summary",
+                    "summary": "**Solving the equation**\n\nI’m trying to solve the equation 7n + 3p = 118, where n and p are both greater than or equal to 1. First, I’m checking the equation modulo 3. Since 118 mod 3 gives a remainder of 1, I find that n must also be congruent to 1 mod 3, which restricts n to values like 1, 4, 7, 10, 13, and 16. There are a total of 6 possibilities. Now checking n = 16, I see that it leaves me with certain conditions to fulfill.",
+                    "id": "rs_044b2e95e65c2b21016ab31e4b0e7c87d2b3c5e19fb724be64",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  },
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5N7iUV5gD81ny5rnKls5o5YcUbck7EBeCMFCUo88bN0-VOPl-n3lPEOFsY0sCUoPh-aUSuYPc6tGhgMkS6izZEQljTKGhnFAINFi-kYclkNCjLxW-DW06ehCEXZw_Z6KUHsHRC3SI_mmy-BbOYL9D3kzKIeuaPOTbzir1bxvfqKhsCbjxqmQIO67vT5qiEGbmlquKpKRxtXiIxZF917wLyy86evoldeKKuISLvflx4Q3tAn6GMmTNroPDbBMvEE6BpM0mL0xD37h-3RfybHiT7tmVWA0WwyR5WRfjfJKgOyzLDkHrxBDEGUKGk2Rq-inGgSLn2u5QuBudPDEqtEaL2zKTX2fZa9RU_8nBSw0WfhfczghIvzM-1PKhlTK2QZPyKsT5JRI-Arw-ZBvqMuWUY3AYwh9a6svuqnMm0W0q_xMTD1ZjwDQNJVTmFZYDAnU84_uU9bohwPo9YpoJ6MV1S3Jc9gdPQhr5XoDt4CrfI6sxGDSpMypo7NpWDC54e9cUyobkJ6haeiMmvjHWYtsaJPRE4B2QnVzs0xsJbP__IhLfamGDUOMH0jI7l5sM86zVAkIam--SOpRyCjM65lmFBiled7YTWQxat-7UZg6fEZc2WKjXI2559mehHcqovEGr_ckPyPvyjzozvOhOyAe6QmbIozSqFwY0v4hLAIGamXhCCspk7Xp0qx_xN9qdTRcXJlO579mySd00moLnWUQC7SlfCA9XtZWPp_-8UyGw20OFoPmx6BOCbbZV1zF0MstgKgPxO2iv5NsMP1k7ywqM0JU_eMDfQIw_u1xb_0NEu-hC9Fz7T7D-Ae91qw1mJWThPIGBWD53MZqEWn2hQ3YGiG00JdxysgJVfiy3dMOF3qg-Up5Sz6ncExUy7qu_mKiS5lJq13J0ASxjFzvXAm12ZUaPehpb1idMuatqjb-4LvhiDZrcw4oxYMO6iIrDH14AHozXpWbmakD_ShYHqufwgGQgvTKZeRoeEf8P5QHx8up6TYpUU9gK1ZtEcHEJLTDedNIHp5EEvdwnZZgS_OFlDts19vUVEfi_xw4-4A_CmugtuZ-c3U-UjPCaUrN2Rd3_YRmMwC4EiLmJ3L_9pOPRnXqIqW6N24vYq0ll6vKutKcBegAlRWzfGCVa5CkKQudYgOlWX2mr6n6-M3SA_YohqDlT3A6_aqZi1Hk3r7cyluoGwLW0p-lkg9iCE8T59jOv_b33dfWFMa5QXBOYCk5b2dG6127wAKN9l4IWiwRqorcTFAF006aWtEQUkRBRSpKo_wnaHJ-ASP9RW3LLaEp9zJqcTuFYqRcvNu1lmQKKkPkP-PurCk3azAMRJK_jNLWkIJr9jMX7gnE2o9QtIyhmqiRnZFIP69QeCVMchGIPqit-7wfgwdcy2OFDutsCxGB540xnwJuQRzAivTVGD9j8oG3DNJvg3yQa7bPnhRc8SNwN_jA_swsm0yRM2Lp_ywChh",
+                    "id": "rs_044b2e95e65c2b21016ab31e4b0e7c87d2b3c5e19fb724be64",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_044b2e95e65c2b21016ab31e4a55a087d286626664d1568b6f",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123594235,
+                              "endTime": 1790123597629,
+                              "providerRequestId": "req_0ea23e1160034110a9b03a89f4094c95",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_044b2e95e65c2b21016ab31e4a55a087d286626664d1568b6f"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.001024",
+                    "marketCost": "0.001024",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.001024",
+                    "inferenceCost": "0.001024",
+                    "inputInferenceCost": "0.000104",
+                    "outputInferenceCost": "0.00092",
+                    "generationId": "gen_01M35TWMF1ZWP8PQ8ZAZZPV1TX"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 52,
+            "completion_tokens": 92,
+            "total_tokens": 144,
+            "cost": 0.001024,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 85,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.001024,
+            "gateway_cost": 0.001024
+          },
+          "system_fingerprint": "fp_299e3ezxfw",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWMF1ZWP8PQ8ZAZZPV1TX"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::sampling::accepted::gpt_6_luna/0001",
+      "namespace": "vercel::sampling::accepted::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "5ae5dfcb58860923"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWPXP9Y4M2PKT6QDGY9J8",
+          "object": "chat.completion",
+          "created": 1790123597,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello!\n",
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_06e0f0632dd3b2ea016ab31e4ce31087d2969ec1887a0cf082",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123596811,
+                              "endTime": 1790123597718,
+                              "providerRequestId": "req_ba7248bb789241abbb50324b973c3756",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_06e0f0632dd3b2ea016ab31e4ce31087d2969ec1887a0cf082"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000044",
+                    "marketCost": "0.0000044",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000044",
+                    "inferenceCost": "0.0000044",
+                    "inputInferenceCost": "0.0000014",
+                    "outputInferenceCost": "0.000003",
+                    "generationId": "gen_01M35TWPXP9Y4M2PKT6QDGY9J8"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 14,
+            "completion_tokens": 6,
+            "total_tokens": 20,
+            "cost": 4.4e-6,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 4.4e-6,
+            "gateway_cost": 4.4e-6
+          },
+          "system_fingerprint": "fp_8vo5y0hkth",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWPXP9Y4M2PKT6QDGY9J8"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::sampling::accepted::gpt_6_sol/0001",
+      "namespace": "vercel::sampling::accepted::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "2bed9528be788a99"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWQ9BDS2XNTR3DPVMAJ3D",
+          "object": "chat.completion",
+          "created": 1790123597,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello!",
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_02b752141dc4b332016ab31e4d30f087d2a4be7cf00d3425f9",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123597128,
+                              "endTime": 1790123597954,
+                              "providerRequestId": "req_a0384dbc8e634791b842f41aa86fc0d7",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_02b752141dc4b332016ab31e4d30f087d2a4be7cf00d3425f9"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000088",
+                    "marketCost": "0.000088",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000088",
+                    "inferenceCost": "0.000088",
+                    "inputInferenceCost": "0.000028",
+                    "outputInferenceCost": "0.00006",
+                    "generationId": "gen_01M35TWQ9BDS2XNTR3DPVMAJ3D"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 14,
+            "completion_tokens": 6,
+            "total_tokens": 20,
+            "cost": 0.000088,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000088,
+            "gateway_cost": 0.000088
+          },
+          "system_fingerprint": "fp_fuizbsuob6",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWQ9BDS2XNTR3DPVMAJ3D"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::basic_completion::gpt_6_luna/0001",
+      "namespace": "vercel::smoke::basic_completion::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6157597c6f06facc"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWQMZ3RMXQCYGWC1Z6XFD",
+          "object": "chat.completion",
+          "created": 1790123598,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello!",
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0c1312922fcb748e016ab31e4d9c8887d2ad4808b6b3c9cc83",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123597535,
+                              "endTime": 1790123598195,
+                              "providerRequestId": "req_cb30abff091f48f9bde8fb41a06cff79",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0c1312922fcb748e016ab31e4d9c8887d2ad4808b6b3c9cc83"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000044",
+                    "marketCost": "0.0000044",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000044",
+                    "inferenceCost": "0.0000044",
+                    "inputInferenceCost": "0.0000014",
+                    "outputInferenceCost": "0.000003",
+                    "generationId": "gen_01M35TWQMZ3RMXQCYGWC1Z6XFD"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 14,
+            "completion_tokens": 6,
+            "total_tokens": 20,
+            "cost": 4.4e-6,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 4.4e-6,
+            "gateway_cost": 4.4e-6
+          },
+          "system_fingerprint": "fp_tg1a7yrlit",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWQMZ3RMXQCYGWC1Z6XFD"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::basic_completion::gpt_6_sol/0001",
+      "namespace": "vercel::smoke::basic_completion::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "8373ad6545ba98a2"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWR67PQEW2FZPY8C0CTBG",
+          "object": "chat.completion",
+          "created": 1790123599,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello!",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5OV37Tc3Qwa0f6tZHuPrZVFYw2UW6dwyFgKh5x0y5yw-o2pfEVwABIfLD3WlZ8dGJL1ayiTPD-Qv_MKaJaHHMyfR8OBvF_syiIc9KEJE16iS--3irLnh86twB43Hy9HEnrErwGGiNO_WlC5yG6yp_dU0dXIfZWFRviGNtsJAoXIl0tryhMOGeAEeq6hvYSodw2_AWCcyGvcJc4zg_2OK_z76q1aHFMAkgjtJXzHzrnY7vJL32mKAFLNr-eKo1zXsgBJeoxXR8hVpEczHy9D6U3RPyGJls2uygMk7nyarBIi3Wcsz8jmAfAWR3-R3-xqKGC_VLssdHqEiKU5LawBjMGj0WnU2ZnPgi2O95DVw3fNzAhVooolGgqpEIqSVPxHGyxllW-lbZBMK4bm4EHFWXRvm5Yg5hUpNTS3HA1NP8bCa0fy1Hc52D13PAvFNZm_Q5FGcPUbF1Vzp3i3g0FYH_Nglv5_7NEieVRNTWSHddIoCfJ7xHdnupGLo41Y5A0jyy0G3SiD3FHAveZCDUiShn4azTH6cyWpMqr7Ih4UZZBFrC8uxCo7rKEXX1htONynr8Ne8gGQHNy5v2acxygay4t-nSMYCN8Kunft_MlZIOo1powoiqu7BZbnWvU81HEF_Eu5x2YxnT1hMYjyxJ5n_U-tPusVavxPOrPfYuaW6KXzobHW8XLmx3bvXdXmmw7GCh5MD5lqReEV_YwN9xTcx9L30zWyArtwi0PV7sRyBPS2eactOER3wxzJVhKRJLPWj2_6isOswSMXaKQy_MVu0nq8smb1WaBQro_04d4YMYkWRxA3zlc9SNCbF26zOj2r5cVJBIeuLK6s_9BGqr_oin285xEDvD8pPpQ09mwKTKP2X0QW6DwbnHFZttPWf2RGIQ4OapPAUYkNW05sILewy7tW1MymJPxGgROFI6CzwlPr5kUK3FlnP150UFcsTmO_1bfP0ja5tojgyb5zWLCGrHcpwl12HEiV8VJPPccxtZ2oRsQ99jvK9_loJB_MuweORhtsxt7rVWj0GdrxzwmYy_0Mjwm_GY5e8UZNt3Ty9rt4scFGXzO464NrjgzcstWOW1L-gx7HGbW3dGiKimQxA1QtDgfeAy2J6LFAcn_nkRRfIiKSH5SlOaHa1DMeCKQMWwaTeydSw-eD2pqGMg4xtYVfnhlidwHTZqnFoKpK4wvIpSQnCx44s52aFWROJ26DIF2W81qPmVefGeSCD0B7-DiQRtdWuhk0gY0DpcHqmk1yEiJafn4AiDC7PKFDPMJHrvWz9B8o_E2J8RfRSYnQtiu9w==",
+                    "id": "rs_02b8faf3d008f683016ab31e4eae7887d2927c692084f7cc32",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_02b8faf3d008f683016ab31e4e22bc87d286bd061bd07e95aa",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123598055,
+                              "endTime": 1790123599004,
+                              "providerRequestId": "req_40fa2922154a422590c740567e232534",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_02b8faf3d008f683016ab31e4e22bc87d286bd061bd07e95aa"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000218",
+                    "marketCost": "0.000218",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000218",
+                    "inferenceCost": "0.000218",
+                    "inputInferenceCost": "0.000028",
+                    "outputInferenceCost": "0.00019",
+                    "generationId": "gen_01M35TWR67PQEW2FZPY8C0CTBG"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 14,
+            "completion_tokens": 19,
+            "total_tokens": 33,
+            "cost": 0.000218,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 11,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000218,
+            "gateway_cost": 0.000218
+          },
+          "system_fingerprint": "fp_c79aov0mmx",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWR67PQEW2FZPY8C0CTBG"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::length_truncation::gpt_6_luna/0001",
+      "namespace": "vercel::smoke::length_truncation::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "4cebf5fa80866b81"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWR693YDZQRXS731VRZKV",
+          "object": "chat.completion",
+          "created": 1790123599,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5PEIhGX4HyfYQo3SbPSq3X2HmKEwIKSo8xV7EezgDjGZZjCcnGSCXtCAr3VdOhA50Es3m8o3knRqJPNVa0ABZgvuygWM2y4bjX2mt4pTDfrea_WzPop349sETlokn5hLFfuVZBTABZccLBLI5UfaXc0ofVNqNKEaycLH6251szKL3eXVVOGVwxODTdyu1UAUIhboxvfPFjloDjVv0ZWiqrp9bTlBTkbOfcy2dCSo8j9-En-TsoHkKDkzo-bAiM-_kF5MyA2rQofHS05XUs02sOaPViwljvBP-NSW2aJB63T___M6nQo49bc1Q6KHYOYf3KqUnw2rgNiF2Q1qBn8xp6NZkWzw9F234CGzpVNujSP2id0oLT1D97zOc1980_pRxpWcmDAYBJUBzigJZGUmAunsfGm57aY_fi1_sN-__GtvkwcFgHbnzAwVKql2xwaQ_YLe-nSkKwMtIKreRo6OKB6WeYAKZ-EeeeWqBy34di3uxNLsC9Dss9Qj6BxU83qCeQ4hmPdLW6r0VtjkOvG0wRwe8cfrUBfjMXlSXwPhpTFe3t1TUUZH3lJVW_BFnagTca75T7nqDVIMoYFta2_D0VMktBkTRSbocYdx78NBvEFeVF9XLEDnAvUNdUMRLuIfToPXzK1wEKxKKOuoYqioEUh0EjcVMgwMjGw56KedJZYrVHlIxP1J_En5VWjCUJnMllPE1KjQGoZ5-at6Dd-WkFElA9Z4h2MFPwJXTnseTjLTkpJv905POWVlYbBxgcbU2L2wTG6SlsQCC1aLRa9M9D2wpfNyzXZgbrZNDDediySDHUA94P3K9IPdWZ5U8HQnxUywhHfJcv8U_tOgwTWxJIEMbkVdjOkkdL6uRMz_nnnw7zDPEUWSUeaP6Fgc3LPgcaY03Fkpx-eFQYEwaIgkba1ovdpNqxErzHDngXe16yGOYPAm1ZhmMQ17V5KAhoPbBYiGo3We75frkdBVZoZOjwsLiFd6y-aba9t0pXHmrlmeo4ygvPm6wRFA1K5caALz4-aktEAWdYXDo2Ang5xFKT9Cs-lhcNZpf0jr6NwOWoI_WADxGRu692xClgsM9qjJsiP5MvGr2dIxnqkdA3Q_BO1qoud4rHubgzXNg8C6XpOV0YJrA-SzSOD9a3tHCk5Iqv9DzGZ0rF081P-gm3o5znCYeZyptXFBbbpwJaRlFHXrdFtfqVhIunzBlIWSMyAnHEvuq-uQ8K5ZdSlR2ROctzwCged75_JqZWiJQPBDg3aO2T0UshaxTyxdjNxMo9GfZm4q1O-VVz51V8AEA3B1vS5RU032xbYn0C6338wODF7bBrY5kq5LaldeX4fWOxKE2np5VCMsumMoRWZZ5PIWnRs3cUXW2bhHNNSBeS7SWdBx2XT9tahe8RFLTmxRWXsqTxOUNVIifW5ImAvw6dtYICXUVNC0bFyLqIsZxBt23HiIp4PHPqFy_O7GiFSGIOQFZAwIzuApRERpnUXJKN_zUC5w==",
+                    "id": "rs_08785da77f94a822016ab31e4ec45087d2ac1c104e224c6879",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_08785da77f94a822016ab31e4e2dc087d2b4b6de16c42e634f",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123598103,
+                              "endTime": 1790123599115,
+                              "providerRequestId": "req_1eb2711333464fc2ad55dd60cc2877ac",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_08785da77f94a822016ab31e4e2dc087d2b4b6de16c42e634f"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000181",
+                    "marketCost": "0.0000181",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000181",
+                    "inferenceCost": "0.0000181",
+                    "inputInferenceCost": "0.0000021",
+                    "outputInferenceCost": "0.000016",
+                    "generationId": "gen_01M35TWR693YDZQRXS731VRZKV"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "length"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 21,
+            "completion_tokens": 32,
+            "total_tokens": 53,
+            "cost": 0.0000181,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 32,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000181,
+            "gateway_cost": 0.0000181
+          },
+          "system_fingerprint": "fp_de1nb0e5xy",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWR693YDZQRXS731VRZKV"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::length_truncation::gpt_6_sol/0001",
+      "namespace": "vercel::smoke::length_truncation::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "7b94385573e7b4a1"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWRBZ4DB85S6D2045V6TG",
+          "object": "chat.completion",
+          "created": 1790123599,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5PpKGZJQMF8g8MzXRWUaGD7s-NdqltPI8BHyH5OTXrzM41lT6JKvHyxlXs1hYZ6fZHHBMJ0uzgUI6fsME-33Q63o1xa9lOAdCPdgUA3VQMZjQyd-X0Asc2th32n8Helux8SrrSxgIAulzbGv4auwNROnwxl6UPcmTyQHsFjMrvvvGsZA0AvQF8Eb2M6ciKYyf0Qt3Ni2WYYkN8c8TZtiOkW2in3xxReZo9HChBMPcBg4thIWVzfH514s-zlX3ULcBfn_iWn9rYxeZ6e0yOLGexRbo4PkwKEbN7Sre1HQZEolhlZ8xFqgQWS7syy-BEK0RVjPFeMtPihIn0IvHuqX8-oqDYiaX_9vJKW_gxocX8ELZgAS5BlQ09yHf8QYALfPtoqlsCcn_FTWIIq0kR6r1AKOv-n9p94fTcokBc2TCqPjlvMXB4xUVgu6oztcaRFVi5H4xVMYwE4ThhRe3Fj2qOJY45TmtZJBBM9pmiaYkN8QuibUQ6Y2Nfk4zO_4Z6GY8eg4PLbHh1NSR3-iE2a6d1iNl5C-2f6XIybm7xfdZa_EJ746q_SCh_Kalttn1R7G9M5mfnkI5aQ0ve1xfi-q_MfBD5f1GsR8dJIRfx5MbmNFyKrA2drGSbM_f-CtCDpPKZlsYw0st_yy98TSuzQjK7rF4-h9pzF4MLSu8DiNdX42qV0VH9FdDZ6MEOQ3iWZExImNEqBXP2vY0SaOQ-1uaL4-KuibUMXyZi-tDZgsAnNogA9TrZMemaR6QizEzs9gPvivsPFl1xKeWyv5ifYgFhLEvq-RE5bmAWjxXdQyRpSZZLKl7Rtabz8UVCFj8TAsJwk0cxUClZ50eSwGEBXJ0ZPqOEw-laj3I3BPUA3tF9H9qKivO4_XXNQZZon2FBoOvYKGpr13BpARgfEeen8n4DuRY05fWn5zdgE0o6A-4BExaJ0NoniipFnLtasXZXAH_VKPtUdCDg9eOHsJTexEw1IVM1pwUV5pybLn5fBFry2DXc4E5hL7UV3GCJLM-TV2TIv2YAMAjEo88HYZVWQ83bxWzo7XF_f0mZUMdFT7tK3Hh9ANeWcBl2gpigUGWCBS7aZTE9KGlnG9Hccy8B3NJRVW-qHmv_gjh4fFmY2FcurK5Ol-jsLlH0PaQ5WNbTgdAuquQRBLQyV658EIGdEVrdr5XMw0UqtSh0iGI3BjEDlrdVtwxnV5ZN4-1uui7QoSpFfpMICH2X-5UJnNYwo8qHQ0UkbQSTqWnvvR7WhLsgtDJssffRKsBHRwTjF6qxXF1PL44jl-AP3sMSp3xtM4lXgPwM9bcFoTAXOWhG3KoaXlfcPARJ14mKXV7Iek2IF5xmsEUF-2Yjruk4rfhNNgPTbbZ-K6ZxoNufAkvcfXMh594gXx0P-udQ33n1LSv6s9b9phkEGKKeFA04ierpnU6SleDzTCWmJxfvi79KbB0Q-H5DD3aSNnHZk0n6bGk3x1iQ",
+                    "id": "rs_09b2a82c1a619d77016ab31e4ee41887d29c58762c41dace7a",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_09b2a82c1a619d77016ab31e4e5d4487d28491aeacd26a998b",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123598273,
+                              "endTime": 1790123599442,
+                              "providerRequestId": "req_7c2ca46e816b4225abfd0b5d88b36a22",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_09b2a82c1a619d77016ab31e4e5d4487d28491aeacd26a998b"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000362",
+                    "marketCost": "0.000362",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000362",
+                    "inferenceCost": "0.000362",
+                    "inputInferenceCost": "0.000042",
+                    "outputInferenceCost": "0.00032",
+                    "generationId": "gen_01M35TWRBZ4DB85S6D2045V6TG"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "length"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 21,
+            "completion_tokens": 32,
+            "total_tokens": 53,
+            "cost": 0.000362,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 32,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000362,
+            "gateway_cost": 0.000362
+          },
+          "system_fingerprint": "fp_lwq4qdhm7t",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWRBZ4DB85S6D2045V6TG"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::multi_turn::gpt_6_luna/0001",
+      "namespace": "vercel::smoke::multi_turn::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "f002f6632ede1b8c"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWRJNNDPK13XAD9Y2V36Q",
+          "object": "chat.completion",
+          "created": 1790123599,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Madrid",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5P3M8Mjd2gzVFwKMP_6B7A32f3xWK6xfqDI5777E4TUlpYoEkY0Na6FJIX4m8lUaj293L5z26NXHXsQfu1zs1KcMMoqfSFAYCNArVrcTVP7PuiUvfNWy2xguGORzI3ZPH_h2LFyQx4pkETjV2zG6uoLLOjhH-2gHTnQGlWHrI3VuwlmQAMX1aTkdHg93q8BPYFoIAykWL_MZzjiIMdYZm80rchsAIgc7cryoWqjfMrvxpTxFyrldXKu2hRYQkwWTyxNJmZcpDLdk2rzM3FkuzlZjZf3Q96GpjTdD8wz6YIprxJHAUqY0irP2E0BAdjAwjlnHPmORivgNpreQ6xksT2ERd0do4drOQnyktBoOfZczXBcI25b2tjZ27zvOu15v4dUr9YdXa5ncYkwsaWemXBfpuA8PbLW2lAzUy7VTdzCc56YSkIGrDHXrWQhG9fK3cQgouAZRhPYy1-vtnaKevN92F0wWC3IOT-znabHDFAZrnZWUPYD3x-MLk8zlDxlQK4-QHrfemxO3XjL-GWmsfUOs0fzHOp1x_AByCOwK1b9CdVTh1_nd7-bqkOuN4SMrlCG6oEQ5EjCHbMiCEutJb8ZFlml7UTv3pGlu7ZZEY49a16PhrzsyudxHLmDTsoU4g5TiWz_MjwCI_9ixQYf_SDrCQ6bQLC3x1gZc7-j4VJGuslm9Mcx0I7DexbFqe9TBhQP9DANHKTkeYH0gby9AGjcL8DXGM4hNM9_ZKv6JQW3lAF4bZNt2ZnrLwJRPtVMHlCLc1xesZvWlu3--Ne6hBo-X3NvqTW1Mltludg8Wz3RXxY-CPM09P6MtH2ivbVu9CZKXRsEA0Z1gISh5JTX9yKz_PfXMHu3dySW2AtJ1sdTmJGZxAlJTqvJzHdGb7gShhyFdVcsQ_UwZ_1FV9rvBHAC34ZvIiFRAdTip_tH_swVIgq8dCOzlFSK_Vh6GhoBcETc5j0AVohfFOQPns8lYg0Aic4p1iYyNIWtFDVLLXiGCezjkm5HT-fp6hMFZM37DetPZTYCrfcueS03FgOZEUmvmyeaJvgJv0gWOwn9rcvX7XbgyAGgmbuoZYOkqpttLPolT1WLdg0JEXE_lr6lnLR8Yhy_rKLV3hA8wS7rJrzFxvEF25lRmiDpJgWSnNtAvo4cGFwdxAia3EkM4435Q_Ct7hD4lwnerK9oXmdFLVotzJFt8fsRx31pgqx33ck3I0I3xMMb2RnUIeAIhwIqcgfPegj1F-l7HWWVE8viGQaYiC50r0D4j8k5iXwXxniSB42_REhQQQyvJWa18qTxJcAPQ==",
+                    "id": "rs_0b02216e6f848cb4016ab31e4f6e8887d290030f4d492bd0f4",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0b02216e6f848cb4016ab31e4e83e487d28804358e40c257fc",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123598450,
+                              "endTime": 1790123599872,
+                              "providerRequestId": "req_0eeef7a52add4f8292977cb12d9a5721",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0b02216e6f848cb4016ab31e4e83e487d28804358e40c257fc"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000125",
+                    "marketCost": "0.0000125",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000125",
+                    "inferenceCost": "0.0000125",
+                    "inputInferenceCost": "0.000004",
+                    "outputInferenceCost": "0.0000085",
+                    "generationId": "gen_01M35TWRJNNDPK13XAD9Y2V36Q"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 40,
+            "completion_tokens": 17,
+            "total_tokens": 57,
+            "cost": 0.0000125,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 10,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000125,
+            "gateway_cost": 0.0000125
+          },
+          "system_fingerprint": "fp_oude13lni7",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWRJNNDPK13XAD9Y2V36Q"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::multi_turn::gpt_6_sol/0001",
+      "namespace": "vercel::smoke::multi_turn::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "98f95ef22c5b3e62"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWSJ7RJVYCH3X7WMAXH66",
+          "object": "chat.completion",
+          "created": 1790123600,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Madrid",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5QG-KgqBFUqwKk7P63i6W7Y972h7WvjWvaZpGLrK0PHcTv0avZb4G--0kNtl3jfBn9y3godxIJGe7Jbdef_ypxWjmR0sFrEu4Lj-e5PkJHOYVUXQuCpcdvjJx4sISGQsRJfqYyyG6q9gzr_xmkATUFAZM64oXXleY9klqZxZOjJuvzbbU_qzUqe0_rWyH_MYet5k_oO6tvVOhBQHYs5LfWTKdHXqQte7mF3x6Nz1968p20pj_kdRLjzjAo1lZzIUyz2FCQRzu1CR4eZfA8nFEYzDMGK-tURVQv06eRnl7Q7iUpUvcdcMFj6hHpXWKNP74V6bwWtgxKe7jlr3Q3HHtbOpMEy89AanAVmahThT8k4tLNScwZ2H8nN0N5MNH5MbEf2DrEu9bDCq0mRugMvwUJ8kwps0eRNoIC-2rXmxpdCpvj3HQwoGcahV5uFRCE0xHNZCLFfL6R8p14W_YnI7Tqac-n3s5NzknHkyk6TmguWBZALmChcQX-uH1dzsFVhpEgt7aNpCxDAbCpOBk3PA8rxzoaZiuJiiOxhzT6a9iiswzx5qjqva8ca5YC58WelM4AUgVdMSSLzZyFmj0N8OItOpca74wQOzPTh9w2u6sm9HonrEloVpWdDk9WxjybdIiIk37ny5xjm4oM3AVZEKB4Aw2l3H531Oca5vBhrSwalUZe4kIbY1pzOu5VIx5n18ozVQvnBzkaFyhpWxRYEK7CxY3ysfbzkDnLkYC_ZuvIeB1tcbIc0pOH-b2KvOYt0djH1bmRjBbIzK5cbQhrf9IeYJhdf5SsCHVpJhisLEKFgPbkC5MJ-kJnf07cXkuZ7UVSBKsSrbrulHpmiURCX1uKiOjuWTMvXtuQNJ2HegTGdTdlag_IJX4s3e4tOy0XMdAkLRFKR8Iei0BQ9YeKm7WEG9r_3OqPpCftkoHBzKyMlTe-mPHMhi-_CEWsdjkyP_VwaXQ35eKIOsIQ_xzDGgkK1DGkZ6NLrR_XtcVECHrQRTYvR9uA1h45COYyZOk6DepPVDL151O0C3yZyd1DqE10pUD_ZQiv3xNSMaH9WM6OCpxTiHOa0sh2z-DegIjFE0dOCdlZIGdtehNIQVcBnILhr23mNC5-Azj35-PfHA1DWKN373VGsWXJDlkbiZWKUVMf8zocDM99sngBCpxWauABxkqjQq6uHgbZbuP6_Gw3AtlbXY1JrFMsTFybADVrALu8QoFREkazcyrX2pi2cfWcCFblW2-kaKFzff267KFHxnEOazLJcsiik-3-MPAmkEN4",
+                    "id": "rs_0cf96b5b94fec3cf016ab31e503d0887d2a5e14e2aa82fd661",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0cf96b5b94fec3cf016ab31e4f976887d2b9143bbe3a41bba0",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123599459,
+                              "endTime": 1790123600675,
+                              "providerRequestId": "req_59713e7c0e2447d2ba3f7549cb35bccd",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0cf96b5b94fec3cf016ab31e4f976887d2b9143bbe3a41bba0"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.00024",
+                    "marketCost": "0.00024",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.00024",
+                    "inferenceCost": "0.00024",
+                    "inputInferenceCost": "0.00008",
+                    "outputInferenceCost": "0.00016",
+                    "generationId": "gen_01M35TWSJ7RJVYCH3X7WMAXH66"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 40,
+            "completion_tokens": 16,
+            "total_tokens": 56,
+            "cost": 0.00024,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 9,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.00024,
+            "gateway_cost": 0.00024
+          },
+          "system_fingerprint": "fp_kit7az6pxu",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWSJ7RJVYCH3X7WMAXH66"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::system_prompt::gpt_6_luna/0001",
+      "namespace": "vercel::smoke::system_prompt::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b3cb21df8bd1ec55"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWT7BWPW74PREH3267PKA",
+          "object": "chat.completion",
+          "created": 1790123600,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "PONG",
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0af2292cb7e373a4016ab31e50396487d2990801ff76a23717",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123600136,
+                              "endTime": 1790123600704,
+                              "providerRequestId": "req_1ee6d82873744a35baea32e72615b1c4",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0af2292cb7e373a4016ab31e50396487d2990801ff76a23717"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000058",
+                    "marketCost": "0.0000058",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000058",
+                    "inferenceCost": "0.0000058",
+                    "inputInferenceCost": "0.0000028",
+                    "outputInferenceCost": "0.000003",
+                    "generationId": "gen_01M35TWT7BWPW74PREH3267PKA"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 6,
+            "total_tokens": 34,
+            "cost": 5.8e-6,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 5.8e-6,
+            "gateway_cost": 5.8e-6
+          },
+          "system_fingerprint": "fp_qmdleb5zqv",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWT7BWPW74PREH3267PKA"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::stream_contract::gpt_6_luna/0001",
+      "namespace": "vercel::smoke::stream_contract::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "4750a9030b0c1799"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\",\"object\":\"chat.completion.chunk\",\"created\":1790123600,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7bdk9xswqu\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\",\"object\":\"chat.completion.chunk\",\"created\":1790123600,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\",\"phase\":\"final_answer\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7bdk9xswqu\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\",\"object\":\"chat.completion.chunk\",\"created\":1790123600,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"!\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7bdk9xswqu\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\",\"object\":\"chat.completion.chunk\",\"created\":1790123600,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" 👋\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7bdk9xswqu\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\",\"object\":\"chat.completion.chunk\",\"created\":1790123600,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"😊\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7bdk9xswqu\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\",\"object\":\"chat.completion.chunk\",\"created\":1790123600,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_0b0ca6c480533b9b016ab31e4f8bf887d288d88abbc8df16cc\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-luna\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-luna\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-luna\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123599476,\"endTime\":1790123601053,\"providerRequestId\":\"req_1713e1b65802495d97aa0c3bb4708965\",\"statusCode\":200,\"providerResponseId\":\"resp_0b0ca6c480533b9b016ab31e4f8bf887d288d88abbc8df16cc\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.0000063\",\"marketCost\":\"0.0000063\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.0000063\",\"inferenceCost\":\"0.0000063\",\"inputInferenceCost\":\"0.0000018\",\"outputInferenceCost\":\"0.0000045\",\"generationId\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":18,\"completion_tokens\":9,\"total_tokens\":27,\"cost\":0.0000063,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.0000063,\"gateway_cost\":0.0000063},\"system_fingerprint\":\"fp_7bdk9xswqu\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWSK2GMWFMRNCJWNPWK8D\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::stream_contract::gpt_6_sol/0001",
+      "namespace": "vercel::smoke::stream_contract::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "62296bc4ab0ee0df"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\",\"object\":\"chat.completion.chunk\",\"created\":1790123601,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_9i5qa551ey\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\",\"object\":\"chat.completion.chunk\",\"created\":1790123601,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\",\"phase\":\"final_answer\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_9i5qa551ey\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\",\"object\":\"chat.completion.chunk\",\"created\":1790123601,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" there\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_9i5qa551ey\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\",\"object\":\"chat.completion.chunk\",\"created\":1790123601,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"!\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_9i5qa551ey\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\",\"object\":\"chat.completion.chunk\",\"created\":1790123601,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" 👋\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_9i5qa551ey\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\",\"object\":\"chat.completion.chunk\",\"created\":1790123601,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"😊\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_9i5qa551ey\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\",\"object\":\"chat.completion.chunk\",\"created\":1790123601,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_0a1077e756799d79016ab31e4fc02c87d286d38d2557f304fd\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-sol\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-sol\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-sol\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123599679,\"endTime\":1790123601574,\"providerRequestId\":\"req_ae36379d150f4385be579a0c9b24a70b\",\"statusCode\":200,\"providerResponseId\":\"resp_0a1077e756799d79016ab31e4fc02c87d286d38d2557f304fd\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.000136\",\"marketCost\":\"0.000136\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.000136\",\"inferenceCost\":\"0.000136\",\"inputInferenceCost\":\"0.000036\",\"outputInferenceCost\":\"0.0001\",\"generationId\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":18,\"completion_tokens\":10,\"total_tokens\":28,\"cost\":0.000136,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.000136,\"gateway_cost\":0.000136},\"system_fingerprint\":\"fp_9i5qa551ey\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWSSEC4WPX6JNTTC4EV2K\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::system_prompt::gpt_6_sol/0001",
+      "namespace": "vercel::smoke::system_prompt::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "926aae1f079bd605"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWVE75AZAFADHZ2YKPN79",
+          "object": "chat.completion",
+          "created": 1790123602,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "PONG",
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_03ad6403c2ae49d2016ab31e5177d087d28cd833f0157fd1b7",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123601390,
+                              "endTime": 1790123602158,
+                              "providerRequestId": "req_6dba1ad5551947a594fe744794c20eef",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_03ad6403c2ae49d2016ab31e5177d087d28cd833f0157fd1b7"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000116",
+                    "marketCost": "0.000116",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000116",
+                    "inferenceCost": "0.000116",
+                    "inputInferenceCost": "0.000056",
+                    "outputInferenceCost": "0.00006",
+                    "generationId": "gen_01M35TWVE75AZAFADHZ2YKPN79"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 6,
+            "total_tokens": 34,
+            "cost": 0.000116,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000116,
+            "gateway_cost": 0.000116
+          },
+          "system_fingerprint": "fp_0puzhis7gf",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWVE75AZAFADHZ2YKPN79"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_object::gpt_6_luna/0001",
+      "namespace": "vercel::structured::json_object::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "df11314326069851"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWVDTC0MDXW47JPHAB2QA",
+          "object": "chat.completion",
+          "created": 1790123603,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"approximate_population\":2100000,\"population_scope\":\"city proper\"}",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5TYXexVgFE3PO3bD-Qd0GZQTPK2FrFNjL7jXgB-I0rduQd7vmgIi6F9oY0fr6rtMCuy6-EKW1aDi4I2aFFtRjiwUg0Pj9FnPRuUH3UbapZJRxrTRJyFh2-YR4Ik0Xb2MckhMYVQd6Q1x0F-U0mglzdbxPSOwXA8DH99pRCgssAr_1hKqhKJnnf3qgTVbdjzlsDiQKLssOWe9x6BfnA45kOIUERbW7hrDoDkehOci8sLS526qiT4KPEDVjXjQ3a8H9uqgBYK-LXctfBM_GQfc4AMiFU0-MHozTD0mWgK1Uf_E7ZgFCaSyCKejoGIDmz-pxtrAF4UR9txAejeB2xI4MeNpgEsBvzpPx4lUJ9iAg9_8IKtIMb4aXqhxideGmrytzZuof8vCqD4fsSKoU4S_87NqMQoWqI7l6-ZH8TTeXpPBDC6GoGgW025NDAiwSDSm_SgCFPo-lUHrO4UA0WvGGI5ld5hbBVTcQERbzpSlGrf3RPhghCBpIPBtouny_cMFCp_NKK4UHVOOX4emoLrJEE3oVv8a6u0GRlrvw19n4BYkgwXybdd7XkJWDiJpzvEAsPkaOl4pVauWJh204iI_E6DomgP-o-20m6OvfUpr2F92S5gZukx6kMjgdkvDR4ALdw-1yQIxXS_n32K3Newj7bl5kGbO8UxDAIOSNuzbCEcp0zaUNZvUYykk8izAJLH99XfGD_VMbJxzFFvQDaHWk_V3_EovoY0Z6QnB5wF31Xwe9pO9xnZfPX1_OTEiopKE4ppXLbrhWwFqj3DCqrLD4B68tjmZiQHI59X4M_3Ug4Oun487RCBjo_hMWdfIzJGuGHyFlgfG12siEBFIx10yEopXpDqMeqVOt-8u8ziEZYyjvkacs4ndP2t62iCNW17LOLzc1G_pLGNLDx0hPFxrnPVSG-EQdtbIRgISpoGE1lVI3L9Jut8NGb2ysQplGAvT0Q-qhEZq1cy8inMz2QFEP_mGA6Oxu0kdPT_APRdy8fLhEBLBzI67J1re4tn7lBG4yXRukC35Zd-lJDrXKbxY-wmobvKFTSL_rER14_KPgH8EhDXbAXgFHSXmm1Jq4uNV1WGlY2MhHs3NLGgTDTeqoDKZKduoEtgtgsbhFioNNlG6E6TesUQkuBOthNYDEnFYe4eIHLHkd3IB4-fOCIJck02-PzG1OqKP09Dh-yEo11QvecFztGlJcAZsHcjhV99kbi7yA0O9XaNOSU9Q7JRpqXl4XJkyveJvkCvAynNdR9IaRhqvo0gi7gV-iKV3KrUHqDuSg_w21ZcaLETakXjKFnjBSUFizUV7EjlkFLD7eCTlnlKLF8wkK1WPRVVo1W17stuc8bTi3tk2aiDPdv2lwepYaYBtsdCTFYoHEyduKsPY5r14HjL1htASHnsBfxEPOPtBxU4_-FNkqeuz448HMdhGvaLJyHIdDZ16xx2zzt-NEH1m29hNlp5Tf2reH0qQlClQm--4RZTDZ6KTZVNvDdGVI1FLozXhfxoNLgj7vCGLU=",
+                    "id": "rs_01c8e775e41921b0016ab31e51f9a487d282b19d472fa58592",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_01c8e775e41921b0016ab31e5176d087d2afce29f53b34188b",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123601367,
+                              "endTime": 1790123603077,
+                              "providerRequestId": "req_6423f0b1b2564436a3b3ce58ee3b0b75",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_01c8e775e41921b0016ab31e5176d087d2afce29f53b34188b"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000361",
+                    "marketCost": "0.0000361",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000361",
+                    "inferenceCost": "0.0000361",
+                    "inputInferenceCost": "0.0000021",
+                    "outputInferenceCost": "0.000034",
+                    "generationId": "gen_01M35TWVDTC0MDXW47JPHAB2QA"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 21,
+            "completion_tokens": 68,
+            "total_tokens": 89,
+            "cost": 0.0000361,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 40,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000361,
+            "gateway_cost": 0.0000361
+          },
+          "system_fingerprint": "fp_5qscfi0jh1",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWVDTC0MDXW47JPHAB2QA"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_object::gpt_6_sol/0001",
+      "namespace": "vercel::structured::json_object::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "08df4f916ae0503f"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWVEQYYEXSQ30NA77R1PG",
+          "object": "chat.completion",
+          "created": 1790123603,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"approximate_population\":2100000}",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5TR0SMa2SEvXUx6D1WcxxzpK3-SK8Mh2sr2E9aDIpIv4MKs1WIOnpHpTM7b6xgStWt8mlV0hWGB-orjcq62vRZ8U7AO4icgJOM1siYmYovXue6kBRt4H1YUB5BHB-rZVigFaRZ9fmyoug-dlppjiMrzXW47K0VrqQNlUQpfOp4l0GcOKbeNDdlekmYbduvmeZqNnPJzJn3b6MdJTQYGOsENRyclN-BT0jRccPQGIpKSiPGj_dgsfbxIbmbRWCnIaZ57hcqykjNMxEMOuPYsivRe8Fj1Jwf-QN0EiUQ4fB3FFrc0N_zWxoNrplzlvO3pxyqitxwIMNvvrJMZJylYFIgSzV5nVSXpijsWxrkcaVYp6HFpOGlC9CSHb__3taS2zsi9LlOCbxWY1zbJWjzXgt-vP09nJ2L2sFey5N8Ra8SMFElwd9xrwWkYsEJaG4EHW4fv3A95zUiHhGsqfh4J3vAo3dGee9evFMUuU-Ql_7-FRwfNSmcyL8Bi7Ol1JIhxcbS3VxtydwcDXsZQHg6YYz-B73eVtq5xdKp2N41iRZHCu-y1dit_NSUA9s9atentmTLnGuGcMmXpiCaz8_Hp1b_9B6sdzv3OI4Utr8faLcpRL6fr232w5RI1T-dhVvyDozyT-LmlFEoRaevSrpIa9UoEvyKIJbt6erQN0mBAU3pEGyJ-ON41SzvtZrmhCBu8QWw3LW-jHicHNA2bainziE-WdSahsdAIcG9bUxrqaEFHfU_IxO5pjbgPBjrt9blIeT_8_LP7yZdzsyxbcW3tW1gss9MpOKyYncVLV4r-NOyCUzzcCKMPNB_CC_u0_9NRrU1PmKElHBtXghnIhL5Zp6e7aEBLzrgIU_AhqUV0lFENlQdlwuk4vKXoNue7NyIirNQackVHewYXq4njvap-80qF-6rEcGJe8M1Cv1rXZ6ucMnwJ6xFoQy9FoK1VdDwZo_dG4SY_OHvo2qfDoXv75Y9Yznj5VpnZ0ozOFhlmNLqkm33khFdsCiyZtaKL9BqOiNz4DhiyttQq-XNiTWgzJlO02P32hRQ7k7Xuh2Cxq0752ZaxhABNG1Y-9gF15GK44XoZDNX0BuQ-cy6gN14TvGZg5QVz3vNKrshTqvjhaXrpZOJ1af1L0GfpzsdWcMBe7xm3NWbxJDFdRfV-yq8-Qyhi9ASnXgXQpvhK_DZMOn7067VYcivHJNm2gbd3V_tjK62beRONPSN6r5BUeJBSacz4bbd1kOI5feu8dPaTi7BI45WqJ7N86P1GayJGd-srA26CfOUdsKi9OPcDW5kaOSacdEQjO5FRli8LIfmkkZrf1RoRcTloh4TSIy4YGZ4ELxKkzV2Yz1YKdKxiCC2F_qqYe6l3dxVV1N3uCqCDyhe30c80IEtIwv4xmgG9fAqn7aG",
+                    "id": "rs_02e90d0da87229b6016ab31e524d0487d2a3b65e0c34bcfaa5",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_02e90d0da87229b6016ab31e517e7c87d2b73a661f4767c87c",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123601395,
+                              "endTime": 1790123603234,
+                              "providerRequestId": "req_0d20fca9eefb4d4587e3183d5ebe8326",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_02e90d0da87229b6016ab31e517e7c87d2b73a661f4767c87c"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000552",
+                    "marketCost": "0.000552",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000552",
+                    "inferenceCost": "0.000552",
+                    "inputInferenceCost": "0.000042",
+                    "outputInferenceCost": "0.00051",
+                    "generationId": "gen_01M35TWVEQYYEXSQ30NA77R1PG"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 21,
+            "completion_tokens": 51,
+            "total_tokens": 72,
+            "cost": 0.000552,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 29,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000552,
+            "gateway_cost": 0.000552
+          },
+          "system_fingerprint": "fp_h1pzrx9d6r",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWVEQYYEXSQ30NA77R1PG"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_schema::gpt_6_luna/0001",
+      "namespace": "vercel::structured::json_schema::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "8d313a8aee1bb2a4"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWVXDSZG06SRQ5VA67KG6",
+          "object": "chat.completion",
+          "created": 1790123603,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"population\":2100000}",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5TNcTdyvh-PEXi-3np4Kf84Jt5ucqAcEzG2OprcD-MZrPs8m2QE1qG7ip_JhPbEB9LLFtAYMhZPhTqMcS9mggSWtxLdpCx9hH9_cWhtsJ4QXGQaDdi211m4eZ8pofY4vefffhIMHGcZ1_lm7aIg366wYQ5TYNLQtzbC7IWLlNT3cdT2RPVgnpkO93nAQQxDMefCzQiT8wawcoGBANt9dvwfC1kP40bRTq7QrdG0J7U9ZjQPaIRTNR8-DR4Lt-Z76dIxjlSg21N2KvuNoNEU8rK8UmptlBcU-K5YvW8YYI8ypZa3vOfNudFo-o4yu043SiKjp-sUljhtmB8wZyKr_boz1tMq22wwYOAqNPfnZTZbMkiAtgYnC4b_SPAKGaYZJgf-6l1ZwYcs8EQAMOb7HPd61ROS8C0vuQ_zlxLbEMICd5xJWMlm1Rg9vy3VSrhWv2XvpaHXfp7YInEahtqriBZAxh2qXbPtwF6FxKe_m13iEETGABb53QZMD2vT1MfeZHOQk6yaY0BBf8g_EOStke-I6LeeFZdupp_o4mH1doE4TmzLiBEv5nOqOlnh9uzuBn7ZZpu40nyWGTNFAIMJsr6qiU-ltRz3M5jp3ThI3smkaj5Wgq6gNgINtIvG4zf6VubnuveKR0VJOsMDtIag_fH_W2keiz59AbM0904skL4Nd_fmZlxT7vAPxg2AuoufBqukCoPJNtIsOsTWqOkC8MfC7mU-Ql-QyTRQdjN9p4gH8WPOeIQgVugGbui3N_wJoQXtkBlXnY9n3zUclL6LKmEBu1bm0zfiJX1PCIOk3D9WB87nX5zYSCA4us0d7lQ1ig1aQoM6bPlceKqaoPqV-jRAbeoEL7vWSDh-sP1t23QCIZsA3CgPxpGZPcw29HfMHfMFVzgF1bJjTot2w5k2Y_VWvTu1BrLczngTtUIxJ4RgDNMAn_LB50wEyHV8dtjsiVLOapoROvSCF5qfp30ykuugv1cJp_XaowpERV7GUTFQmWaMxK_eH34tT9XNDFfnVuwJH72M8WljfZ_MMKfCyHxoc_Nsmb9x8mNvydTevq4YZSohQQJfvXT2CcUOd8mR_fXFoOU_qLSz_j6IB6SeFFCHSxwWSl28EMNDBWMRvkSgsCtdJnLC09izOMAfrvzBw3jsGaK-8oXpOCNPpK-nwFbXAcrWkrjHZm2uyfj8YRc-mwUsxnhPBKWYpShCPN-SfcOnWnz_8-bljcTHrCcTzu299Y7qedezEefBu7NOgoIo9bRogpY3cWXFt3rdbvNAqUKF0V8bUuj_jlltHSrSYpxEoXik5HYbc367bLzRbDP3P5oBktTCvnOjYXQ7qc0-wXjbGwjK9BCNtBImnA3KiniHa20ME-c7YYP06hcoJXtNeWXRfgH_MywjiZchC9D_4jXc2EaYuxqJv4tdv3GSGOq2n_hf6aUpwahSeUvGnq-nV6vst9QGcTjJInegi_t9cH1",
+                    "id": "rs_0d42eef77d89d60a016ab31e52ba9487d29de79197294b81b8",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0d42eef77d89d60a016ab31e51ee4c87d29ac7785d705bb1ff",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123601867,
+                              "endTime": 1790123603516,
+                              "providerRequestId": "req_217c9d450d2a43719d354fb12d3db3a9",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0d42eef77d89d60a016ab31e51ee4c87d29ac7785d705bb1ff"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000329",
+                    "marketCost": "0.0000329",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000329",
+                    "inferenceCost": "0.0000329",
+                    "inputInferenceCost": "0.0000049",
+                    "outputInferenceCost": "0.000028",
+                    "generationId": "gen_01M35TWVXDSZG06SRQ5VA67KG6"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 49,
+            "completion_tokens": 56,
+            "total_tokens": 105,
+            "cost": 0.0000329,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 35,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000329,
+            "gateway_cost": 0.0000329
+          },
+          "system_fingerprint": "fp_dnckmmcxn0",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWVXDSZG06SRQ5VA67KG6"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_schema::gpt_6_sol/0001",
+      "namespace": "vercel::structured::json_schema::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "fc44066dcdd43c94"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWWF7Q197Y84PG2AJE9TH",
+          "object": "chat.completion",
+          "created": 1790123603,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"population\":2100000}",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5TJNZb4XyeBUbwA6J2harjRBEugi4T6jVGhKqA14tJvdPlWOkawYXWZ9xjOVpJrIMGxnCG7tvnOT6RdZTemjf7gXeokP3CBqz3o4vC_u8I9LEDwZeGs6NVMotygkMxif7NeBPF7VQ6ZWjBQGxLpKOxx_rZU1RhX_QSKEulTdd7CDSMwyRP0Hw9NqnpqkfHvX9P2eExil5bnpZBjUGo11hUXZAL5zZ4fw8wzhwibOGp1aUE2jh4pqQWaKSNS7CEJ1v1vtK8ER14fckbn-ekrnn2FW6xY5FdvnFdblpA8EAz0BRSmNLS9Ekk5bXODccxvWC5SQVpKqY71JJprL2_Ap4ui-jzKK5NxczFS0znoAc-c0ePlsTGs3_L7xhbyUCYMDk32-fPoeZBv7MD0ghsvXHhKcyfupm-RTn-BdHS_ERNzhxmCKCab5dcMgDuw8Zdm2Jr-hSwRXWscjgrLm25AUiqIe0bpKpuQnKZiMWWW1lLpHUFb0WReV1txv7K6XXdCCage_kpJ3NreY_QgXzoixvmB41loM65FY7LRpgdP0kvcY9emihxzIEIumN3IKCKTz4HujqoXvfqPZLNjeqxGCBZjObRXWKx5Ix9s3ovEKpINSJkbVswVuF8stJB8CExB4Igc7R6ESOs6CIaI-XF9yAOVDW_4Eegm7VriUJOrtdCRFFjLdBkL_vF3BjbLK7d0XXwRLHDephzzHGyG67O2I4dwnmssksb3Qo2LTaqOuKZW88lYAfzwWTC5S92vHp4l_c4aSGIGAHxlNPXXrgc19YIp-6uPsnxvrZl5a5_9y6o5LcRL_DTcGconysUA58spB--UtKQMl0ZKnQT6ZomZpy6dcmi5v2si90LfPu_OFzMHMXdD2rgNPO96xn5uU90YYgoyR5wrSukwfx0rmAKgLt9wTiU9_xe5fPwbnZn7GCtCkdFhqVH9luJihGDSvKMfMG-VsQsGYMFt2gc1a5Us00uv92m_DGSYv3R6mhWtS4lLkOk7hX_hgjzN3nFwNGAqAoYFOqtu1ToItNnkU50MioTPGHshUnYzO54bj4Gh11-LhK092okuM08bovgBwHrxXSjizHI9jC_Eh-qZjZk0NZF-i0sDDbHM0_HK0bUCJ92ffUAkfDR3nyI0ntyGiNBJEuIhpxIK13kOLHFLz7gw5coQjXrzr1d_EvhLNHnBBk-pzw9chpky0KVc3QbDTIfOPwfOYBxahxcs1ty2o5ZITY7kClTJe-vuS7OelVKBxawwqWItIJ06Fgs71Sd7sBGD0sjIAFAQ_nfcTBtxuam-L1duvK1xglguZV2jlRau1r6IFhjpuwBA7WvcizFJ4wjyupRlZfkAuk8CFeXueO0WHpnVVgs_t5ypD0Ts8tbcXRzAhU=",
+                    "id": "rs_0fdc897f7e8cc60d016ab31e52ffc887d28c4a7e3d39a2e0e6",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0fdc897f7e8cc60d016ab31e52817487d2a708a59a369bcbbe",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123602434,
+                              "endTime": 1790123603714,
+                              "providerRequestId": "req_c426b7560ebe44b39a854cab265b265d",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0fdc897f7e8cc60d016ab31e52817487d2a708a59a369bcbbe"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000548",
+                    "marketCost": "0.000548",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000548",
+                    "inferenceCost": "0.000548",
+                    "inputInferenceCost": "0.000098",
+                    "outputInferenceCost": "0.00045",
+                    "generationId": "gen_01M35TWWF7Q197Y84PG2AJE9TH"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 49,
+            "completion_tokens": 45,
+            "total_tokens": 94,
+            "cost": 0.000548,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 24,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000548,
+            "gateway_cost": 0.000548
+          },
+          "system_fingerprint": "fp_vfd16oq09b",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWWF7Q197Y84PG2AJE9TH"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::tools::forced_call::gpt_6_luna/0001",
+      "namespace": "vercel::tools::forced_call::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "3cfad1c7caa9f954"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWXRC9B03TYT4ETW9KJ93",
+          "object": "chat.completion",
+          "created": 1790123604,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_iakqefnZYkHxTHJb0HbT6vEZ",
+                    "type": "function",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\":\"Paris\"}"
+                    }
+                  }
+                ],
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0ccaa69eb2671463016ab31e53de0087d2ad4a73abb456410c",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123603756,
+                              "endTime": 1790123604504,
+                              "providerRequestId": "req_e7365a26cc98467aabdc2a980636b7bd",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0ccaa69eb2671463016ab31e53de0087d2ad4a73abb456410c"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000141",
+                    "marketCost": "0.0000141",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000141",
+                    "inferenceCost": "0.0000141",
+                    "inputInferenceCost": "0.0000051",
+                    "outputInferenceCost": "0.000009",
+                    "generationId": "gen_01M35TWXRC9B03TYT4ETW9KJ93"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 51,
+            "completion_tokens": 18,
+            "total_tokens": 69,
+            "cost": 0.0000141,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000141,
+            "gateway_cost": 0.0000141
+          },
+          "system_fingerprint": "fp_n6g5eehcfs",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWXRC9B03TYT4ETW9KJ93"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::tools::forced_call::gpt_6_sol/0001",
+      "namespace": "vercel::tools::forced_call::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "abf6eb78b6dca744"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWXYHZN7VRWB8YJY0X4QN",
+          "object": "chat.completion",
+          "created": 1790123604,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_zKbbbfya5h9YlD9u0MQiO9d8",
+                    "type": "function",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\":\"Paris\"}"
+                    }
+                  }
+                ],
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_08be8631245f44ac016ab31e54078c87d29d0a20e28c700492",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123603953,
+                              "endTime": 1790123604783,
+                              "providerRequestId": "req_9f7721158a3345258db6744ba53738ba",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_08be8631245f44ac016ab31e54078c87d29d0a20e28c700492"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000282",
+                    "marketCost": "0.000282",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000282",
+                    "inferenceCost": "0.000282",
+                    "inputInferenceCost": "0.000102",
+                    "outputInferenceCost": "0.00018",
+                    "generationId": "gen_01M35TWXYHZN7VRWB8YJY0X4QN"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 51,
+            "completion_tokens": 18,
+            "total_tokens": 69,
+            "cost": 0.000282,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000282,
+            "gateway_cost": 0.000282
+          },
+          "system_fingerprint": "fp_xyltdzrhww",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWXYHZN7VRWB8YJY0X4QN"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_schema_streamed::gpt_6_luna/0001",
+      "namespace": "vercel::structured::json_schema_streamed::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "e0f5c49e5d8f04b5"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_details\":[{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABqsx5Ui5GPN5YmwexKrCpcs3Hi98-ONwuriLM0nCOuqmqy9rlPArmTbPWN_rLmXrYOk-ntUFI68fsFkbtS7qxuK24wmDXJ6T9j7ddCSynkttgIX07TWmWkULgKUK5eQXCk03PRVRsoC8T1GcEJL5rdMbE0E-DoD6ADj39UORvfnBkWjwITLR38nuIz5uISWRLLR-rSlP6meZxIFcfHaRFVjoq6tE7y6fknuNiBSR5CwbZYBaxBw39HUVTSr3uKMpu124tFCnzQhlYhrQ9OLciNR9Y4Uowr9rJ6odA4Op4ppMTg_eMRzDbOoNR-3c6ksD4Gl0CeQnBhvobSqqM0sAUZGNyCvmOIOAGurzCNRely6mUfzF_IgbZDBYj7Rh6rWLF0_AA1EJCtHs-fMrxFyhq6GCmQ8f5__leIVXBbB087G28SnSqpQNiPMgpxm0WlpbM5vtq_FoRvC7LPFYumxk5Cwr9jAub6pWnqSx2iyPUGVYWeu5YQM5RIDpY3UnU_Q14GXFSbnCqFxwsoTV2pd9Uh9O_qnjOHjObwOYm01xBRyXogeW7NdJpnEakVeArPa-FVxKP1yNc-CX3MCZsT0ZegbQhPEc9GuMRRrI-_7rI0w1UOgwOFDubWeWTHy0kdZupxjwztCD9Bgm2ytVKmKG460v9e1fzJE5thsai7fH44HeqIRAPWFBzQ7C3kR5rnCymCcECjKNFKHYFebx7SluScdWjF13jdM8JbE0l5nlujq8JwW8xkwgrWZWPuES34SBLPnuaJCKzukAtPMAxM2mLAb7HDiVJ_JRjtl1Ro8ShyGPUeDOuxbSOJbcEqiFMIjs4S4eYiW6izMOZAeBD6ci698ruLfUHJ7TCLSx2naTzuPLB-qDFae1JOQodoEf02kSE-jgLm88reJeO9eNK00lHVf_qLJ7-vGEzZPdfVXCTo9CFbx-ORhS_ybi0UjGYphwdKfpd5M7J_SZTAQIs09tJhZVd12B42LcFvGNFOzr3N8CKGi6ME6MDJmb_ywf4yDkZFyxJ__rFCphTqfF6vFUI7ScLFu7SLt131bMjXp9c_TNVYbLwB0FYlnejKu6HMaw5-8uxwLhz5TC2ALWCQmaHS4E_XFx_P6On90bysfGa-vG2ZM6Nx81zJU0DHExDJj5RyXbagIlT3bHI8B0Um0VO6h8bhgV-nIKPCeobwtf9i4hnNyvDvWodwk71voOgjnLvRbCjJEzlaB1dtmjHe-3YNWyR0nrP9JD2wx6MK0AAM__-5GYM=\",\"id\":\"rs_085649381d743fc6016ab31e543e1887d2b1c5223ad9b8bfed\",\"format\":\"openai-responses-v1\",\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"\",\"phase\":\"final_answer\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"city\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\":\\\"\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Paris\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\",\\\"\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"population\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\":\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"210\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"000\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"0\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"}\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_7htlmr3eyy\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_085649381d743fc6016ab31e53974c87d28d388c80840604f0\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-luna\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-luna\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-luna\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123603518,\"endTime\":1790123604902,\"providerRequestId\":\"req_68406a1dbf0842bfb00df604e0bce7bf\",\"statusCode\":200,\"providerResponseId\":\"resp_085649381d743fc6016ab31e53974c87d28d388c80840604f0\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.0000359\",\"marketCost\":\"0.0000359\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.0000359\",\"inferenceCost\":\"0.0000359\",\"inputInferenceCost\":\"0.0000049\",\"outputInferenceCost\":\"0.000031\",\"generationId\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":49,\"completion_tokens\":62,\"total_tokens\":111,\"cost\":0.0000359,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":41,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.0000359,\"gateway_cost\":0.0000359},\"system_fingerprint\":\"fp_7htlmr3eyy\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWXGWTE81GWHRJSGTR66K\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_schema_streamed::gpt_6_sol/0001",
+      "namespace": "vercel::structured::json_schema_streamed::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "f446dc7f3a89d285"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_details\":[{\"type\":\"reasoning.encrypted\",\"data\":\"gAAAAABqsx5Uk_ZmGMiaOjtM6VWGX7vDMyhbCmvY9GX9i6a4hn63hFtgum5zs1g1SnyYvaWbL8Wurfn5CGGCU24IrhfASVRYhGs7nF0v8Uw2EC-lZLokqzkseuuOojrRqvERwUWJa8_VcXupU5VoGJc_T5rtDvpfc7q9CoalvsjGa8uESPbMEiLBlLsRz5IyqdNyodQsvvhC4oZKW5lVu8RM0dZeSyAiVo0ICYAIT_DtwjrgMBguwSHhDFILaBDi8Zz82_qWk7b9YnYDnYKq7xXQind7vd45kJDXHLCgu_oQ4UPyHJrFjX4pHKmXoCtOcFfG4AA8BtRWpZVF_BJuRGH7rLzZXvqieqbkLHscG4eLtfjAzT0sycBMJV4ott_U1Pc9mJq-tNkLympQodqhHnLodyjtGVvKCfGBVrAtSz9527vH3NCLrpMo5FyDUFCxnbdpbGagKdqovbSu6IkVib2-8kgt7N5kU-xAYY6CCn37i7Cc-uZBcEDaoEu1OKjgypukXcgtOjN3xrFvgP6J3BsZ6K2ecJyIOSOdRyAoyO3X9-uRdy71sbg9T01zXiMDXh2wJdlriaPJZAf0HTKrTuz0K5y-xLKXSd31SeZWk7QL81xsm8mPiZQNkYFisJO9zLzkXKydkpLAcFAuGTWlQQUa29luvrzBJu9HA7Cst252rtG5zQH9zFTstjgo0_I6PXdYvubvluYEpBCszbgyp08B5moIgHokJ4-hy4vEDaBH485JoKVHUIHNuCPUvlWM8Cnw90u6EJsW9kOOMumZTWo-d0KZaRodRAIZCQxRHxi2KXGIyM1eye6Ywg1-7VRKVziXInlfj4oAJ9UzSznn1DUahe9LMov4r7umRITo95xwa6K4kpKtTp-8Whjx0opHFMIrgj3zQJVNaueFtCcgjkTmH_6G2QOwdNEqOYGDGZ96ALDeOzXFgz_is2PQdqhDuOyFppZRW7hLru6KaMqmk1_onDM170xLcpw5GedWab2jdrtaeOa2eds89VTshj-yTIogaHrHjBmtlC0csc5o7xoyu7ITGm1dmWwE8dBKrxCu9_4n14qHinU4r_FGNSodxR3W4a9MmUWHJ7hDn__YAdVtHjq0_5iz8SRjL1satgl9zJZaNlxGycSn313Zu4VQTnw5jWJhcge7objLz7kRm9zfyIFtsh9YznI27YYs026bGV2RRbpPtpfqEpJraiG98N1tY3wAClF4drZPyWlHR7kQW9hxPoDDSD9D5-6a9ErterfGiNo-wec=\",\"id\":\"rs_00340c507dc7c34f016ab31e545b0c87d2a3cc5b7d591d74cd\",\"format\":\"openai-responses-v1\",\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"\",\"phase\":\"final_answer\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"city\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\":\\\"\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Paris\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\",\\\"\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"population\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\":\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"210\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"000\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"0\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"}\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_5j26ub5agr\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\",\"object\":\"chat.completion.chunk\",\"created\":1790123604,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_00340c507dc7c34f016ab31e539c7c87d2bf6b2e8537c36b32\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-sol\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-sol\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-sol\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123603516,\"endTime\":1790123605006,\"providerRequestId\":\"req_bf280a567596408493ad1c60fccbbbc5\",\"statusCode\":200,\"providerResponseId\":\"resp_00340c507dc7c34f016ab31e539c7c87d2bf6b2e8537c36b32\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.000578\",\"marketCost\":\"0.000578\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.000578\",\"inferenceCost\":\"0.000578\",\"inputInferenceCost\":\"0.000098\",\"outputInferenceCost\":\"0.00048\",\"generationId\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":49,\"completion_tokens\":48,\"total_tokens\":97,\"cost\":0.000578,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":27,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.000578,\"gateway_cost\":0.000578},\"system_fingerprint\":\"fp_5j26ub5agr\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWXH0BWWXVNAEQNYVQQNS\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::tools::forced_call_streamed::gpt_6_luna/0001",
+      "namespace": "vercel::tools::forced_call_streamed::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "d2d0a3f9f486b15d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ilnpkqjozp\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_bacHimWIf1fVuC1ENgGBzbqm\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ilnpkqjozp\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ilnpkqjozp\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"city\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ilnpkqjozp\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\":\\\"\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ilnpkqjozp\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"Paris\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ilnpkqjozp\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"}\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ilnpkqjozp\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\",\"object\":\"chat.completion.chunk\",\"created\":1790123605,\"model\":\"openai/gpt-6-luna\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_0f4d5ba46fbc2e18016ab31e54db7087d2b3c7fa6bf8ff4349\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-luna\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-luna\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-luna\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123604785,\"endTime\":1790123605447,\"providerRequestId\":\"req_5473d2c81e94469f94c9488b6b2f2159\",\"statusCode\":200,\"providerResponseId\":\"resp_0f4d5ba46fbc2e18016ab31e54db7087d2b3c7fa6bf8ff4349\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.0000141\",\"marketCost\":\"0.0000141\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.0000141\",\"inferenceCost\":\"0.0000141\",\"inputInferenceCost\":\"0.0000051\",\"outputInferenceCost\":\"0.000009\",\"generationId\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\"}}},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":51,\"completion_tokens\":18,\"total_tokens\":69,\"cost\":0.0000141,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.0000141,\"gateway_cost\":0.0000141},\"system_fingerprint\":\"fp_ilnpkqjozp\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWYR4KNFSQG5AP7C3X063\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::vision::inline::gpt_6_luna/0001",
+      "namespace": "vercel::vision::inline::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "965db9ec4baab8be"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWZPMDMKD610RTEE5WSSV",
+          "object": "chat.completion",
+          "created": 1790123606,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Red",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5WjjSX1Eu3XFEzYcbNo_5MrwZZ_UbK5B6O8cueOsl6wE7--ER3FP-60-xVIHrcPxjbgsrkU5jHytamlpeDYhRNE9jWSxlpF2O2weJ6eA9Xi0K5b46xCFDcnU7pJ2TuOLASe6VA-gfvoRjDedwvuwzkcfzG2nu7ovp9w-G8Id4qPAz559yJD_QY1fEQ7qBrZLa0AaPXNmJ_LKsKeD1ggZ2sXRLMb6gegyNnoYix2o8O228k1z__ZBn7otKP9HV1N43poVRlsvfwJ6Dpn7Kv4z3Ucv1GeEB2v9LvRqH6oOGFwccyKh5UwHEAtogDxaW4g71s0GNWtoSojnhrIgcr--CdhR58WA_Dme7qM_HHPD8JuPifBQbZU-pbvQE-ZLoc3ekl0aHcuIDhuAPJ-poriYEea1abgPLKEcwGYP9ciRqp_fMyl4FxCfPDyKYgwuUA9WYfW0dOo-QaLbfJ6xKzdWN0SMzSTlt76lCM2vmMAZwBbopS_pA0BMW-iU-3DuNvxsbDu6T3YX_vpC2yGR9PYpZSZO55WxFull_pRi7VR2mZdvsGro_oNPHg2P0ccRAMDN_LrY7ScGb3qwYu-Ouf_sDpfgvRs6quZZHF8Ld75RScvKtmderAg2WG9F8cfL76BUrcXQPlg86-m90XyqfUOR_zm0tI2eg3vdy3bNzAMLSQG14uaor02R8fozTWD6L6gzmK_cg2d_3R1JS3HAi4Sk6Ovv5COfSVp_H2TDZFfwgwQfTsFwqfOadZ5YSRaaRqf-VQi-ugM21GwLTU_4KlKM8p24Ml1Z3-ZClGudFPACzLIcgGvMvweRmwngQLG-cr3ytHeQkPwjUc3soFQ1ZZGCGao1JUZa3x_B-t-nh9ucRXENKGE0b1LIEVtDDP87r5JRc0MvY-vuKSUU2LuhtR8pvJF5arrqOGnih9JK9_Yf-uxeRgvq2BOA8OxQxpWgbxJkEkiG37VEt-nqSPAv6Ko5_yXydPz9VrSDqIjBq0G4IVLjxTvlH3O8Ee4febNGOO_fNIYzY1o4EwWQynZsBWf5Zjr-sc3BWz0PpukmHuXlFSmDr2ZQ7uG-qG5wXOlzi0s7TtkYqGf40CRTAUf_FwxJSVbTC3mhKr9r_OV9A4ANxnXbjlX8P9Qk6yjuNkivb9lS_xIoI90e67OWBkQPzL4NmgrLfk8sccjcw1EQQeNH1qz9W5x8JYGdirFzkQpdueQnh77AYdE7wsMMkTph-Tbk7YCsV-MFgoq_DfcJBiIrhxCGmtCyOeWZP1jGtlfIGK-D9DN-nzQf-odPhQpYZ0nCZ68SOYCB6XAaiFtVLizPM7M0I=",
+                    "id": "rs_0e600e1e94d38ed2016ab31e5641fc87d2876f7027ae0c5ca1",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0e600e1e94d38ed2016ab31e55cdd887d2ad1ed5b02e456015",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123605745,
+                              "endTime": 1790123606714,
+                              "providerRequestId": "req_8a70cf312b0a4c7794ad064dbe195afc",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0e600e1e94d38ed2016ab31e55cdd887d2ad1ed5b02e456015"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000129",
+                    "marketCost": "0.0000129",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000129",
+                    "inferenceCost": "0.0000129",
+                    "inputInferenceCost": "0.0000024",
+                    "outputInferenceCost": "0.0000105",
+                    "generationId": "gen_01M35TWZPMDMKD610RTEE5WSSV"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 24,
+            "completion_tokens": 21,
+            "total_tokens": 45,
+            "cost": 0.0000129,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 14,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000129,
+            "gateway_cost": 0.0000129
+          },
+          "system_fingerprint": "fp_yqsi8r66zi",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWZPMDMKD610RTEE5WSSV"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::tools::round_trip::gpt_6_luna/0001",
+      "namespace": "vercel::tools::round_trip::gpt_6_luna",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "2410b60ac1dc65e5"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWZB3PSAGVJ68K7NY71JE",
+          "object": "chat.completion",
+          "created": 1790123606,
+          "model": "openai/gpt-6-luna",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "It’s 18°C and clear in Paris.",
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_04c4ef039a340135016ab31e55754887d2b97996357cb0faf1",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-luna",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-luna",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-luna",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123605378,
+                              "endTime": 1790123606745,
+                              "providerRequestId": "req_31015a14edb34e9993d5b34ffc90b44a",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_04c4ef039a340135016ab31e55754887d2b97996357cb0faf1"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.0000154",
+                    "marketCost": "0.0000154",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.0000154",
+                    "inferenceCost": "0.0000154",
+                    "inputInferenceCost": "0.0000084",
+                    "outputInferenceCost": "0.000007",
+                    "generationId": "gen_01M35TWZB3PSAGVJ68K7NY71JE"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 84,
+            "completion_tokens": 14,
+            "total_tokens": 98,
+            "cost": 0.0000154,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.0000154,
+            "gateway_cost": 0.0000154
+          },
+          "system_fingerprint": "fp_l347yn8xjm",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWZB3PSAGVJ68K7NY71JE"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::tools::round_trip::gpt_6_sol/0001",
+      "namespace": "vercel::tools::round_trip::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "84e222a81eca63d3"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TWZB6YDWK358TWSC3TV5Q",
+          "object": "chat.completion",
+          "created": 1790123606,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "It’s currently 18°C and clear in Paris.",
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_03fb6f5856d4e5b2016ab31e558d5087d28de502f8a93abdd0",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123605380,
+                              "endTime": 1790123606964,
+                              "providerRequestId": "req_a9d7d98096fa4293b6e49b78a67dcc12",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_03fb6f5856d4e5b2016ab31e558d5087d28de502f8a93abdd0"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000318",
+                    "marketCost": "0.000318",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000318",
+                    "inferenceCost": "0.000318",
+                    "inputInferenceCost": "0.000168",
+                    "outputInferenceCost": "0.00015",
+                    "generationId": "gen_01M35TWZB6YDWK358TWSC3TV5Q"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 84,
+            "completion_tokens": 15,
+            "total_tokens": 99,
+            "cost": 0.000318,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000318,
+            "gateway_cost": 0.000318
+          },
+          "system_fingerprint": "fp_fd4k61jb6o",
+          "service_tier": "default",
+          "generationId": "gen_01M35TWZB6YDWK358TWSC3TV5Q"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::tools::forced_call_streamed::gpt_6_sol/0001",
+      "namespace": "vercel::tools::forced_call_streamed::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "1471372ca95bf26d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ogv01xgsen\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_kvkt3qbnlcXXxbI5WGcwXvFI\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ogv01xgsen\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ogv01xgsen\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"city\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ogv01xgsen\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\":\\\"\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ogv01xgsen\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"Paris\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ogv01xgsen\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"}\"}}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_ogv01xgsen\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\",\"object\":\"chat.completion.chunk\",\"created\":1790123607,\"model\":\"openai/gpt-6-sol\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"openai\":{\"responseId\":\"resp_0cb506c08eddea2f016ab31e561e5087d2af42b38308cb5151\",\"serviceTier\":\"default\",\"reasoningContext\":\"all_turns\"},\"gateway\":{\"routing\":{\"originalModelId\":\"openai/gpt-6-sol\",\"resolvedProvider\":\"openai\",\"fallbacksAvailable\":[],\"planningReasoning\":\"System credentials planned for: openai. Total execution order: openai(system)\",\"canonicalSlug\":\"openai/gpt-6-sol\",\"finalProvider\":\"openai\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"openai/gpt-6-sol\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"openai\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790123605376,\"endTime\":1790123607651,\"providerRequestId\":\"req_29dd8f2c9fab41e0bf2155ac02ab3d22\",\"statusCode\":200,\"providerResponseId\":\"resp_0cb506c08eddea2f016ab31e561e5087d2af42b38308cb5151\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.000282\",\"marketCost\":\"0.000282\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.000282\",\"inferenceCost\":\"0.000282\",\"inputInferenceCost\":\"0.000102\",\"outputInferenceCost\":\"0.00018\",\"generationId\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\"}}},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":51,\"completion_tokens\":18,\"total_tokens\":69,\"cost\":0.000282,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.000282,\"gateway_cost\":0.000282},\"system_fingerprint\":\"fp_ogv01xgsen\",\"service_tier\":\"default\",\"generationId\":\"gen_01M35TWZB1V3CKFP0088YBQMJH\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::vision::inline::gpt_6_sol/0001",
+      "namespace": "vercel::vision::inline::gpt_6_sol",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "38c3b865f14a2c34"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35TX17HT1GSD4Q0DAG63HDF",
+          "object": "chat.completion",
+          "created": 1790123608,
+          "model": "openai/gpt-6-sol",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Red",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.encrypted",
+                    "data": "gAAAAABqsx5YX_zvaFgfsFWPsZIW6aoPMYrbwj1dCei_9NkjVKDaT7-egL-ZAeTJI2_xLvEerfcH_9aA3KTP79sC7Ur6hyvf8eZK5ayQlkcSKYU0hbiF4HXDJTR1GXNIYzjZJ0-e8slcjoNBwmNaoFym8bNYVxPbc84M6PrLePNL5uvsCwV7v_Mq1EiCGOpG7DmlHI-Roeim9V8loiHh_HpO9HS51qEjc_Jf4ygivJ_GA6Vsnl-enHC-uCcUJDmuizTk-2IncEFpwR2EytNIWNP2Syb5a8LcwIYcYyAFFBRRy_C_7MR6wpG40hgWsLWXQ8MFJ2dQTmZBdNr10fxjtvkq-mQU_HAECbPOVBNx9QvVkLx4jk-sH0gpLM3gHyGWliN3bUQq47K-25bnxUTtiwErIhanQ07xu4dZrEeierLvbACrqpvJQCd7cXZfUONVylJR7OLkCjKvJDns-6xT84-wr59dAphTrIJrWtUS5XYyFKZt_5EPZUuUfDTXiGwv23QU_JB2D7moShDopo6rhDsDwbrWTgWZ0zfjVT9imO44SVWqiU-3FK1_mfE8xcGSdIeRF9jHymt5e6O-BV8T6vBqmcF9d_82PsEoPEzMqPnhJHG-eXqUS0tk_rEqnJ5uIX7lusDmxSDOavKdjfZq_zBnVLHGsxzK9DlFVgEy_8vh_3-F2fuQVJjkshZvQbztUH4kWXnNZjEoFUCW7XSCXU0hbfNpcRaa01DMQmpn9nmZ-xihrMvLwZwddqTZHrVLh6L0AI63i_3wHTCzuTrBHZa4uWNEMpHXoE7ejtjOagnf4T40j_9Esfx5g2iA6YNBUVcb_VI_3d-evURSdmyVM4YRbq2_zVs-j9qyXhCfa3P4Lb6CDncG3ov6FpWjOzbpLJdzi4PZBgZr1saUqaQlet6QKR-p2NHIRiYsVQXlskXDE179kr4l2sLLwbCLQIjXiYUlg9UFEB6_oNFnLcZwjwURw_Mzsty_QQXgBWzoAI7WUpDjeZ1iM3QMVadzTzWAHZIuevmdAW87_vVkbkPuyhY9MQl1zIgPvSwmpirAPVO_VTx-pLxseIy1Raa8R0vVkZJk3u673KJQs5kif5dh8H3nOs2zMP2n3cnv1gunvFBAxzlfe5tFOAvxpyDVJ1Yz-fT7oIDThvVAC3fwJjFOyJMdCla_s62jdXImYTv1eBtEDn2iQH79kj6k4bTiBHTfhombpbQb2jDthmfns8jgHjoaTH3E5k3mATmW2Y3cZDtBiMc3o2jJPgA7cIZBDu6__wJPxfiXCmBs",
+                    "id": "rs_0d3aa5a3820155f9016ab31e58071487d2bbe518e9d62f5c6a",
+                    "format": "openai-responses-v1",
+                    "index": 0
+                  }
+                ],
+                "phase": "final_answer",
+                "provider_metadata": {
+                  "openai": {
+                    "responseId": "resp_0d3aa5a3820155f9016ab31e576a1087d2abee6752502595b0",
+                    "serviceTier": "default",
+                    "reasoningContext": "all_turns"
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "openai/gpt-6-sol",
+                      "resolvedProvider": "openai",
+                      "fallbacksAvailable": [],
+                      "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+                      "canonicalSlug": "openai/gpt-6-sol",
+                      "finalProvider": "openai",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "openai/gpt-6-sol",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "openai",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790123607318,
+                              "endTime": 1790123608508,
+                              "providerRequestId": "req_4aef9fdea8f04e74bb7e74e885d32245",
+                              "statusCode": 200,
+                              "providerResponseId": "resp_0d3aa5a3820155f9016ab31e576a1087d2abee6752502595b0"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000198",
+                    "marketCost": "0.000198",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000198",
+                    "inferenceCost": "0.000198",
+                    "inputInferenceCost": "0.000048",
+                    "outputInferenceCost": "0.00015",
+                    "generationId": "gen_01M35TX17HT1GSD4Q0DAG63HDF"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 24,
+            "completion_tokens": 15,
+            "total_tokens": 39,
+            "cost": 0.000198,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 8,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000198,
+            "gateway_cost": 0.000198
+          },
+          "system_fingerprint": "fp_zi3nxrwf0t",
+          "service_tier": "default",
+          "generationId": "gen_01M35TX17HT1GSD4Q0DAG63HDF"
+        }
+      }
     }
   ]
 }
