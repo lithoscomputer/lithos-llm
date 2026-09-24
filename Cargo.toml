@@ -116,10 +116,9 @@ serde_json = "1.0.145"
 tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread", "test-util"] }
 tracing-subscriber = { version = "0.3.20", default-features = false, features = ["registry", "fmt", "env-filter"] }
 trycmd = "1.2.1"
-# The OpenAI-compatible and Anthropic twins for declarative fixtures, contract
-# tests, and live E2E replay. Internal git dependencies track `main`; the
-# consuming application's `Cargo.lock` chooses the commit.
+# The OpenAI-compatible twin for declarative fixtures and live E2E replay.
 twin-openai = { git = "https://github.com/lithoscomputer/twins", branch = "main" }
+# The Anthropic twin for the twin_anthropic contract tests.
 twin-anthropic = { git = "https://github.com/lithoscomputer/twins", branch = "main" }
 
 [lints]
