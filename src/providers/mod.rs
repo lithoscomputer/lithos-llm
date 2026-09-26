@@ -537,10 +537,16 @@ pub(super) mod http {
 
     /// Drives one [`StreamDecoder`] over the transport events.
     ///
-    /// [`StreamDecoder::finish`] runs exactly once, and only when the transport
+    /// [`StreamDecoder::finish`] runs at most once, and only when the transport
     /// ended without an error. Any error — from the transport or from the
     /// decoder — is the last item of the stream, so a failed stream can never
     /// carry a `Ended` event.
+    ///
+    /// A decoder that completes mid-stream, on its protocol's terminal event,
+    /// ends the stream there. `Ended` is the last event of a successful
+    /// stream, so nothing the transport sends afterward is read: not trailing
+    /// data, and not a late connection error that would follow the completed
+    /// response.
     pub(in crate::providers) fn decode_stream<S>(
         events: S,
         decoder: Box<dyn StreamDecoder>,
@@ -552,6 +558,7 @@ pub(super) mod http {
             let mut state = state?;
             let batch = match state.events.next().await {
                 Some(Ok(event)) => match state.decoder.decode(event) {
+                    Ok(events) if events.iter().any(is_ended) => ok_batch(events),
                     Ok(events) => return Some((ok_batch(events), Some(state))),
                     Err(error) => vec![Err(error)],
                 },
@@ -564,6 +571,10 @@ pub(super) mod http {
             Some((batch, None))
         })
         .flat_map(iter)
+    }
+
+    fn is_ended(event: &StreamEvent) -> bool {
+        matches!(event, StreamEvent::Ended { .. })
     }
 
     fn ok_batch(events: Vec<StreamEvent>) -> Vec<Result<StreamEvent, Error>> {
@@ -682,14 +693,26 @@ pub(super) mod http {
             }
         }
 
-        /// Emits one text delta per transport event and completes at the end.
+        /// Emits one text delta per transport event and completes on an `end`
+        /// event or at the end of the stream.
         struct FakeDecoder {
             response:        Response,
             never_completes: bool,
         }
 
+        impl FakeDecoder {
+            fn ended(&self) -> StreamEvent {
+                StreamEvent::Ended {
+                    response: Box::new(self.response.clone()),
+                }
+            }
+        }
+
         impl StreamDecoder for FakeDecoder {
             fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
+                if event.data == "end" {
+                    return Ok(vec![self.ended()]);
+                }
                 Ok(vec![StreamEvent::TextDelta {
                     id:   ContentBlockId::new("block-0"),
                     text: event.data,
@@ -700,9 +723,7 @@ pub(super) mod http {
                 if self.never_completes {
                     return Ok(Vec::new());
                 }
-                Ok(vec![StreamEvent::Ended {
-                    response: Box::new(self.response.clone()),
-                }])
+                Ok(vec![self.ended()])
             }
         }
 
@@ -1369,6 +1390,33 @@ pub(super) mod http {
                 .filter(|event| matches!(event, Ok(StreamEvent::Ended { .. })))
                 .count();
             assert_eq!(completions, 1);
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn a_terminal_event_ends_the_stream_before_later_transport_items()
+        -> Result<(), Box<dyn StdError>> {
+            let catalog = catalog("http://127.0.0.1:1")?;
+            let route = call(&catalog, "alpha/one")?.route().clone();
+            let decoder = FakeCodec::default().stream_decoder(&route);
+            let event = |data: &str| {
+                Ok(SseEvent {
+                    event: None,
+                    data:  data.to_owned(),
+                })
+            };
+            let transport = iter(vec![
+                event("first"),
+                event("end"),
+                event("late"),
+                Err(Error::new(ErrorKind::Network, "the connection dropped")),
+            ]);
+
+            let events: Vec<_> = decode_stream(transport, decoder).collect().await;
+
+            assert_eq!(events.len(), 2, "nothing may follow the completed response");
+            assert!(matches!(events[0], Ok(StreamEvent::TextDelta { .. })));
+            assert!(matches!(events[1], Ok(StreamEvent::Ended { .. })));
             Ok(())
         }
     }

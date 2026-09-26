@@ -7,6 +7,7 @@ use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use serde_json::Value;
 
 use super::headers::merge_headers;
+use super::sse::SseDispatch;
 use crate::catalog::CatalogProvider;
 use crate::credentials::Credentials;
 use crate::types::{Error, ErrorKind, Speed, Warning};
@@ -66,7 +67,7 @@ impl EncodedRequest {
             timeout: None,
             warnings: Vec::new(),
             applied_speed: None,
-            framing: StreamFraming::Sse,
+            framing: StreamFraming::Sse(SseDispatch::BlankLine),
         }
     }
 
@@ -93,14 +94,14 @@ impl EncodedRequest {
         self
     }
 
-    /// Frames the SSE response stream at every complete `data:` line.
+    /// Sends an SSE event at every complete `data:` line.
     ///
     /// Lenient skins and proxies for this codec's dialect separate events with
-    /// single newlines rather than the blank line the SSE specification
+    /// single line breaks rather than the blank line the SSE specification
     /// requires, and every event is one `data:` line of JSON.
     #[must_use]
     pub(crate) fn with_data_line_framing(mut self) -> Self {
-        self.framing = StreamFraming::SseDataLines;
+        self.framing = StreamFraming::Sse(SseDispatch::EachDataLine);
         self
     }
 
@@ -185,12 +186,8 @@ impl EncodedRequest {
 /// How the transport splits a response byte stream into events.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum StreamFraming {
-    /// SSE: a blank line ends a frame, whose `data:` lines join with `\n`, as
-    /// the specification requires.
-    Sse,
-    /// SSE where every complete `data:` line is one event on its own,
-    /// delivered as soon as its newline arrives.
-    SseDataLines,
+    /// Server-sent events, sent as the dispatch rule directs.
+    Sse(SseDispatch),
     /// AWS `vnd.amazon.eventstream` binary frames, each carrying one event.
     #[cfg(feature = "bedrock")]
     AwsEventStream,

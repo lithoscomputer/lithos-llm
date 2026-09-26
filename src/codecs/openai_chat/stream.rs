@@ -9,10 +9,10 @@ use super::reasoning_details::ReasoningDetails;
 use super::{
     REASONING_BLOCK, REASONING_DETAILS, REASONING_DETAILS_BLOCK, REASONING_DETAILS_KIND, TEXT_BLOCK,
 };
-use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
 use crate::codecs::content::{finish_reason, promote_tool_finish};
 use crate::codecs::errors::{invalid_stream_event, malformed_stream, refusal};
+use crate::codecs::{StreamDecoder, is_done_terminator};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
 use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
@@ -40,6 +40,9 @@ pub(super) struct ChatStreamDecoder {
 
 impl StreamDecoder for ChatStreamDecoder {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
+        if is_done_terminator(&event) {
+            return self.finish();
+        }
         let chunk = self.error_check(&event)?;
         let mut events = self.start(&chunk);
         let delta = chunk.pointer("/choices/0/delta").unwrap_or(&Value::Null);

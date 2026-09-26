@@ -90,10 +90,10 @@ impl HttpTransport {
         let response = self.send(request, provider, TimeoutRetry::Safe).await?;
         let frame_limit = self.limits.frame_bytes();
         Ok(match framing {
-            StreamFraming::Sse | StreamFraming::SseDataLines => self.framed(
+            StreamFraming::Sse(dispatch) => self.framed(
                 response,
                 provider,
-                SseFramer::new(framing, frame_limit),
+                SseFramer::new(dispatch, frame_limit),
                 "reading the provider response stream failed",
             ),
             #[cfg(feature = "bedrock")]

@@ -1580,3 +1580,27 @@ fn a_stream_error_chunk_ends_the_stream() -> Result<(), Box<dyn StdError>> {
     assert_eq!(error.provider_code(), Some("rate_limit_exceeded"));
     Ok(())
 }
+
+#[test]
+fn the_done_terminator_completes_the_stream() -> Result<(), Box<dyn StdError>> {
+    let mut decoder = OpenAiChatCodec::default().stream_decoder(&route()?);
+    decoder.decode(SseEvent {
+        event: None,
+        data:  json!({
+            "id": "chatcmpl-1",
+            "choices": [{ "delta": { "content": "ok" }, "finish_reason": "stop" }],
+        })
+        .to_string(),
+    })?;
+
+    let events = decoder.decode(SseEvent {
+        event: None,
+        data:  "[DONE]".to_owned(),
+    })?;
+
+    let responses = completed(&events);
+    assert_eq!(responses.len(), 1, "the terminator completes the response");
+    assert_eq!(responses[0].finish_reason, FinishReason::Stop);
+    assert!(decoder.finish()?.is_empty(), "completing is idempotent");
+    Ok(())
+}

@@ -28,7 +28,7 @@ error: response_decode: provider openai returned invalid JSON route=openai/fixtu
 
 $ OPENAI_API_KEY=oai-invalid-utf8-stream lllm --catalog catalog.toml -m openai/fixture 'OpenAI invalid UTF-8 stream'
 ? 1
-error: stream_decode: an SSE frame was not UTF-8 route=openai/fixture
+error: stream_decode: an SSE line was not UTF-8 route=openai/fixture
   caused by: invalid utf-8 sequence of 1 bytes from index 6
 
 $ OPENAI_API_KEY=oai-stream-body-failure lllm --catalog catalog.toml -m openai/fixture 'OpenAI stream body failure'
@@ -60,7 +60,7 @@ Whitespace tail
 
 $ OPENAI_API_KEY=oai-unterminated-invalid-utf8 lllm --catalog catalog.toml -m openai/fixture 'OpenAI unterminated invalid UTF-8'
 ? 1
-error: stream_decode: an SSE frame was not UTF-8 route=openai/fixture
+error: stream_decode: an SSE line was not UTF-8 route=openai/fixture
   caused by: invalid utf-8 sequence of 1 bytes from index 6
 
 $ OPENAI_API_KEY=oai-long-text-error lllm --catalog catalog.toml -m openai/fixture --no-stream 'OpenAI long text error'

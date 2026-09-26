@@ -2242,3 +2242,27 @@ fn an_empty_text_tool_result_sends_an_empty_output() -> Result<(), Box<dyn StdEr
     assert_eq!(encoded.body["input"][2]["output"], json!(""));
     Ok(())
 }
+
+#[test]
+fn a_proxy_done_terminator_completes_the_stream() -> Result<(), Box<dyn StdError>> {
+    let route = call(Request::builder().model(MODEL).user("hi").build()?)?
+        .route()
+        .clone();
+    let mut decoder = codec().stream_decoder(&route);
+    decoder.decode(sse(
+        &json!({ "type": "response.created", "response": { "id": "resp_1" } }),
+    ))?;
+
+    let events = decoder.decode(SseEvent {
+        event: None,
+        data:  "[DONE]".to_owned(),
+    })?;
+
+    let completions = events
+        .iter()
+        .filter(|event| matches!(event, StreamEvent::Ended { .. }))
+        .count();
+    assert_eq!(completions, 1, "the terminator completes the response");
+    assert!(decoder.finish()?.is_empty(), "completing is idempotent");
+    Ok(())
+}
