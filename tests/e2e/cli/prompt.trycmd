@@ -18,7 +18,7 @@ Split chat
 
 $ OPENROUTER_API_KEY=chat-invalid-utf8-line lllm --catalog catalog.toml --model openrouter/fixture 'Chat invalid UTF-8 line'
 ? 1
-error: stream_decode: an SSE frame was not UTF-8 route=openrouter/fixture
+error: stream_decode: an SSE line was not UTF-8 route=openrouter/fixture
   caused by: invalid utf-8 sequence of 1 bytes from index 6
 
 $ OPENROUTER_API_KEY=chat-visible-body-failure lllm --catalog catalog.toml --model openrouter/fixture 'Chat visible body failure'

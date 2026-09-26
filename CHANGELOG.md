@@ -6,6 +6,23 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- SSE responses are parsed as the WHATWG specification defines. Lines may
+  end with LF, CRLF, or a bare CR, mixed within one stream and split across
+  network chunks. A stream-leading byte-order mark is stripped, a bare `data`
+  line is an empty data line, and exactly one space after a field's colon is
+  removed, so `data:  x` carries ` x`. Two deviations are deliberate: an event
+  the stream ends inside is still delivered, and a line that is not UTF-8
+  fails the stream with a retryable `stream_decode` error, whose message now
+  reads "an SSE line was not UTF-8". `ResponseLimits::max_frame_bytes` bounds
+  one SSE event while it is read: its data and name so far plus the current
+  line. Streams whose events a lenient proxy separates by single line breaks
+  now keep an `event:` name on the next data line.
+  `[DONE]` is no longer dropped by the transport. The Chat Completions,
+  Responses, and Gemini decoders complete the response on it, so `Ended`
+  arrives at the terminator rather than when the connection closes. A stream
+  now ends at its `Ended` event: nothing the provider sends afterward,
+  including a late connection error, is delivered.
+
 - The built-in `openrouter` provider serves TypeSafe's Jev through
   OpenRouter's Decisions API, on the `OPENROUTER_API_KEY` credential it
   already uses. It now lists `codecs = ["openai-chat", "systemone"]` with
