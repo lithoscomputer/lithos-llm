@@ -214,6 +214,190 @@ impl FusedStream for ResponseStream {
     }
 }
 
+/// Test support for the invariants documented on [`StreamEvent`].
+#[cfg(test)]
+pub(crate) mod contract {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use super::{ContentBlockId, ContentBlockKind, StreamEvent};
+    use crate::types::Error;
+
+    /// The first way `items` breaks the [`StreamEvent`] invariants, if any.
+    ///
+    /// Every block starts once, takes only deltas of its own kind while open,
+    /// and ends once, and a block id is never reused. A stream starts at most
+    /// once, and nothing follows its terminal `Ended` or error. `Ended`
+    /// requires every block closed; an error may leave blocks open. A sequence
+    /// with neither terminal, such as one assembler's output, must close its
+    /// blocks too.
+    pub(crate) fn violation<'a>(
+        items: impl IntoIterator<Item = Result<&'a StreamEvent, &'a Error>>,
+    ) -> Option<String> {
+        let mut started = false;
+        let mut open: BTreeMap<&ContentBlockId, &ContentBlockKind> = BTreeMap::new();
+        let mut closed: BTreeSet<&ContentBlockId> = BTreeSet::new();
+        let mut terminated = false;
+        for (index, item) in items.into_iter().enumerate() {
+            if terminated {
+                return Some(format!("item {index} follows the terminal item"));
+            }
+            let Ok(event) = item else {
+                terminated = true;
+                continue;
+            };
+            let problem = match event {
+                StreamEvent::Started { .. } if started => Some("a second Started".to_owned()),
+                StreamEvent::Started { .. } => {
+                    started = true;
+                    None
+                }
+                StreamEvent::ContentBlockStart { id, kind } => {
+                    let reused = open.contains_key(id) || closed.contains(id);
+                    open.insert(id, kind);
+                    reused.then(|| format!("{id:?} started twice"))
+                }
+                StreamEvent::TextDelta { id, .. } => delta(&open, id, "text", |kind| {
+                    matches!(kind, ContentBlockKind::Text)
+                }),
+                StreamEvent::ReasoningDelta { id, .. } => delta(&open, id, "reasoning", |kind| {
+                    matches!(kind, ContentBlockKind::Reasoning)
+                }),
+                StreamEvent::ToolCallDelta { id, .. } => delta(&open, id, "tool-call", |kind| {
+                    matches!(kind, ContentBlockKind::ToolCall { .. })
+                }),
+                StreamEvent::ContentBlockEnd { id, .. } => {
+                    closed.insert(id);
+                    open.remove(id)
+                        .is_none()
+                        .then(|| format!("{id:?} ended while not open"))
+                }
+                StreamEvent::Ended { .. } => {
+                    terminated = true;
+                    (!open.is_empty()).then(|| format!("Ended with blocks open: {:?}", open.keys()))
+                }
+                StreamEvent::Usage { .. } | StreamEvent::RateLimits { .. } => None,
+            };
+            if let Some(problem) = problem {
+                return Some(format!("item {index}: {problem}"));
+            }
+        }
+        (!terminated && !open.is_empty()).then(|| format!("blocks left open: {:?}", open.keys()))
+    }
+
+    fn delta(
+        open: &BTreeMap<&ContentBlockId, &ContentBlockKind>,
+        id: &ContentBlockId,
+        shape: &str,
+        fits: fn(&ContentBlockKind) -> bool,
+    ) -> Option<String> {
+        match open.get(id) {
+            None => Some(format!("a {shape} delta for {id:?}, which is not open")),
+            Some(kind) if !fits(kind) => {
+                Some(format!("a {shape} delta for {id:?}, a {kind:?} block"))
+            }
+            Some(_) => None,
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::violation;
+        use crate::types::{
+            ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, Response, StreamEvent,
+        };
+
+        fn start(kind: ContentBlockKind) -> StreamEvent {
+            StreamEvent::ContentBlockStart {
+                id: ContentBlockId::new("block-0"),
+                kind,
+            }
+        }
+
+        fn text() -> StreamEvent {
+            StreamEvent::TextDelta {
+                id:   ContentBlockId::new("block-0"),
+                text: "hi".to_owned(),
+            }
+        }
+
+        fn end() -> StreamEvent {
+            StreamEvent::ContentBlockEnd {
+                id:   ContentBlockId::new("block-0"),
+                part: ContentPart::Text {
+                    text: "hi".to_owned(),
+                },
+            }
+        }
+
+        fn ended() -> StreamEvent {
+            StreamEvent::Ended {
+                response: Box::new(Response::new("p".into(), "m".into(), Vec::new())),
+            }
+        }
+
+        fn check(events: &[StreamEvent]) -> Option<String> {
+            violation(events.iter().map(Ok))
+        }
+
+        #[test]
+        fn accepts_a_well_formed_stream() {
+            let started = StreamEvent::Started { id: None };
+            let events = [
+                started,
+                start(ContentBlockKind::Text),
+                text(),
+                end(),
+                ended(),
+            ];
+            assert_eq!(check(&events), None);
+        }
+
+        #[test]
+        fn rejects_each_broken_rule() {
+            let started = || StreamEvent::Started { id: None };
+            for (events, rule) in [
+                (vec![started(), started()], "a second Started"),
+                (vec![text()], "which is not open"),
+                (
+                    vec![start(ContentBlockKind::Reasoning), text()],
+                    "a Reasoning block",
+                ),
+                (
+                    vec![start(ContentBlockKind::Text), end(), end()],
+                    "ended while not open",
+                ),
+                (
+                    vec![
+                        start(ContentBlockKind::Text),
+                        end(),
+                        start(ContentBlockKind::Text),
+                    ],
+                    "started twice",
+                ),
+                (
+                    vec![start(ContentBlockKind::Text), ended()],
+                    "Ended with blocks open",
+                ),
+                (vec![ended(), text()], "follows the terminal item"),
+                (vec![start(ContentBlockKind::Text)], "blocks left open"),
+            ] {
+                let problem = check(&events).unwrap_or_default();
+                assert!(problem.contains(rule), "{rule}: got {problem:?}");
+            }
+        }
+
+        #[test]
+        fn an_error_may_leave_blocks_open_but_ends_the_stream() {
+            let error = Error::new(ErrorKind::Network, "dropped");
+            let open = start(ContentBlockKind::Text);
+            let after = text();
+
+            assert_eq!(violation([Ok(&open), Err(&error)]), None);
+            assert!(violation([Ok(&open), Err(&error), Ok(&after)]).is_some());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::error::Error as StdError;

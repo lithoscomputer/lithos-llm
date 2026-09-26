@@ -6,10 +6,11 @@ use super::{COUNT_TOKENS_FIELDS, Codec, MESSAGE_KIND, OpenAiResponsesCodec, REAS
 use crate::adapter::ResolvedCall;
 use crate::codecs::test_support::{resolved, resolved_in};
 use crate::transport::SseEvent;
+use crate::types::contract::violation;
 use crate::types::{
-    ContentBlockId, ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message,
-    ReasoningContent, Request, Response, RetryClassification, Role, Speed, StreamEvent,
-    ToolArguments, ToolCall, ToolCallKind, ToolDefinition, ToolInput, ToolResult,
+    ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ReasoningContent,
+    Request, Response, RetryClassification, Role, Speed, StreamEvent, ToolArguments, ToolCall,
+    ToolCallKind, ToolDefinition, ToolInput, ToolResult,
 };
 
 const MODEL: &str = "openai/gpt-5.6-luna";
@@ -65,46 +66,6 @@ fn completed(events: &[StreamEvent]) -> Result<Response, Box<dyn StdError>> {
         return Err("the stream emitted more than one completed event".into());
     }
     Ok(*response)
-}
-
-/// Checks one start, then deltas, then one end for every block.
-fn assert_block_boundaries(events: &[StreamEvent]) -> Result<(), Box<dyn StdError>> {
-    let mut open: Vec<&ContentBlockId> = Vec::new();
-    let mut closed: Vec<&ContentBlockId> = Vec::new();
-
-    for event in events {
-        match event {
-            StreamEvent::ContentBlockStart { id, .. } => {
-                if open.contains(&id) || closed.contains(&id) {
-                    return Err(format!("{id:?} started twice").into());
-                }
-                open.push(id);
-            }
-            StreamEvent::TextDelta { id, .. }
-            | StreamEvent::ReasoningDelta { id, .. }
-            | StreamEvent::ToolCallDelta { id, .. } => {
-                if !open.contains(&id) {
-                    return Err(format!("{id:?} sent a delta before its start").into());
-                }
-            }
-            StreamEvent::ContentBlockEnd { id, .. } => {
-                if !open.contains(&id) {
-                    return Err(format!("{id:?} ended without a start").into());
-                }
-                open.retain(|open_id| *open_id != id);
-                closed.push(id);
-            }
-            StreamEvent::Started { .. }
-            | StreamEvent::Usage { .. }
-            | StreamEvent::RateLimits { .. }
-            | StreamEvent::Ended { .. } => {}
-        }
-    }
-
-    if !open.is_empty() {
-        return Err(format!("blocks left open: {open:?}").into());
-    }
-    Ok(())
 }
 
 #[test]
@@ -867,7 +828,7 @@ fn a_lost_added_for_an_internal_call_leaves_no_phantom_part() -> Result<(), Box<
     }
     events.extend(decoder.finish()?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     let response = completed(&events)?;
     assert_eq!(response.content, Vec::new());
     assert_eq!(response.finish_reason, FinishReason::Stop);
@@ -1064,7 +1025,7 @@ fn a_streamed_message_without_text_emits_no_empty_text_part() -> Result<(), Box<
     }
     events.extend(decoder.finish()?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     let response = completed(&events)?;
     let [ContentPart::Opaque { kind, data }] = response.content.as_slice() else {
         return Err(format!("expected only the opaque item, got {:?}", response.content).into());
@@ -1312,7 +1273,7 @@ fn a_stream_transcript_produces_one_block_per_item() -> Result<(), Box<dyn StdEr
     }
     events.extend(decoder.finish()?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     let starts = events
         .iter()
         .filter(|event| matches!(event, StreamEvent::ContentBlockStart { .. }))
@@ -1406,7 +1367,7 @@ fn a_streamed_reasoning_item_keeps_its_text_and_its_replay_part() -> Result<(), 
     })))?);
     events.extend(decoder.finish()?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     let parts = ended_parts(&events);
     let [
         ContentPart::Reasoning(reasoning),
@@ -1479,7 +1440,7 @@ fn a_streamed_summary_only_reasoning_item_streams_its_summary() -> Result<(), Bo
     })))?);
     events.extend(decoder.finish()?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     assert_eq!(reasoning_deltas(&events), vec![
         "Checked the files.",
         "\n\nNothing to change."
@@ -1544,7 +1505,7 @@ fn streamed_reasoning_entries_join_the_way_the_terminal_item_does() -> Result<()
     })))?);
     events.extend(decoder.finish()?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     assert_eq!(reasoning_deltas(&events), vec![
         "Fir", "st.", "\n\nSec", "ond."
     ]);
@@ -1629,7 +1590,7 @@ fn an_item_without_deltas_still_produces_its_content() -> Result<(), Box<dyn Std
     })))?;
     events.extend(decoder.finish()?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     let parts = ended_parts(&events);
     let [ContentPart::ToolCall(recovered)] = parts.as_slice() else {
         return Err("expected one recovered tool call".into());
@@ -2112,7 +2073,7 @@ fn an_unnamed_streamed_tool_call_is_dropped() -> Result<(), Box<dyn StdError>> {
         "response": { "id": "resp_1", "status": "completed", "output": [item] },
     })))?);
 
-    assert_block_boundaries(&events)?;
+    assert_eq!(violation(events.iter().map(Ok)), None);
     assert_eq!(ended_parts(&events), Vec::new());
     let response = completed(&events)?;
     assert_eq!(response.content, Vec::new());
