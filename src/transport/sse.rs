@@ -147,11 +147,10 @@ fn parse_frame(frame: &[u8]) -> Result<Option<SseEvent>, Error> {
     if data.is_empty() {
         return Ok(None);
     }
-    let data = data.join("\n");
-    if data == "[DONE]" {
-        return Ok(None);
-    }
-    Ok(Some(SseEvent { event, data }))
+    Ok(Some(SseEvent {
+        event,
+        data: data.join("\n"),
+    }))
 }
 
 #[cfg(test)]
@@ -173,11 +172,25 @@ mod tests {
                 .push(b"event: delta\ndata: {\"text\":\"hel")
                 .is_empty()
         );
-        let events = framer.push(b"lo\"}\n\ndata: [DONE]\n\n");
+        let events = framer.push(b"lo\"}\n\n");
         assert_eq!(events.len(), 1);
         let event = events[0].as_ref().expect("frame should parse");
         assert_eq!(event.event.as_deref(), Some("delta"));
         assert_eq!(event.data, r#"{"text":"hello"}"#);
+    }
+
+    /// `[DONE]` belongs to the Chat dialect, not to SSE, so the codecs that
+    /// speak that dialect decide what it means.
+    #[test]
+    fn delivers_the_done_terminator_as_ordinary_data() {
+        for framing in [StreamFraming::Sse, StreamFraming::SseDataLines] {
+            let mut framer = framer(framing);
+
+            let events = framer.push(b"data: [DONE]\n\n");
+
+            assert_eq!(events.len(), 1, "{framing:?}");
+            assert_eq!(events[0].as_ref().expect("the terminator").data, "[DONE]");
+        }
     }
 
     #[test]
@@ -204,10 +217,10 @@ mod tests {
     }
 
     #[test]
-    fn data_line_framing_skips_comments_terminators_and_non_data_lines() {
+    fn data_line_framing_skips_comments_and_non_data_lines() {
         let mut framer = framer(StreamFraming::SseDataLines);
 
-        let events = framer.push(b": keep-alive\nevent: x\ndata: [DONE]\ndata: {\"n\":1}\n");
+        let events = framer.push(b": keep-alive\nevent: x\ndata: {\"n\":1}\n");
 
         assert_eq!(events.len(), 1);
         assert_eq!(
@@ -351,8 +364,8 @@ mod properties {
         vec(fragment, 0..48).prop_map(|fragments| fragments.concat())
     }
 
-    /// A `data:` value the framer returns unchanged: no line break, no
-    /// leading whitespace, and never the `[DONE]` terminator.
+    /// A `data:` value the framer returns unchanged: no line break and no
+    /// leading whitespace.
     fn data_value() -> impl Strategy<Value = String> {
         "([a-z0-9{}\":,.é][a-z0-9{}\":,. é]{0,12})?"
     }

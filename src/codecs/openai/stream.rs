@@ -9,10 +9,10 @@ use super::decode::{
     reasoning_text, refusal_text, token_counts,
 };
 use super::{MESSAGE_KIND, NAMESPACE, REASONING_KIND};
-use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
 use crate::codecs::content::promote_tool_finish;
 use crate::codecs::errors::refusal;
+use crate::codecs::{StreamDecoder, is_done_terminator};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
 use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
@@ -37,8 +37,14 @@ pub(super) struct ResponsesStream {
 
 impl StreamDecoder for ResponsesStream {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
+        // The Responses protocol ends with its terminal response event, but a
+        // Chat-style proxy in front of it can append `[DONE]` after that event
+        // or in place of it.
+        if is_done_terminator(&event) {
+            return self.finish();
+        }
         let data = event.data.trim();
-        if data.is_empty() || data == "[DONE]" {
+        if data.is_empty() {
             return Ok(Vec::new());
         }
 

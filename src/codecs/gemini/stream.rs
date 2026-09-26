@@ -5,10 +5,10 @@ use serde_json::{Value, json};
 use super::NAMESPACE;
 use super::decode::{blocked_prompt, token_counts};
 use super::identity::{response_nonce, thought_signature, tool_call_id};
-use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
 use crate::codecs::content::{GEMINI_SIGNATURES, finish_reason, promote_tool_finish};
 use crate::codecs::errors::invalid_stream_event;
+use crate::codecs::{StreamDecoder, is_done_terminator};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
 use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
@@ -277,6 +277,11 @@ impl GeminiStreamDecoder {
 
 impl StreamDecoder for GeminiStreamDecoder {
     fn decode(&mut self, event: SseEvent) -> Result<Vec<StreamEvent>, Error> {
+        // Gemini itself ends a stream by closing it, but the lenient proxies
+        // this codec frames by data line are Chat-style and append `[DONE]`.
+        if is_done_terminator(&event) {
+            return self.finish();
+        }
         self.chunk(&event)
     }
 
