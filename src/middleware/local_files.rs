@@ -10,15 +10,21 @@
 //!
 //! A source is local when its URL starts with `/`, `./`, `~/`, or `file://`.
 //! `~/` resolves against `HOME`, or against a lookup the application supplies.
+//!
+//! Only regular files are read, and only up to a size limit. A device, pipe,
+//! or directory, or a file over the limit, is dropped with a warning like an
+//! unreadable one: reading `/dev/zero` would never end, a pipe can block
+//! forever, and an unbounded read can exhaust memory.
 
 use std::path::Path;
 use std::sync::Arc;
-use std::{env, fmt};
+use std::{env, fmt, io};
 
 use async_trait::async_trait;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use tokio::fs;
+use tokio::io::AsyncReadExt as _;
 
 use super::{Call, Middleware, Next, Output};
 use crate::types::{
@@ -29,16 +35,30 @@ use crate::types::{
 /// Reads the value of one environment variable.
 type EnvLookup = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
+/// The largest file inlined by default: 32 MiB.
+const DEFAULT_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
+
 /// Middleware that inlines local-path media parts as base64.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct InlineLocalFiles {
-    home: Option<EnvLookup>,
+    home:           Option<EnvLookup>,
+    max_file_bytes: u64,
+}
+
+impl Default for InlineLocalFiles {
+    fn default() -> Self {
+        Self {
+            home:           None,
+            max_file_bytes: DEFAULT_MAX_FILE_BYTES,
+        }
+    }
 }
 
 impl fmt::Debug for InlineLocalFiles {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("InlineLocalFiles")
+            .field("max_file_bytes", &self.max_file_bytes)
             .finish_non_exhaustive()
     }
 }
@@ -57,7 +77,19 @@ impl InlineLocalFiles {
     ) -> Self {
         Self {
             home: Some(Arc::new(lookup)),
+            ..Self::default()
         }
+    }
+
+    /// Sets the largest file this middleware inlines, in bytes.
+    ///
+    /// A larger file is dropped with a warning, like an unreadable one. The
+    /// default is 32 MiB. An inlined file travels base64-encoded, a third
+    /// larger than on disk.
+    #[must_use]
+    pub fn max_file_bytes(mut self, bytes: u64) -> Self {
+        self.max_file_bytes = bytes;
+        self
     }
 
     fn home(&self) -> Option<String> {
@@ -77,7 +109,7 @@ impl InlineLocalFiles {
 
     async fn load(&self, url: &str) -> Option<MediaSource> {
         let path = self.path_of(url);
-        match fs::read(&path).await {
+        match self.read(&path).await {
             Ok(bytes) => Some(MediaSource::base64(
                 BASE64_STANDARD.encode(bytes),
                 media_type_for_path(&path),
@@ -87,6 +119,41 @@ impl InlineLocalFiles {
                 None
             }
         }
+    }
+
+    /// Reads `path` when it is a regular file within the size limit.
+    ///
+    /// The file type is checked before the file is opened, because opening a
+    /// pipe for reading blocks until a writer appears. The read is bounded as
+    /// well, so a file that grows after the check, or one that reports no
+    /// length, still cannot exceed the limit.
+    async fn read(&self, path: &str) -> io::Result<Vec<u8>> {
+        let too_large = || {
+            io::Error::new(
+                io::ErrorKind::FileTooLarge,
+                format!("larger than the {}-byte limit", self.max_file_bytes),
+            )
+        };
+        let metadata = fs::metadata(path).await?;
+        if !metadata.is_file() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "not a regular file",
+            ));
+        }
+        if metadata.len() > self.max_file_bytes {
+            return Err(too_large());
+        }
+        let mut bytes = Vec::new();
+        fs::File::open(path)
+            .await?
+            .take(self.max_file_bytes.saturating_add(1))
+            .read_to_end(&mut bytes)
+            .await?;
+        if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > self.max_file_bytes {
+            return Err(too_large());
+        }
+        Ok(bytes)
     }
 
     async fn inline_part(&self, part: ContentPart) -> Option<ContentPart> {
@@ -219,7 +286,13 @@ impl Middleware for InlineLocalFiles {
 #[cfg(test)]
 mod tests {
     use std::error::Error as StdError;
+    #[cfg(unix)]
+    use std::fs::OpenOptions;
     use std::path::PathBuf;
+    #[cfg(unix)]
+    use std::process::Command;
+    #[cfg(unix)]
+    use std::thread;
     use std::{env, process};
 
     use tokio::fs;
@@ -302,6 +375,61 @@ mod tests {
             panic!("expected an inlined image inside the tool result");
         };
         assert_eq!(image.source.media_type(), Some("image/jpeg"));
+        fs::remove_dir_all(&dir).await?;
+        Ok(())
+    }
+
+    /// Inlines `url` as one image part and reports whether it survived.
+    async fn survives(middleware: &InlineLocalFiles, url: &str) -> Result<bool, Box<dyn StdError>> {
+        let inlined = middleware.inline(request_with(image(url))?).await?;
+        Ok(inlined.messages()[0].content().len() == 2)
+    }
+
+    #[tokio::test]
+    async fn a_file_over_the_limit_is_dropped() -> Result<(), Box<dyn StdError>> {
+        let dir = temp_dir("lithos-local-limit");
+        fs::create_dir_all(&dir).await?;
+        let path = dir.join("big.png");
+        fs::write(&path, [0_u8; 10]).await?;
+        let path = path.to_string_lossy();
+
+        assert!(survives(&InlineLocalFiles::new().max_file_bytes(10), &path).await?);
+        assert!(!survives(&InlineLocalFiles::new().max_file_bytes(9), &path).await?);
+        fs::remove_dir_all(&dir).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn only_regular_files_are_read() -> Result<(), Box<dyn StdError>> {
+        let dir = temp_dir("lithos-local-kinds");
+        fs::create_dir_all(&dir).await?;
+        let middleware = InlineLocalFiles::new().max_file_bytes(1024);
+
+        assert!(
+            !survives(&middleware, &dir.to_string_lossy()).await?,
+            "a directory"
+        );
+        #[cfg(unix)]
+        {
+            // A pipe blocks its reader until a writer appears, and a device
+            // such as `/dev/zero` never ends; both must be refused unopened.
+            let fifo = dir.join("pipe.png");
+            let made = Command::new("mkfifo").arg(&fifo).status()?;
+            assert!(made.success(), "mkfifo should create the pipe");
+            // A writer that opens and closes the pipe at once. Were the pipe
+            // opened for reading, this would release that reader to an empty
+            // file, and the assertion below would fail instead of hanging.
+            // When the pipe is refused unopened, this thread waits until the
+            // test process ends.
+            let writer = fifo.clone();
+            thread::spawn(move || drop(OpenOptions::new().write(true).open(writer)));
+
+            assert!(
+                !survives(&middleware, &fifo.to_string_lossy()).await?,
+                "a pipe"
+            );
+            assert!(!survives(&middleware, "/dev/zero").await?, "a device");
+        }
         fs::remove_dir_all(&dir).await?;
         Ok(())
     }

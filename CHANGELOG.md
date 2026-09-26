@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `InlineLocalFiles` reads only regular files, up to a size limit of
+  32 MiB by default, set with `InlineLocalFiles::max_file_bytes`. A
+  directory, pipe, or device such as `/dev/zero`, or a larger file, is
+  dropped with a warning like an unreadable one. Before, it read any path
+  whole, so a device never ended, a pipe could block forever, and a large
+  file was held in memory entirely. The `local-files` feature now enables
+  `tokio/io-util` for the bounded read.
+
 - Credentials are never sent over unencrypted HTTP to another machine. A
   call whose credentials add any header, bound for an `http://` URL whose
   host is not `localhost`, a `.localhost` name, or a loopback address, now
