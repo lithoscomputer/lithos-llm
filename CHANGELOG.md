@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The default HTTP client follows no redirects. A 3xx response now fails
+  the call as a non-retryable `Provider` error carrying its status. A
+  followed redirect to another host kept every credential header except
+  `authorization`, such as Anthropic's `x-api-key` or Gemini's
+  `x-goog-api-key`, and resent the request body there. An application that
+  injects its own client with `ClientBuilder::http` should build it with
+  `redirect(reqwest::redirect::Policy::none())`.
+
 - A stream delivers at most one `Started`. A provider or proxy that repeats
   its opening event — Anthropic's `message_start` or Bedrock's
   `messageStart` — no longer produces a second `Started`; the stream keeps

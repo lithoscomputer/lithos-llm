@@ -25,7 +25,7 @@ use lithos_llm::credentials::{
 use lithos_llm::middleware::{
     Call, Observer, RetryEvent, RetryMiddleware, RetryPolicy, TracingMiddleware,
 };
-use lithos_llm::types::Error;
+use lithos_llm::types::{Error, ErrorKind, RetryClassification};
 use lithos_llm::{Client, Request};
 use proptest::bool::weighted;
 use proptest::option;
@@ -399,4 +399,80 @@ proptest! {
             prop_assert_eq!(calls, 0, "a call that cannot authenticate was sent");
         }
     }
+}
+
+/// A redirect is never followed, so a credential header that survives a
+/// cross-host redirect — anything but `authorization` — cannot reach another
+/// host, and neither can the request body.
+#[tokio::test]
+async fn a_redirect_is_reported_and_never_followed() -> Result<(), Box<dyn StdError>> {
+    let elsewhere = MockServer::start_async().await;
+    let stolen = elsewhere
+        .mock_async(|when, then| {
+            when.any_request();
+            then.status(200);
+        })
+        .await;
+
+    for status in [301, 302, 303, 307, 308] {
+        for streaming in [false, true] {
+            let provider = MockServer::start_async().await;
+            let redirect = provider
+                .mock_async(|when, then| {
+                    when.method(Method::POST).path(PATH);
+                    then.status(status)
+                        .header("location", elsewhere.url("/v1/chat/completions"));
+                })
+                .await;
+            let credentials = Credentials::header(CredentialHeader::new(
+                "x-api-key",
+                SecretValue::new("sk-redirect-secret"),
+            ));
+            let client = Client::builder()
+                .catalog(catalog(Scheme::Header, &provider.url("/v1"))?)
+                .credentials(StaticCredentials::new().with("wire", credentials))
+                .middleware(RetryMiddleware::new(
+                    RetryPolicy::exponential().initial_delay(Duration::ZERO),
+                ))
+                .build()?
+                .client;
+            let request = Request::builder()
+                .model("wire/model")
+                .user("hello")
+                .build()?;
+
+            let error = if streaming {
+                match client.stream(request).await {
+                    Ok(stream) => stream
+                        .collect::<Vec<_>>()
+                        .await
+                        .into_iter()
+                        .find_map(Result::err)
+                        .ok_or("a redirected stream must fail")?,
+                    Err(error) => error,
+                }
+            } else {
+                client
+                    .complete(request)
+                    .await
+                    .err()
+                    .ok_or("a redirected call must fail")?
+            };
+
+            assert_eq!(error.kind(), ErrorKind::Provider, "HTTP {status}");
+            assert_eq!(
+                error.retry_classification(),
+                RetryClassification::Never,
+                "HTTP {status}"
+            );
+            assert_eq!(error.status(), Some(status), "HTTP {status}");
+            assert_eq!(redirect.calls_async().await, 1, "HTTP {status}: no retry");
+        }
+    }
+    assert_eq!(
+        stolen.calls_async().await,
+        0,
+        "no request reached the redirect target"
+    );
+    Ok(())
 }
