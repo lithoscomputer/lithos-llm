@@ -220,8 +220,11 @@ pub(crate) fn extract_frames_with_limit(
             frames.push(Err(limit_error("stream frame", limit)));
             break;
         }
+        // The range check runs first, so the subtraction cannot underflow;
+        // summing the lengths instead could overflow a 32-bit `usize` when a
+        // corrupt header length is near `u32::MAX`.
         if !(PRELUDE_LENGTH + MESSAGE_CRC_LENGTH..=MAX_FRAME_LENGTH).contains(&total_length)
-            || PRELUDE_LENGTH + headers_length + MESSAGE_CRC_LENGTH > total_length
+            || headers_length > total_length - PRELUDE_LENGTH - MESSAGE_CRC_LENGTH
         {
             buffer.clear();
             frames.push(Err(Error::new(
@@ -538,6 +541,21 @@ mod tests {
         let error = expect_error(&frames);
         assert_eq!(error.kind(), ErrorKind::StreamDecode);
         assert_eq!(error.retry_classification(), RetryClassification::Safe);
+        assert!(error.message().contains("length"));
+        assert!(buffer.is_empty(), "the stream position is abandoned");
+    }
+
+    #[test]
+    fn the_largest_header_length_is_an_invalid_length() {
+        // Near `u32::MAX`, a header length summed with the fixed parts would
+        // overflow a 32-bit `usize`; the check subtracts instead.
+        let mut buffer = event_frame("messageStop", b"{}");
+        buffer[4..8].copy_from_slice(&u32::MAX.to_be_bytes());
+        let crc = hash(&buffer[..8]);
+        buffer[8..12].copy_from_slice(&crc.to_be_bytes());
+
+        let frames = extract_frames(&mut buffer);
+        let error = expect_error(&frames);
         assert!(error.message().contains("length"));
         assert!(buffer.is_empty(), "the stream position is abandoned");
     }
