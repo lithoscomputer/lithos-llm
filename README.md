@@ -412,6 +412,15 @@ the `InlineLocalFiles` middleware accepts a local path as well (`/…`, `./…`,
 reaches a codec, so a caller on the same machine as its files can point at
 them directly.
 
+`InlineLocalFiles::new([dir, …])` reads only files that resolve inside the
+given directories, checked both by name and after symlinks resolve. Paths in
+tool results, and in a server's user messages, are not always the
+application's own, so a path outside, a file that is not a regular file, or
+one over the size limit (32 MiB by default, set with `max_file_bytes`) fails
+the call with `InvalidRequest`. `InlineLocalFiles::unrestricted()` reads any
+path and is meant for trusted local use, such as a command-line tool run by
+the owner of the files.
+
 ```rust
 use std::error::Error;
 

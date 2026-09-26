@@ -6,13 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- `InlineLocalFiles` reads only regular files, up to a size limit of
-  32 MiB by default, set with `InlineLocalFiles::max_file_bytes`. A
-  directory, pipe, or device such as `/dev/zero`, or a larger file, is
-  dropped with a warning like an unreadable one. Before, it read any path
-  whole, so a device never ended, a pipe could block forever, and a large
-  file was held in memory entirely. The `local-files` feature now enables
-  `tokio/io-util` for the bounded read.
+- Breaking: `InlineLocalFiles` reads only inside the directories it is
+  given. `InlineLocalFiles::new(directories)` replaces `new()`,
+  `InlineLocalFiles::unrestricted()` keeps the old read-anywhere behavior for
+  trusted local use, and `with_env_lookup` is now a builder method. A path is
+  checked by name, with `.` and `..` resolved, and again after symlinks
+  resolve. The middleware also reads only regular files, up to 32 MiB by
+  default (`max_file_bytes`), with a bounded read. A path outside the
+  directories, a directory, pipe, or device such as `/dev/zero`, or a larger
+  file now fails the call with `InvalidRequest` instead of being read: a
+  tool result or an end user's message could name any readable file, a
+  device never ended, and a pipe could block forever. A missing or
+  unreadable file inside an allowed directory is still dropped with a
+  warning. The `local-files` feature now enables `tokio/io-util`.
 
 - Credentials are never sent over unencrypted HTTP to another machine. A
   call whose credentials add any header, bound for an `http://` URL whose

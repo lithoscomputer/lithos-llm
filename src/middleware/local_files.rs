@@ -4,19 +4,28 @@
 //! the same machine as the files often has only a path. This middleware reads
 //! an image, document, or audio part whose source is a local path and rewrites
 //! it to inline base64 with a media type inferred from the extension. It looks
-//! inside tool results too. A part whose file cannot be read is dropped with a
-//! warning, so the model sees the rest of the message rather than the request
-//! failing outright.
+//! inside tool results too.
 //!
 //! A source is local when its URL starts with `/`, `./`, `~/`, or `file://`.
-//! `~/` resolves against `HOME`, or against a lookup the application supplies.
+//! `~/` resolves against `HOME`, or against a lookup the application supplies,
+//! and `./` against the process working directory.
 //!
-//! Only regular files are read, and only up to a size limit. A device, pipe,
-//! or directory, or a file over the limit, is dropped with a warning like an
-//! unreadable one: reading `/dev/zero` would never end, a pipe can block
-//! forever, and an unbounded read can exhaust memory.
+//! The paths in a request are not always the application's own: a tool result
+//! carries whatever a tool, or a prompt-injected model, put there, and a
+//! server's user messages come from its users. So the middleware reads only
+//! inside the directories it is given, unless it is built
+//! [`unrestricted`](InlineLocalFiles::unrestricted) for trusted local use. It
+//! also reads only regular files, up to a size limit: reading `/dev/zero`
+//! would never end, a pipe can block forever, and an unbounded read can
+//! exhaust memory.
+//!
+//! A path the middleware refuses — outside the allowed directories, not a
+//! regular file, or over the limit — fails the call with
+//! [`ErrorKind::InvalidRequest`], so a withheld file is never silently
+//! missing. A file that does not exist or cannot be read is dropped with a
+//! warning, so the model sees the rest of the message.
 
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::{env, fmt, io};
 
@@ -41,51 +50,80 @@ const DEFAULT_MAX_FILE_BYTES: u64 = 32 * 1024 * 1024;
 /// Middleware that inlines local-path media parts as base64.
 #[derive(Clone)]
 pub struct InlineLocalFiles {
+    /// The directories a path must resolve inside, or `None` to read any
+    /// path.
+    roots:          Option<Vec<PathBuf>>,
     home:           Option<EnvLookup>,
     max_file_bytes: u64,
-}
-
-impl Default for InlineLocalFiles {
-    fn default() -> Self {
-        Self {
-            home:           None,
-            max_file_bytes: DEFAULT_MAX_FILE_BYTES,
-        }
-    }
 }
 
 impl fmt::Debug for InlineLocalFiles {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("InlineLocalFiles")
+            .field("roots", &self.roots)
             .field("max_file_bytes", &self.max_file_bytes)
             .finish_non_exhaustive()
     }
 }
 
+/// Why a file was not read.
+enum Unread {
+    /// The middleware refuses this path; the call fails.
+    Refused(String),
+    /// The file could not be read; the part is dropped.
+    Unreadable(io::Error),
+}
+
 impl InlineLocalFiles {
-    /// Resolves `~/` against the process environment's `HOME`.
-    pub fn new() -> Self {
-        Self::default()
+    /// Inlines files that resolve inside one of `directories`.
+    ///
+    /// A path is checked as written, with `.` and `..` resolved, and again
+    /// after symlinks are resolved, so neither `..` nor a symlink reaches
+    /// outside. A relative directory resolves against the working directory
+    /// when a call runs. `~/` resolves against the process environment's
+    /// `HOME`.
+    pub fn new<I, P>(directories: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        Self {
+            roots:          Some(directories.into_iter().map(Into::into).collect()),
+            home:           None,
+            max_file_bytes: DEFAULT_MAX_FILE_BYTES,
+        }
+    }
+
+    /// Inlines any local file a request names.
+    ///
+    /// For trusted local use only, such as a command-line tool run by the
+    /// owner of the files. Any path in any message or tool result is read,
+    /// so a model steered by untrusted content can send any readable file to
+    /// the provider.
+    pub fn unrestricted() -> Self {
+        Self {
+            roots:          None,
+            home:           None,
+            max_file_bytes: DEFAULT_MAX_FILE_BYTES,
+        }
     }
 
     /// Resolves `~/` against `lookup("HOME")` instead of the process
     /// environment.
     #[must_use]
     pub fn with_env_lookup(
+        mut self,
         lookup: impl Fn(&str) -> Option<String> + Send + Sync + 'static,
     ) -> Self {
-        Self {
-            home: Some(Arc::new(lookup)),
-            ..Self::default()
-        }
+        self.home = Some(Arc::new(lookup));
+        self
     }
 
     /// Sets the largest file this middleware inlines, in bytes.
     ///
-    /// A larger file is dropped with a warning, like an unreadable one. The
-    /// default is 32 MiB. An inlined file travels base64-encoded, a third
-    /// larger than on disk.
+    /// A larger file fails the call. The default is 32 MiB. An inlined file
+    /// travels base64-encoded, a third larger than on disk.
     #[must_use]
     pub fn max_file_bytes(mut self, bytes: u64) -> Self {
         self.max_file_bytes = bytes;
@@ -107,89 +145,127 @@ impl InlineLocalFiles {
         url.strip_prefix("file://").unwrap_or(url).to_owned()
     }
 
-    async fn load(&self, url: &str) -> Option<MediaSource> {
-        let path = self.path_of(url);
+    /// The inline source for `url`, `None` for a file that cannot be read, or
+    /// an error for a path the middleware refuses.
+    async fn load(&self, url: &str) -> Result<Option<MediaSource>, Error> {
+        let path = lexical(Path::new(&self.path_of(url)));
         match self.read(&path).await {
-            Ok(bytes) => Some(MediaSource::base64(
+            Ok(bytes) => Ok(Some(MediaSource::base64(
                 BASE64_STANDARD.encode(bytes),
                 media_type_for_path(&path),
+            ))),
+            Err(Unread::Refused(reason)) => Err(Error::new(
+                ErrorKind::InvalidRequest,
+                format!("the local file {} {reason}", path.display()),
             )),
-            Err(error) => {
-                tracing::warn!(path = %path, error = %error, "dropping an unreadable local file");
-                None
+            Err(Unread::Unreadable(error)) => {
+                tracing::warn!(
+                    path = %path.display(),
+                    error = %error,
+                    "dropping an unreadable local file"
+                );
+                Ok(None)
             }
         }
     }
 
-    /// Reads `path` when it is a regular file within the size limit.
+    /// Reads `path` when it lies inside the allowed directories and is a
+    /// regular file within the size limit.
     ///
-    /// The file type is checked before the file is opened, because opening a
-    /// pipe for reading blocks until a writer appears. The read is bounded as
-    /// well, so a file that grows after the check, or one that reports no
-    /// length, still cannot exceed the limit.
-    async fn read(&self, path: &str) -> io::Result<Vec<u8>> {
+    /// The path is checked by name first, so a path outside is refused
+    /// whether or not it exists, and again once symlinks are resolved. The
+    /// resolved path is what gets opened. The file type is checked before
+    /// opening, because opening a pipe for reading blocks until a writer
+    /// appears, and the read is bounded, so a file that grows after the check,
+    /// or one that reports no length, still cannot exceed the limit.
+    async fn read(&self, path: &Path) -> Result<Vec<u8>, Unread> {
+        let outside = || Unread::Refused("is outside the allowed directories".to_owned());
+        if let Some(roots) = &self.roots
+            && !roots.iter().any(|root| path.starts_with(lexical(root)))
+        {
+            return Err(outside());
+        }
+        let resolved = fs::canonicalize(path).await.map_err(Unread::Unreadable)?;
+        if let Some(roots) = &self.roots {
+            let mut inside = false;
+            for root in roots {
+                if let Ok(root) = fs::canonicalize(root).await
+                    && resolved.starts_with(root)
+                {
+                    inside = true;
+                    break;
+                }
+            }
+            if !inside {
+                return Err(outside());
+            }
+        }
+
         let too_large = || {
-            io::Error::new(
-                io::ErrorKind::FileTooLarge,
-                format!("larger than the {}-byte limit", self.max_file_bytes),
-            )
+            Unread::Refused(format!(
+                "is larger than the {}-byte limit",
+                self.max_file_bytes
+            ))
         };
-        let metadata = fs::metadata(path).await?;
+        let metadata = fs::metadata(&resolved).await.map_err(Unread::Unreadable)?;
         if !metadata.is_file() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "not a regular file",
-            ));
+            return Err(Unread::Refused("is not a regular file".to_owned()));
         }
         if metadata.len() > self.max_file_bytes {
             return Err(too_large());
         }
         let mut bytes = Vec::new();
-        fs::File::open(path)
-            .await?
+        fs::File::open(&resolved)
+            .await
+            .map_err(Unread::Unreadable)?
             .take(self.max_file_bytes.saturating_add(1))
             .read_to_end(&mut bytes)
-            .await?;
+            .await
+            .map_err(Unread::Unreadable)?;
         if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > self.max_file_bytes {
             return Err(too_large());
         }
         Ok(bytes)
     }
 
-    async fn inline_part(&self, part: ContentPart) -> Option<ContentPart> {
-        match part {
-            ContentPart::Image(ImageContent { source, detail }) if is_local(&source) => {
-                let source = self.load(url_of(&source)).await?;
-                Some(ContentPart::Image(ImageContent { source, detail }))
-            }
-            ContentPart::Document(DocumentContent { source, name }) if is_local(&source) => {
-                let source = self.load(url_of(&source)).await?;
-                Some(ContentPart::Document(DocumentContent { source, name }))
-            }
-            ContentPart::Audio(AudioContent { source }) if is_local(&source) => {
-                let source = self.load(url_of(&source)).await?;
-                Some(ContentPart::Audio(AudioContent { source }))
-            }
+    async fn inline_part(&self, part: ContentPart) -> Result<Option<ContentPart>, Error> {
+        Ok(match part {
+            ContentPart::Image(ImageContent { source, detail }) if is_local(&source) => self
+                .load(url_of(&source))
+                .await?
+                .map(|source| ContentPart::Image(ImageContent { source, detail })),
+            ContentPart::Document(DocumentContent { source, name }) if is_local(&source) => self
+                .load(url_of(&source))
+                .await?
+                .map(|source| ContentPart::Document(DocumentContent { source, name })),
+            ContentPart::Audio(AudioContent { source }) if is_local(&source) => self
+                .load(url_of(&source))
+                .await?
+                .map(|source| ContentPart::Audio(AudioContent { source })),
             ContentPart::ToolResult(result) if result.content.iter().any(part_is_local) => {
                 let mut content = Vec::with_capacity(result.content.len());
                 for part in result.content {
-                    if let Some(part) = Box::pin(self.inline_part(part)).await {
+                    if let Some(part) = Box::pin(self.inline_part(part)).await? {
                         content.push(part);
                     }
                 }
                 Some(ContentPart::ToolResult(ToolResult { content, ..result }))
             }
             other => Some(other),
-        }
+        })
     }
 
     /// `request` with every local media part inlined.
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorKind::InvalidRequest`] for a path the middleware refuses.
     pub async fn inline(&self, request: Request) -> Result<Request, Error> {
         let mut messages = Vec::with_capacity(request.messages().len());
         for message in request.messages() {
             let mut content = Vec::with_capacity(message.content().len());
             for part in message.content() {
-                if let Some(part) = self.inline_part(part.clone()).await {
+                if let Some(part) = self.inline_part(part.clone()).await? {
                     content.push(part);
                 }
             }
@@ -204,6 +280,27 @@ impl InlineLocalFiles {
         }
         replace_messages(&request, messages)
     }
+}
+
+/// `path` made absolute against the working directory, with `.` and `..`
+/// resolved by name, without touching the filesystem.
+fn lexical(path: &Path) -> PathBuf {
+    let path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        env::current_dir().unwrap_or_default().join(path)
+    };
+    let mut normal = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normal.pop();
+            }
+            other => normal.push(other),
+        }
+    }
+    normal
 }
 
 /// Rebuilds `request` with `messages` in place of its own.
@@ -288,7 +385,9 @@ mod tests {
     use std::error::Error as StdError;
     #[cfg(unix)]
     use std::fs::OpenOptions;
-    use std::path::PathBuf;
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
+    use std::path::{Path, PathBuf};
     #[cfg(unix)]
     use std::process::Command;
     #[cfg(unix)]
@@ -299,7 +398,8 @@ mod tests {
 
     use super::{InlineLocalFiles, media_type_for_path, needs_inlining};
     use crate::types::{
-        ContentPart, DocumentContent, ImageContent, MediaSource, Message, Request, Role, ToolResult,
+        ContentPart, DocumentContent, ErrorKind, ImageContent, MediaSource, Message, Request, Role,
+        ToolResult,
     };
 
     fn request_with(part: ContentPart) -> Result<Request, Box<dyn StdError>> {
@@ -314,23 +414,73 @@ mod tests {
             .build()?)
     }
 
-    fn temp_dir(label: &str) -> PathBuf {
-        env::temp_dir().join(format!("{label}-{}", process::id()))
+    /// A fresh directory for one test, removed first if a run left it.
+    async fn temp_dir(label: &str) -> Result<PathBuf, Box<dyn StdError>> {
+        let dir = env::temp_dir().join(format!("{label}-{}", process::id()));
+        let _ = fs::remove_dir_all(&dir).await;
+        fs::create_dir_all(&dir).await?;
+        Ok(dir)
     }
 
     fn image(url: &str) -> ContentPart {
         ContentPart::Image(ImageContent::new(MediaSource::url(url)))
     }
 
+    fn tool_result(part: ContentPart) -> ContentPart {
+        ContentPart::ToolResult(ToolResult {
+            tool_call_id: "call_1".to_owned(),
+            name:         None,
+            content:      vec![part],
+            is_error:     false,
+        })
+    }
+
+    fn url(path: &Path) -> String {
+        path.to_string_lossy().into_owned()
+    }
+
+    /// What inlining one part does to a call.
+    #[derive(Debug, PartialEq)]
+    enum Outcome {
+        Inlined,
+        Dropped,
+        Refused(ErrorKind),
+    }
+
+    async fn outcome(
+        middleware: &InlineLocalFiles,
+        part: ContentPart,
+    ) -> Result<Outcome, Box<dyn StdError>> {
+        Ok(match middleware.inline(request_with(part)?).await {
+            Ok(inlined) => match &inlined.messages()[0].content()[1] {
+                ContentPart::ToolResult(result) if result.content.is_empty() => Outcome::Dropped,
+                _ => Outcome::Inlined,
+            },
+            Err(error) => Outcome::Refused(error.kind()),
+        })
+    }
+
+    async fn image_outcome(
+        middleware: &InlineLocalFiles,
+        url: &str,
+    ) -> Result<Outcome, Box<dyn StdError>> {
+        match middleware.inline(request_with(image(url))?).await {
+            Ok(inlined) if inlined.messages()[0].content().len() == 2 => Ok(Outcome::Inlined),
+            Ok(_) => Ok(Outcome::Dropped),
+            Err(error) => Ok(Outcome::Refused(error.kind())),
+        }
+    }
+
+    const REFUSED: Outcome = Outcome::Refused(ErrorKind::InvalidRequest);
+
     #[tokio::test]
-    async fn inlines_local_images_and_drops_missing_files() -> Result<(), Box<dyn StdError>> {
-        let dir = temp_dir("lithos-local-files");
-        fs::create_dir_all(&dir).await?;
+    async fn inlines_files_inside_an_allowed_directory() -> Result<(), Box<dyn StdError>> {
+        let dir = temp_dir("lithos-local-allowed").await?;
         let path = dir.join("pixel.png");
         fs::write(&path, b"\x89PNG").await?;
-        let middleware = InlineLocalFiles::new();
+        let middleware = InlineLocalFiles::new([&dir]);
 
-        let request = request_with(image(&path.to_string_lossy()))?;
+        let request = request_with(image(&url(&path)))?;
         assert!(needs_inlining(&request));
         let inlined = middleware.inline(request).await?;
         match &inlined.messages()[0].content()[1] {
@@ -342,11 +492,15 @@ mod tests {
         }
         assert_eq!(inlined.model(), "openai/gpt-5.4", "other fields survive");
 
-        let missing = request_with(ContentPart::Document(DocumentContent::new(
-            MediaSource::url("/definitely/missing.pdf"),
-        )))?;
-        let inlined = middleware.inline(missing).await?;
-        assert_eq!(inlined.messages()[0].content().len(), 1);
+        let missing = ContentPart::Document(DocumentContent::new(MediaSource::url(url(
+            &dir.join("missing.pdf")
+        ))));
+        let inlined = middleware.inline(request_with(missing)?).await?;
+        assert_eq!(
+            inlined.messages()[0].content().len(),
+            1,
+            "a missing file inside an allowed directory is dropped"
+        );
         fs::remove_dir_all(&dir).await?;
         Ok(())
     }
@@ -354,20 +508,15 @@ mod tests {
     #[tokio::test]
     async fn inlines_inside_tool_results_and_resolves_the_home_directory()
     -> Result<(), Box<dyn StdError>> {
-        let dir = temp_dir("lithos-local-home");
-        fs::create_dir_all(&dir).await?;
+        let dir = temp_dir("lithos-local-home").await?;
         fs::write(dir.join("shot.jpg"), b"\xFF\xD8").await?;
-        let home = dir.to_string_lossy().to_string();
-        let middleware =
-            InlineLocalFiles::with_env_lookup(move |name| (name == "HOME").then(|| home.clone()));
+        let home = url(&dir);
+        let middleware = InlineLocalFiles::new([&dir])
+            .with_env_lookup(move |name| (name == "HOME").then(|| home.clone()));
 
-        let request = request_with(ContentPart::ToolResult(ToolResult {
-            tool_call_id: "call_1".to_owned(),
-            name:         None,
-            content:      vec![image("~/shot.jpg")],
-            is_error:     false,
-        }))?;
-        let inlined = middleware.inline(request).await?;
+        let inlined = middleware
+            .inline(request_with(tool_result(image("~/shot.jpg")))?)
+            .await?;
         let ContentPart::ToolResult(result) = &inlined.messages()[0].content()[1] else {
             panic!("expected the tool result to survive");
         };
@@ -379,34 +528,80 @@ mod tests {
         Ok(())
     }
 
-    /// Inlines `url` as one image part and reports whether it survived.
-    async fn survives(middleware: &InlineLocalFiles, url: &str) -> Result<bool, Box<dyn StdError>> {
-        let inlined = middleware.inline(request_with(image(url))?).await?;
-        Ok(inlined.messages()[0].content().len() == 2)
+    #[tokio::test]
+    async fn a_path_outside_the_allowed_directories_fails_the_call() -> Result<(), Box<dyn StdError>>
+    {
+        let allowed = temp_dir("lithos-local-inside").await?;
+        let outside = temp_dir("lithos-local-outside").await?;
+        let secret = outside.join("secret.png");
+        fs::write(&secret, b"\x89PNG").await?;
+        let middleware = InlineLocalFiles::new([&allowed]);
+
+        assert_eq!(image_outcome(&middleware, &url(&secret)).await?, REFUSED);
+        assert_eq!(
+            outcome(&middleware, tool_result(image(&url(&secret)))).await?,
+            REFUSED,
+            "a tool result cannot reach outside either"
+        );
+        let escape = format!("{}/../{}/secret.png", url(&allowed), outside.display());
+        assert_eq!(image_outcome(&middleware, &escape).await?, REFUSED, "`..`");
+        assert_eq!(
+            image_outcome(&middleware, &url(&outside.join("missing.png"))).await?,
+            REFUSED,
+            "a path outside is refused whether or not it exists"
+        );
+        assert_eq!(
+            image_outcome(&InlineLocalFiles::unrestricted(), &url(&secret)).await?,
+            Outcome::Inlined,
+            "an unrestricted middleware reads anywhere"
+        );
+        fs::remove_dir_all(&allowed).await?;
+        fs::remove_dir_all(&outside).await?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_symlink_cannot_lead_outside() -> Result<(), Box<dyn StdError>> {
+        let allowed = temp_dir("lithos-local-link-inside").await?;
+        let outside = temp_dir("lithos-local-link-outside").await?;
+        let secret = outside.join("secret.png");
+        fs::write(&secret, b"\x89PNG").await?;
+        let link = allowed.join("link.png");
+        symlink(&secret, &link)?;
+
+        assert_eq!(
+            image_outcome(&InlineLocalFiles::new([&allowed]), &url(&link)).await?,
+            REFUSED
+        );
+        fs::remove_dir_all(&allowed).await?;
+        fs::remove_dir_all(&outside).await?;
+        Ok(())
     }
 
     #[tokio::test]
-    async fn a_file_over_the_limit_is_dropped() -> Result<(), Box<dyn StdError>> {
-        let dir = temp_dir("lithos-local-limit");
-        fs::create_dir_all(&dir).await?;
+    async fn a_file_over_the_limit_fails_the_call() -> Result<(), Box<dyn StdError>> {
+        let dir = temp_dir("lithos-local-limit").await?;
         let path = dir.join("big.png");
         fs::write(&path, [0_u8; 10]).await?;
-        let path = path.to_string_lossy();
+        let path = url(&path);
 
-        assert!(survives(&InlineLocalFiles::new().max_file_bytes(10), &path).await?);
-        assert!(!survives(&InlineLocalFiles::new().max_file_bytes(9), &path).await?);
+        let at_limit = InlineLocalFiles::new([&dir]).max_file_bytes(10);
+        assert_eq!(image_outcome(&at_limit, &path).await?, Outcome::Inlined);
+        let under = InlineLocalFiles::new([&dir]).max_file_bytes(9);
+        assert_eq!(image_outcome(&under, &path).await?, REFUSED);
         fs::remove_dir_all(&dir).await?;
         Ok(())
     }
 
     #[tokio::test]
     async fn only_regular_files_are_read() -> Result<(), Box<dyn StdError>> {
-        let dir = temp_dir("lithos-local-kinds");
-        fs::create_dir_all(&dir).await?;
-        let middleware = InlineLocalFiles::new().max_file_bytes(1024);
+        let dir = temp_dir("lithos-local-kinds").await?;
+        let middleware = InlineLocalFiles::unrestricted().max_file_bytes(1024);
 
-        assert!(
-            !survives(&middleware, &dir.to_string_lossy()).await?,
+        assert_eq!(
+            image_outcome(&middleware, &url(&dir)).await?,
+            REFUSED,
             "a directory"
         );
         #[cfg(unix)]
@@ -424,11 +619,16 @@ mod tests {
             let writer = fifo.clone();
             thread::spawn(move || drop(OpenOptions::new().write(true).open(writer)));
 
-            assert!(
-                !survives(&middleware, &fifo.to_string_lossy()).await?,
+            assert_eq!(
+                image_outcome(&middleware, &url(&fifo)).await?,
+                REFUSED,
                 "a pipe"
             );
-            assert!(!survives(&middleware, "/dev/zero").await?, "a device");
+            assert_eq!(
+                image_outcome(&middleware, "/dev/zero").await?,
+                REFUSED,
+                "a device"
+            );
         }
         fs::remove_dir_all(&dir).await?;
         Ok(())
