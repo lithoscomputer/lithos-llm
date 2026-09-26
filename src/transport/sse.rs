@@ -283,3 +283,151 @@ mod tests {
         assert!(framer.finish().is_empty());
     }
 }
+
+/// Properties that must hold for every byte stream, beyond the examples above.
+#[cfg(test)]
+mod properties {
+    use proptest::collection::vec;
+    use proptest::option;
+    use proptest::prelude::*;
+
+    use super::{SseEvent, SseFramer, StreamFraming};
+    use crate::transport::stream::Framer as _;
+    use crate::types::{Error, ErrorKind};
+
+    /// What one frame produced, in a form tests can compare.
+    type Outcome = Result<(Option<String>, String), ErrorKind>;
+
+    fn outcomes(results: Vec<Result<SseEvent, Error>>) -> impl Iterator<Item = Outcome> {
+        results.into_iter().map(|result| {
+            result
+                .map(|event| (event.event, event.data))
+                .map_err(|error| error.kind())
+        })
+    }
+
+    /// Frames `bytes` delivered as chunks split at `cuts`, then flushes.
+    ///
+    /// Each cut is taken modulo the input length, so any list of cuts is a
+    /// valid split, including empty chunks.
+    fn frame(
+        framing: StreamFraming,
+        frame_limit: usize,
+        bytes: &[u8],
+        cuts: &[usize],
+    ) -> Vec<Outcome> {
+        let mut cuts: Vec<_> = cuts.iter().map(|cut| cut % (bytes.len() + 1)).collect();
+        cuts.sort_unstable();
+        let mut framer = SseFramer::new(framing, frame_limit);
+        let mut results = Vec::new();
+        let mut start = 0;
+        for cut in cuts.into_iter().chain([bytes.len()]) {
+            results.extend(outcomes(framer.push(&bytes[start..cut])));
+            start = cut;
+        }
+        results.extend(outcomes(framer.finish()));
+        results
+    }
+
+    fn framing() -> impl Strategy<Value = StreamFraming> {
+        prop_oneof![Just(StreamFraming::Sse), Just(StreamFraming::SseDataLines)]
+    }
+
+    /// Bytes built from SSE fragments, so frames, line endings, split
+    /// characters, and invalid UTF-8 all turn up often.
+    fn sse_bytes() -> impl Strategy<Value = Vec<u8>> {
+        let fragment = prop_oneof![
+            Just(b"data: ".to_vec()),
+            Just(b"event: ".to_vec()),
+            Just(b": comment".to_vec()),
+            Just(b"[DONE]".to_vec()),
+            Just(b"\n".to_vec()),
+            Just(b"\r".to_vec()),
+            Just(b"\r\n".to_vec()),
+            Just("é".as_bytes().to_vec()),
+            "[a-z{}\":]{1,8}".prop_map(String::into_bytes),
+            any::<u8>().prop_map(|byte| vec![byte]),
+        ];
+        vec(fragment, 0..48).prop_map(|fragments| fragments.concat())
+    }
+
+    /// A `data:` value the framer returns unchanged: no line break, no
+    /// leading whitespace, and never the `[DONE]` terminator.
+    fn data_value() -> impl Strategy<Value = String> {
+        "([a-z0-9{}\":,.é][a-z0-9{}\":,. é]{0,12})?"
+    }
+
+    fn line_ending() -> impl Strategy<Value = &'static str> {
+        prop_oneof![Just("\n"), Just("\r\n")]
+    }
+
+    proptest! {
+        #[test]
+        fn chunk_boundaries_never_change_the_frames(
+            framing in framing(),
+            frame_limit in 1_usize..256,
+            bytes in sse_bytes(),
+            cuts in vec(any::<usize>(), 0..8),
+        ) {
+            prop_assert_eq!(
+                frame(framing, frame_limit, &bytes, &cuts),
+                frame(framing, frame_limit, &bytes, &[]),
+            );
+        }
+
+        #[test]
+        fn spec_framing_returns_each_encoded_event(
+            events in vec((option::of("[a-z_.]{1,12}"), vec(data_value(), 1..4)), 0..6),
+            eol in line_ending(),
+            cuts in vec(any::<usize>(), 0..8),
+        ) {
+            let mut stream = String::new();
+            for (name, lines) in &events {
+                if let Some(name) = name {
+                    stream.push_str("event: ");
+                    stream.push_str(name);
+                    stream.push_str(eol);
+                }
+                for line in lines {
+                    stream.push_str("data: ");
+                    stream.push_str(line);
+                    stream.push_str(eol);
+                }
+                stream.push_str(eol);
+            }
+            let expected: Vec<Outcome> = events
+                .into_iter()
+                .map(|(name, lines)| Ok((name, lines.join("\n"))))
+                .collect();
+
+            prop_assert_eq!(
+                frame(StreamFraming::Sse, usize::MAX, stream.as_bytes(), &cuts),
+                expected,
+            );
+        }
+
+        #[test]
+        fn data_line_framing_returns_each_data_line(
+            lines in vec((data_value(), any::<bool>()), 0..8),
+            eol in line_ending(),
+            cuts in vec(any::<usize>(), 0..8),
+        ) {
+            let mut stream = String::new();
+            for (value, blank_line_after) in &lines {
+                stream.push_str("data: ");
+                stream.push_str(value);
+                stream.push_str(eol);
+                if *blank_line_after {
+                    stream.push_str(eol);
+                }
+            }
+            let expected: Vec<Outcome> =
+                lines.into_iter().map(|(value, _)| Ok((None, value))).collect();
+
+            prop_assert_eq!(
+                frame(StreamFraming::SseDataLines, usize::MAX, stream.as_bytes(), &cuts),
+                expected,
+            );
+        }
+    }
+}
