@@ -1,0 +1,123 @@
+{
+  "openai-chat": {
+    "seeds": [],
+    "noise": [
+      { "data": { "error": { "message": "upstream failure", "code": 502 } } },
+      { "data": { "id": "chatcmpl-noise", "choices": [{ "index": 0, "delta": { "tool_calls": [{ "index": 3, "function": { "arguments": "{\"x\":" } }] } }] } },
+      { "data": { "id": "chatcmpl-noise", "choices": [{ "index": 0, "delta": { "refusal": "I can't help with that." } }] } },
+      { "data": { "id": "chatcmpl-noise", "choices": [{ "index": 0, "delta": { "reasoning": "thinking" } }] } },
+      { "data": { "id": "chatcmpl-noise", "choices": [{ "index": 0, "delta": {}, "finish_reason": "length" }] } },
+      { "data": "[DONE]" }
+    ]
+  },
+  "openai-responses": {
+    "seeds": [],
+    "noise": [
+      { "event": "error", "data": { "type": "error", "code": "server_error", "message": "upstream failure" } },
+      { "event": "response.failed", "data": { "type": "response.failed", "response": { "id": "resp_noise", "status": "failed", "error": { "code": "server_error", "message": "failed" } } } },
+      { "event": "response.output_text.delta", "data": { "type": "response.output_text.delta", "item_id": "msg_unknown", "output_index": 9, "content_index": 0, "delta": "stray" } },
+      { "event": "response.function_call_arguments.delta", "data": { "type": "response.function_call_arguments.delta", "item_id": "fc_unknown", "output_index": 8, "delta": "{\"q\":" } },
+      { "event": "keepalive", "data": "not json" },
+      { "data": "[DONE]" }
+    ]
+  },
+  "anthropic-messages": {
+    "seeds": [
+      [
+        { "event": "message_start", "data": { "type": "message_start", "message": { "id": "msg_01Seed", "type": "message", "role": "assistant", "model": "claude-sonnet-4-6", "content": [], "stop_reason": null, "stop_sequence": null, "usage": { "input_tokens": 47, "cache_read_input_tokens": 1024, "cache_creation_input_tokens": 256, "output_tokens": 1 } } } },
+        { "event": "ping", "data": { "type": "ping" } },
+        { "event": "content_block_start", "data": { "type": "content_block_start", "index": 0, "content_block": { "type": "thinking", "thinking": "" } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 0, "delta": { "type": "thinking_delta", "thinking": "The user wants " } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 0, "delta": { "type": "thinking_delta", "thinking": "today's weather." } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 0, "delta": { "type": "signature_delta", "signature": "EqQBCgIYAhIM1gbc" } } },
+        { "event": "content_block_stop", "data": { "type": "content_block_stop", "index": 0 } },
+        { "event": "content_block_start", "data": { "type": "content_block_start", "index": 1, "content_block": { "type": "text", "text": "" } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 1, "delta": { "type": "text_delta", "text": "Let me check " } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 1, "delta": { "type": "text_delta", "text": "the forecast." } } },
+        { "event": "content_block_stop", "data": { "type": "content_block_stop", "index": 1 } },
+        { "event": "content_block_start", "data": { "type": "content_block_start", "index": 2, "content_block": { "type": "tool_use", "id": "toolu_01Weather", "name": "get_weather", "input": {} } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 2, "delta": { "type": "input_json_delta", "partial_json": "{\"city\":" } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 2, "delta": { "type": "input_json_delta", "partial_json": " \"Paris\"}" } } },
+        { "event": "content_block_stop", "data": { "type": "content_block_stop", "index": 2 } },
+        { "event": "message_delta", "data": { "type": "message_delta", "delta": { "stop_reason": "tool_use", "stop_sequence": null }, "usage": { "output_tokens": 89 } } },
+        { "event": "message_stop", "data": { "type": "message_stop" } }
+      ],
+      [
+        { "event": "message_start", "data": { "type": "message_start", "message": { "id": "msg_01Redacted", "type": "message", "role": "assistant", "model": "claude-sonnet-4-6", "content": [], "usage": { "input_tokens": 8, "output_tokens": 0 } } } },
+        { "event": "content_block_start", "data": { "type": "content_block_start", "index": 0, "content_block": { "type": "redacted_thinking", "data": "EmwKAhgBEgy3va3pzix" } } },
+        { "event": "content_block_stop", "data": { "type": "content_block_stop", "index": 0 } },
+        { "event": "content_block_start", "data": { "type": "content_block_start", "index": 1, "content_block": { "type": "text", "text": "" } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 1, "delta": { "type": "text_delta", "text": "Done." } } },
+        { "event": "content_block_stop", "data": { "type": "content_block_stop", "index": 1 } },
+        { "event": "message_delta", "data": { "type": "message_delta", "delta": { "stop_reason": "end_turn" }, "usage": { "output_tokens": 3 } } },
+        { "event": "message_stop", "data": { "type": "message_stop" } }
+      ],
+      [
+        { "event": "message_start", "data": { "type": "message_start", "message": { "id": "msg_01Length", "type": "message", "role": "assistant", "model": "claude-sonnet-4-6", "content": [], "usage": { "input_tokens": 12, "output_tokens": 0 } } } },
+        { "event": "content_block_start", "data": { "type": "content_block_start", "index": 0, "content_block": { "type": "text", "text": "" } } },
+        { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 0, "delta": { "type": "text_delta", "text": "A long answer that" } } },
+        { "event": "content_block_stop", "data": { "type": "content_block_stop", "index": 0 } },
+        { "event": "message_delta", "data": { "type": "message_delta", "delta": { "stop_reason": "max_tokens" }, "usage": { "output_tokens": 4 } } },
+        { "event": "message_stop", "data": { "type": "message_stop" } }
+      ]
+    ],
+    "noise": [
+      { "event": "error", "data": { "type": "error", "error": { "type": "overloaded_error", "message": "Overloaded" } } },
+      { "event": "unknown_future_event", "data": { "type": "unknown_future_event", "index": 0 } },
+      { "event": "content_block_delta", "data": { "type": "content_block_delta", "index": 7, "delta": { "type": "text_delta", "text": "stray" } } },
+      { "event": "content_block_stop", "data": { "type": "content_block_stop", "index": 7 } }
+    ]
+  },
+  "gemini-generate": {
+    "seeds": [
+      [
+        { "data": { "responseId": "resp-gemini-seed", "candidates": [{ "content": { "role": "model", "parts": [{ "text": "Let me check", "thought": true }] } }], "usageMetadata": { "promptTokenCount": 18, "cachedContentTokenCount": 6, "candidatesTokenCount": 5 } } },
+        { "data": { "responseId": "resp-gemini-seed", "candidates": [{ "content": { "role": "model", "parts": [{ "text": " the forecast.", "thought": true, "thoughtSignature": "sig-stream-think" }] } }] } },
+        { "data": { "responseId": "resp-gemini-seed", "candidates": [{ "content": { "role": "model", "parts": [{ "text": "Checking" }] } }] } },
+        { "data": { "responseId": "resp-gemini-seed", "candidates": [{ "content": { "role": "model", "parts": [{ "text": " now." }] } }] } },
+        { "data": { "responseId": "resp-gemini-seed", "candidates": [{ "content": { "role": "model", "parts": [{ "functionCall": { "name": "get_weather", "args": { "city": "Paris" } }, "thoughtSignature": "sig-stream-call" }] }, "finishReason": "STOP" }], "usageMetadata": { "promptTokenCount": 18, "cachedContentTokenCount": 6, "candidatesTokenCount": 14, "thoughtsTokenCount": 9 } } }
+      ],
+      [
+        { "data": { "responseId": "resp-gemini-length", "candidates": [{ "content": { "role": "model", "parts": [{ "text": "A long" }] } }] } },
+        { "data": { "responseId": "resp-gemini-length", "candidates": [{ "content": { "role": "model", "parts": [{ "text": " answer" }] }, "finishReason": "MAX_TOKENS" }], "usageMetadata": { "promptTokenCount": 4, "candidatesTokenCount": 2 } } }
+      ]
+    ],
+    "noise": [
+      { "data": { "error": { "code": 503, "message": "The model is overloaded.", "status": "UNAVAILABLE" } } },
+      { "data": { "promptFeedback": { "blockReason": "SAFETY" } } },
+      { "data": "[DONE]" },
+      { "data": { "candidates": [{ "content": { "role": "model", "parts": [{ "functionCall": { "name": "lookup", "args": {} } }] } }] } }
+    ]
+  },
+  "bedrock-converse": {
+    "seeds": [
+      [
+        { "event": "messageStart", "data": { "role": "assistant" } },
+        { "event": "contentBlockDelta", "data": { "contentBlockIndex": 0, "delta": { "text": "Checking" } } },
+        { "event": "contentBlockStart", "data": { "contentBlockIndex": 2, "start": { "toolUse": { "toolUseId": "tooluse_paris", "name": "get_weather" } } } },
+        { "event": "contentBlockDelta", "data": { "contentBlockIndex": 0, "delta": { "text": " Paris." } } },
+        { "event": "contentBlockDelta", "data": { "contentBlockIndex": 2, "delta": { "toolUse": { "input": "{\"city\":" } } } },
+        { "event": "contentBlockDelta", "data": { "contentBlockIndex": 1, "delta": { "reasoningContent": { "text": "Paris is in France." } } } },
+        { "event": "contentBlockDelta", "data": { "contentBlockIndex": 1, "delta": { "reasoningContent": { "signature": "sig-stream" } } } },
+        { "event": "contentBlockDelta", "data": { "contentBlockIndex": 2, "delta": { "toolUse": { "input": " \"Paris\"}" } } } },
+        { "event": "contentBlockStop", "data": { "contentBlockIndex": 0 } },
+        { "event": "contentBlockStop", "data": { "contentBlockIndex": 1 } },
+        { "event": "contentBlockStop", "data": { "contentBlockIndex": 2 } },
+        { "event": "messageStop", "data": { "stopReason": "tool_use" } },
+        { "event": "metadata", "data": { "usage": { "inputTokens": 30, "outputTokens": 628, "totalTokens": 658, "cacheReadInputTokens": 1024, "cacheWriteInputTokens": 512 }, "metrics": { "latencyMs": 412 } } }
+      ],
+      [
+        { "event": "messageStart", "data": { "role": "assistant" } },
+        { "event": "contentBlockDelta", "data": { "contentBlockIndex": 0, "delta": { "text": "Done." } } },
+        { "event": "contentBlockStop", "data": { "contentBlockIndex": 0 } },
+        { "event": "messageStop", "data": { "stopReason": "end_turn" } },
+        { "event": "metadata", "data": { "usage": { "inputTokens": 5, "outputTokens": 2, "totalTokens": 7 }, "metrics": { "latencyMs": 90 } } }
+      ]
+    ],
+    "noise": [
+      { "event": "messageStop", "data": { "stopReason": "refusal" } },
+      { "event": "contentBlockDelta", "data": { "contentBlockIndex": 5, "delta": { "reasoningContent": { "redactedContent": "cmVkYWN0ZWQ=" } } } },
+      { "event": "unknownFutureEvent", "data": {} }
+    ]
+  }
+}

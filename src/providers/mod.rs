@@ -8,6 +8,8 @@
 
 #[cfg(feature = "bedrock")]
 mod bedrock;
+#[cfg(test)]
+mod decoder_properties;
 
 use crate::adapter::AdapterRegistry;
 use crate::catalog::adapter_ids;
