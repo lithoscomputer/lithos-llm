@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Credentials are never sent over unencrypted HTTP to another machine. A
+  call whose credentials add any header, bound for an `http://` URL whose
+  host is not `localhost`, a `.localhost` name, or a loopback address, now
+  fails before sending with a `Configuration` error. Local servers such as
+  the built-in Ollama and LiteLLM entries, and calls without credentials,
+  are unaffected.
+
 - The default HTTP client follows no redirects. A 3xx response now fails
   the call as a non-retryable `Provider` error carrying its status. A
   followed redirect to another host kept every credential header except
