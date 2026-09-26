@@ -39,6 +39,10 @@ pub(crate) enum Backend {
 }
 
 impl Backend {
+    #[expect(
+        clippy::panic,
+        reason = "an unknown backend must stop the suite before it spends provider credits"
+    )]
     pub(crate) fn from_env() -> Self {
         match env::var("LITHOS_E2E_BACKEND").as_deref() {
             Ok("live") => Self::Live,
