@@ -609,4 +609,271 @@ mod tests {
         assert_eq!(frame.event_type(), None);
         assert_eq!(frame.payload, br#"{"message":"Too many requests"}"#);
     }
+
+    /// Properties that must hold for every byte stream, beyond the examples
+    /// above.
+    mod properties {
+        use std::collections::BTreeMap;
+
+        use proptest::collection::vec;
+        use proptest::prelude::*;
+        use proptest::sample::Index;
+
+        use super::super::{EventStreamFramer, PRELUDE_LENGTH, extract_frames_with_limit};
+        use super::{frame, push_string_header, push_typed_header};
+        use crate::catalog::ProviderId;
+        use crate::transport::stream::Framer as _;
+        use crate::types::ErrorKind;
+
+        #[derive(Clone, Debug)]
+        enum Header {
+            Text(String, String),
+            /// A value of another type, already encoded at its width.
+            Typed(String, u8, Vec<u8>),
+        }
+
+        #[derive(Clone, Debug)]
+        struct Frame {
+            headers: Vec<Header>,
+            payload: Vec<u8>,
+        }
+
+        impl Frame {
+            fn encode(&self) -> Vec<u8> {
+                let mut block = Vec::new();
+                for header in &self.headers {
+                    match header {
+                        Header::Text(name, value) => push_string_header(&mut block, name, value),
+                        Header::Typed(name, value_type, value) => {
+                            push_typed_header(&mut block, name, *value_type, value);
+                        }
+                    }
+                }
+                frame(&block, &self.payload)
+            }
+
+            /// The string headers a decoder keeps; a repeated name keeps its
+            /// last value.
+            fn text_headers(&self) -> BTreeMap<String, String> {
+                self.headers
+                    .iter()
+                    .filter_map(|header| match header {
+                        Header::Text(name, value) => Some((name.clone(), value.clone())),
+                        Header::Typed(..) => None,
+                    })
+                    .collect()
+            }
+        }
+
+        fn header() -> impl Strategy<Value = Header> {
+            let name = "[:a-z-]{1,12}";
+            // Each non-string type with the width its value takes.
+            let fixed = prop_oneof![
+                Just((0_u8, 0_usize)),
+                Just((1, 0)),
+                Just((2, 1)),
+                Just((3, 2)),
+                Just((4, 4)),
+                Just((5, 8)),
+                Just((8, 8)),
+                Just((9, 16)),
+            ]
+            .prop_flat_map(|(value_type, width)| (Just(value_type), vec(any::<u8>(), width)));
+            let bytes = vec(any::<u8>(), 0..8).prop_map(|bytes| {
+                let length = u16::try_from(bytes.len()).unwrap_or(u16::MAX);
+                (6_u8, [length.to_be_bytes().to_vec(), bytes].concat())
+            });
+            prop_oneof![
+                3 => (name, "[ -~é]{0,20}").prop_map(|(name, value)| Header::Text(name, value)),
+                1 => (name, fixed).prop_map(|(name, (value_type, value))| {
+                    Header::Typed(name, value_type, value)
+                }),
+                1 => (name, bytes).prop_map(|(name, (value_type, value))| {
+                    Header::Typed(name, value_type, value)
+                }),
+            ]
+        }
+
+        fn frames() -> impl Strategy<Value = Vec<Frame>> {
+            let payload = prop_oneof![
+                3 => "[ -~é]{0,40}".prop_map(String::into_bytes),
+                1 => vec(any::<u8>(), 0..40),
+            ];
+            vec(
+                (vec(header(), 0..5), payload)
+                    .prop_map(|(headers, payload)| Frame { headers, payload }),
+                0..6,
+            )
+        }
+
+        #[derive(Clone, Debug)]
+        enum Corruption {
+            Flip(Index, u8),
+            Truncate(Index),
+            Insert(Index, Vec<u8>),
+            /// Rewrites the total length in the prelude at a frame start and
+            /// recomputes the prelude checksum, so only the length is wrong.
+            FakeLength(Index, u32),
+        }
+
+        fn corruption() -> impl Strategy<Value = Corruption> {
+            prop_oneof![
+                3 => (any::<Index>(), 1_u8..).prop_map(|(at, mask)| Corruption::Flip(at, mask)),
+                1 => any::<Index>().prop_map(Corruption::Truncate),
+                2 => (any::<Index>(), vec(any::<u8>(), 1..16))
+                    .prop_map(|(at, bytes)| Corruption::Insert(at, bytes)),
+                2 => (any::<Index>(), any::<u32>())
+                    .prop_map(|(at, length)| Corruption::FakeLength(at, length)),
+            ]
+        }
+
+        /// Encodes `frames` and applies `corruptions` to the bytes.
+        fn corrupted(frames: &[Frame], corruptions: &[Corruption]) -> Vec<u8> {
+            let mut starts = Vec::new();
+            let mut bytes = Vec::new();
+            for frame in frames {
+                starts.push(bytes.len());
+                bytes.extend(frame.encode());
+            }
+            for corruption in corruptions {
+                match corruption {
+                    Corruption::Insert(at, extra) => {
+                        let at = at.index(bytes.len() + 1);
+                        bytes.splice(at..at, extra.iter().copied());
+                    }
+                    Corruption::FakeLength(..) if starts.is_empty() => {}
+                    _ if bytes.is_empty() => {}
+                    Corruption::Flip(at, mask) => {
+                        let at = at.index(bytes.len());
+                        bytes[at] ^= mask;
+                    }
+                    Corruption::Truncate(at) => bytes.truncate(at.index(bytes.len() + 1)),
+                    Corruption::FakeLength(at, length) => {
+                        let start = *at.get(&starts);
+                        if start + PRELUDE_LENGTH <= bytes.len() {
+                            bytes[start..start + 4].copy_from_slice(&length.to_be_bytes());
+                            let crc = crc32fast::hash(&bytes[start..start + 8]);
+                            bytes[start + 8..start + 12].copy_from_slice(&crc.to_be_bytes());
+                        }
+                    }
+                }
+            }
+            bytes
+        }
+
+        /// Splits `bytes` at `cuts`, each taken modulo the length plus one.
+        fn chunks<'a>(bytes: &'a [u8], cuts: &[usize]) -> Vec<&'a [u8]> {
+            let mut cuts: Vec<_> = cuts.iter().map(|cut| cut % (bytes.len() + 1)).collect();
+            cuts.sort_unstable();
+            let mut start = 0;
+            let mut chunks = Vec::new();
+            for cut in cuts.into_iter().chain([bytes.len()]) {
+                chunks.push(&bytes[start..cut]);
+                start = cut;
+            }
+            chunks
+        }
+
+        /// A decoded frame's string headers and payload, or its error.
+        type Decoded = Result<(BTreeMap<String, String>, Vec<u8>), (ErrorKind, String)>;
+
+        /// Runs `chunks` through the frame decoder with a buffer a caller
+        /// keeps between chunks.
+        fn decode(chunks: &[&[u8]]) -> Vec<Decoded> {
+            let mut buffer = Vec::new();
+            let mut decoded = Vec::new();
+            for chunk in chunks {
+                buffer.extend_from_slice(chunk);
+                decoded.extend(
+                    extract_frames_with_limit(&mut buffer, usize::MAX)
+                        .into_iter()
+                        .map(|frame| {
+                            frame
+                                .map(|frame| (frame.headers, frame.payload))
+                                .map_err(|error| (error.kind(), error.message().to_owned()))
+                        }),
+                );
+            }
+            decoded
+        }
+
+        /// What the framer returns for one event, in a form tests can compare.
+        type Outcome = Result<(Option<String>, String), (ErrorKind, String)>;
+
+        /// Runs `chunks` through the framer, checking after every chunk that
+        /// it holds no more than one frame's worth of bytes.
+        fn frame_events(chunks: &[&[u8]], limit: usize) -> Result<Vec<Outcome>, TestCaseError> {
+            let mut framer = EventStreamFramer::new(ProviderId::new("bedrock"), limit);
+            let mut outcomes = Vec::new();
+            for chunk in chunks {
+                outcomes.extend(framer.push(chunk).into_iter().map(|event| {
+                    event
+                        .map(|event| (event.event, event.data))
+                        .map_err(|error| (error.kind(), error.message().to_owned()))
+                }));
+                prop_assert!(
+                    framer.buffer.len() <= limit.max(PRELUDE_LENGTH),
+                    "the framer holds {} bytes under a {limit}-byte limit",
+                    framer.buffer.len()
+                );
+            }
+            outcomes.extend(framer.finish().into_iter().map(|event| {
+                event
+                    .map(|event| (event.event, event.data))
+                    .map_err(|error| (error.kind(), error.message().to_owned()))
+            }));
+            Ok(outcomes)
+        }
+
+        proptest! {
+            #[test]
+            fn encoded_frames_decode_to_themselves(
+                frames in frames(),
+                cuts in vec(any::<usize>(), 0..8),
+            ) {
+                let bytes: Vec<u8> = frames.iter().flat_map(Frame::encode).collect();
+
+                let expected: Vec<Decoded> = frames
+                    .iter()
+                    .map(|frame| Ok((frame.text_headers(), frame.payload.clone())))
+                    .collect();
+                prop_assert_eq!(decode(&chunks(&bytes, &cuts)), expected);
+            }
+
+            #[test]
+            fn chunk_boundaries_never_change_the_events(
+                frames in frames(),
+                corruptions in vec(corruption(), 0..4),
+                limit in 16_usize..512,
+                cuts in vec(any::<usize>(), 0..8),
+            ) {
+                let bytes = corrupted(&frames, &corruptions);
+
+                prop_assert_eq!(
+                    frame_events(&chunks(&bytes, &cuts), limit)?,
+                    frame_events(&[&bytes], limit)?,
+                );
+            }
+
+            #[test]
+            fn corruption_never_fabricates_a_frame(
+                frames in frames(),
+                corruptions in vec(corruption(), 1..4),
+            ) {
+                let bytes = corrupted(&frames, &corruptions);
+
+                // Every frame that survives decoding is one that was sent, in
+                // the order it was sent.
+                let mut sent = frames
+                    .iter()
+                    .map(|frame| (frame.text_headers(), frame.payload.clone()));
+                for decoded in decode(&[&bytes]).into_iter().flatten() {
+                    prop_assert!(
+                        sent.any(|frame| frame == decoded),
+                        "decoded a frame that was never sent: {decoded:?}"
+                    );
+                }
+            }
+        }
+    }
 }
