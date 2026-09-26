@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- A stream delivers at most one `Started`. A provider or proxy that repeats
+  its opening event — Anthropic's `message_start` or Bedrock's
+  `messageStart` — no longer produces a second `Started`; the stream keeps
+  the id it announced first.
+
 - SSE responses are parsed as the WHATWG specification defines. Lines may
   end with LF, CRLF, or a bare CR, mixed within one stream and split across
   network chunks. A stream-leading byte-order mark is stripped, a bare `data`

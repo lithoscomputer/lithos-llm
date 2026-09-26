@@ -163,6 +163,7 @@ pub(crate) struct StreamAssembler {
     cost:          Option<Cost>,
     warnings:      Vec<Warning>,
     raw:           Option<Value>,
+    started:       bool,
     completed:     bool,
 }
 
@@ -188,6 +189,7 @@ impl StreamAssembler {
             cost:          None,
             warnings:      Vec::new(),
             raw:           None,
+            started:       false,
             completed:     false,
         }
     }
@@ -460,10 +462,19 @@ impl StreamAssembler {
         }]
     }
 
-    /// Records the response id and returns the stream's `Started` event.
-    pub(crate) fn started(&mut self, id: Option<String>) -> StreamEvent {
+    /// Records the response id and returns the stream's `Started` event, the
+    /// first time only.
+    ///
+    /// A repeated start — a duplicated `message_start`, or a proxy that
+    /// replays the opening frame — changes nothing: the stream has started,
+    /// and it keeps the id it announced.
+    pub(crate) fn started(&mut self, id: Option<String>) -> Option<StreamEvent> {
+        if self.started {
+            return None;
+        }
+        self.started = true;
         self.response_id.clone_from(&id);
-        StreamEvent::Started { id }
+        Some(StreamEvent::Started { id })
     }
 
     /// Records a complete cumulative usage snapshot and returns its event.
@@ -1066,7 +1077,10 @@ mod tests {
         let text = ContentBlockId::new("block-0");
         let tool = ContentBlockId::new("tool-0");
 
-        let mut events = vec![assembler.started(Some("resp_1".to_owned()))];
+        let mut events: Vec<_> = assembler
+            .started(Some("resp_1".to_owned()))
+            .into_iter()
+            .collect();
         events.extend(assembler.text(&text, "hello"));
         events.extend(assembler.start(tool.clone(), tool_kind("call_a", "lookup")));
         events.extend(assembler.arguments(&tool, "{}"));

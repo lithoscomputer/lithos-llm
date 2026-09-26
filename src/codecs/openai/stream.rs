@@ -73,7 +73,7 @@ impl StreamDecoder for ResponsesStream {
                 .pointer("/response/id")
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned);
-            latched.push(self.assembler.started(id));
+            latched.extend(self.assembler.started(id));
         }
         let events = self.decode_event(kind, &value)?;
         latched.extend(events);

@@ -127,7 +127,7 @@ impl ChatStreamDecoder {
         let mut events = Vec::new();
         if !self.started {
             self.started = true;
-            events.push(self.assembler.started(id.clone()));
+            events.extend(self.assembler.started(id.clone()));
         }
         if let Some(id) = id {
             self.assembler.set_id(id);

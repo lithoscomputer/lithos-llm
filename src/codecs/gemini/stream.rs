@@ -243,7 +243,7 @@ impl GeminiStreamDecoder {
         }
         if !self.started {
             self.started = true;
-            events.push(self.assembler.started(self.response_id.clone()));
+            events.extend(self.assembler.started(self.response_id.clone()));
         }
 
         for part in value

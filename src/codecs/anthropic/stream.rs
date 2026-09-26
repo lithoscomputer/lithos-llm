@@ -55,7 +55,7 @@ impl StreamDecoder for AnthropicStreamDecoder {
                     .pointer("/message/id")
                     .and_then(Value::as_str)
                     .map(ToOwned::to_owned);
-                events.push(self.assembler.started(id));
+                events.extend(self.assembler.started(id));
                 if let Some(usage) = value.pointer("/message/usage") {
                     events.push(
                         self.assembler
