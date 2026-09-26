@@ -25,10 +25,15 @@ use crate::types::{Error, ErrorKind, RetryClassification, limit_error};
 /// `error` frame becomes a classified provider error rather than an event, so
 /// a mid-stream Bedrock failure reaches the caller through the same taxonomy
 /// as an HTTP failure. The protocol has no end-of-stream frame to flush.
+///
+/// The first error ends framing, as it ends the stream: nothing after it is
+/// decoded, so what a caller receives never depends on how the bytes were
+/// split into chunks.
 pub(super) struct EventStreamFramer {
     provider:    ProviderId,
     frame_limit: usize,
     buffer:      Vec<u8>,
+    ended:       bool,
 }
 
 impl EventStreamFramer {
@@ -37,17 +42,29 @@ impl EventStreamFramer {
             provider,
             frame_limit,
             buffer: Vec::new(),
+            ended: false,
         }
     }
 }
 
 impl Framer for EventStreamFramer {
     fn push(&mut self, chunk: &[u8]) -> Vec<Result<SseEvent, Error>> {
+        if self.ended {
+            return Vec::new();
+        }
         self.buffer.extend_from_slice(chunk);
-        extract_frames_with_limit(&mut self.buffer, self.frame_limit)
-            .into_iter()
-            .map(|frame| frame.and_then(|frame| frame.into_event(&self.provider)))
-            .collect()
+        let mut events = Vec::new();
+        for frame in extract_frames_with_limit(&mut self.buffer, self.frame_limit) {
+            let event = frame.and_then(|frame| frame.into_event(&self.provider));
+            let failed = event.is_err();
+            events.push(event);
+            if failed {
+                self.ended = true;
+                self.buffer.clear();
+                break;
+            }
+        }
+        events
     }
 
     fn finish(&mut self) -> Vec<Result<SseEvent, Error>> {
@@ -333,7 +350,9 @@ fn decode_utf8(bytes: &[u8], part: &str) -> Result<String, Error> {
 mod tests {
     use crc32fast::hash;
 
-    use super::{EventStreamFrame, PRELUDE_LENGTH, extract_frames};
+    use super::{EventStreamFrame, EventStreamFramer, PRELUDE_LENGTH, extract_frames};
+    use crate::catalog::ProviderId;
+    use crate::transport::stream::Framer as _;
     use crate::types::{Error, ErrorKind, RetryClassification};
 
     /// Appends one string header in the AWS event-stream header encoding.
@@ -405,6 +424,25 @@ mod tests {
             [Err(error)] => error,
             other => panic!("expected one error, got {} results", other.len()),
         }
+    }
+
+    #[test]
+    fn the_framer_decodes_nothing_after_its_first_error() {
+        let mut corrupt = event_frame("contentBlockDelta", b"{}");
+        let last = corrupt.len() - 1;
+        corrupt[last] ^= 0xFF;
+        let valid = event_frame("contentBlockDelta", b"{}");
+        let mut framer = EventStreamFramer::new(ProviderId::new("bedrock"), 1024);
+
+        let events = framer.push(&[corrupt, valid.clone()].concat());
+
+        assert_eq!(
+            events.len(),
+            1,
+            "the valid frame after the failure is not decoded"
+        );
+        assert!(events[0].is_err());
+        assert!(framer.push(&valid).is_empty(), "nor is a later chunk");
     }
 
     #[test]
