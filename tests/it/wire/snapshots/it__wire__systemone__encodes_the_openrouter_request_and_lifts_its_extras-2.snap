@@ -15,11 +15,11 @@ expression: rendered
       "type": "choice"
     },
     "requests_refund": {
-      "probability": 0.98,
+      "probability": 0.99,
       "type": "boolean"
     },
     "severity": {
-      "confidence": 0.47,
+      "confidence": 0.46,
       "probabilities": [
         0.14,
         0.64,
@@ -31,9 +31,9 @@ expression: rendered
   },
   "cost": {
     "source": "provider",
-    "usd_micros": 16
+    "usd_micros": 17
   },
-  "id": "dec_01K5J6R0X3T8V2W7Y9Z1A4B6C8",
+  "id": "gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c",
   "model": {
     "model": "jev-latest",
     "provider": "openrouter"
@@ -47,20 +47,20 @@ expression: rendered
     "answers": {
       "department": {
         "choice": "billing",
-        "confidence": 1.0,
+        "confidence": 1,
         "probabilities": {
-          "billing": 1.0,
-          "other": 0.0,
-          "technical": 0.0
+          "billing": 1,
+          "other": 0,
+          "technical": 0
         },
         "type": "choice"
       },
       "requests_refund": {
-        "noul": 0.98,
+        "noul": 0.99,
         "type": "noul"
       },
       "severity": {
-        "confidence": 0.47,
+        "confidence": 0.46,
         "legend": {
           "0": "Cosmetic",
           "1": "Workaround exists",
@@ -75,12 +75,12 @@ expression: rendered
         "type": "score"
       }
     },
-    "id": "dec_01K5J6R0X3T8V2W7Y9Z1A4B6C8",
-    "model": "jev-1.13.0",
+    "id": "gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c",
+    "model": "typesafe/jev-1.13-20260917",
     "provider": "TypeSafe",
     "usage": {
-      "cost": 0.000016338,
-      "input_tokens": 389,
+      "cost": 0.000017346,
+      "input_tokens": 413,
       "output_tokens": 70
     }
   },
@@ -88,11 +88,11 @@ expression: rendered
     "probability_decimals": 2,
     "score_decimals": 2
   },
-  "served_by": "jev-1.13.0",
+  "served_by": "typesafe/jev-1.13-20260917",
   "usage": {
     "cache_read": 0,
     "cache_write": 0,
-    "input": 389,
+    "input": 413,
     "output": 70,
     "reasoning": 0
   }

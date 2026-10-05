@@ -415,6 +415,10 @@ pub(crate) async fn collect_stream_events(mut stream: ResponseStream) -> Vec<Val
 /// # Panics
 ///
 /// Panics with the offending event index whenever an invariant is broken.
+#[expect(
+    clippy::panic,
+    reason = "a test assertion reports a broken stream invariant by panicking"
+)]
 pub(crate) fn assert_stream_contract(events: &[Value]) {
     let mut open: BTreeMap<String, String> = BTreeMap::new();
     let mut started: BTreeSet<String> = BTreeSet::new();
@@ -531,6 +535,10 @@ pub(crate) fn assert_stream_contract(events: &[Value]) {
     );
 }
 
+#[expect(
+    clippy::panic,
+    reason = "a test assertion reports a broken stream invariant by panicking"
+)]
 fn event_type(event: &Value, index: usize) -> &str {
     event
         .get("type")
@@ -538,6 +546,10 @@ fn event_type(event: &Value, index: usize) -> &str {
         .unwrap_or_else(|| panic!("event {index} has no `type` discriminator"))
 }
 
+#[expect(
+    clippy::panic,
+    reason = "a test assertion reports a broken stream invariant by panicking"
+)]
 fn block_id(event: &Value, index: usize) -> String {
     event
         .get("id")
@@ -546,6 +558,10 @@ fn block_id(event: &Value, index: usize) -> String {
         .to_owned()
 }
 
+#[expect(
+    clippy::panic,
+    reason = "a test assertion reports a broken stream invariant by panicking"
+)]
 fn block_kind(event: &Value, index: usize) -> String {
     event
         .get("kind")

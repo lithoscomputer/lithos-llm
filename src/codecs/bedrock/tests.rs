@@ -1595,3 +1595,19 @@ fn non_text_system_content_is_reported() -> Result<(), Box<dyn StdError>> {
     assert_eq!(codes, ["unsupported_control"]);
     Ok(())
 }
+
+#[test]
+fn a_repeated_message_start_starts_the_stream_once() -> Result<(), Box<dyn StdError>> {
+    let events = streamed(&[
+        ("messageStart", json!({ "role": "assistant" })),
+        ("messageStart", json!({ "role": "assistant" })),
+        ("messageStop", json!({ "stopReason": "end_turn" })),
+    ])?;
+
+    let starts = events
+        .iter()
+        .filter(|event| matches!(event, StreamEvent::Started { .. }))
+        .count();
+    assert_eq!(starts, 1);
+    Ok(())
+}

@@ -1123,3 +1123,41 @@ fn an_opaque_object_still_replays() -> Result<(), Box<dyn StdError>> {
     );
     Ok(())
 }
+
+#[test]
+fn a_proxy_done_terminator_completes_the_stream() -> Result<(), Box<dyn StdError>> {
+    let call = resolved(
+        Request::builder()
+            .model("gemini/gemini-3.1-pro-preview")
+            .user("Hello")
+            .build()?,
+    )?;
+    let mut decoder = GeminiGenerateCodec.stream_decoder(call.route());
+    decoder.decode(SseEvent {
+        event: None,
+        data:  json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": "ok" }] },
+                "finishReason": "STOP",
+            }],
+        })
+        .to_string(),
+    })?;
+
+    let events = decoder.decode(SseEvent {
+        event: None,
+        data:  "[DONE]".to_owned(),
+    })?;
+
+    let responses: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            StreamEvent::Ended { response } => Some(response),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(responses.len(), 1, "the terminator completes the response");
+    assert_eq!(responses[0].finish_reason, FinishReason::Stop);
+    assert!(decoder.finish()?.is_empty(), "completing is idempotent");
+    Ok(())
+}

@@ -3,9 +3,9 @@
 //!
 //! The success body is a real 200 TypeSafe's API returned on 2026-09-18 for
 //! the interface plan's three questions, and the 401 is the body it returns
-//! for a rejected key. The OpenRouter body is hand-written from the
-//! documented Decisions schema: no decisions model was listed when this was
-//! written, so there is no live body to pin.
+//! for a rejected key. The OpenRouter body is a real 200 from OpenRouter's
+//! Decisions API on 2026-09-22 for the same questions, with the generation
+//! id replaced by a synthetic one of the same shape.
 
 use httpmock::{Method, MockServer};
 use lithos_llm::catalog::{Catalog, codec_ids};
@@ -35,9 +35,13 @@ const LIVE_BODY: &str = r#"{"model":"jev-1.13.0","answers":{"department":{"type"
 /// The 401 body TypeSafe returns for a rejected key, 2026-09-18.
 const UNAUTHORIZED_BODY: &str = r#"{"detail":{"error_type":"authentication_error","message":"Cannot authenticate with the server. Please check your API key and try again."}}"#;
 
-/// An OpenRouter Decisions body, hand-written from the documented schema:
-/// the TypeSafe answers plus `id`, `provider`, and `usage.cost`.
-const OPENROUTER_BODY: &str = r#"{"id":"dec_01K5J6R0X3T8V2W7Y9Z1A4B6C8","provider":"TypeSafe","model":"jev-1.13.0","answers":{"department":{"type":"choice","choice":"billing","confidence":1.0,"probabilities":{"billing":1.0,"other":0.0,"technical":0.0}},"severity":{"type":"score","score":1.08,"confidence":0.47,"legend":{"0":"Cosmetic","1":"Workaround exists","2":"Blocking; no workaround"},"probabilities":{"0":0.14,"1":0.64,"2":0.22}},"requests_refund":{"type":"noul","noul":0.98}},"usage":{"input_tokens":389,"output_tokens":70,"cost":0.000016338}}"#;
+/// A real 200 body from OpenRouter's `POST /api/alpha/decisions` for
+/// `typesafe/jev-1.13`, 2026-09-22: the TypeSafe answers, with whole-number
+/// probabilities written as integers, plus `id`, `provider`, and
+/// `usage.cost`. `model` is OpenRouter's dated slug, not TypeSafe's version.
+const OPENROUTER_BODY: &str = r#"{"model":"typesafe/jev-1.13-20260917","answers":{"department":{"type":"choice","choice":"billing","probabilities":{"other":0,"technical":0,"billing":1},"confidence":1},"severity":{"type":"score","score":1.08,"legend":{"0":"Cosmetic","1":"Workaround exists","2":"Blocking; no workaround"},"probabilities":{"0":0.14,"1":0.64,"2":0.22},"confidence":0.46},"requests_refund":{"type":"noul","noul":0.99}},"usage":{"input_tokens":413,"output_tokens":70,"cost":0.000017346},"id":"gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c","provider":"TypeSafe"}"#;
+
+const OPENROUTER_ID: &str = "gen-dec-1790122401-QZ7nXbT4kWm2Hs9LpR3c";
 
 fn typesafe() -> WireProvider<'static> {
     WireProvider::new(TYPESAFE, codec_ids::SYSTEMONE, MODEL)
@@ -150,9 +154,10 @@ async fn encodes_the_openrouter_request_and_lifts_its_extras() {
     mock.assert_async().await;
     let wire = support::captured(&slot);
     assert_eq!(wire.path, OPENROUTER_PATH);
+    assert_eq!(verdict.id.as_deref(), Some(OPENROUTER_ID));
     assert_eq!(
-        verdict.id.as_deref(),
-        Some("dec_01K5J6R0X3T8V2W7Y9Z1A4B6C8")
+        verdict.served_by.as_deref(),
+        Some("typesafe/jev-1.13-20260917")
     );
     assert_eq!(
         verdict.cost.map(|cost| cost.source),
@@ -192,4 +197,72 @@ async fn a_rejected_key_401_is_an_authentication_error() {
         error.message()
     );
     assert!(!error.is_retryable());
+}
+
+/// Wire tests against the built-in catalog's rows rather than a test-only
+/// catalog.
+#[cfg(feature = "builtin-catalog")]
+mod builtin {
+    use httpmock::MockServer;
+    use lithos_llm::Client;
+    use lithos_llm::catalog::Catalog;
+    use lithos_llm::credentials::StaticCredentials;
+    use lithos_llm::types::CostSource;
+
+    use super::{OPENROUTER, OPENROUTER_BODY, body, evaluation, openrouter};
+    use crate::support;
+
+    /// The built-in `openrouter` provider with only its origin moved to the
+    /// mock, so the `/api/v1` Chat mount the codec strips stays in place.
+    fn builtin_openrouter_client(server: &MockServer) -> Client {
+        let catalog = Catalog::builder()
+            .with_builtin()
+            .overlay_toml(&format!(
+                "schema_version = 1\n[providers.{OPENROUTER}]\nbase_url = \"{}/api/v1\"",
+                server.base_url()
+            ))
+            .expect("the mock origin overlay should parse")
+            .build()
+            .expect("the built-in catalog with the mock origin should build");
+        let build = Client::builder()
+            .catalog(catalog)
+            .enabled_providers([OPENROUTER])
+            .credentials(StaticCredentials::new().with(OPENROUTER, support::bearer_credentials()))
+            .build()
+            .expect("the wire test client should build");
+        assert!(build.issues.is_empty(), "{:?}", build.issues);
+        build.client
+    }
+
+    #[tokio::test]
+    async fn the_builtin_openrouter_jev_rows_post_decisions_under_the_api_root() {
+        for (model, wire_model) in [
+            ("jev-latest", "~typesafe/jev-latest"),
+            ("jev-1.13", "typesafe/jev-1.13"),
+        ] {
+            let server = MockServer::start_async().await;
+            let client = builtin_openrouter_client(&server);
+            let (mock, slot) =
+                support::mount_capture(&server, "/api/alpha/decisions", &body(OPENROUTER_BODY));
+            let evaluation = evaluation(&openrouter())
+                .into_builder()
+                .model(format!("{OPENROUTER}/{model}"))
+                .build()
+                .expect("the evaluation should build");
+
+            let verdict = client
+                .evaluate(evaluation)
+                .await
+                .expect("the evaluation should succeed");
+
+            mock.assert_async().await;
+            let wire = support::captured(&slot);
+            assert_eq!(wire.body["model"], wire_model);
+            assert_eq!(verdict.model.model().as_str(), model);
+            assert_eq!(
+                verdict.cost.map(|cost| cost.source),
+                Some(CostSource::Provider)
+            );
+        }
+    }
 }

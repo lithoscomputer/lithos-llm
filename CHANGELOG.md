@@ -20,6 +20,73 @@ This project follows [Semantic Versioning](https://semver.org/).
   gateways). The Bedrock row comes from the release notes alone: it is not
   probed and not priced.
 
+- Breaking: `InlineLocalFiles` reads only inside the directories it is
+  given. `InlineLocalFiles::new(directories)` replaces `new()`,
+  `InlineLocalFiles::unrestricted()` keeps the old read-anywhere behavior for
+  trusted local use, and `with_env_lookup` is now a builder method. A path is
+  checked by name, with `.` and `..` resolved, and again after symlinks
+  resolve. The middleware also reads only regular files, up to 32 MiB by
+  default (`max_file_bytes`), with a bounded read. A path outside the
+  directories, a directory, pipe, or device such as `/dev/zero`, or a larger
+  file now fails the call with `InvalidRequest` instead of being read: a
+  tool result or an end user's message could name any readable file, a
+  device never ended, and a pipe could block forever. A missing or
+  unreadable file inside an allowed directory is still dropped with a
+  warning. The `local-files` feature now enables `tokio/io-util`.
+
+- Credentials are never sent over unencrypted HTTP to another machine. A
+  call whose credentials add any header, bound for an `http://` URL whose
+  host is not `localhost`, a `.localhost` name, or a loopback address, now
+  fails before sending with a `Configuration` error. Local servers such as
+  the built-in Ollama and LiteLLM entries, and calls without credentials,
+  are unaffected.
+
+- The default HTTP client follows no redirects. A 3xx response now fails
+  the call as a non-retryable `Provider` error carrying its status. A
+  followed redirect to another host kept every credential header except
+  `authorization`, such as Anthropic's `x-api-key` or Gemini's
+  `x-goog-api-key`, and resent the request body there. An application that
+  injects its own client with `ClientBuilder::http` should build it with
+  `redirect(reqwest::redirect::Policy::none())`.
+
+- A stream delivers at most one `Started`. A provider or proxy that repeats
+  its opening event — Anthropic's `message_start` or Bedrock's
+  `messageStart` — no longer produces a second `Started`; the stream keeps
+  the id it announced first.
+
+- SSE responses are parsed as the WHATWG specification defines. Lines may
+  end with LF, CRLF, or a bare CR, mixed within one stream and split across
+  network chunks. A stream-leading byte-order mark is stripped, a bare `data`
+  line is an empty data line, and exactly one space after a field's colon is
+  removed, so `data:  x` carries ` x`. Two deviations are deliberate: an event
+  the stream ends inside is still delivered, and a line that is not UTF-8
+  fails the stream with a retryable `stream_decode` error, whose message now
+  reads "an SSE line was not UTF-8". `ResponseLimits::max_frame_bytes` bounds
+  one SSE event while it is read: its data and name so far plus the current
+  line. Streams whose events a lenient proxy separates by single line breaks
+  now keep an `event:` name on the next data line.
+  `[DONE]` is no longer dropped by the transport. The Chat Completions,
+  Responses, and Gemini decoders complete the response on it, so `Ended`
+  arrives at the terminator rather than when the connection closes. A stream
+  now ends at its `Ended` event: nothing the provider sends afterward,
+  including a late connection error, is delivered.
+
+- The built-in `openrouter` provider serves TypeSafe's Jev through
+  OpenRouter's Decisions API, on the `OPENROUTER_API_KEY` credential it
+  already uses. It now lists `codecs = ["openai-chat", "systemone"]` with
+  `codec_options = { systemone = { dialect = "openrouter" } }`, and gains
+  two evaluation rows from the 2026-09-22 listing: `jev-latest`
+  (`~typesafe/jev-latest`) and `jev-1.13` (`typesafe/jev-1.13`), each
+  priced at $0.042 per million input tokens with free output. The rows
+  derive `["systemone"]` from their evaluation claim, post to
+  `/api/alpha/decisions`, and report the in-band `usage.cost` as
+  `CostSource::Provider`. Both rows answered a live evaluation on
+  2026-09-22, and `Verdict::served_by` names OpenRouter's dated slug,
+  `typesafe/jev-1.13-20260917`. The OpenRouter wire fixture is now that
+  real body in place of the hand-written one. Every other OpenRouter row
+  stays on Chat Completions. A bare `jev-latest` still resolves to the
+  higher-priority `typesafe` provider when both are enabled.
+
 - Breaking: `Observer::on_retry` takes one `middleware::RetryEvent` in
   place of its four positional values. The struct carries `error`,
   `attempt`, `delay`, and `stage` as named fields and is
@@ -64,9 +131,8 @@ This project follows [Semantic Versioning](https://semver.org/).
   `session_id`, `user`, `trace`, and `provider` from the `openrouter`
   provider-options namespace, and lifts the body's `id`, `usage.cost` (as
   `CostSource::Provider`), and `provider` (into
-  `provider_metadata["openrouter"]`). The dialect ships in code and wire
-  tests only; no built-in row uses it until OpenRouter lists a decisions
-  model. The shared evaluation encoding and decoding helpers moved out of
+  `provider_metadata["openrouter"]`). The built-in `openrouter` provider's
+  Jev rows use the dialect (see the OpenRouter Jev entry above). The shared evaluation encoding and decoding helpers moved out of
   the Vercel codec into `codecs::evaluation_common`; the Vercel wire is
   unchanged. Error classification learned the FastAPI shapes TypeSafe
   sends: `detail` as an object with `error_type` and `message`, and
