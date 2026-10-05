@@ -140,6 +140,30 @@ pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_milli
 [providers.vercel.models."claude-fable-5".metadata.agent]
 profile = "claude-5"
 
+# Probed live on 2026-09-22. The gateway does not honor a forced tool
+# choice on this model: a `required` or named choice on a prompt with no
+# reason to call the tool came back 200 with plain text and no call. A
+# silent downgrade is not support, so the row claims tools without
+# forced_tool_choice. A temperature and `top_p` were accepted although the
+# listing says `temperature: false`, so the row claims sampling as Opus 5's
+# does. The effort levels are the listing's (`low` through `max`); all five
+# were accepted and reasoned (`low` 105 tokens through `max` 266), but the
+# gateway returned reasoning counts only, with no `reasoning.text`. JSON
+# object and JSON Schema output (blocking and streamed), vision, and stop
+# sequences verified. The listing prices a `fast` tier at twice these rates, which the Chat codec
+# cannot request.
+[providers.vercel.models."claude-opus-5.5"]
+display_name = "Claude Opus 5.5 (via Vercel)"
+aliases = ["opus", "claude-opus"]
+api_model = "anthropic/claude-opus-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }
+
+[providers.vercel.models."claude-opus-5.5".metadata.agent]
+profile = "claude-5"
+
 # Probed live on 2026-09-19 once the per-model rate limit was lifted (see
 # the header). The gateway accepted a temperature and `top_p` with a 200 and
 # no warning although the listing says `temperature: false`, so the row
@@ -155,7 +179,6 @@ profile = "claude-5"
 # at twice these rates, which the Chat codec cannot request.
 [providers.vercel.models."claude-opus-5"]
 display_name = "Claude Opus 5 (via Vercel)"
-aliases = ["opus", "claude-opus"]
 api_model = "anthropic/claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }

@@ -85153,6 +85153,2037 @@
           "generationId": "gen_01M2X5KST29S90AHEB96JVVRG6"
         }
       }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_levels::claude_opus_5_5_low/0001",
+      "namespace": "vercel::reasoning::effort_levels::claude_opus_5_5_low",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "61fd81cf78fa6f47"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C2Y0K4NP2D6XD6ABGA0JM",
+          "object": "chat.completion",
+          "created": 1790108074,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "",
+                    "signature": "CAQSwQUKEAgSGAI4AUIIdGhpbmtpbmcSDMB3ZTsHNSGhqAlKORoM06/rLSwxV/RuIm/4IjCScxFuYKg8fdZ2ce3YqkWiCG13iOFg4HW2SR/NgtIZpiY0S9D9YQKo2ZioAmL8XjYq3gQo4Nee4Oj56tktQfeoxxOg80faRTehBkzZeNeyX65qpzZw7C7xOBmTrPD2pcxw+Gqstv8a4PSuBhG4CnBN7uE6G2833vL3WvoPz/VrXY5BBWD1iMLlA3JhGT5Rg1UZCLABN7+TDH1j3o4HT/KwnflDiFahHC/+QE9x+iZRgEIUuSGCjGxIyCoRJMA2JXehV/POHWyv7vynYCwKQpw0mx5LvyF9X5HJrqPWz0jIAAyjE1u3hMAcrZvm7Rxr53FGKsxK4HxwFH3O6/K1a2KE0h4eBWDLn4EzltdvZ/iPaWjss7NwFvJ6tz7Lkbv49Q/sBCVL3Nz2wNBzcUdAxAIF513nsokhR4kITCFRgMhe+8chF05toRw+nQO5dmsrJLxoInVc3yF4nRR1g3E35zXJ+Wsf2he878NDVa0pXugvI20ZSDaVRU5jo9xRS4TDJCrv5rse5QiTh5RxSii7QXhXhPZx22u30oOi0xYloeqKVcXZEcD4lgwDPRxA/2fErGiExYOK8NYFIOH2oB+TMzCASD+iRmqZjak18XWkDb+QnjklJUtLvkCZCPtqgtP9lvfzMCZzRGhGCUVQESEB9280bUrr7aufCgh0cKJEQ48V9uCQMGjvZQbQunD4tp5M0UTHGLtBxB2IIfXhOdn8Zy5v2Er6HtAIkGqpiSx+Iv/jsRG3RylHilVssry6fdche1tuBXv8FNKoVOyDSR/9G9MU5k1oUohbW9dLtSK8GrWybbSxf2secwj3kjUrIC9f7KEMjAd226MIGbIg5ErQkCZ5x1XDwVGMZQGRUoZw0IHu+asYAQ==",
+                    "format": "anthropic-claude-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 78,
+                      "output_tokens": 108,
+                      "output_tokens_details": {
+                        "thinking_tokens": 105
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108072001,
+                              "endTime": 1790108074024,
+                              "providerRequestId": "req_011CfK6DbaEQLjJB2pQ76LxC",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6Dc2X46G3p3aD2VzfK"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.002472",
+                    "marketCost": "0.002472",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.002472",
+                    "inferenceCost": "0.002472",
+                    "inputInferenceCost": "0.000312",
+                    "outputInferenceCost": "0.00216",
+                    "generationId": "gen_01M35C2Y0K4NP2D6XD6ABGA0JM"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 108,
+            "total_tokens": 186,
+            "cost": 0.002472,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 105,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.002472,
+            "gateway_cost": 0.002472
+          },
+          "system_fingerprint": "fp_j4n51ddy8a",
+          "generationId": "gen_01M35C2Y0K4NP2D6XD6ABGA0JM"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_levels::claude_opus_5_5_high/0001",
+      "namespace": "vercel::reasoning::effort_levels::claude_opus_5_5_high",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "78fec087b93739c5"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C2Y0RKGZSF1G2HKYG4GBG",
+          "object": "chat.completion",
+          "created": 1790108074,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "",
+                    "signature": "CAQS4QUKEAgSGAI4AUIIdGhpbmtpbmcSDF+p4r7MZlViZbn6ThoMhx8RGmrf3EdCoC+mIjCmQwQ+BYe47IiQSSztz3z7HprdiNcgA5ecQUioC1TDA4GovioLzdbHx8/cm5goWwUq/gSRqa4HWPtsYZt8/H81dfptHC12ijHPf+h1E5saTAyYSiT1bF7OAw3QPV+/5dUrg3opHa3Pyl8vKj9ek5hcFEgGFsZi/SEc+imHdG8SkzsPHlaYW8ru308AcggJGWebrwj1OGfChn+U4W/mIyx/TswttrAUYR2VyEguTKRti+6f23Ws60rQ7niLuiQI4ZJaOiaewXSJX0LHV/RSTjE21qfI8Xt896DYKeAXaea0XByGesEu5rm0YW+E/p89BsAfiCPfEwjb37M1G1dLHl4u+HwLJZWmrPmMDBDRBAOjm2/zlKZjFMKcy1tuIqtu+jy2VPAQvn4giZTbyGWMRyWGuz8Zt++gX5L0nISKt9mTAfPmhtX2+mQYMP89BU+tmtSa3rdD3Na7hbWHwfuT9emMbo1H8xSFarxCP1/FWx30Z9/0N//1JLm2hqkLDGsIeGpuRrnWIVI/FFElyoou58q0KBYVtgAxGuQ5IhzCW/fmcxFnjymdXjYVzEq+jZ2l9pOhBGoNJNeP+gAmmXgN+UoA53c7mnuIksvGcylz4/jAZJqRIjCokgfHAlKRfRDx+kbEYqtLKpllfUjsWRfSE6oZlNQN7VqhwUjhXRQMj4yeO0/r/QWkkeInA+YxmINjmCeaWBv5EZ7iIs7ObMIpo54kU9pC3jv44PUIucBBnS5F9ng5Z67N8H7Ao8+yZZ8ZRQ8KgzhGB5eAck31ENDFl8OBKcWkOU1ZNuwq6RYS0UGcsvQh/7oZ5vCd+6NQzBUAg2q1fMMZ8SosIcRQfjnbep036vUKrgAaWzjs0xfjxIJDrYnyhvr7eY3FTCTLuE5LCv2+/PkaD+Ik1rN5yqoXZLZHbxgB",
+                    "format": "anthropic-claude-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 78,
+                      "output_tokens": 128,
+                      "output_tokens_details": {
+                        "thinking_tokens": 125
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108072009,
+                              "endTime": 1790108074146,
+                              "providerRequestId": "req_011CfK6DbYVoDQUabqtu1x1m",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6Dc5zqYHM67CoFoVu2"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.002872",
+                    "marketCost": "0.002872",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.002872",
+                    "inferenceCost": "0.002872",
+                    "inputInferenceCost": "0.000312",
+                    "outputInferenceCost": "0.00256",
+                    "generationId": "gen_01M35C2Y0RKGZSF1G2HKYG4GBG"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 128,
+            "total_tokens": 206,
+            "cost": 0.002872,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 125,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.002872,
+            "gateway_cost": 0.002872
+          },
+          "system_fingerprint": "fp_80x2qweupz",
+          "generationId": "gen_01M35C2Y0RKGZSF1G2HKYG4GBG"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_levels::claude_opus_5_5_medium/0001",
+      "namespace": "vercel::reasoning::effort_levels::claude_opus_5_5_medium",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "8211abf0c3c0779e"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C2Y0KEJXJR7VTB2JKMQ9A",
+          "object": "chat.completion",
+          "created": 1790108074,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "",
+                    "signature": "CAQS5AUKEAgSGAI4AUIIdGhpbmtpbmcSDJ0phuYwKFy51o2tThoMryP4QJI92kIckBB6IjAIl4q3mWVPWJ5F8LY51CAXNAOaPs4eaYkGBRyBLVsmOQOSSTs6Q3L0D9HcUUvGgmYqgQWXGUjZuMvrahGBdpCfazBSkdVI8fmIejqU0Swx+61qvfsG+S1otTN8GT4RQXbxDyDz67sX2djqfJQoZMrOHCyqpGDtk8h5cU0J52eHfdbk1nZ3YTUn61VDkEIaM/TJ+Zwl82hr59Ulw63IbUzoZ8udnIrtexkQXNsFy+Qkmc5gpwuJjjR+bfP8UM/eLbTvJNVlVFbi9GPG1VrX8yDvZBNRh71X6Jcaa0H1Q0hRgoW/bbSiIBklTd/Ta4OxYo+AN3/0/3iOBQQsxC+M/rZTuJzazJU1ihw3agyXvfFqkqS5vur73IGfyY0ZQPqAf7efDaksO7xB2IqLbJFRiXbEoxvfjoZ8NSPHdgZ6QsplR1MyiU1Iu1RHaPAPIoTDRIJ4+ZlvRgBeZqefBliU8Db4GNiC9Im+FUGhzGM1AxW1a9QTEdBz1EUl70o+fklgiJ0MmHpqaFn1L+iMWZ8BxncRUgObTmwbuaFJi+MORhYaiXzrmsTmpbdmLfwPB3a+PbBn74PJP7Jy4q7FXbDsMcn5SUs6yaUHGJ7+T5cls7AM+R3//0Rg94/Suzg9J0uVPYmoaVeTxGKQFxrC2Rqxfrag3x7w9K4vz+yKcXqFrjLN1EgRU3Gm8FBx0D49xbGDJjUOhuWlSBGAQ6jbxCgnViamUpK1nlQXu21TaePPApTtPWNDl7LLajrfc5Pa2urHu+e0X2WEpbYim3l+d1S7UCbxHm9LkgLIHq0BLPUZFmXm4waZwfgBzhCfARyGhFNcO4ugcVZ0RN4QXi+dhaXZx8pM2pdWHgZNoLAZRkCBuVVjztUZMVDf1LxNCngZQAaeE0Z2sI+wtdPdxT/vDNAJntjVFeWtqRgB",
+                    "format": "anthropic-claude-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 78,
+                      "output_tokens": 127,
+                      "output_tokens_details": {
+                        "thinking_tokens": 124
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108072054,
+                              "endTime": 1790108074996,
+                              "providerRequestId": "req_011CfK6Dbn8qsfWD2gFC74De",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6DcHPrQGkQnLxiXN7c"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.002852",
+                    "marketCost": "0.002852",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.002852",
+                    "inferenceCost": "0.002852",
+                    "inputInferenceCost": "0.000312",
+                    "outputInferenceCost": "0.00254",
+                    "generationId": "gen_01M35C2Y0KEJXJR7VTB2JKMQ9A"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 127,
+            "total_tokens": 205,
+            "cost": 0.002852,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 124,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.002852,
+            "gateway_cost": 0.002852
+          },
+          "system_fingerprint": "fp_vbqztfmsmd",
+          "generationId": "gen_01M35C2Y0KEJXJR7VTB2JKMQ9A"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_levels::claude_opus_5_5_max/0001",
+      "namespace": "vercel::reasoning::effort_levels::claude_opus_5_5_max",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "764de98b9b758f4b"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C2Y0JZQRP4FV060YRFPR7",
+          "object": "chat.completion",
+          "created": 1790108075,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "",
+                    "signature": "CAQS0gcKEAgSGAI4AUIIdGhpbmtpbmcSDEnfpCjdDxFoVVwP0BoMG6hQHs2tecGE0OKMIjAJztW7LjhcI9nLTgYXBFnaO/gSXPgUGXGJy9oXLRO+GKXnrYNRQOraE7KRBvdOPFYq7wayWV+P3YKZrlrh0fbC1Nzdr3EvGZiJ1mmaMJ5An759sB3ZDzXK4Fw/gCoMzD0mHvx4tnTlbErdQxruVxfBoc1ZiA8oju7hKG/hPCpq6MgvqkK75Bs/lS/wDJJiOdE7k43AlLlQ8NaVEXimHvKUcrQJsyXCNw41Qe7zDzDL4tAX4NfnKiEJhGKgPJn1pBqIOHKRySiPhOP2IGcvHVEUzwWcU8ljiC9Kf+Uq/qHxFhxj1Y0tsMjtsYyck95qZ70+2nF1fRGofarqRD1Mmi3V5Hk/mTmzLU8jq3ez19r10k2SzBcCinodoQAGa6+zstwlGsBKPy0IGxmPcjOUJx1+N5K89wIlo9zeSo0Pecrr0duGQxO9ua+mN/5CGyxtIOL0daRgPArZZDAf2IkDmdRp8HB4C45OZsvc49s2XeHaQNeK4xn8W/GDP81ga9g1/c1KJGgA0ptmxIZhuQyZg2Nb1W430Rk+OOeOumTJpQ7VrfUGsNGJAZ7+KiPt6cfGh4+/NWzF+n5zuMlX+gSyS0eZ8/TwcwkP/ymzBu/sODx6SyQPjuYsl1DuVatUQLF6Sf8++2XY403+j38cqEmPkmVjU1DShq59KuIwR/fgQMAT9GsTlWEO29Ef1fFqOG2LvhrBVGcprWvs4Ftm8lG0GdGvnd6m+S+e1sp61nI47qmMMnoQj6tf+lFOUwNlPOgRXU3Aq+YORuDhfZZoaI3uWOzAwY1y3Dczz1JnWsr3SWofK5k7wftnBfsQrUkmMFomB8JcbPjDndxGO7lhBGgcx0RKgx7b9liPsyGD6ZGIVrNf6blDLnLVO2aNho9+0jConr3DgYNQcD9Bc0DN+D7ZXJPq+aQOTBk317tMTrbbRl5DxKS9ykOV1t+Kb5NuiEg9Hs00g1ei1JDwU+UKUjv3/38y6enljk7nXZiAxF8rnD+cAqLYJLD5+O5YrfxRfaR5ea3i5k8PIzJlWPIdetsPRzbyqYu8pSmZle8rhzEdngr05nZBt6fmx80IwBM9XxCZHIAw8HRlTxSYH+f1MEKIqS0Eldq8yq9Riqo6TQ7qR+Wxm7pw9ra2Bst/uOJ/ERVkdLFpaZ7eE8S7TjQnaAsP6rkU3ut4TqIGvJC5zYPehU1b1qkBpxbF86q6cdHdoukPiA3Uch7fxBzM69KTiXxZLUSpZHoYAQ==",
+                    "format": "anthropic-claude-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 78,
+                      "output_tokens": 269,
+                      "output_tokens_details": {
+                        "thinking_tokens": 266
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108072021,
+                              "endTime": 1790108075279,
+                              "providerRequestId": "req_011CfK6DbdD4J7QATb43ZHHs",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6DcDBRHXHc3DV8kHEU"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.005692",
+                    "marketCost": "0.005692",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.005692",
+                    "inferenceCost": "0.005692",
+                    "inputInferenceCost": "0.000312",
+                    "outputInferenceCost": "0.00538",
+                    "generationId": "gen_01M35C2Y0JZQRP4FV060YRFPR7"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 269,
+            "total_tokens": 347,
+            "cost": 0.005692,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 266,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.005692,
+            "gateway_cost": 0.005692
+          },
+          "system_fingerprint": "fp_lw5asss1eo",
+          "generationId": "gen_01M35C2Y0JZQRP4FV060YRFPR7"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::sampling::accepted::claude_opus_5_5/0001",
+      "namespace": "vercel::sampling::accepted::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "fdcff205828e434d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C318Y9RP3BQPXQW41YECN",
+          "object": "chat.completion",
+          "created": 1790108076,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello, it's nice to meet you!",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 19,
+                      "output_tokens": 15,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108075323,
+                              "endTime": 1790108076605,
+                              "providerRequestId": "req_011CfK6Dqm1QFYFLSAViiimV",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6DrGXR6uEvGfkuTi77"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000376",
+                    "marketCost": "0.000376",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000376",
+                    "inferenceCost": "0.000376",
+                    "inputInferenceCost": "0.000076",
+                    "outputInferenceCost": "0.0003",
+                    "generationId": "gen_01M35C318Y9RP3BQPXQW41YECN"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 15,
+            "total_tokens": 34,
+            "cost": 0.000376,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000376,
+            "gateway_cost": 0.000376
+          },
+          "system_fingerprint": "fp_03owygbbls",
+          "generationId": "gen_01M35C318Y9RP3BQPXQW41YECN"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::basic_completion::claude_opus_5_5/0001",
+      "namespace": "vercel::smoke::basic_completion::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "6c2949e89634d5e6"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C31F9MX08TRSRHQX6F128",
+          "object": "chat.completion",
+          "created": 1790108076,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello, it's nice to meet you!",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 19,
+                      "output_tokens": 15,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108075529,
+                              "endTime": 1790108076730,
+                              "providerRequestId": "req_011CfK6DrVudrK9MzjrXuJq7",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6DrrkT1tJjWUvTxBuu"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000376",
+                    "marketCost": "0.000376",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000376",
+                    "inferenceCost": "0.000376",
+                    "inputInferenceCost": "0.000076",
+                    "outputInferenceCost": "0.0003",
+                    "generationId": "gen_01M35C31F9MX08TRSRHQX6F128"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 15,
+            "total_tokens": 34,
+            "cost": 0.000376,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000376,
+            "gateway_cost": 0.000376
+          },
+          "system_fingerprint": "fp_ou568ad1ut",
+          "generationId": "gen_01M35C31F9MX08TRSRHQX6F128"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::presence::claude_opus_5_5/0001",
+      "namespace": "vercel::reasoning::presence::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "1f9c4a2fd4e20ea3"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35C30DV5FXZ5VCJTZ1SY8FW\",\"object\":\"chat.completion.chunk\",\"created\":1790108075,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_xdavpdqfhq\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C30DV5FXZ5VCJTZ1SY8FW\",\"object\":\"chat.completion.chunk\",\"created\":1790108075,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"\",\"signature\":\"\",\"format\":\"anthropic-claude-v1\",\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_xdavpdqfhq\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C30DV5FXZ5VCJTZ1SY8FW\",\"object\":\"chat.completion.chunk\",\"created\":1790108075,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"\",\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"\",\"signature\":\"CAQS5QUKEAgSGAI4AUIIdGhpbmtpbmcSDHBuVZDoUDg49MemUBoM/2XjcvK31ttp/L58IjD3yov36VtXfOsMqdLay7yvp9YBXVd1JhTd77sZQShNq6z6dIp9sc+TLugWick+Ux8qggXKrCIdoHFGf+RajeilEiyS31xJ7yzy65vUIu/o3IOkOxKCxxlxvr04969CWZgqcYm1uDmWXZswI3CQoND+V+OyLM9F1QkadNuv3S4fo+Ga8HEsTrCquIibYkTdqF1/CzxWOmMB+1RYHxISQPnuvNXwIuYr365drDltlgkE5EzY2iuwiNikWjf6Y4dWX2LDPM39H54CsvU358KMi9p6O9XoFb9YTQXRJ7mtR1A82o3+sTgIKkb85jrEILqnVtqRd7ay3Yo0bFc+owRkq1UMA6x4KuXueTzujNCmKBMki0HvGguxlLAMJP0NR4LH8Xi5JGrDGSBMHm/lvuIBz6koUc++yDQQcyc9mjqxUZyEnWvgQ5Zt0jO9giYdHm7+rY5xdd4aPrjYZHmO7e8BQ19Q/L3x/xCc0n6/iUZrz5T6KPbhNS4vNJEu3Px7XyCui07QNGrv5jcGwQxq2Au9ByFvsxfrk5wsrP3IHevviscQOLIf3nsrdl9oiIy1Uch+deFspXLnyeMY//TLrpLOzb+ifFMVdv5lf9Pjq+0yXQiTAm5JFV1DwQ6L+stFgAJkVQj1qBrYU6qcW9qr0X4e+tsa1j2WKGqEDQIER/Nq9MM+mWkCxin+3cOhhNpVSiGZ9jgHYHa+FuEGwcv53eSzlPAHzWY50oQf6cxB4Q4hqWMNC8llOYx6tCAQ5wzJEgbEJ5lwT1j7wRIsGnnSfl+rzvjPU2obVESC3LGsv//XZ4QStYYzsOUuX8yuC2zQoPMxUxXF/OTM1W/WGsNSAnzZImgbmEa66kJ5vTe2/7a2fk3/JKcQxivfSSB5P+xPmHm3fw1EMA5o72zGzXLvBbPba/TlBNHKIlcYAQ==\",\"format\":\"anthropic-claude-v1\",\"index\":0}]},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_xdavpdqfhq\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C30DV5FXZ5VCJTZ1SY8FW\",\"object\":\"chat.completion.chunk\",\"created\":1790108075,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"6\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_xdavpdqfhq\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C30DV5FXZ5VCJTZ1SY8FW\",\"object\":\"chat.completion.chunk\",\"created\":1790108075,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"anthropic\":{\"usage\":{\"input_tokens\":78,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":131,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"output_tokens_details\":{\"thinking_tokens\":128}},\"cacheCreationInputTokens\":0,\"stopSequence\":null,\"iterations\":null,\"container\":null,\"contextManagement\":null},\"gateway\":{\"routing\":{\"originalModelId\":\"anthropic/claude-opus-5.5\",\"resolvedProvider\":\"anthropic\",\"fallbacksAvailable\":[\"claudeaws\",\"vertexAnthropic\",\"bedrock\"],\"planningReasoning\":\"System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)\",\"canonicalSlug\":\"anthropic/claude-opus-5.5\",\"finalProvider\":\"anthropic\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"anthropic/claude-opus-5.5\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"anthropic\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790108074458,\"endTime\":1790108076668,\"providerRequestId\":\"req_011CfK6Dn4kzSXbUDibqGVMe\",\"statusCode\":200,\"providerResponseId\":\"msg_011CfK6DnaGVyZLiVfdBMHQ9\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.002932\",\"marketCost\":\"0.002932\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.002932\",\"inferenceCost\":\"0.002932\",\"inputInferenceCost\":\"0.000312\",\"outputInferenceCost\":\"0.00262\",\"generationId\":\"gen_01M35C30DV5FXZ5VCJTZ1SY8FW\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":78,\"completion_tokens\":131,\"total_tokens\":209,\"cost\":0.002932,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":128,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.002932,\"gateway_cost\":0.002932},\"system_fingerprint\":\"fp_xdavpdqfhq\",\"generationId\":\"gen_01M35C30DV5FXZ5VCJTZ1SY8FW\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::reasoning::effort_levels::claude_opus_5_5_xhigh/0001",
+      "namespace": "vercel::reasoning::effort_levels::claude_opus_5_5_xhigh",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "7a6ab17180bcd68d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C30DWXAMVDSE4C8ZCAC4Z",
+          "object": "chat.completion",
+          "created": 1790108076,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "",
+                    "signature": "CAQS4wUKEAgSGAI4AUIIdGhpbmtpbmcSDMHEZ3oLK4PaEFhFVBoMShqf6C+lWTmHPNLnIjAVdn3PO0MUv89GKX5rQT4d9YNfxmDzKgiJf5ZN6onGVkYfOuOMAf4G+1d+0IiKLJUqgAW3VIPfYAqmvUUE3s9ChHOL81J1FdeygBVFNR8NB97mwPPx2UPlm1Sf1VqsLW4SW4wQQWVH+ZEHnamSPxvQZSMShFgzC2Dt5qlL6z7FyY1amXXjtsJoE2FNEg9jd7eXt+sPg6HntYshx1h5H0iMLE9yNSM6X00NOFgNtWCyHzO5ByCAbOSNlNOS/lVXv35rChoPECqAG9LXfx8bRlgFxb/oxeo4tQWEXruI5f4TAQuupaphg0ZgHonk8eHrvSFDVKz9IJboVk5Ojiuch+UZvRae/DXOXV8rYxq+54NFp5t/Wvzrd5niseN23SSwMCC8NdSvnQwW9ha5kJLEC3MV8cFPIhIimjkY6ZbMDaHJ1V6uFLOZOSY4MNPMCWvW2nH+pneSJJKpvNuw8bnzT1km/O2H6V3Q0u4Uj1DpG5cgfyI2Hy31tAfFhCc5CAOYAWccn0D+Tabi/GGizUB38BZhhSbxosL/mzUEx1mQlit5vkoqMQMfvkFe4rWhc1OiyiYLYF0tJfN7XJw3avnN1OVosaq8XvygwdmItgP2ZVlHtZzr+b8It3TCKnqwdQFwfNIoN4MbTVzrqHQEWoDbfZ7Z702XHh9M7+QUIzwaQAZui9iaK0XuwD+ARqrV9pPNAr6Hgyqo+8Km138+TlgwAHOWaFqiQN4Sln3bsFydYZpF8l+019EA2Qawq+cPtSCp0xzPxdWLkzjhDxCs6tU5XRRLZfwbx+giAhQS25CZ1UKRec4sRYgYNIlWpkY3xlKHMpN/2gZBQ85auRI3i6KGoheIoL8c+EEmO1wMje5Q753aotzxVUcwI/c3BqiPPSdTNAbuQk2B9j7j2ojrXmTTuX4JrfsmGAE=",
+                    "format": "anthropic-claude-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 78,
+                      "output_tokens": 128,
+                      "output_tokens_details": {
+                        "thinking_tokens": 125
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108074454,
+                              "endTime": 1790108076963,
+                              "providerRequestId": "req_011CfK6Dmt6S9Ws5oXkyZRoJ",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6DohFHXDmvNw4B7Ucx"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.002872",
+                    "marketCost": "0.002872",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.002872",
+                    "inferenceCost": "0.002872",
+                    "inputInferenceCost": "0.000312",
+                    "outputInferenceCost": "0.00256",
+                    "generationId": "gen_01M35C30DWXAMVDSE4C8ZCAC4Z"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 128,
+            "total_tokens": 206,
+            "cost": 0.002872,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 125,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.002872,
+            "gateway_cost": 0.002872
+          },
+          "system_fingerprint": "fp_hk8f5zr2e3",
+          "generationId": "gen_01M35C30DWXAMVDSE4C8ZCAC4Z"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::multi_turn::claude_opus_5_5/0001",
+      "namespace": "vercel::smoke::multi_turn::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "58f8a42181e46724"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C33BH04QNHGG5YF6DM5MF",
+          "object": "chat.completion",
+          "created": 1790108078,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Madrid",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 40,
+                      "output_tokens": 6,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108077455,
+                              "endTime": 1790108078484,
+                              "providerRequestId": "req_011CfK6DzqDWqzxkmrJ1MnyZ",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6E1HzpYmbHZcHE2k5C"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.00028",
+                    "marketCost": "0.00028",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.00028",
+                    "inferenceCost": "0.00028",
+                    "inputInferenceCost": "0.00016",
+                    "outputInferenceCost": "0.00012",
+                    "generationId": "gen_01M35C33BH04QNHGG5YF6DM5MF"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 40,
+            "completion_tokens": 6,
+            "total_tokens": 46,
+            "cost": 0.00028,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.00028,
+            "gateway_cost": 0.00028
+          },
+          "system_fingerprint": "fp_j5regiildh",
+          "generationId": "gen_01M35C33BH04QNHGG5YF6DM5MF"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::stop_sequence::claude_opus_5_5/0001",
+      "namespace": "vercel::smoke::stop_sequence::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "abb82fb384265af9"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C33CNDVCFS648KDJT7CNE",
+          "object": "chat.completion",
+          "created": 1790108078,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "one two three four ",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 53,
+                      "output_tokens": 8,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": "five",
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108077495,
+                              "endTime": 1790108078789,
+                              "providerRequestId": "req_011CfK6E1CYNsFZvN987NdNL",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6E27N7qzSN18pmkuzp"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000372",
+                    "marketCost": "0.000372",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000372",
+                    "inferenceCost": "0.000372",
+                    "inputInferenceCost": "0.000212",
+                    "outputInferenceCost": "0.00016",
+                    "generationId": "gen_01M35C33CNDVCFS648KDJT7CNE"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 53,
+            "completion_tokens": 8,
+            "total_tokens": 61,
+            "cost": 0.000372,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000372,
+            "gateway_cost": 0.000372
+          },
+          "system_fingerprint": "fp_rq02w0hgna",
+          "generationId": "gen_01M35C33CNDVCFS648KDJT7CNE"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::stream_contract::claude_opus_5_5/0001",
+      "namespace": "vercel::smoke::stream_contract::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "c59f0bd209234223"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_b87joox1nl\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hey\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_b87joox1nl\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" there,\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_b87joox1nl\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" great\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_b87joox1nl\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" to see\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_b87joox1nl\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" you! 👋\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_b87joox1nl\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"😊\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_b87joox1nl\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C33BXYJRF78V469K8PXJC\",\"object\":\"chat.completion.chunk\",\"created\":1790108078,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"anthropic\":{\"usage\":{\"input_tokens\":27,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":17,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"output_tokens_details\":{\"thinking_tokens\":0}},\"cacheCreationInputTokens\":0,\"stopSequence\":null,\"iterations\":null,\"container\":null,\"contextManagement\":null},\"gateway\":{\"routing\":{\"originalModelId\":\"anthropic/claude-opus-5.5\",\"resolvedProvider\":\"anthropic\",\"fallbacksAvailable\":[\"claudeaws\",\"vertexAnthropic\",\"bedrock\"],\"planningReasoning\":\"System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)\",\"canonicalSlug\":\"anthropic/claude-opus-5.5\",\"finalProvider\":\"anthropic\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"anthropic/claude-opus-5.5\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"anthropic\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790108077472,\"endTime\":1790108078916,\"providerRequestId\":\"req_011CfK6DzwupSB9jK4sbU941\",\"statusCode\":200,\"providerResponseId\":\"msg_011CfK6E1dLpMpWmV82M2p9W\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.000448\",\"marketCost\":\"0.000448\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.000448\",\"inferenceCost\":\"0.000448\",\"inputInferenceCost\":\"0.000108\",\"outputInferenceCost\":\"0.00034\",\"generationId\":\"gen_01M35C33BXYJRF78V469K8PXJC\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":27,\"completion_tokens\":17,\"total_tokens\":44,\"cost\":0.000448,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.000448,\"gateway_cost\":0.000448},\"system_fingerprint\":\"fp_b87joox1nl\",\"generationId\":\"gen_01M35C33BXYJRF78V469K8PXJC\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::length_truncation::claude_opus_5_5/0001",
+      "namespace": "vercel::smoke::length_truncation::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "c51f84e4ffe27b8b"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C33BHJDCM86BNXSD2P25N",
+          "object": "chat.completion",
+          "created": 1790108079,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "",
+                    "signature": "CAQSnAUKEAgSGAI4AUIIdGhpbmtpbmcSDPsgVfcyXBVCNjdVshoMNBh+Za6fRYvAVgI7IjDtCcikLdrXQgjMfWSlPDM7Fn9ojfymz2fQRKTlZ7Be8TP9jc293JNZlfFfpzVXjscquQQ8/wOTXFQvPCmtsD6YQEqJvwLV0qUkynKhs80UksuVdt0BaWEJSPXdcO/GkFf+pfe8VIf9LJz9kuPW6/2MeisJEDb2PEUabc9DWFi133sLGIifLyvA+k5yErDE+gy7+HPyNVgCTUcmdCJ4A5QVlEeNKX6dfOqUqM4ZQ2gJgje40XuPatIwajWP2n4yDOjpzccujYCmAdNZBzNeO0RyQCdX7WFK7ckeRlTJjfQvaBzfkJOC3uCf/uKMJULZU9JuEa5Fh7i5qC+/M3sGalGxoGaNIOhng2BWmS5JEthmlE/fpQ1dtjWlQUahR3E1xySnzyd+bJm0qIjyV4y7v7oapXrpB4UN77SzRNZ4JXGRgFV6ARFFNEfvocSZmh3QUlkS8v0HVufNHQ3K4lpCnkjUG0NntgirAK6ivpA42o8dCfeLQEpTvpvkCZoT917E2tE/xr15jpn4G0IPB3qrP8Wub/fDBMLzMNlIWX+s12ULhQ+iLlzgdhv0yWwAQVe0S8X14zW/MqHVlfVIHbOtlLikUdrbcNBCAY11gSEsERByGzPP2v+hv3jCh0fFnU6dXEF/za7orCxPOTM8sP+Y+M5iHmVGps36kVmO1h6zTxQIx3dPITF4e0HkyeeBK3CK2RPSjsYqZPIf9+prtH+ymWmaVlxR3gb884FyjEAcPgBdfxUsE9+h4wWFNCr2XGOxpB2JjYNob++nJHv2MdkTBsk+Zux82e+Ox0bErFsekWPXsNIn/h+0P5p/O4822BgB",
+                    "format": "anthropic-claude-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 26,
+                      "output_tokens": 32,
+                      "output_tokens_details": {
+                        "thinking_tokens": 32
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108077451,
+                              "endTime": 1790108079720,
+                              "providerRequestId": "req_011CfK6DzrwzZncvQKpHWT47",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6E1PhkdJf3TSPZtFeZ"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000744",
+                    "marketCost": "0.000744",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000744",
+                    "inferenceCost": "0.000744",
+                    "inputInferenceCost": "0.000104",
+                    "outputInferenceCost": "0.00064",
+                    "generationId": "gen_01M35C33BHJDCM86BNXSD2P25N"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "length"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 26,
+            "completion_tokens": 32,
+            "total_tokens": 58,
+            "cost": 0.000744,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 32,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000744,
+            "gateway_cost": 0.000744
+          },
+          "system_fingerprint": "fp_mpnzlh6826",
+          "generationId": "gen_01M35C33BHJDCM86BNXSD2P25N"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::smoke::system_prompt::claude_opus_5_5/0001",
+      "namespace": "vercel::smoke::system_prompt::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "351194eb948aba22"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C34MCSMRR2TW18QD7DXQY",
+          "object": "chat.completion",
+          "created": 1790108079,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "PONG",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 35,
+                      "output_tokens": 5,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108078807,
+                              "endTime": 1790108079904,
+                              "providerRequestId": "req_011CfK6E6eD1uNX2N6NFxw43",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6E78jEVxyzgVS32NWP"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.00024",
+                    "marketCost": "0.00024",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.00024",
+                    "inferenceCost": "0.00024",
+                    "inputInferenceCost": "0.00014",
+                    "outputInferenceCost": "0.0001",
+                    "generationId": "gen_01M35C34MCSMRR2TW18QD7DXQY"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 35,
+            "completion_tokens": 5,
+            "total_tokens": 40,
+            "cost": 0.00024,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.00024,
+            "gateway_cost": 0.00024
+          },
+          "system_fingerprint": "fp_h6a2tgwrur",
+          "generationId": "gen_01M35C34MCSMRR2TW18QD7DXQY"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_schema::claude_opus_5_5/0001",
+      "namespace": "vercel::structured::json_schema::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "ffdf95b3ac13d346"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C354V5XHVHNJCKJBQERTQ",
+          "object": "chat.completion",
+          "created": 1790108081,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"population\":2100000}",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 241,
+                      "output_tokens": 17,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108079294,
+                              "endTime": 1790108081372,
+                              "providerRequestId": "req_011CfK6E8dXBcL3h1u1MoNDV",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6E97JZxY7LHJyQKYtV"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.001304",
+                    "marketCost": "0.001304",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.001304",
+                    "inferenceCost": "0.001304",
+                    "inputInferenceCost": "0.000964",
+                    "outputInferenceCost": "0.00034",
+                    "generationId": "gen_01M35C354V5XHVHNJCKJBQERTQ"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 241,
+            "completion_tokens": 17,
+            "total_tokens": 258,
+            "cost": 0.001304,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.001304,
+            "gateway_cost": 0.001304
+          },
+          "system_fingerprint": "fp_prxvq3h75z",
+          "generationId": "gen_01M35C354V5XHVHNJCKJBQERTQ"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_object::claude_opus_5_5/0001",
+      "namespace": "vercel::structured::json_object::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "117b0261f2abc15f"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C352C453YQSC5QMSWN8AK",
+          "object": "chat.completion",
+          "created": 1790108081,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "```json\n{\n  \"landmark\": \"Eiffel Tower\",\n  \"city\": \"Paris\",\n  \"country\": \"France\",\n  \"approximate_population\": {\n    \"city_proper\": 2100000,\n    \"metropolitan_area\": 13000000\n  }\n}\n```",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "text": "",
+                    "signature": "CAQSpgUKEAgSGAI4AUIIdGhpbmtpbmcSDCjm8pqMXiFKBjdtBRoM1zlcU2/pMoS5+Si4IjBZ+Nj149sQVVBwMOaeTtbvpTii1JTgrE79YNuHLo7v383y0JZHju65KC8kRTsonnkqwwThqe+Bz5WTCvOxmak6chyIb0Wv1E9fYL8fWyZeHfxrKv+9mqm9ai6/UGXzmhwymCKc/ZjTgLuKU4uqcO6XxdAoccSZ/xjFbYFd/ZWw67apC/xS2gQYsZbx+UHXleMHJZmmGYhcYPUb4zUAXlByfhde/N+M+6MReycbcoEsMslwBnxOvHgXzslQ2hqobF+0r7VhlfXKwM2NVuZ7SQu15jNhLE3kT4k2SDvKqggol735bYYTAVmHXUNy/fWIJDf8m1b4wW2ZLC+6S2jFT0APnu9bryTCTJ8YAsrW2hdsM65RPpTytI+oruEn2UsvmqZGcqGt2QKr1jDTJ8L3349gNdbqEmvqK4v/RtAfmdWQ/9Hm7ZddxjxVeFQNk5oS5FBJe2TJu3ZRQPz4GQmkYot0JCW92PGCNwzvlmEKM/0M2vHciR2VlprrTn46pQN5Z/FJaqFc6/WvDwd46dcIUr8OdqSnp/EG9JVM5PXzR2vbE/rwc9DKcAjAK+oI9q/x0VULOXbp+cOOGns35abidAJF+IP8W/8cTmyIMwesHGTBrCSg5UEThvi0fJMNGPgo6K6Vdg6DUnDPls8ZbIC015zLhb39R3k0Fb2zJ627UYtj1dPxuD3d3m2ZpoHzyB56uqwqgro4eohoERAZi4ox77bOSGYurzcGEVl6HZyZBNXmbxBZEx6MPVC9WxQj2CElHObCEdYR4x5aRRX/V3oIhgUWcKrLQVbXHXIatKfLQzimf5+BHQvq9IU4rdGuiT8WZ5VEwaHusLUYAQ==",
+                    "format": "anthropic-claude-v1",
+                    "index": 0
+                  }
+                ],
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 34,
+                      "output_tokens": 140,
+                      "output_tokens_details": {
+                        "thinking_tokens": 54
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108079212,
+                              "endTime": 1790108081390,
+                              "providerRequestId": "req_011CfK6E8W5iMD9JT2M5yNa6",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6E8mCvJrcAGe4MrX9j"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.002936",
+                    "marketCost": "0.002936",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.002936",
+                    "inferenceCost": "0.002936",
+                    "inputInferenceCost": "0.000136",
+                    "outputInferenceCost": "0.0028",
+                    "generationId": "gen_01M35C352C453YQSC5QMSWN8AK"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 34,
+            "completion_tokens": 140,
+            "total_tokens": 174,
+            "cost": 0.002936,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 54,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.002936,
+            "gateway_cost": 0.002936
+          },
+          "system_fingerprint": "fp_qyf0y55aaf",
+          "generationId": "gen_01M35C352C453YQSC5QMSWN8AK"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::tools::round_trip::claude_opus_5_5/0001",
+      "namespace": "vercel::tools::round_trip::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "c0dabeea76ac9a86"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C3637XDF66W4Q6J97AB7M",
+          "object": "chat.completion",
+          "created": 1790108081,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "It's 18°C and clear in Paris right now.",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 436,
+                      "output_tokens": 18,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108080270,
+                              "endTime": 1790108081590,
+                              "providerRequestId": "req_011CfK6ECzhXyaKARjMdud1K",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6EDjMXaoiUGdG8iq8g"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.002104",
+                    "marketCost": "0.002104",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.002104",
+                    "inferenceCost": "0.002104",
+                    "inputInferenceCost": "0.001744",
+                    "outputInferenceCost": "0.00036",
+                    "generationId": "gen_01M35C3637XDF66W4Q6J97AB7M"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 436,
+            "completion_tokens": 18,
+            "total_tokens": 454,
+            "cost": 0.002104,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.002104,
+            "gateway_cost": 0.002104
+          },
+          "system_fingerprint": "fp_sh4e7zlewv",
+          "generationId": "gen_01M35C3637XDF66W4Q6J97AB7M"
+        }
+      }
+    },
+    {
+      "scenario_id": "vercel::structured::json_schema_streamed::claude_opus_5_5/0001",
+      "namespace": "vercel::structured::json_schema_streamed::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "a2e3a5bf789c794f"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream",
+        "events": [
+          {
+            "data": "{\"id\":\"gen_01M35C36213HPDBS1M6R86JN24\",\"object\":\"chat.completion.chunk\",\"created\":1790108081,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_lcgwg7ujfq\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C36213HPDBS1M6R86JN24\",\"object\":\"chat.completion.chunk\",\"created\":1790108081,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"city\\\":\\\"Paris\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_lcgwg7ujfq\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C36213HPDBS1M6R86JN24\",\"object\":\"chat.completion.chunk\",\"created\":1790108081,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\",\\\"population\\\":2100000}\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_lcgwg7ujfq\"}"
+          },
+          {
+            "data": "{\"id\":\"gen_01M35C36213HPDBS1M6R86JN24\",\"object\":\"chat.completion.chunk\",\"created\":1790108081,\"model\":\"anthropic/claude-opus-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"anthropic\":{\"usage\":{\"input_tokens\":241,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":0},\"output_tokens\":17,\"service_tier\":\"standard\",\"inference_geo\":\"global\",\"output_tokens_details\":{\"thinking_tokens\":0}},\"cacheCreationInputTokens\":0,\"stopSequence\":null,\"iterations\":null,\"container\":null,\"contextManagement\":null},\"gateway\":{\"routing\":{\"originalModelId\":\"anthropic/claude-opus-5.5\",\"resolvedProvider\":\"anthropic\",\"fallbacksAvailable\":[\"claudeaws\",\"vertexAnthropic\",\"bedrock\"],\"planningReasoning\":\"System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)\",\"canonicalSlug\":\"anthropic/claude-opus-5.5\",\"finalProvider\":\"anthropic\",\"modelAttemptCount\":1,\"modelAttempts\":[{\"canonicalSlug\":\"anthropic/claude-opus-5.5\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"anthropic\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1790108080248,\"endTime\":1790108081694,\"providerRequestId\":\"req_011CfK6ECqXPK9Fi6KNsU6z6\",\"statusCode\":200,\"providerResponseId\":\"msg_011CfK6EDNmvMHnyFXBVsUuK\"}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.001304\",\"marketCost\":\"0.001304\",\"surchargeCost\":\"0\",\"gatewayCost\":\"0.001304\",\"inferenceCost\":\"0.001304\",\"inputInferenceCost\":\"0.000964\",\"outputInferenceCost\":\"0.00034\",\"generationId\":\"gen_01M35C36213HPDBS1M6R86JN24\"}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":241,\"completion_tokens\":17,\"total_tokens\":258,\"cost\":0.001304,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.001304,\"gateway_cost\":0.001304},\"system_fingerprint\":\"fp_lcgwg7ujfq\",\"generationId\":\"gen_01M35C36213HPDBS1M6R86JN24\"}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "vercel::vision::inline::claude_opus_5_5/0001",
+      "namespace": "vercel::vision::inline::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b19e58bdd6e1917c"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "id": "gen_01M35C37Y2PJFDZMJFRDV7QXRZ",
+          "object": "chat.completion",
+          "created": 1790108083,
+          "model": "anthropic/claude-opus-5.5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Red",
+                "provider_metadata": {
+                  "anthropic": {
+                    "usage": {
+                      "input_tokens": 36,
+                      "output_tokens": 4,
+                      "output_tokens_details": {
+                        "thinking_tokens": 0
+                      },
+                      "cache_creation_input_tokens": 0,
+                      "cache_read_input_tokens": 0,
+                      "cache_creation": {
+                        "ephemeral_5m_input_tokens": 0,
+                        "ephemeral_1h_input_tokens": 0
+                      },
+                      "service_tier": "standard",
+                      "inference_geo": "global"
+                    },
+                    "cacheCreationInputTokens": 0,
+                    "stopSequence": null,
+                    "iterations": null,
+                    "container": null,
+                    "contextManagement": null
+                  },
+                  "gateway": {
+                    "routing": {
+                      "originalModelId": "anthropic/claude-opus-5.5",
+                      "resolvedProvider": "anthropic",
+                      "fallbacksAvailable": [
+                        "claudeaws",
+                        "vertexAnthropic",
+                        "bedrock"
+                      ],
+                      "planningReasoning": "System credentials planned for: anthropic, claudeaws, vertexAnthropic, bedrock. Total execution order: anthropic(system) → claudeaws(system) → vertexAnthropic(system) → bedrock(system)",
+                      "canonicalSlug": "anthropic/claude-opus-5.5",
+                      "finalProvider": "anthropic",
+                      "modelAttemptCount": 1,
+                      "modelAttempts": [
+                        {
+                          "canonicalSlug": "anthropic/claude-opus-5.5",
+                          "success": true,
+                          "providerAttemptCount": 1,
+                          "providerAttempts": [
+                            {
+                              "provider": "anthropic",
+                              "credentialType": "system",
+                              "success": true,
+                              "startTime": 1790108082130,
+                              "endTime": 1790108083090,
+                              "providerRequestId": "req_011CfK6ELxBnuS7Q1tiFsvWk",
+                              "statusCode": 200,
+                              "providerResponseId": "msg_011CfK6EMShoZa2ADEBLVCEM"
+                            }
+                          ]
+                        }
+                      ],
+                      "totalProviderAttemptCount": 1
+                    },
+                    "cost": "0.000224",
+                    "marketCost": "0.000224",
+                    "surchargeCost": "0",
+                    "gatewayCost": "0.000224",
+                    "inferenceCost": "0.000224",
+                    "inputInferenceCost": "0.000144",
+                    "outputInferenceCost": "0.00008",
+                    "generationId": "gen_01M35C37Y2PJFDZMJFRDV7QXRZ"
+                  }
+                }
+              },
+              "logprobs": null,
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 36,
+            "completion_tokens": 4,
+            "total_tokens": 40,
+            "cost": 0.000224,
+            "is_byok": false,
+            "prompt_tokens_details": {
+              "cached_tokens": 0,
+              "audio_tokens": 0,
+              "video_tokens": 0
+            },
+            "cost_details": {
+              "upstream_inference_cost": null,
+              "upstream_inference_prompt_cost": 0,
+              "upstream_inference_completions_cost": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0,
+              "image_tokens": 0
+            },
+            "cache_creation_input_tokens": 0,
+            "market_cost": 0.000224,
+            "gateway_cost": 0.000224
+          },
+          "system_fingerprint": "fp_ecqi1stngx",
+          "generationId": "gen_01M35C37Y2PJFDZMJFRDV7QXRZ"
+        }
+      }
     }
   ]
 }

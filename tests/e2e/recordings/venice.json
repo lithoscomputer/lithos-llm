@@ -30636,6 +30636,1011 @@
           }
         }
       }
+    },
+    {
+      "scenario_id": "venice::sampling::accepted::claude_opus_5_5/0001",
+      "namespace": "venice::sampling::accepted::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "13f174c923b14bf7"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK66uYmmzFTfV3AxuXi2",
+          "object": "chat.completion",
+          "created": 1790107982,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello, it's nice to meet you!",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 15,
+            "total_tokens": 34,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0004512,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::round_trip::claude_opus_5_5/0001",
+      "namespace": "venice::reasoning::round_trip::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "321a61ef8c75c0af"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK66ua1z21AP3dWSF2TN",
+          "object": "chat.completion",
+          "created": 1790107982,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "tool_calls": [
+                  {
+                    "id": "toolu_01N5vASq4mJiZ2s2DSREQkFw",
+                    "type": "function",
+                    "function": {
+                      "name": "get_weather",
+                      "arguments": "{\"city\": \"Paris\"}"
+                    }
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 409,
+            "completion_tokens": 50,
+            "total_tokens": 459,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0031631999999999997,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::basic_completion::claude_opus_5_5/0001",
+      "namespace": "venice::smoke::basic_completion::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "737e53a62ae3196e"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK6718dpTjpjSvveiGuH",
+          "object": "chat.completion",
+          "created": 1790107983,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Hello, it's nice to meet you!",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 19,
+            "completion_tokens": 15,
+            "total_tokens": 34,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0004512,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::presence::claude_opus_5_5/0001",
+      "namespace": "venice::reasoning::presence::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "2f3f26f3442a2231"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107982,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Sol\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"ving 7n+3p=\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"118 with n,p≥\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"1: since\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" n\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" must\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" sat\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"isfy n\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"≡1 mod 3\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\", val\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"id values are n=1,4\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\",7,10,13,16\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\", giving \"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"6 solutions total\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\".\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"\\n\\n\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"6\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK66uiSz2XG7RbrEDScS\",\"object\":\"chat.completion.chunk\",\"created\":1790107984,\"model\":\"claude-opus-5-5\",\"choices\":[],\"usage\":{\"prompt_tokens\":78,\"completion_tokens\":136,\"total_tokens\":214,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"cost\":{\"usd\":0.0036384,\"diem\":0}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::effort_probes::claude_opus_5_5/0001",
+      "namespace": "venice::reasoning::effort_probes::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "392a90cf81779d7d"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK66uWYcaQ7fNhJwQcpa",
+          "object": "chat.completion",
+          "created": 1790107985,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "refusal": null,
+                "reasoning_content": "For 7n+3p=118 with n,p≥1, I need n≡1 mod 3, giving n=1,4,7,10,13,16, all satisfying 7n≤115 with valid positive p — that's 6 solutions.\n\n"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 108,
+            "total_tokens": 186,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0029664,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::round_trip::claude_opus_5_5/0002",
+      "namespace": "venice::reasoning::round_trip::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "82360d9cd6507755"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK671xyo1Z7KsXT2e9nf",
+          "object": "chat.completion",
+          "created": 1790107985,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Yes, it's good picnic weather. Paris is currently **21°C and sunny with a light breeze**.\n\n- **Temperature:** 21°C is warm without being hot.\n- **Sky:** It's sunny, so rain shouldn't be a problem.\n- **Wind:** A light breeze will keep you cool, and it's not strong enough to blow your napkins and plates around.\n\nBring sunscreen and maybe look for a spot with some shade. Parc des Buttes-Chaumont, the Champ de Mars or the banks of the Seine would all be good places for it.",
+                "refusal": null,
+                "reasoning_content": "That result is just data, not instructions, so I can go ahead and answer based on it.\n\n"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 456,
+            "completion_tokens": 207,
+            "total_tokens": 663,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0071568,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::stop_sequence::claude_opus_5_5/0001",
+      "namespace": "venice::smoke::stop_sequence::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "75f18d6ead3e214b"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67G2aKx1o3RJbEn1Sh",
+          "object": "chat.completion",
+          "created": 1790107986,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "one two three four ",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 53,
+            "completion_tokens": 8,
+            "total_tokens": 61,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0004464,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::multi_turn::claude_opus_5_5/0001",
+      "namespace": "venice::smoke::multi_turn::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "b2844d640b1287d5"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67C4hnLzDX5UWHNXcY",
+          "object": "chat.completion",
+          "created": 1790107987,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Madrid",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 40,
+            "completion_tokens": 6,
+            "total_tokens": 46,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00033600000000000004,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::length_truncation::claude_opus_5_5/0001",
+      "namespace": "venice::smoke::length_truncation::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "0420878c315236fb"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK678C2sD9et1LwqdxVF",
+          "object": "chat.completion",
+          "created": 1790107987,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "refusal": null,
+                "reasoning_content": "Counting forever isn't literally possible, so I should count up a substantial amount and explain that I have to stop somewhere.\n\n"
+              },
+              "finish_reason": "length"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 26,
+            "completion_tokens": 32,
+            "total_tokens": 58,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0008928,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::stream_contract::claude_opus_5_5/0001",
+      "namespace": "venice::smoke::stream_contract::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "d1677c426d32e9b1"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "data": "{\"id\":\"msg_011CfK67MKKJcFXbpfsWmAWX\",\"object\":\"chat.completion.chunk\",\"created\":1790107987,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67MKKJcFXbpfsWmAWX\",\"object\":\"chat.completion.chunk\",\"created\":1790107987,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello there\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67MKKJcFXbpfsWmAWX\",\"object\":\"chat.completion.chunk\",\"created\":1790107988,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"! 👋\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67MKKJcFXbpfsWmAWX\",\"object\":\"chat.completion.chunk\",\"created\":1790107988,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"😊\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67MKKJcFXbpfsWmAWX\",\"object\":\"chat.completion.chunk\",\"created\":1790107988,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67MKKJcFXbpfsWmAWX\",\"object\":\"chat.completion.chunk\",\"created\":1790107988,\"model\":\"claude-opus-5-5\",\"choices\":[],\"usage\":{\"prompt_tokens\":27,\"completion_tokens\":12,\"total_tokens\":39,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"cost\":{\"usd\":0.0004176,\"diem\":0}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "venice::reasoning::effort_probes::claude_opus_5_5/0002",
+      "namespace": "venice::reasoning::effort_probes::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "f66b33a5cf68eef7"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67DDuCHxdqXMJXA3Ne",
+          "object": "chat.completion",
+          "created": 1790107989,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "6",
+                "refusal": null,
+                "reasoning_content": "Solving 7n+3p=118 with n,p≥1, I need n≡1 mod 3 and n≤16, giving n=1,4,7,10,13,16 — six valid combinations.\n\n"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 78,
+            "completion_tokens": 138,
+            "total_tokens": 216,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0036864,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::smoke::system_prompt::claude_opus_5_5/0001",
+      "namespace": "venice::smoke::system_prompt::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "928239873ebfa6a2"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67NFsWhyofShEHzFmb",
+          "object": "chat.completion",
+          "created": 1790107989,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "PONG",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 35,
+            "completion_tokens": 5,
+            "total_tokens": 40,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.000288,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::structured::json_object::claude_opus_5_5/0001",
+      "namespace": "venice::structured::json_object::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "605a586369cdfb89"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67Q6FUE7VahP7DmKTF",
+          "object": "chat.completion",
+          "created": 1790107990,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "```json\n{\n  \"landmark\": \"Eiffel Tower\",\n  \"city\": \"Paris\",\n  \"country\": \"France\",\n  \"approximate_population\": {\n    \"city_proper\": 2100000,\n    \"metropolitan_area\": 13000000\n  }\n}\n```",
+                "refusal": null,
+                "reasoning_content": "Paris proper has about 2.1 million residents, with the metro area around 11-12 million. I'll format this as JSON.\n\n"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 34,
+            "completion_tokens": 152,
+            "total_tokens": 186,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0038112,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::tools::round_trip::claude_opus_5_5/0001",
+      "namespace": "venice::tools::round_trip::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "8a0b6b6c3f30a621"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67X4CbogjMLs682Dbi",
+          "object": "chat.completion",
+          "created": 1790107990,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "It's 18°C (about 64°F) and clear in Paris right now.",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 436,
+            "completion_tokens": 25,
+            "total_tokens": 461,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0026928,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::structured::json_schema_streamed::claude_opus_5_5/0001",
+      "namespace": "venice::structured::json_schema_streamed::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": true,
+        "request_hash": "d66f1d0376ee88f9"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "data": "{\"id\":\"msg_011CfK67XBPku8JgVmHk5nTs\",\"object\":\"chat.completion.chunk\",\"created\":1790107991,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67XBPku8JgVmHk5nTs\",\"object\":\"chat.completion.chunk\",\"created\":1790107991,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"{\\\"city\\\":\\\"Paris\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67XBPku8JgVmHk5nTs\",\"object\":\"chat.completion.chunk\",\"created\":1790107991,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\\",\\\"population\\\":2100000}\"},\"finish_reason\":null}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67XBPku8JgVmHk5nTs\",\"object\":\"chat.completion.chunk\",\"created\":1790107991,\"model\":\"claude-opus-5-5\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}"
+          },
+          {
+            "data": "{\"id\":\"msg_011CfK67XBPku8JgVmHk5nTs\",\"object\":\"chat.completion.chunk\",\"created\":1790107991,\"model\":\"claude-opus-5-5\",\"choices\":[],\"usage\":{\"prompt_tokens\":237,\"completion_tokens\":17,\"total_tokens\":254,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"cost\":{\"usd\":0.0015455999999999998,\"diem\":0}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ]
+      }
+    },
+    {
+      "scenario_id": "venice::structured::json_schema::claude_opus_5_5/0001",
+      "namespace": "venice::structured::json_schema::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "512f731417016742"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67TwBFMjUfqgVBqSWx",
+          "object": "chat.completion",
+          "created": 1790107991,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "{\"city\":\"Paris\",\"population\":2100000}",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 237,
+            "completion_tokens": 17,
+            "total_tokens": 254,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.0015455999999999998,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::vision::inline::claude_opus_5_5/0001",
+      "namespace": "venice::vision::inline::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "31840778b2b0f80c"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67ejKhPCeRowkpypZo",
+          "object": "chat.completion",
+          "created": 1790107992,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Red",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 36,
+            "completion_tokens": 4,
+            "total_tokens": 40,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.00026880000000000003,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "venice::vision::url::claude_opus_5_5/0001",
+      "namespace": "venice::vision::url::claude_opus_5_5",
+      "matcher": {
+        "endpoint": "chat.completions",
+        "stream": false,
+        "request_hash": "35b5552b3fb73bb7"
+      },
+      "script": {
+        "kind": "transcript",
+        "status": 200,
+        "content_type": "application/json; charset=utf-8",
+        "body": {
+          "id": "msg_011CfK67mh2i3jq9fuLaGaL1",
+          "object": "chat.completion",
+          "created": 1790107995,
+          "model": "claude-opus-5-5",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "Cat",
+                "refusal": null
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 3393,
+            "completion_tokens": 5,
+            "total_tokens": 3398,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "cost": {
+            "usd": 0.016406399999999998,
+            "diem": 0
+          },
+          "venice_parameters": {
+            "strip_thinking_response": false,
+            "disable_thinking": false,
+            "enable_e2ee": true,
+            "enable_web_search": "off",
+            "enable_web_scraping": false,
+            "enable_web_citations": false,
+            "include_search_results_in_stream": false,
+            "include_venice_system_prompt": false,
+            "enable_x_search": false,
+            "web_search_citations": [],
+            "return_search_results_as_documents": false
+          }
+        }
+      }
     }
   ]
 }

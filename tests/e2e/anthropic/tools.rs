@@ -79,9 +79,9 @@ fn assert_weather_call(arguments: &Value) {
     );
 }
 
-/// The skip for the cells that force a call. Fable 5.1 answers a forced
-/// choice with a 400, and its row says so; the negative suite pins the
-/// upstream rejection itself.
+/// The skip for the cells that force a call. Fable 5.1 and Opus 5.5 answer a
+/// forced choice with a 400, and their rows say so; the negative suite pins
+/// the upstream rejection itself.
 fn forced_choice_unclaimed(model: &str) -> Option<TestResult> {
     (!anthropic::capabilities(model)
         .tool_choice(&ToolChoice::Required)

@@ -48,6 +48,7 @@ mod url {
         grok_4_6 "grok-4.6",
         claude_fable_5_1 "claude-fable-5.1",
         claude_fable_5 "claude-fable-5",
+        claude_opus_5_5 "claude-opus-5.5",
         gpt_5_6_terra "gpt-5.6-terra",
     );
 }

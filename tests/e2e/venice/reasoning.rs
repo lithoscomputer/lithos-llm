@@ -87,6 +87,7 @@ mod effort_probes {
         glm_5_3 "glm-5.3",
         claude_fable_5_1 "claude-fable-5.1",
         claude_fable_5 "claude-fable-5",
+        claude_opus_5_5 "claude-opus-5.5",
         gpt_5_6_sol "gpt-5.6-sol",
         gpt_5_6_terra "gpt-5.6-terra",
         gpt_5_6_luna "gpt-5.6-luna",
@@ -123,6 +124,13 @@ mod round_trip {
     #[ignore = "live Venice call; run with `mise run test:e2e`"]
     async fn claude_fable_5_1() -> TestResult {
         super::replays_reasoning_with_a_tool_result_under_auto_choice("claude-fable-5.1").await
+    }
+
+    /// Opus 5.5 takes no forced tool choice on Venice either.
+    #[tokio::test]
+    #[ignore = "live Venice call; run with `mise run test:e2e`"]
+    async fn claude_opus_5_5() -> TestResult {
+        super::replays_reasoning_with_a_tool_result_under_auto_choice("claude-opus-5.5").await
     }
 }
 

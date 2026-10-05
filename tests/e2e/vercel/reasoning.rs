@@ -59,6 +59,11 @@ mod effort_levels {
         gemini_3_5_flash_minimal "gemini-3.5-flash" Minimal,
         gpt_5_6_luna_max "gpt-5.6-luna" Max,
         claude_sonnet_5_high "claude-sonnet-5" High,
+        claude_opus_5_5_low "claude-opus-5.5" Low,
+        claude_opus_5_5_medium "claude-opus-5.5" Medium,
+        claude_opus_5_5_high "claude-opus-5.5" High,
+        claude_opus_5_5_xhigh "claude-opus-5.5" Xhigh,
+        claude_opus_5_5_max "claude-opus-5.5" Max,
     );
 }
 

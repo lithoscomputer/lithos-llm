@@ -157,6 +157,23 @@ family = "nemotron-3"
 [providers.bedrock.models."nemotron-3-super".metadata.agent]
 profile = "openai"
 
+# Added 2026-09-22 from Anthropic's Opus 5.5 release notes, which list it on
+# Bedrock as `anthropic.claude-opus-5-5`; the `us.` profile follows the other
+# Claude 5 rows. Not probed live (no AWS credentials in the test
+# environment), and unpriced because the AWS price page does not list it
+# yet. The release notes make forced tool choice a 400 on every platform, so
+# the row denies it. Thinking is always on.
+[providers.bedrock.models."claude-opus-5.5"]
+display_name = "Claude Opus 5.5 (Bedrock)"
+api_model = "us.anthropic.claude-opus-5-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, reasoning = true, caching = true, sampling = false, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = false, medium = false, high = false, xhigh = false, max = false } }
+family = "claude-5"
+
+[providers.bedrock.models."claude-opus-5.5".metadata.agent]
+profile = "claude-5"
+reasoning_by_default = true
+
 [providers.bedrock.models."claude-fable-5"]
 display_name = "Claude Fable 5 (Bedrock)"
 api_model = "us.anthropic.claude-fable-5"
