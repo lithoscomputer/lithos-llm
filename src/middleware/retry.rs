@@ -539,3 +539,279 @@ mod tests {
         assert_eq!(jittered(Duration::ZERO), Duration::ZERO);
     }
 }
+
+/// Properties of a retried stream, over scripted attempts that each keep the
+/// `StreamEvent` contract on their own.
+#[cfg(test)]
+mod stream_properties {
+    use std::error::Error as StdError;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    use async_trait::async_trait;
+    use futures_util::StreamExt as _;
+    use futures_util::stream::iter;
+    use proptest::collection::vec;
+    use proptest::option;
+    use proptest::prelude::*;
+    use tokio::runtime::Builder;
+
+    use super::{RetryMiddleware, RetryPolicy};
+    use crate::adapter::{ProviderAdapter, ResolvedCall};
+    use crate::catalog::{AdapterId, Catalog, ModelId, ProviderId};
+    use crate::types::contract::violation;
+    use crate::types::{
+        ContentBlockId, ContentBlockKind, ContentPart, Error, ErrorKind, FinishReason, Response,
+        ResponseStream, RetryClassification, StreamEvent, TokenCounts,
+    };
+    use crate::{Client, Request};
+
+    const CATALOG: &str = r#"
+        schema_version = 1
+
+        [providers.test]
+        display_name = "Test"
+        adapter = "test-adapter"
+        codecs = ["test-codec"]
+        base_url = "http://127.0.0.1"
+        default_model = "model"
+        auth = { type = "none" }
+
+        [providers.test.models.model]
+        display_name = "Test model"
+        api_model = "model"
+        capabilities = { text = true }
+    "#;
+
+    /// How one attempt goes.
+    #[derive(Clone, Debug)]
+    struct Attempt {
+        /// Opening the stream fails before any event, retryably or not.
+        open_failure: Option<bool>,
+        started:      bool,
+        /// Each block's delta count, and whether a usage snapshot precedes
+        /// the block.
+        blocks:       Vec<(u8, bool)>,
+        incomplete:   bool,
+        /// Where the stream stops, taken modulo its full length plus one.
+        cut:          usize,
+        /// The error that follows the cut, retryable or not. Without one, a
+        /// cut stream simply ends.
+        fault:        Option<bool>,
+    }
+
+    impl Attempt {
+        /// The items attempt `index` streams. Every event names the attempt,
+        /// so the test can tell which attempt the caller received.
+        fn items(&self, index: usize) -> Vec<Result<StreamEvent, Error>> {
+            let mut events = Vec::new();
+            if self.started {
+                events.push(StreamEvent::Started {
+                    id: Some(format!("attempt-{index}")),
+                });
+            }
+            for (block, &(deltas, usage_before)) in self.blocks.iter().enumerate() {
+                if usage_before {
+                    events.push(StreamEvent::Usage {
+                        usage: TokenCounts {
+                            input: index as u64,
+                            ..TokenCounts::default()
+                        },
+                    });
+                }
+                let id = ContentBlockId::new(format!("block-{block}"));
+                events.push(StreamEvent::ContentBlockStart {
+                    id:   id.clone(),
+                    kind: ContentBlockKind::Text,
+                });
+                let texts: Vec<_> = (0..deltas)
+                    .map(|delta| format!("a{index}b{block}d{delta}"))
+                    .collect();
+                events.extend(texts.iter().map(|text| StreamEvent::TextDelta {
+                    id:   id.clone(),
+                    text: text.clone(),
+                }));
+                events.push(StreamEvent::ContentBlockEnd {
+                    id,
+                    part: ContentPart::Text {
+                        text: texts.concat(),
+                    },
+                });
+            }
+            let mut response =
+                Response::new(ProviderId::new("test"), ModelId::new("model"), Vec::new());
+            if self.incomplete {
+                response.finish_reason = FinishReason::Incomplete;
+            }
+            events.push(StreamEvent::Ended {
+                response: Box::new(response),
+            });
+
+            let cut = self.cut % (events.len() + 1);
+            let mut items: Vec<_> = events.into_iter().take(cut).map(Ok).collect();
+            items.extend(self.fault.map(|retryable| Err(failure(index, retryable))));
+            items
+        }
+    }
+
+    fn failure(attempt: usize, retryable: bool) -> Error {
+        let retry = if retryable {
+            RetryClassification::Safe
+        } else {
+            RetryClassification::Never
+        };
+        Error::new(ErrorKind::Network, format!("attempt {attempt} failed")).with_retry(retry)
+    }
+
+    fn attempt() -> impl Strategy<Value = Attempt> {
+        (
+            prop_oneof![3 => Just(None), 1 => any::<bool>().prop_map(Some)],
+            any::<bool>(),
+            vec((0_u8..3, any::<bool>()), 0..3),
+            any::<bool>(),
+            any::<usize>(),
+            option::of(any::<bool>()),
+        )
+            .prop_map(
+                |(open_failure, started, blocks, incomplete, cut, fault)| Attempt {
+                    open_failure,
+                    started,
+                    blocks,
+                    incomplete,
+                    cut,
+                    fault,
+                },
+            )
+    }
+
+    struct ScriptedAdapter {
+        id:       AdapterId,
+        attempts: Vec<Attempt>,
+        calls:    Arc<AtomicUsize>,
+    }
+
+    #[async_trait]
+    impl ProviderAdapter for ScriptedAdapter {
+        fn id(&self) -> &AdapterId {
+            &self.id
+        }
+
+        async fn complete(&self, _call: &ResolvedCall) -> Result<Response, Error> {
+            Err(Error::new(ErrorKind::Middleware, "not used"))
+        }
+
+        async fn stream(&self, _call: &ResolvedCall) -> Result<ResponseStream, Error> {
+            let index = self.calls.fetch_add(1, Ordering::SeqCst);
+            let attempt = self
+                .attempts
+                .get(index)
+                .ok_or_else(|| Error::new(ErrorKind::Middleware, "an unscripted attempt"))?;
+            if let Some(retryable) = attempt.open_failure {
+                return Err(failure(index, retryable));
+            }
+            Ok(ResponseStream::new(iter(attempt.items(index))))
+        }
+    }
+
+    /// What the caller received, and how many attempts were made.
+    type Outcome = (Vec<Result<StreamEvent, Error>>, usize);
+
+    /// Streams one call through the retry middleware over `attempts`.
+    fn run(max_attempts: u32, attempts: &[Attempt]) -> Result<Outcome, Box<dyn StdError>> {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let client = Client::builder()
+            .catalog(Catalog::builder().overlay_toml(CATALOG)?.build()?)
+            .adapter("test", ScriptedAdapter {
+                id:       AdapterId::new("test-adapter"),
+                attempts: attempts.to_vec(),
+                calls:    calls.clone(),
+            })
+            .middleware(RetryMiddleware::new(
+                RetryPolicy::exponential()
+                    .max_attempts(max_attempts)
+                    .initial_delay(Duration::ZERO),
+            ))
+            .build()?
+            .client;
+        let request = Request::builder()
+            .model("test/model")
+            .user("hello")
+            .build()?;
+        let runtime = Builder::new_current_thread()
+            .enable_time()
+            .start_paused(true)
+            .build()?;
+        let items = runtime.block_on(async {
+            match client.stream(request).await {
+                Ok(stream) => stream.collect().await,
+                Err(error) => vec![Err(error)],
+            }
+        });
+        Ok((items, calls.load(Ordering::SeqCst)))
+    }
+
+    /// Whether `event` shows the caller content, which closes the retry
+    /// window. A block end alone does not: a decoder synthesizes those at
+    /// end of stream.
+    fn is_content(event: &StreamEvent) -> bool {
+        event.is_visible() && !matches!(event, StreamEvent::ContentBlockEnd { .. })
+    }
+
+    proptest! {
+        #[test]
+        fn a_retried_stream_is_one_attempt_delivered_once(
+            max_attempts in 1_u32..=4,
+            attempts in vec(attempt(), 4),
+        ) {
+            let (items, calls) =
+                run(max_attempts, &attempts).map_err(|error| TestCaseError::fail(error.to_string()))?;
+            let max_attempts = max_attempts as usize;
+
+            prop_assert!(calls <= max_attempts, "{calls} attempts under a budget of {max_attempts}");
+            prop_assert_eq!(violation(items.iter().map(Result::as_ref)), None);
+            let Some((terminal, delivered)) = items.split_last() else {
+                return Err(TestCaseError::fail("the stream delivered nothing"));
+            };
+            prop_assert!(
+                matches!(terminal, Err(_) | Ok(StreamEvent::Ended { .. })),
+                "the stream ends with a terminal item: {terminal:?}"
+            );
+
+            // Everything before the terminal item is a prefix of the last
+            // attempt that opened a stream: nothing from an abandoned attempt
+            // leaks through, and nothing is delivered twice.
+            let served = (0..calls).rev().find(|&index| attempts[index].open_failure.is_none());
+            let expected = served.map(|index| attempts[index].items(index)).unwrap_or_default();
+            let delivered: Vec<_> = delivered.iter().map(|item| item.as_ref().ok()).collect();
+            let expected: Vec<_> = expected
+                .iter()
+                .take(delivered.len())
+                .map(|item| item.as_ref().ok())
+                .collect();
+            prop_assert_eq!(&delivered, &expected);
+
+            let content = delivered.iter().flatten().any(|event| is_content(event));
+            let retryable_end = match terminal {
+                Err(error) => error.retry_classification() != RetryClassification::Never,
+                Ok(StreamEvent::Ended { response }) => {
+                    response.finish_reason == FinishReason::Incomplete
+                }
+                Ok(_) => false,
+            };
+            if content {
+                // Once the caller has seen content, no attempt follows.
+                prop_assert_eq!(Some(calls - 1), served);
+            } else if retryable_end {
+                // A retryable ending before any content spends the budget.
+                prop_assert_eq!(calls, max_attempts);
+            }
+            if let Err(error) = terminal
+                && error.retry_classification() == RetryClassification::Never
+            {
+                // A final failure stops at once: the last attempt raised it.
+                prop_assert_eq!(error.message(), format!("attempt {} failed", calls - 1));
+            }
+        }
+    }
+}

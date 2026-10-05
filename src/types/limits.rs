@@ -35,7 +35,10 @@ impl ResponseLimits {
         self.body = bytes;
         self
     }
-    /// Bounds an SSE or AWS event-stream frame, including framing bytes.
+    /// Bounds one SSE event or AWS event-stream frame while it is read.
+    ///
+    /// For SSE this counts the event's data and name so far plus the line
+    /// being read, field name included.
     pub fn max_frame_bytes(mut self, bytes: usize) -> Self {
         self.frame = bytes;
         self

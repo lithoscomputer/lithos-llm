@@ -45,6 +45,7 @@ macro_rules! model_tests {
         model_tests!(@expand $runner,
             claude_fable_5_1 "claude-fable-5.1",
             claude_fable_5 "claude-fable-5",
+            claude_opus_5_5 "claude-opus-5.5",
             claude_opus_5 "claude-opus-5",
             claude_sonnet_5 "claude-sonnet-5",
             claude_opus_4_8 "claude-opus-4.8",
@@ -69,11 +70,13 @@ macro_rules! model_tests {
 /// Fable 5.1 sits beside Fable 5 rather than behind it: the family cells
 /// exercise tool selection and parallel-call batching, which are exactly the
 /// behaviors the release notes say changed between the two.
+/// Opus 5.5 sits beside Opus 5 for the same reason.
 macro_rules! family_tests {
     ($runner:path) => {
         crate::anthropic::model_tests!(@expand $runner,
             claude_fable_5_1 "claude-fable-5.1",
             claude_fable_5 "claude-fable-5",
+            claude_opus_5_5 "claude-opus-5.5",
             claude_opus_5 "claude-opus-5",
             claude_sonnet_4_6 "claude-sonnet-4.6",
             claude_haiku_4_5 "claude-haiku-4.5",

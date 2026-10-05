@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 pub use probe::{ProbeOptions, ProbeOutcome, ProbeReport};
+use reqwest::redirect::Policy;
 use thiserror::Error;
 
 use crate::adapter::{
@@ -598,9 +599,13 @@ impl ClientBuilder {
     /// Injects an application-configured HTTP client.
     ///
     /// Every built-in adapter uses this client. Without it the builder creates
-    /// a default client that sends the Lithos user agent and applies
-    /// [`connect_timeout`](Self::connect_timeout). An injected client carries
-    /// its own connect timeout, so this builder does not change it.
+    /// a default client that sends the Lithos user agent, applies
+    /// [`connect_timeout`](Self::connect_timeout), and follows no redirects.
+    /// An injected client carries its own connect timeout and redirect policy,
+    /// so this builder changes neither. Build it with
+    /// `redirect(reqwest::redirect::Policy::none())`: a client that follows a
+    /// redirect to another host strips `authorization` but forwards every other
+    /// credential header, such as `x-api-key`, and the request body with it.
     pub fn http(mut self, client: reqwest::Client) -> Self {
         self.http = Some(client);
         self
@@ -777,8 +782,13 @@ impl ClientBuilder {
         let http = if let Some(http) = self.http {
             http
         } else {
+            // A provider API never redirects a call it serves. Following one
+            // would send the request body and every credential header except
+            // `authorization` to wherever the response points, so a 3xx is
+            // reported as the provider failure it is.
             let mut builder = reqwest::Client::builder()
-                .user_agent(concat!("lithos-llm/", env!("CARGO_PKG_VERSION")));
+                .user_agent(concat!("lithos-llm/", env!("CARGO_PKG_VERSION")))
+                .redirect(Policy::none());
             if let Some(connect_timeout) = self.connect_timeout {
                 builder = builder.connect_timeout(connect_timeout);
             }

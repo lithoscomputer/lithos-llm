@@ -45,7 +45,7 @@ impl StreamDecoder for BedrockStreamDecoder {
         };
 
         match name {
-            "messageStart" => Ok(vec![self.assembler.started(None)]),
+            "messageStart" => Ok(self.assembler.started(None).into_iter().collect()),
             "contentBlockStart" => Ok(self.content_block_start(payload)),
             "contentBlockDelta" => self.content_block_delta(payload),
             "contentBlockStop" => Ok(self.assembler.end(&block_id(payload))),

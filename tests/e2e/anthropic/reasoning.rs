@@ -52,6 +52,11 @@ mod effort_levels {
         fable_high "claude-fable-5" High,
         fable_xhigh "claude-fable-5" Xhigh,
         fable_max "claude-fable-5" Max,
+        opus_5_5_low "claude-opus-5.5" Low,
+        opus_5_5_medium "claude-opus-5.5" Medium,
+        opus_5_5_high "claude-opus-5.5" High,
+        opus_5_5_xhigh "claude-opus-5.5" Xhigh,
+        opus_5_5_max "claude-opus-5.5" Max,
         opus_5_low "claude-opus-5" Low,
         opus_5_medium "claude-opus-5" Medium,
         opus_5_high "claude-opus-5" High,
@@ -170,6 +175,14 @@ async fn reasoning_round_trip() -> TestResult {
 #[ignore = "live Anthropic call; run with mise run test:e2e:live"]
 async fn reasoning_round_trip_on_fable_5_1_under_enforcement() -> TestResult {
     replays_reasoning_with_a_tool_result("claude-fable-5.1", Some(BindingControls)).await
+}
+
+/// The same enforced replay on Opus 5.5, whose thinking blocks carry the same
+/// prefix binding as Fable 5.1's.
+#[tokio::test]
+#[ignore = "live Anthropic call; run with mise run test:e2e:live"]
+async fn reasoning_round_trip_on_opus_5_5_under_enforcement() -> TestResult {
+    replays_reasoning_with_a_tool_result("claude-opus-5.5", Some(BindingControls)).await
 }
 
 /// The closing turn opts into preserved-thinking enforcement.

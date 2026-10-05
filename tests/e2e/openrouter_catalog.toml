@@ -48,9 +48,21 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 
+# Opus 5.5 returns the upstream 400 for a forced tool choice although the
+# listing names `tool_choice`, so the row claims tools without
+# forced_tool_choice. A temperature was accepted with a 200, as on Opus 5.
+# Cache reads are $0.20/MTok. Verified 2026-09-22 against GET /api/v1/models
+# and raw probes.
+[providers.openrouter.models."claude-opus-5.5"]
+display_name = "Claude Opus 5.5 (via OpenRouter)"
+aliases = ["opus", "claude-opus"]
+api_model = "anthropic/claude-opus-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = false, named = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
 [providers.openrouter.models."claude-opus-5"]
 display_name = "Claude Opus 5 (via OpenRouter)"
-aliases = ["opus", "claude-opus"]
 api_model = "anthropic/claude-opus-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true } }

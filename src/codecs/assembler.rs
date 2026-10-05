@@ -163,6 +163,7 @@ pub(crate) struct StreamAssembler {
     cost:          Option<Cost>,
     warnings:      Vec<Warning>,
     raw:           Option<Value>,
+    started:       bool,
     completed:     bool,
 }
 
@@ -188,6 +189,7 @@ impl StreamAssembler {
             cost:          None,
             warnings:      Vec::new(),
             raw:           None,
+            started:       false,
             completed:     false,
         }
     }
@@ -460,10 +462,19 @@ impl StreamAssembler {
         }]
     }
 
-    /// Records the response id and returns the stream's `Started` event.
-    pub(crate) fn started(&mut self, id: Option<String>) -> StreamEvent {
+    /// Records the response id and returns the stream's `Started` event, the
+    /// first time only.
+    ///
+    /// A repeated start — a duplicated `message_start`, or a proxy that
+    /// replays the opening frame — changes nothing: the stream has started,
+    /// and it keeps the id it announced.
+    pub(crate) fn started(&mut self, id: Option<String>) -> Option<StreamEvent> {
+        if self.started {
+            return None;
+        }
+        self.started = true;
         self.response_id.clone_from(&id);
-        StreamEvent::Started { id }
+        Some(StreamEvent::Started { id })
     }
 
     /// Records a complete cumulative usage snapshot and returns its event.
@@ -669,6 +680,7 @@ mod tests {
 
     use super::StreamAssembler;
     use crate::codecs::test_support;
+    use crate::types::contract::violation;
     use crate::types::{
         ContentBlockId, ContentBlockKind, ContentPart, Cost, CostSource, FinishReason, StreamEvent,
         TokenCounts, ToolCallKind,
@@ -686,37 +698,9 @@ mod tests {
         }
     }
 
-    /// Checks the start/delta/end invariant over a whole event sequence.
-    fn assert_block_boundaries(events: &[StreamEvent]) {
-        let mut open: Vec<&ContentBlockId> = Vec::new();
-        let mut closed: Vec<&ContentBlockId> = Vec::new();
-
-        for event in events {
-            match event {
-                StreamEvent::ContentBlockStart { id, .. } => {
-                    assert!(!open.contains(&id), "{id:?} started twice");
-                    assert!(!closed.contains(&id), "{id:?} restarted after its end");
-                    open.push(id);
-                }
-                StreamEvent::TextDelta { id, .. }
-                | StreamEvent::ReasoningDelta { id, .. }
-                | StreamEvent::ToolCallDelta { id, .. } => {
-                    assert!(open.contains(&id), "{id:?} sent a delta before its start");
-                }
-                StreamEvent::ContentBlockEnd { id, .. } => {
-                    assert!(open.contains(&id), "{id:?} ended without a start");
-                    assert!(!closed.contains(&id), "{id:?} ended twice");
-                    open.retain(|open_id| *open_id != id);
-                    closed.push(id);
-                }
-                StreamEvent::Started { .. }
-                | StreamEvent::Usage { .. }
-                | StreamEvent::RateLimits { .. }
-                | StreamEvent::Ended { .. } => {}
-            }
-        }
-
-        assert!(open.is_empty(), "blocks left open: {open:?}");
+    /// Checks the documented stream invariants over a whole event sequence.
+    fn assert_stream_contract(events: &[StreamEvent]) {
+        assert_eq!(violation(events.iter().map(Ok)), None);
     }
 
     /// The parts carried by the block-end events, in order.
@@ -794,7 +778,7 @@ mod tests {
         events.extend(assembler.text(&id, "llo"));
         events.extend(assembler.complete());
 
-        assert_block_boundaries(&events);
+        assert_stream_contract(&events);
         assert!(matches!(
             events.first(),
             Some(StreamEvent::ContentBlockStart {
@@ -826,7 +810,7 @@ mod tests {
         events.extend(assembler.end(&id));
         events.extend(assembler.end(&id));
 
-        assert_block_boundaries(&events);
+        assert_stream_contract(&events);
         assert_eq!(events.len(), 3);
         Ok(())
     }
@@ -843,7 +827,7 @@ mod tests {
         events.extend(assembler.end(&second));
         events.extend(assembler.complete());
 
-        assert_block_boundaries(&events);
+        assert_stream_contract(&events);
         assert_eq!(ended_parts(&events), vec![
             ContentPart::Text {
                 text: "one".to_owned(),
@@ -871,7 +855,7 @@ mod tests {
         events.extend(assembler.end(&first));
         events.extend(assembler.complete());
 
-        assert_block_boundaries(&events);
+        assert_stream_contract(&events);
         let parts = ended_parts(&events);
         let ContentPart::ToolCall(second_call) = &parts[0] else {
             return Err("expected the second block to end first".into());
@@ -930,7 +914,7 @@ mod tests {
         ));
         events.extend(assembler.end(&tool));
 
-        assert_block_boundaries(&events);
+        assert_stream_contract(&events);
         let parts = ended_parts(&events);
         let ContentPart::Reasoning(reasoning_part) = &parts[0] else {
             return Err("expected a reasoning part".into());
@@ -961,7 +945,7 @@ mod tests {
         events.extend(assembler.reasoning(&id, "blob"));
         events.extend(assembler.end(&id));
 
-        assert_block_boundaries(&events);
+        assert_stream_contract(&events);
         // The sealed payload is opaque base64, not readable reasoning, so no
         // delta event may carry it to a live consumer.
         assert!(
@@ -1093,7 +1077,10 @@ mod tests {
         let text = ContentBlockId::new("block-0");
         let tool = ContentBlockId::new("tool-0");
 
-        let mut events = vec![assembler.started(Some("resp_1".to_owned()))];
+        let mut events: Vec<_> = assembler
+            .started(Some("resp_1".to_owned()))
+            .into_iter()
+            .collect();
         events.extend(assembler.text(&text, "hello"));
         events.extend(assembler.start(tool.clone(), tool_kind("call_a", "lookup")));
         events.extend(assembler.arguments(&tool, "{}"));
@@ -1103,7 +1090,7 @@ mod tests {
         events.extend(assembler.complete());
         events.extend(assembler.complete());
 
-        assert_block_boundaries(&events);
+        assert_stream_contract(&events);
         assert_eq!(completed_responses(&events).len(), 1);
 
         let Some(StreamEvent::Ended { response }) = events.last() else {

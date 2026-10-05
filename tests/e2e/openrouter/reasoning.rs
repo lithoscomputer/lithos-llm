@@ -88,6 +88,7 @@ mod effort_probes {
         claude_fable_5 "claude-fable-5",
         gpt_6_sol "gpt-6-sol",
         gpt_6_luna "gpt-6-luna",
+        claude_opus_5_5 "claude-opus-5.5",
         gpt_5_6_sol "gpt-5.6-sol",
         gpt_5_6_terra "gpt-5.6-terra",
         gpt_5_6_luna "gpt-5.6-luna",
@@ -124,6 +125,13 @@ mod round_trip {
     #[ignore = "live OpenRouter call; run with `mise run test:e2e`"]
     async fn claude_fable_5_1() -> TestResult {
         super::replays_reasoning_with_a_tool_result_under_auto_choice("claude-fable-5.1").await
+    }
+
+    /// Opus 5.5 takes no forced tool choice either.
+    #[tokio::test]
+    #[ignore = "live OpenRouter call; run with `mise run test:e2e`"]
+    async fn claude_opus_5_5() -> TestResult {
+        super::replays_reasoning_with_a_tool_result_under_auto_choice("claude-opus-5.5").await
     }
 }
 

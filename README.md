@@ -381,7 +381,9 @@ evaluation codec (today `vercel/jev`, TypeSafe's Jev through the
 option or level, a `confidence` on each choice and score answer, and the
 provider's declared rounding. `typesafe/jev-latest` evaluates natively too,
 through TypeSafe's own API on the `systemone` codec, and names the
-versioned model that answered in `Verdict::served_by`. Every other row that claims
+versioned model that answered in `Verdict::served_by`. `openrouter/jev-latest`
+and `openrouter/jev-1.13` reach the same model through OpenRouter's Decisions
+API on the `systemone` codec's OpenRouter dialect. Every other row that claims
 `response_format.json_schema` acts as a judge: the client runs one
 structured-output completion with a fixed system prompt and reads the JSON
 object back into answers. On a provider served by a built-in adapter the
@@ -409,6 +411,15 @@ the `InlineLocalFiles` middleware accepts a local path as well (`/…`, `./…`,
 `~/…`, or `file://`) and reads the file into inline base64 before the request
 reaches a codec, so a caller on the same machine as its files can point at
 them directly.
+
+`InlineLocalFiles::new([dir, …])` reads only files that resolve inside the
+given directories, checked both by name and after symlinks resolve. Paths in
+tool results, and in a server's user messages, are not always the
+application's own, so a path outside, a file that is not a regular file, or
+one over the size limit (32 MiB by default, set with `max_file_bytes`) fails
+the call with `InvalidRequest`. `InlineLocalFiles::unrestricted()` reads any
+path and is meant for trusted local use, such as a command-line tool run by
+the owner of the files.
 
 ```rust
 use std::error::Error;
