@@ -6,4 +6,6 @@
 /dist-release/
 /tmp/
 .env
-.claude
+.claude/*
+!.claude/skills/
+.claude/skills/*-workspace/
