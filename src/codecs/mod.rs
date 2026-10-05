@@ -296,6 +296,15 @@ pub(crate) trait StreamDecoder: Send {
     fn finish(&mut self) -> Result<Vec<StreamEvent>, Error>;
 }
 
+/// Whether `event` is the `[DONE]` terminator of the OpenAI Chat dialect.
+///
+/// The terminator is not part of SSE, so the transport delivers it like any
+/// other event. A decoder whose dialect ends streams this way completes on it,
+/// and the stream ends there.
+pub(crate) fn is_done_terminator(event: &SseEvent) -> bool {
+    event.data.trim() == "[DONE]"
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;

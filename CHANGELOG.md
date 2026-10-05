@@ -6,6 +6,57 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Breaking: `InlineLocalFiles` reads only inside the directories it is
+  given. `InlineLocalFiles::new(directories)` replaces `new()`,
+  `InlineLocalFiles::unrestricted()` keeps the old read-anywhere behavior for
+  trusted local use, and `with_env_lookup` is now a builder method. A path is
+  checked by name, with `.` and `..` resolved, and again after symlinks
+  resolve. The middleware also reads only regular files, up to 32 MiB by
+  default (`max_file_bytes`), with a bounded read. A path outside the
+  directories, a directory, pipe, or device such as `/dev/zero`, or a larger
+  file now fails the call with `InvalidRequest` instead of being read: a
+  tool result or an end user's message could name any readable file, a
+  device never ended, and a pipe could block forever. A missing or
+  unreadable file inside an allowed directory is still dropped with a
+  warning. The `local-files` feature now enables `tokio/io-util`.
+
+- Credentials are never sent over unencrypted HTTP to another machine. A
+  call whose credentials add any header, bound for an `http://` URL whose
+  host is not `localhost`, a `.localhost` name, or a loopback address, now
+  fails before sending with a `Configuration` error. Local servers such as
+  the built-in Ollama and LiteLLM entries, and calls without credentials,
+  are unaffected.
+
+- The default HTTP client follows no redirects. A 3xx response now fails
+  the call as a non-retryable `Provider` error carrying its status. A
+  followed redirect to another host kept every credential header except
+  `authorization`, such as Anthropic's `x-api-key` or Gemini's
+  `x-goog-api-key`, and resent the request body there. An application that
+  injects its own client with `ClientBuilder::http` should build it with
+  `redirect(reqwest::redirect::Policy::none())`.
+
+- A stream delivers at most one `Started`. A provider or proxy that repeats
+  its opening event — Anthropic's `message_start` or Bedrock's
+  `messageStart` — no longer produces a second `Started`; the stream keeps
+  the id it announced first.
+
+- SSE responses are parsed as the WHATWG specification defines. Lines may
+  end with LF, CRLF, or a bare CR, mixed within one stream and split across
+  network chunks. A stream-leading byte-order mark is stripped, a bare `data`
+  line is an empty data line, and exactly one space after a field's colon is
+  removed, so `data:  x` carries ` x`. Two deviations are deliberate: an event
+  the stream ends inside is still delivered, and a line that is not UTF-8
+  fails the stream with a retryable `stream_decode` error, whose message now
+  reads "an SSE line was not UTF-8". `ResponseLimits::max_frame_bytes` bounds
+  one SSE event while it is read: its data and name so far plus the current
+  line. Streams whose events a lenient proxy separates by single line breaks
+  now keep an `event:` name on the next data line.
+  `[DONE]` is no longer dropped by the transport. The Chat Completions,
+  Responses, and Gemini decoders complete the response on it, so `Ended`
+  arrives at the terminator rather than when the connection closes. A stream
+  now ends at its `Ended` event: nothing the provider sends afterward,
+  including a late connection error, is delivered.
+
 - The built-in `openrouter` provider serves TypeSafe's Jev through
   OpenRouter's Decisions API, on the `OPENROUTER_API_KEY` credential it
   already uses. It now lists `codecs = ["openai-chat", "systemone"]` with

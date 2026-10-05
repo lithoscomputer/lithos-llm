@@ -181,8 +181,7 @@ mod tests {
 
     use super::{bound_event_data, frame_stream, with_idle_timeout};
     use crate::catalog::ProviderId;
-    use crate::transport::StreamFraming;
-    use crate::transport::sse::{SseEvent, SseFramer};
+    use crate::transport::sse::{SseDispatch, SseEvent, SseFramer};
     use crate::types::{Error, ErrorKind, RetryClassification};
 
     #[tokio::test]
@@ -205,14 +204,14 @@ mod tests {
     #[tokio::test]
     async fn frame_limit_applies_across_chunks_but_not_across_frames() {
         let chunks = stream::iter([Ok(b"data: 1\n\ndata: 2\n\n".to_vec())]);
-        let frames: Vec<_> = frame_stream(chunks, SseFramer::new(StreamFraming::Sse, 9))
+        let frames: Vec<_> = frame_stream(chunks, SseFramer::new(SseDispatch::BlankLine, 9))
             .collect()
             .await;
         assert_eq!(frames.len(), 2);
         assert!(frames.iter().all(Result::is_ok));
 
         let chunks = stream::iter([Ok(b"data: ".to_vec()), Ok(b"1234567890".to_vec())]);
-        let frames: Vec<_> = frame_stream(chunks, SseFramer::new(StreamFraming::Sse, 9))
+        let frames: Vec<_> = frame_stream(chunks, SseFramer::new(SseDispatch::BlankLine, 9))
             .collect()
             .await;
         assert_eq!(frames.len(), 1);
@@ -269,7 +268,7 @@ mod tests {
             Ok(b"data: 2\n\n".to_vec()),
         ]);
 
-        let frames: Vec<_> = frame_stream(chunks, SseFramer::new(StreamFraming::Sse, 64))
+        let frames: Vec<_> = frame_stream(chunks, SseFramer::new(SseDispatch::BlankLine, 64))
             .collect()
             .await;
 

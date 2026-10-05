@@ -1341,3 +1341,41 @@ fn a_tool_result_image_becomes_a_block_and_does_not_warn() -> Result<(), Box<dyn
     );
     Ok(())
 }
+
+#[test]
+fn a_repeated_message_start_starts_the_stream_once() -> Result<(), Box<dyn StdError>> {
+    let start = sse(
+        "message_start",
+        &json!({
+            "type": "message_start",
+            "message": { "id": "msg_first", "usage": { "input_tokens": 3, "output_tokens": 0 } },
+        }),
+    );
+    let replayed = sse(
+        "message_start",
+        &json!({
+            "type": "message_start",
+            "message": { "id": "msg_replayed", "usage": { "input_tokens": 3, "output_tokens": 0 } },
+        }),
+    );
+
+    let events = stream(vec![
+        start,
+        replayed,
+        sse("message_stop", &json!({ "type": "message_stop" })),
+    ])?;
+
+    let starts: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            StreamEvent::Started { id } => Some(id.as_deref()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        starts,
+        [Some("msg_first")],
+        "the first start names the stream"
+    );
+    Ok(())
+}

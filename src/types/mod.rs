@@ -36,6 +36,8 @@ pub use request::{
 pub use response::{
     Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Usage, Warning,
 };
+#[cfg(test)]
+pub(crate) use stream::contract;
 #[cfg(feature = "runtime")]
 pub use stream::{ContentBlockId, ContentBlockKind, ResponseStream, StreamEvent};
 pub use tool_input::{ToolArgumentError, ToolArguments, ToolInput};
