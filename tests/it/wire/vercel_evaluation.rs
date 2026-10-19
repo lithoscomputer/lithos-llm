@@ -60,7 +60,10 @@ fn mixed_provider_catalog(base_url: &str) -> Catalog {
 /// The interface plan's three questions, which [`LIVE_BODY`] answers.
 fn evaluation() -> Evaluation {
     Evaluation::builder()
-        .model(provider().selector())
+        .selection(lithos_llm::ModelSelection::from_parts(
+            Some(MODEL),
+            Some(PROVIDER),
+        ))
         .state("I was charged twice. Please refund the duplicate.")
         .choice("department", "Which team should handle this?", [
             ("billing", Some("Charges and refunds")),
@@ -96,11 +99,16 @@ async fn exchange() -> (WireCapture, Verdict) {
     let client = support::client_for(catalog, PROVIDER, support::bearer_credentials());
     let (mock, slot) = support::mount_capture(&server, PATH, &body(LIVE_BODY));
 
+    let evaluation = evaluation();
+    let route = client
+        .resolve_evaluation_route(&evaluation)
+        .expect("inspection");
     let verdict = client
-        .evaluate(evaluation())
+        .evaluate(evaluation)
         .await
         .expect("the evaluation should succeed");
 
+    assert_eq!(verdict.model, route.handle());
     mock.assert_async().await;
     (support::captured(&slot), verdict)
 }

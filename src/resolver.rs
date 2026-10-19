@@ -5,6 +5,7 @@ mod validation;
 
 use std::collections::BTreeSet;
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[cfg(feature = "runtime")]
@@ -14,6 +15,122 @@ use crate::cost::estimate_catalog_cost;
 #[cfg(feature = "runtime")]
 use crate::types::Response;
 use crate::types::{Cost, Error as LlmError, ErrorKind, Request, Speed, TokenCounts};
+
+/// Selection intent, independent of a conversation or credentials.
+///
+/// Raw selectors use `provider/model` or `provider:model` qualification. A
+/// scoped model is opaque: slashes, colons, and the word `default` are model
+/// text, never reparsed. Use `None` for a scoped provider's default. Strings
+/// retain the legacy JSON representation; structured forms serialize as objects
+/// and `Default` as null.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(untagged, deny_unknown_fields)]
+#[non_exhaustive]
+pub enum ModelSelection {
+    /// The highest-priority eligible provider's configured default.
+    #[default]
+    Default,
+    /// A raw selector: `default`, a provider, a model, or `provider/model`
+    /// (also `provider:model`).
+    Selector(String),
+    /// A provider id or alias and an optional opaque model id or alias.
+    Provider {
+        provider: String,
+        model:    Option<String>,
+    },
+    /// Canonical catalog identity. Neither aliases nor stand-ins are consulted.
+    /// Missing rows (including passthrough handles) return `ModelNotFound`.
+    Resolved { handle: ModelHandle },
+}
+
+impl ModelSelection {
+    /// Keeps a separate provider pin structured; does not parse or concatenate.
+    pub fn from_parts(model: Option<&str>, provider: Option<&str>) -> Self {
+        match (model, provider) {
+            (model, Some(provider)) => Self::Provider {
+                provider: provider.to_owned(),
+                model:    model.map(str::to_owned),
+            },
+            (Some(model), None) => Self::Selector(model.to_owned()),
+            (None, None) => Self::Default,
+        }
+    }
+
+    /// Model text for legacy payload inspection. This omits provider scope;
+    /// use the full selection for routing, persistence, or equality checks.
+    pub(crate) fn model_text(&self) -> &str {
+        match self {
+            Self::Default => "default",
+            Self::Selector(model) => model,
+            Self::Provider { model, .. } => model.as_deref().unwrap_or("default"),
+            Self::Resolved { handle } => handle.model().as_str(),
+        }
+    }
+}
+
+// An explicit JSON null means Default, while an absent builder field still
+// means MissingModel. Option's standard deserializer would conflate them.
+pub(crate) fn deserialize_selection<'de, D>(
+    deserializer: D,
+) -> Result<Option<ModelSelection>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    ModelSelection::deserialize(deserializer).map(Some)
+}
+
+impl From<ModelHandle> for ModelSelection {
+    fn from(handle: ModelHandle) -> Self {
+        Self::Resolved { handle }
+    }
+}
+
+/// How a catalog miss may be sent to a provider. Provider passthrough
+/// permission is required in both permissive modes.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum UnknownModelPolicy {
+    /// Only explicitly provider-scoped unknown models may pass through.
+    #[default]
+    ExplicitProvider,
+    /// Also send unknown bare models to the default provider. Known but
+    /// ineligible models and unknown qualified providers never fall back.
+    DefaultProvider,
+    /// Require a catalog model, including for explicitly scoped selections.
+    CatalogOnly,
+}
+
+/// Whether an enabled but unavailable provider may use its catalog stand-in.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum ProviderMatchPolicy {
+    #[default]
+    AllowStandIns,
+    Exact,
+}
+
+/// Configurable catalog resolver. Install with `ClientBuilder::resolver` to
+/// use the same policy for inspection and every dispatch operation.
+#[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
+pub struct SelectionPolicy {
+    pub unknown_models: UnknownModelPolicy,
+    pub providers:      ProviderMatchPolicy,
+}
+
+impl SelectionPolicy {
+    #[must_use]
+    pub fn with_unknown_models(mut self, policy: UnknownModelPolicy) -> Self {
+        self.unknown_models = policy;
+        self
+    }
+
+    #[must_use]
+    pub fn with_providers(mut self, policy: ProviderMatchPolicy) -> Self {
+        self.providers = policy;
+        self
+    }
+}
 
 /// Providers with runtime adapters available to the client.
 #[derive(Clone, Debug, Default)]
@@ -168,12 +285,25 @@ pub trait ModelResolver: Send + Sync {
     /// Return [`ModelSelectionError`] when no requested route is available or
     /// route construction fails. Do not silently select an unrelated provider
     /// unless that fallback is part of the resolver's documented policy.
+    fn resolve_selection(
+        &self,
+        selection: &ModelSelection,
+        catalog: &Catalog,
+        available: &AvailableProviders,
+    ) -> Result<ResolvedRoute, ModelSelectionError>;
+
+    /// Compatibility convenience for callers with a request already built.
+    ///
+    /// # Errors
+    /// Returns the selection error from [`Self::resolve_selection`].
     fn resolve(
         &self,
         request: &Request,
         catalog: &Catalog,
         available: &AvailableProviders,
-    ) -> Result<ResolvedRoute, ModelSelectionError>;
+    ) -> Result<ResolvedRoute, ModelSelectionError> {
+        self.resolve_selection(request.selection(), catalog, available)
+    }
 }
 
 /// Catalog-based resolution using explicit routes, aliases, priority,
@@ -189,21 +319,56 @@ pub trait ModelResolver: Send + Sync {
 pub struct CatalogResolver;
 
 impl ModelResolver for CatalogResolver {
-    fn resolve(
+    fn resolve_selection(
         &self,
-        request: &Request,
+        selection: &ModelSelection,
         catalog: &Catalog,
         available: &AvailableProviders,
     ) -> Result<ResolvedRoute, ModelSelectionError> {
-        let selector = request.model();
-        if let Some((provider_selector, model_selector)) = selector.split_once('/') {
-            let provider = catalog.find_provider(provider_selector).ok_or_else(|| {
-                ModelSelectionError::ProviderNotFound {
-                    provider: provider_selector.to_owned(),
-                }
-            })?;
-            let provider = serving_provider(catalog, provider, available)?;
-            return resolve_explicit(provider, model_selector);
+        SelectionPolicy::default().resolve_selection(selection, catalog, available)
+    }
+}
+
+impl ModelResolver for SelectionPolicy {
+    fn resolve_selection(
+        &self,
+        selection: &ModelSelection,
+        catalog: &Catalog,
+        available: &AvailableProviders,
+    ) -> Result<ResolvedRoute, ModelSelectionError> {
+        let selector = match selection {
+            ModelSelection::Default => return resolve_default(catalog, available),
+            ModelSelection::Provider { provider, model } => {
+                let provider = find_serving_provider(catalog, provider, available, self.providers)?;
+                return match model {
+                    Some(model) => resolve_explicit(provider, model, self.unknown_models),
+                    None => resolve_provider_default(provider),
+                };
+            }
+            ModelSelection::Resolved { handle } => {
+                // Canonical ids only: a renamed row must never turn into an
+                // alias for a different route on resume.
+                let provider = catalog.provider_by_id(handle.provider()).ok_or_else(|| {
+                    ModelSelectionError::ProviderNotFound {
+                        provider: handle.provider().to_string(),
+                    }
+                })?;
+                let provider =
+                    serving_provider(catalog, provider, available, ProviderMatchPolicy::Exact)?;
+                let model = provider
+                    .models()
+                    .find(|model| model.id() == handle.model())
+                    .ok_or_else(|| ModelSelectionError::ModelNotFound {
+                        selector: handle.to_string(),
+                    })?;
+                return ResolvedRoute::try_new(provider.clone(), model.clone());
+            }
+            ModelSelection::Selector(selector) => selector.as_str(),
+        };
+        if let Some((provider_selector, model_selector)) = selector.split_once(['/', ':']) {
+            let provider =
+                find_serving_provider(catalog, provider_selector, available, self.providers)?;
+            return resolve_explicit(provider, model_selector, self.unknown_models);
         }
 
         if selector == "default" {
@@ -211,11 +376,12 @@ impl ModelResolver for CatalogResolver {
         }
 
         if let Some(provider) = catalog.find_provider(selector) {
-            let provider = serving_provider(catalog, provider, available)?;
+            let provider = serving_provider(catalog, provider, available, self.providers)?;
             return resolve_provider_default(provider);
         }
 
         let mut matches = catalog.models_matching(selector);
+        let known = !matches.is_empty();
         matches.retain(|model| {
             available.contains(model.provider_id())
                 && catalog
@@ -239,13 +405,15 @@ impl ModelResolver for CatalogResolver {
                 .then_with(|| right_priority.cmp(&left_priority))
                 .then_with(|| left.provider_id().cmp(right.provider_id()))
         });
-        let model =
-            matches
-                .into_iter()
-                .next()
-                .ok_or_else(|| ModelSelectionError::ModelNotFound {
-                    selector: selector.to_owned(),
-                })?;
+        let Some(model) = matches.into_iter().next() else {
+            if !known && self.unknown_models == UnknownModelPolicy::DefaultProvider {
+                let default = resolve_default(catalog, available)?;
+                return resolve_explicit(default.provider(), selector, self.unknown_models);
+            }
+            return Err(ModelSelectionError::ModelNotFound {
+                selector: selector.to_owned(),
+            });
+        };
         let provider = catalog
             .find_provider(model.provider_id().as_str())
             .ok_or_else(|| ModelSelectionError::ProviderNotFound {
@@ -253,6 +421,21 @@ impl ModelResolver for CatalogResolver {
             })?;
         ResolvedRoute::try_new(provider.clone(), model.clone())
     }
+}
+
+fn find_serving_provider<'a>(
+    catalog: &'a Catalog,
+    selector: &str,
+    available: &AvailableProviders,
+    policy: ProviderMatchPolicy,
+) -> Result<&'a CatalogProvider, ModelSelectionError> {
+    let provider =
+        catalog
+            .find_provider(selector)
+            .ok_or_else(|| ModelSelectionError::ProviderNotFound {
+                provider: selector.to_owned(),
+            })?;
+    serving_provider(catalog, provider, available, policy)
 }
 
 /// The provider that serves routes addressed to `provider`.
@@ -265,6 +448,7 @@ fn serving_provider<'a>(
     catalog: &'a Catalog,
     provider: &'a CatalogProvider,
     available: &AvailableProviders,
+    policy: ProviderMatchPolicy,
 ) -> Result<&'a CatalogProvider, ModelSelectionError> {
     if !provider.is_enabled() {
         return Err(ModelSelectionError::ProviderDisabled {
@@ -277,7 +461,8 @@ fn serving_provider<'a>(
     catalog
         .providers()
         .find(|candidate| {
-            candidate.is_enabled()
+            policy == ProviderMatchPolicy::AllowStandIns
+                && candidate.is_enabled()
                 && available.contains(candidate.id())
                 && candidate.stands_in_for() == Some(provider.id())
         })
@@ -289,10 +474,14 @@ fn serving_provider<'a>(
 fn resolve_explicit(
     provider: &CatalogProvider,
     model_selector: &str,
+    policy: UnknownModelPolicy,
 ) -> Result<ResolvedRoute, ModelSelectionError> {
     let model = if let Some(model) = provider.model(model_selector) {
         model.clone()
-    } else if provider.allows_passthrough() && !model_selector.trim().is_empty() {
+    } else if policy != UnknownModelPolicy::CatalogOnly
+        && provider.allows_passthrough()
+        && !model_selector.trim().is_empty()
+    {
         CatalogModel::passthrough(provider, ModelId::new(model_selector))
     } else {
         return Err(ModelSelectionError::ModelNotFound {

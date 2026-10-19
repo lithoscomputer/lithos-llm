@@ -246,11 +246,23 @@ async fn a_structured_output_row_on_a_mixed_provider_judges_through_chat() {
     let (chat, slot) = support::mount_capture(&server, CHAT_PATH, &chat_reply(r#"{"q0":0.9}"#));
     let evaluation_endpoint = mount_never(&server, EVALUATION_PATH);
 
+    let evaluation = one_boolean("vercel/sonnet")
+        .into_builder()
+        .selection(lithos_llm::ModelSelection::from_parts(
+            Some("sonnet"),
+            Some("vercel"),
+        ))
+        .build()
+        .expect("structured evaluation");
+    let route = client
+        .resolve_evaluation_route(&evaluation)
+        .expect("inspection");
     let verdict = client
-        .evaluate(one_boolean("vercel/sonnet"))
+        .evaluate(evaluation)
         .await
         .expect("the judge should answer");
 
+    assert_eq!(verdict.model, route.handle());
     chat.assert_async().await;
     evaluation_endpoint.assert_calls_async(0).await;
     let captured = support::captured(&slot);

@@ -266,7 +266,7 @@ impl Call {
         mut self,
         transform: impl FnOnce(Request) -> Result<Request, RequestBuildError>,
     ) -> Result<Self, Error> {
-        let selector = self.request.model().to_owned();
+        let selector = self.request.selection().clone();
         let request = transform(self.request).map_err(|source| {
             Error::new(
                 ErrorKind::InvalidRequest,
@@ -274,7 +274,7 @@ impl Call {
             )
             .with_source(source)
         })?;
-        if request.model() != selector {
+        if request.selection() != &selector {
             return Err(Error::new(
                 ErrorKind::Middleware,
                 "middleware cannot change the model selector",

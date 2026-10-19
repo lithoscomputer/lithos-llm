@@ -34,4 +34,6 @@ pub use client::{Client, ClientBuild, ClientBuilder, StructuredCompletion};
 #[doc(inline)]
 pub use evaluation::{Evaluation, EvaluationBuilder, Verdict};
 #[doc(inline)]
+pub use resolver::ModelSelection;
+#[doc(inline)]
 pub use types::{Error, Request, Response};

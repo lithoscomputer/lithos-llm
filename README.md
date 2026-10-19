@@ -122,9 +122,59 @@ catalog; a provider the catalog marks `enabled = false` builds no adapter
 either way, and a catalog overlay is what turns it on. The complete catalog
 stays available for inspection.
 
-`Client::resolve_route` reports the provider and model a request would use
-without dispatching it, which is the same resolution `complete`, `stream`, and
-`count_input_tokens` perform.
+`Client::resolve_selection` reports the route before a request exists;
+`resolve_route` accepts a request already built. Both use the same synchronous,
+side-effect-free resolver as completion, streaming, token counting, and
+evaluation. No dummy messages, credentials, or network calls are needed.
+
+```rust
+use lithos_llm::{Client, ModelSelection, Request};
+
+# async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
+let selection = ModelSelection::from_parts(Some("gemini"), None);
+let route = client.resolve_selection(&selection)?;
+let request = Request::builder().selection(selection).user("Hello").build()?;
+let response = client.complete(request).await?;
+assert_eq!(response.model, route.handle());
+# Ok(())
+# }
+```
+
+Pass separate API fields directly to `ModelSelection::from_parts(model, provider)`.
+With no provider pin, a selector may be `default`, a provider id/alias, a model
+id/alias, or a qualified `provider/model` (also `provider:model`). Provider names
+win over bare model names. With a provider pin, the model is opaque text: an
+aggregator's `vendor/model:version` stays whole, and `None` selects the pinned
+provider's configured default. `Some("default")` under a pin names a literal model.
+
+The default `CatalogResolver` preserves explicit-provider passthrough and
+configured stand-ins. Applications can install a `SelectionPolicy` with
+`ClientBuilder::resolver`; `ProviderMatchPolicy::Exact` refuses unavailable pins,
+`UnknownModelPolicy::DefaultProvider` permits unknown bare models on the default
+provider, and `CatalogOnly` requires catalog membership. Passthrough always
+requires the serving provider's permission. Known but ineligible models and
+unknown, disabled, or unavailable qualified providers never become unknown
+models on a different provider.
+
+Before constructing a client, call `ModelResolver::resolve_selection` on
+`CatalogResolver` or `SelectionPolicy`, passing the catalog and
+`AvailableProviders::new(eligible_ids)`. `AvailableProviders::all(&catalog)` is
+useful for catalog preflight; it includes every enabled provider without probing
+credentials. Configure provider defaults through catalog overlays.
+
+Persist a catalog route's `ModelHandle` (already serializable), and resume with
+`Request::builder().selection(handle)`. This uses canonical ids only, ignores
+aliases and changed defaults, and refuses stand-ins or removed catalog rows.
+The catalog continues to own the provider API id: `route.api_model()` is the wire
+id, while `route.handle()` is the canonical identity. A handle is not a snapshot
+of catalog configuration. Passthrough routes have no catalog row, so their
+handles alone cannot be resumed this way; preserve explicit provider/model
+intent for passthrough and resolve it under the application's chosen policy.
+
+Custom resolvers implement `ModelResolver::resolve_selection` and receive the
+same structured input for inspection and dispatch. Read `request.selection()`
+when inspecting full intent; the legacy `request.model()` text getter omits
+structured provider scope.
 
 ## Call controls
 

@@ -28,7 +28,8 @@ use crate::evaluation::{Evaluation, State, Verdict, validate};
 use crate::middleware::{Call, CallContext, CallGuard, Middleware, Operation, Output, Pipeline};
 use crate::providers::register_builtin;
 use crate::resolver::{
-    AvailableProviders, CatalogResolver, ModelResolver, ModelSelectionError, ResolvedRoute,
+    AvailableProviders, CatalogResolver, ModelResolver, ModelSelection, ModelSelectionError,
+    ResolvedRoute,
 };
 use crate::types::{
     Error, ErrorKind, Request, Response, ResponseFormat, ResponseLimits, ResponsePolicy,
@@ -170,8 +171,20 @@ impl Client {
     /// Returns an error if the request selector names no provider or model
     /// that is both in the catalog and available.
     pub fn resolve_route(&self, request: &Request) -> Result<ResolvedRoute, ModelSelectionError> {
+        self.resolve_selection(request.selection())
+    }
+
+    /// Resolves selection intent without a request, credentials, or I/O.
+    /// Uses the same configured resolver as all dispatch operations.
+    ///
+    /// # Errors
+    /// Returns a typed error when the configured policy cannot select a route.
+    pub fn resolve_selection(
+        &self,
+        selection: &ModelSelection,
+    ) -> Result<ResolvedRoute, ModelSelectionError> {
         self.resolver
-            .resolve(request, &self.catalog, &self.available)
+            .resolve_selection(selection, &self.catalog, &self.available)
     }
 
     pub async fn complete(&self, request: Request) -> Result<Response, Error> {
@@ -384,7 +397,7 @@ impl Client {
         let verdict = if native {
             let stand_in = judge::build_with_settings(
                 Request::builder()
-                    .model(evaluation.model())
+                    .selection(evaluation.selection().clone())
                     .user(state_text(&evaluation)),
                 &evaluation,
             )?;
@@ -433,8 +446,7 @@ impl Client {
     /// The route [`evaluate`](Self::evaluate) would use, without dispatching.
     ///
     /// The evaluation's model selector goes through the client's resolver
-    /// the way a request's does. The resolver reads only the selector, so a
-    /// minimal stand-in request carries it. Like [`resolve_route`], this is
+    /// the way a request's does. Like [`resolve_route`], this is
     /// synchronous and side effect free, and does not check that the model
     /// claims the question kinds asked.
     ///
@@ -448,8 +460,7 @@ impl Client {
         &self,
         evaluation: &Evaluation,
     ) -> Result<ResolvedRoute, ModelSelectionError> {
-        let stand_in = Request::stand_in(evaluation.model(), state_text(evaluation));
-        self.resolve_route(&stand_in)
+        self.resolve_selection(evaluation.selection())
     }
 
     fn prepare_context(
@@ -1074,7 +1085,9 @@ mod tests {
     };
     use crate::catalog::{AdapterId, Catalog, CatalogProvider, CodecFamily, CodecId, ProviderId};
     use crate::credentials::{CredentialError, CredentialProvider, Credentials, StaticCredentials};
-    use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
+    use crate::resolver::{
+        AvailableProviders, ModelResolver, ModelSelection, ModelSelectionError, ResolvedRoute,
+    };
     use crate::types::{
         ContentPart, Error, Request, Response, ResponseFormat, ResponseStream, Speed,
         ToolDefinition,
@@ -1197,9 +1210,9 @@ mod tests {
     struct FixedResolver;
 
     impl ModelResolver for FixedResolver {
-        fn resolve(
+        fn resolve_selection(
             &self,
-            _request: &Request,
+            _selection: &ModelSelection,
             catalog: &Catalog,
             _available: &AvailableProviders,
         ) -> Result<ResolvedRoute, ModelSelectionError> {

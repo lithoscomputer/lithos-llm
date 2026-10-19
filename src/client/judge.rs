@@ -78,7 +78,7 @@ pub(super) fn request_for(
         .with_source(source)
     })?;
     let mut builder = Request::builder()
-        .model(evaluation.model())
+        .selection(evaluation.selection().clone())
         .system(SYSTEM_PROMPT)
         .user(text)
         .response_format(ResponseFormat::JsonSchema {

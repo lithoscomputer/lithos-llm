@@ -9,6 +9,7 @@ use thiserror::Error;
 
 use super::{Instructions, Question, QuestionId, State};
 use crate::catalog::ProviderId;
+use crate::resolver::ModelSelection;
 use crate::types::duration_millis;
 
 /// Typed questions to ask about one piece of state.
@@ -50,7 +51,7 @@ use crate::types::duration_millis;
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(try_from = "EvaluationBuilder")]
 pub struct Evaluation {
-    model:            String,
+    model:            Box<ModelSelection>,
     state:            State,
     questions:        BTreeMap<QuestionId, Question>,
     #[serde(
@@ -73,7 +74,7 @@ impl Evaluation {
     /// Returns a builder that preserves every setting in this evaluation.
     pub fn into_builder(self) -> EvaluationBuilder {
         EvaluationBuilder {
-            model:            Some(self.model),
+            model:            Some(*self.model),
             state:            Some(self.state),
             questions:        self.questions,
             duplicate:        None,
@@ -84,7 +85,15 @@ impl Evaluation {
     }
 
     /// The model selector, resolved through the catalog like a request's.
+    /// Legacy model text; omits structured provider scope. Use `selection()`
+    /// for routing, persistence, or comparisons.
     pub fn model(&self) -> &str {
+        self.model.model_text()
+    }
+
+    /// The complete selection intent, including provider scope or exact
+    /// identity.
+    pub fn selection(&self) -> &ModelSelection {
         &self.model
     }
 
@@ -118,7 +127,8 @@ impl Evaluation {
 #[serde(default)]
 #[must_use]
 pub struct EvaluationBuilder {
-    model:            Option<String>,
+    #[serde(default, deserialize_with = "crate::resolver::deserialize_selection")]
+    model:            Option<ModelSelection>,
     state:            Option<State>,
     questions:        BTreeMap<QuestionId, Question>,
     /// The first id added twice, reported by `build`.
@@ -139,8 +149,13 @@ impl TryFrom<EvaluationBuilder> for Evaluation {
 }
 
 impl EvaluationBuilder {
-    pub fn model(mut self, model: impl Into<String>) -> Self {
-        self.model = Some(model.into());
+    pub fn model(self, model: impl Into<String>) -> Self {
+        self.selection(ModelSelection::Selector(model.into()))
+    }
+
+    /// Sets selection intent without flattening provider scope into text.
+    pub fn selection(mut self, selection: impl Into<ModelSelection>) -> Self {
+        self.model = Some(selection.into());
         self
     }
 
@@ -296,7 +311,7 @@ impl EvaluationBuilder {
     pub fn build(self) -> Result<Evaluation, EvaluationBuildError> {
         let model = self
             .model
-            .filter(|model| !model.trim().is_empty())
+            .filter(|model| !model.model_text().trim().is_empty())
             .ok_or(EvaluationBuildError::MissingModel)?;
         let state = self
             .state
@@ -331,7 +346,7 @@ impl EvaluationBuilder {
         }
 
         Ok(Evaluation {
-            model,
+            model: Box::new(model),
             state,
             questions: self.questions,
             timeout: self.timeout,

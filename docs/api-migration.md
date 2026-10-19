@@ -104,3 +104,51 @@ Applications convert their own historical records when they adopt Lithos.
 
 `ProbeOutcome::Failed` now contains `Box<ErrorData>` to keep the enum compact.
 Use `Box::new(data)` when constructing this variant. Its JSON shape is unchanged.
+
+## Shared model selection
+
+`ModelResolver` implementors must replace `resolve(&Request, ...)` with
+`resolve_selection(&ModelSelection, ...)`. Selection is independent of messages
+and request controls; synchronous implementations must not read credentials or
+perform I/O. The provided `resolve(&Request, ...)` convenience remains for
+callers. The client invokes `resolve_selection` directly for every operation and
+for route inspection, so an override of the old convenience is not a dispatch
+hook. Custom resolvers retain full control over routing policy.
+
+Existing `.model("selector")`, `request.model()` and JSON `"model": "selector"`
+inputs remain supported. New `RequestBuilder::selection` and
+`EvaluationBuilder::selection` preserve structured intent; corresponding
+`selection()` getters return it. Update middleware that compares or persists
+selection to use these getters. The legacy text getter omits structured provider
+scope. `into_builder` and JSON round trips preserve the full selection.
+
+`ModelSelection::Default` serializes as JSON null; a builder's missing `model`
+field still produces `MissingModel`, while an explicitly null field selects the
+default. A provider-scoped model serializes as
+`{"provider":"openrouter","model":"vendor/model:version"}` under `model`.
+An exact handle serializes as `{"handle":{"provider":"gemini","model":"flash"}}`.
+
+Raw colon qualification (`provider:model`) is now recognized alongside slash
+qualification. The first delimiter separates provider from model; the rest is
+opaque. To use a literal colon or slash in an unqualified model id, supply
+`ModelSelection::from_parts(Some(model_id), Some(provider))`. The raw form never
+falls back from an unknown or unavailable provider prefix to an aggregator's
+wire id. Applications supporting older reference syntaxes should translate
+those syntaxes to structured intent at their input boundary, with explicit
+conflict handling if they accept both a qualified reference and a provider pin.
+A separate provider pin always scopes the complete model string in Lithos.
+
+`SelectionPolicy` makes exact pins, stand-ins, catalog-only lookup and
+unknown-bare-model passthrough explicit. Install it on the client as its resolver
+and use the same policy for preflight. Neither permissive mode bypasses a
+provider's `allow_passthrough` flag. Known models that only exist on ineligible
+providers are not treated as unknown models eligible for fallback.
+
+For later exact execution of a catalog route, persist `route.handle()` and pass
+that handle to `.selection(handle)`; do not reconstruct an alias or default.
+Exact handles require canonical catalog ids and an enabled, eligible provider.
+They fail if the row disappears instead of following a new alias, passing its
+old slug through as a wire id, or selecting a stand-in. The current catalog's
+`api_model` still controls the wire id. Passthrough handles do not contain enough
+information to prove a catalog identity; preserve scoped selection intent for
+those routes rather than using the exact-handle input.

@@ -9,6 +9,7 @@ use thiserror::Error;
 
 use super::{Message, Role, ToolChoice, ToolDefinition, ToolDefinitionKind};
 use crate::catalog::ProviderId;
+use crate::resolver::ModelSelection;
 
 /// Requested reasoning depth, when a provider supports it.
 ///
@@ -178,7 +179,7 @@ pub enum CacheHint {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(try_from = "RequestBuilder")]
 pub struct Request {
-    model:             String,
+    model:             Box<ModelSelection>,
     messages:          Vec<Message>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     tools:             Vec<ToolDefinition>,
@@ -219,10 +220,10 @@ impl Request {
     /// Every other field is unset. Unlike [`RequestBuilder::build`] this
     /// cannot fail: `model` is taken as given and `text` is one user message
     /// however short it is.
-    #[cfg(feature = "runtime")]
+    #[cfg(all(feature = "runtime", test))]
     pub(crate) fn stand_in(model: &str, text: String) -> Self {
         Self {
-            model:             model.to_owned(),
+            model:             Box::new(ModelSelection::Selector(model.to_owned())),
             messages:          vec![Message::text(Role::User, text)],
             tools:             Vec::new(),
             tool_choice:       None,
@@ -250,7 +251,7 @@ impl Request {
     /// Returns a builder that preserves every setting in this request.
     pub fn into_builder(self) -> RequestBuilder {
         RequestBuilder {
-            model:             Some(self.model),
+            model:             Some(*self.model),
             messages:          self.messages,
             tools:             self.tools,
             tool_choice:       self.tool_choice,
@@ -272,7 +273,15 @@ impl Request {
         RequestBuilder::default()
     }
 
+    /// Legacy model text; omits structured provider scope. Use `selection()`
+    /// for routing, persistence, or comparisons.
     pub fn model(&self) -> &str {
+        self.model.model_text()
+    }
+
+    /// The complete selection intent, including provider scope or exact
+    /// identity.
+    pub fn selection(&self) -> &ModelSelection {
         &self.model
     }
 
@@ -351,7 +360,8 @@ impl Request {
 #[serde(default)]
 #[must_use]
 pub struct RequestBuilder {
-    model:             Option<String>,
+    #[serde(default, deserialize_with = "crate::resolver::deserialize_selection")]
+    model:             Option<ModelSelection>,
     messages:          Vec<Message>,
     tools:             Vec<ToolDefinition>,
     tool_choice:       Option<ToolChoice>,
@@ -378,8 +388,13 @@ impl TryFrom<RequestBuilder> for Request {
 }
 
 impl RequestBuilder {
-    pub fn model(mut self, model: impl Into<String>) -> Self {
-        self.model = Some(model.into());
+    pub fn model(self, model: impl Into<String>) -> Self {
+        self.selection(ModelSelection::Selector(model.into()))
+    }
+
+    /// Sets selection intent without flattening provider scope into text.
+    pub fn selection(mut self, selection: impl Into<ModelSelection>) -> Self {
+        self.model = Some(selection.into());
         self
     }
 
@@ -513,7 +528,7 @@ impl RequestBuilder {
 
     pub fn build(self) -> Result<Request, RequestBuildError> {
         let model = self.model.ok_or(RequestBuildError::MissingModel)?;
-        if model.trim().is_empty() {
+        if model.model_text().trim().is_empty() {
             return Err(RequestBuildError::EmptyModel);
         }
         if self.messages.is_empty() {
@@ -587,21 +602,21 @@ impl RequestBuilder {
         }
 
         Ok(Request {
-            model,
-            messages: self.messages,
-            tools: self.tools,
-            tool_choice: self.tool_choice,
-            response_format: self.response_format,
+            model:             Box::new(model),
+            messages:          self.messages,
+            tools:             self.tools,
+            tool_choice:       self.tool_choice,
+            response_format:   self.response_format,
             max_output_tokens: self.max_output_tokens,
-            temperature: self.temperature,
-            top_p: self.top_p,
-            reasoning_effort: self.reasoning_effort,
-            cache_hint: self.cache_hint,
-            speed: self.speed,
-            timeout: self.timeout,
-            stop_sequences: self.stop_sequences,
-            metadata: self.metadata,
-            provider_options: self.provider_options,
+            temperature:       self.temperature,
+            top_p:             self.top_p,
+            reasoning_effort:  self.reasoning_effort,
+            cache_hint:        self.cache_hint,
+            speed:             self.speed,
+            timeout:           self.timeout,
+            stop_sequences:    self.stop_sequences,
+            metadata:          self.metadata,
+            provider_options:  self.provider_options,
         })
     }
 }
