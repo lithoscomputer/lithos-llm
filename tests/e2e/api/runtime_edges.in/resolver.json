@@ -3,7 +3,7 @@
   "cases": [
     {
       "name": "provider_without_default",
-      "request": { "model": "alpha", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
+      "request": { "model": {"provider": "alpha"}, "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
       "available": "all"
     },
     {
@@ -18,7 +18,7 @@
     },
     {
       "name": "success",
-      "request": { "model": "beta", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
+      "request": { "model": {"provider": "beta"}, "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
       "available": ["beta"]
     }
   ]

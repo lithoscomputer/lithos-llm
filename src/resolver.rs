@@ -30,7 +30,7 @@ pub enum ModelSelection {
     /// The highest-priority eligible provider's configured default.
     #[default]
     Default,
-    /// A raw selector: `default`, a provider, a model, or `provider/model`
+    /// A raw selector: `default`, a model, or `provider/model`
     /// (also `provider:model`).
     Selector(String),
     /// A provider id or alias and an optional opaque model id or alias.
@@ -375,13 +375,16 @@ impl ModelResolver for SelectionPolicy {
             return resolve_default(catalog, available);
         }
 
-        if let Some(provider) = catalog.find_provider(selector) {
-            let provider = serving_provider(catalog, provider, available, self.providers)?;
-            return resolve_provider_default(provider);
-        }
-
         let mut matches = catalog.models_matching(selector);
         let known = !matches.is_empty();
+        // A real model id or alias remains a model even when it shares a
+        // provider's name. A provider-only name must never become a default
+        // selection or an unrelated provider's passthrough wire id.
+        if !known && catalog.find_provider(selector).is_some() {
+            return Err(ModelSelectionError::ProviderInModel {
+                selector: selector.to_owned(),
+            });
+        }
         matches.retain(|model| {
             available.contains(model.provider_id())
                 && catalog
@@ -549,6 +552,10 @@ pub enum ModelSelectionError {
     ProviderUnavailable { provider: ProviderId },
     #[error("provider {provider} is disabled in the catalog")]
     ProviderDisabled { provider: ProviderId },
+    #[error(
+        "`{selector}` names a provider, not a model; set provider to `{selector}` and omit model to use its default"
+    )]
+    ProviderInModel { selector: String },
     #[error("model selector `{selector}` was not found")]
     ModelNotFound { selector: String },
     #[error("provider {provider} has no default model")]
@@ -772,15 +779,15 @@ mod tests {
         let available =
             AvailableProviders::new(["platform", "seat", "parked"].map(super::ProviderId::new));
 
-        for selector in ["parked/one", "parked"] {
-            assert!(
-                matches!(
-                    resolve(&catalog, &available, selector),
-                    Err(super::ModelSelectionError::ProviderDisabled { provider })
-                        if provider.as_str() == "parked"
-                ),
-                "`{selector}` should be refused"
-            );
+        for selection in [
+            super::ModelSelection::from_parts(Some("parked/one"), None),
+            super::ModelSelection::from_parts(None, Some("parked")),
+        ] {
+            assert!(matches!(
+                CatalogResolver.resolve_selection(&selection, &catalog, &available),
+                Err(super::ModelSelectionError::ProviderDisabled { provider })
+                    if provider.as_str() == "parked"
+            ));
         }
         // The disabled provider's alias never wins a bare-selector match, and
         // the default skips it despite its higher priority.
@@ -807,7 +814,7 @@ mod tests {
         let catalog = stand_in_catalog()?;
         let only_seat = AvailableProviders::new([super::ProviderId::new("seat")]);
 
-        for selector in ["platform/one", "platform/uno", "platform"] {
+        for selector in ["platform/one", "platform/uno"] {
             let route = resolve(&catalog, &only_seat, selector)?;
             assert_eq!(route.provider().id().as_str(), "seat", "`{selector}`");
             assert_eq!(route.model().id().as_str(), "one");

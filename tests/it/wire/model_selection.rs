@@ -73,7 +73,7 @@ fn policy() -> SelectionPolicy {
 }
 
 #[tokio::test]
-async fn provider_only_aliases_and_scoped_models_dispatch_the_inspected_gemini_route()
+async fn provider_defaults_aliases_and_scoped_models_dispatch_the_inspected_gemini_route()
 -> Result<(), Box<dyn Error>> {
     let server = MockServer::start_async().await;
     let client = Client::builder()
@@ -100,12 +100,12 @@ async fn provider_only_aliases_and_scoped_models_dispatch_the_inspected_gemini_r
     let (count, count_slot) =
         support::mount_capture(&server, count_path, &json!({"totalTokens": 1}));
     let cases = [
-        ModelSelection::from_parts(Some("gemini"), None),
-        ModelSelection::from_parts(Some("google"), None),
+        ModelSelection::from_parts(None, Some("gemini")),
+        ModelSelection::from_parts(None, Some("google")),
         ModelSelection::from_parts(Some("fast"), None),
         ModelSelection::from_parts(Some("google/fast"), None),
         ModelSelection::from_parts(Some("google:fast"), None),
-        ModelSelection::from_parts(None, Some("google")),
+        ModelSelection::from_parts(Some("flash"), Some("google")),
         ModelSelection::from_parts(Some("gemini-wire"), Some("gemini")),
     ];
     for selection in cases {
@@ -152,7 +152,7 @@ async fn configured_default_and_saved_handle_use_distinct_wire_models() -> Resul
     let server = MockServer::start_async().await;
     let source = catalog(&server.base_url());
     let old = policy().resolve_selection(
-        &ModelSelection::from_parts(Some("gemini"), None),
+        &ModelSelection::from_parts(None, Some("gemini")),
         &source,
         &AvailableProviders::all(&source),
     )?;
@@ -165,7 +165,7 @@ async fn configured_default_and_saved_handle_use_distinct_wire_models() -> Resul
         .client;
     for (selection, wire) in [
         (
-            ModelSelection::from_parts(Some("gemini"), None),
+            ModelSelection::from_parts(None, Some("gemini")),
             "gemini-pro-wire",
         ),
         (old.handle().into(), "gemini-wire"),
@@ -214,7 +214,7 @@ async fn custom_resolvers_drive_inspection_and_dispatch() -> Result<(), Box<dyn 
         .resolver(AlwaysGemini)
         .build()?
         .client;
-    let selection = ModelSelection::from_parts(Some("anthropic"), None);
+    let selection = ModelSelection::from_parts(None, Some("anthropic"));
     let route = client.resolve_selection(&selection)?;
     let (mock, _) = support::mount_capture(
         &server,
@@ -301,5 +301,122 @@ async fn unknown_bare_models_use_the_configured_policy_for_inspection_and_wire_d
         "/v1beta/models/brand-new:generateContent"
     );
     mock.assert_async().await;
+    Ok(())
+}
+
+#[tokio::test]
+async fn provider_names_fail_inspection_and_every_dispatch_before_http()
+-> Result<(), Box<dyn Error>> {
+    let server = MockServer::start_async().await;
+    let receiver = server.mock(|when, then| {
+        when.method(Method::POST);
+        then.status(500);
+    });
+    let client = Client::builder()
+        .catalog(catalog(&server.base_url()))
+        .credentials(credentials())
+        .resolver(policy())
+        .build()?
+        .client;
+    for selector in ["gemini", "google", "anthropic"] {
+        let selection = ModelSelection::from_parts(Some(selector), None);
+        assert!(matches!(
+            client.resolve_selection(&selection),
+            Err(ModelSelectionError::ProviderInModel { .. })
+        ));
+        let request = Request::builder().selection(selection).user("hi").build()?;
+        assert_eq!(
+            client
+                .complete(request.clone())
+                .await
+                .expect_err("invalid model")
+                .kind(),
+            ErrorKind::ModelSelection
+        );
+        assert_eq!(
+            client
+                .stream(request.clone())
+                .await
+                .err()
+                .expect("invalid model")
+                .kind(),
+            ErrorKind::ModelSelection
+        );
+        assert_eq!(
+            client
+                .count_input_tokens(request)
+                .await
+                .expect_err("invalid model")
+                .kind(),
+            ErrorKind::ModelSelection
+        );
+    }
+    receiver.assert_calls_async(0).await;
+    Ok(())
+}
+
+#[tokio::test]
+async fn openrouter_scope_preserves_native_ids_and_maps_catalog_models()
+-> Result<(), Box<dyn Error>> {
+    let server = MockServer::start_async().await;
+    let catalog = support::catalog_from_toml(
+        "openrouter selection",
+        &format!(
+            r#"
+schema_version = 1
+[providers.openrouter]
+display_name = "OpenRouter"
+codecs = ["openai-chat"]
+base_url = "{}"
+auth = {{ type = "none" }}
+allow_passthrough = true
+default_model = "gemini-flash"
+[providers.openrouter.models.gemini-flash]
+display_name = "Gemini Flash"
+api_model = "google/gemini-flash"
+capabilities = {{ text = true }}
+"#,
+            server.base_url()
+        ),
+    );
+    let client = Client::builder()
+        .catalog(catalog)
+        .resolver(policy())
+        .build()?
+        .client;
+    for (model, wire, canonical) in [
+        (None, "google/gemini-flash", "gemini-flash"),
+        (Some("gemini-flash"), "google/gemini-flash", "gemini-flash"),
+        (
+            Some("google/gemini-flash"),
+            "google/gemini-flash",
+            "gemini-flash",
+        ),
+        (
+            Some("some-vendor/new-model:free"),
+            "some-vendor/new-model:free",
+            "some-vendor/new-model:free",
+        ),
+    ] {
+        let selection = ModelSelection::from_parts(model, Some("openrouter"));
+        let route = client.resolve_selection(&selection)?;
+        assert_eq!(route.provider().id().as_str(), "openrouter");
+        assert_eq!(route.model().id().as_str(), canonical);
+        assert_eq!(route.api_model(), wire);
+        let receipt = server.mock(|when, then| {
+            when.method(Method::POST).path("/v1/chat/completions")
+                .json_body_includes(json!({"model":wire}).to_string());
+            then.status(200).json_body(json!({
+                "id":"route", "object":"chat.completion", "model":wire,
+                "choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]
+            }));
+        });
+        let response = client
+            .complete(Request::builder().selection(selection).user("hi").build()?)
+            .await?;
+        assert_eq!(response.model, route.handle());
+        receipt.assert_calls_async(1).await;
+        receipt.delete_async().await;
+    }
     Ok(())
 }

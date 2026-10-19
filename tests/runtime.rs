@@ -2628,9 +2628,11 @@ async fn resolve_evaluation_route_agrees_with_evaluate() -> Result<(), Box<dyn S
         .build()?
         .client;
 
-    // The provider default is the judge row, so a bare provider selector
-    // resolves there and the verdict names the canonical route.
-    let evaluation = evaluation("test");
+    // Explicit provider scope selects the default judge row.
+    let evaluation = evaluation("test/judge")
+        .into_builder()
+        .selection(lithos_llm::ModelSelection::from_parts(None, Some("test")))
+        .build()?;
     let route = client.resolve_evaluation_route(&evaluation)?;
     let verdict = client.evaluate(evaluation).await?;
 

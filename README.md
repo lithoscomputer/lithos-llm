@@ -131,7 +131,7 @@ evaluation. No dummy messages, credentials, or network calls are needed.
 use lithos_llm::{Client, ModelSelection, Request};
 
 # async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
-let selection = ModelSelection::from_parts(Some("gemini"), None);
+let selection = ModelSelection::from_parts(None, Some("gemini"));
 let route = client.resolve_selection(&selection)?;
 let request = Request::builder().selection(selection).user("Hello").build()?;
 let response = client.complete(request).await?;
@@ -141,9 +141,11 @@ assert_eq!(response.model, route.handle());
 ```
 
 Pass separate API fields directly to `ModelSelection::from_parts(model, provider)`.
-With no provider pin, a selector may be `default`, a provider id/alias, a model
-id/alias, or a qualified `provider/model` (also `provider:model`). Provider names
-win over bare model names. With a provider pin, the model is opaque text: an
+With no provider pin, a selector may be `default`, a model id/alias, or a qualified
+`provider/model` (also `provider:model`). A provider id or alias alone is rejected
+with `ProviderInModel`; use a separate provider and omit the model for its default.
+A genuine model id or alias that shares a provider name still resolves as a model.
+With a provider pin, the model is opaque text: an
 aggregator's `vendor/model:version` stays whole, and `None` selects the pinned
 provider's configured default. `Some("default")` under a pin names a literal model.
 

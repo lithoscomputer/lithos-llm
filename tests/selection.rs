@@ -82,9 +82,9 @@ fn defaults_aliases_qualification_and_priorities_share_one_algorithm() -> Result
     for (model, provider, expected) in [
         (None, None, "alpha/one"),
         (Some("default"), None, "alpha/one"),
-        (Some("alpha"), None, "alpha/one"),
+        (Some("alpha"), None, "beta/alpha"),
         (Some("alpha"), Some("beta"), "beta/alpha"),
-        (Some("b"), None, "beta/shared"),
+        (None, Some("b"), "beta/shared"),
         (Some("uno"), None, "alpha/one"),
         (Some("shared"), None, "beta/shared"),
         (Some("a/uno"), None, "alpha/one"),
@@ -107,7 +107,7 @@ fn configured_defaults_override_builtin_defaults() -> Result<(), Box<dyn Error>>
         .build()?;
     for selection in [
         ModelSelection::Default,
-        ModelSelection::from_parts(Some("a"), None),
+        ModelSelection::from_parts(None, Some("a")),
         ModelSelection::from_parts(None, Some("alpha")),
     ] {
         let route = CatalogResolver.resolve_selection(
@@ -189,7 +189,7 @@ fn passthrough_is_explicit_policy_and_never_overrides_provider_permission()
 fn provider_failures_never_fall_back_to_an_unrelated_provider() -> Result<(), Box<dyn Error>> {
     let catalog = catalog()?;
     let ready = eligible(&["beta", "parked", "defaultless"]);
-    for selector in ["alpha", "a", "alpha/one", "alpha:one"] {
+    for selector in ["alpha/one", "alpha:one"] {
         assert!(matches!(
             permissive().resolve_selection(
                 &ModelSelection::from_parts(Some(selector), None),
@@ -229,7 +229,7 @@ fn provider_failures_never_fall_back_to_an_unrelated_provider() -> Result<(), Bo
     }
     assert!(matches!(
         permissive().resolve_selection(
-            &ModelSelection::from_parts(Some("defaultless"), None),
+            &ModelSelection::from_parts(None, Some("defaultless")),
             &catalog,
             &ready
         ),
@@ -262,7 +262,6 @@ fn stand_ins_are_opt_in_policy_and_never_apply_to_resolved_handles() -> Result<(
     let catalog = catalog()?;
     let ready = eligible(&["seat"]);
     for selection in [
-        ModelSelection::from_parts(Some("a"), None),
         ModelSelection::from_parts(Some("a/one"), None),
         ModelSelection::from_parts(None, Some("a")),
     ] {
@@ -381,4 +380,46 @@ fn malformed_structured_inputs_are_not_silently_reinterpreted() {
             .build()
             .is_err()
     );
+}
+
+#[test]
+fn provider_names_and_aliases_are_not_models_or_passthrough_ids() -> Result<(), Box<dyn Error>> {
+    let catalog = catalog()?;
+    for ready in [AvailableProviders::all(&catalog), eligible(&["alpha"])] {
+        for policy in [
+            exact(),
+            permissive(),
+            exact().with_unknown_models(UnknownModelPolicy::CatalogOnly),
+        ] {
+            for selector in ["a", "beta", "b", "parked", "defaultless"] {
+                let error = policy
+                    .resolve_selection(
+                        &ModelSelection::from_parts(Some(selector), None),
+                        &catalog,
+                        &ready,
+                    )
+                    .expect_err("provider names require a provider field");
+                assert_eq!(error, ModelSelectionError::ProviderInModel {
+                    selector: selector.to_owned(),
+                });
+                assert!(error.to_string().contains("omit model"));
+            }
+        }
+    }
+    // An actual model named alpha still selects beta/alpha, never alpha's default.
+    let route = permissive().resolve_selection(
+        &ModelSelection::from_parts(Some("alpha"), None),
+        &catalog,
+        &eligible(&["beta"]),
+    )?;
+    assert_eq!(route.handle().to_string(), "beta/alpha");
+    assert!(matches!(
+        permissive().resolve_selection(
+            &ModelSelection::from_parts(Some("alpha"), None),
+            &catalog,
+            &eligible(&["alpha"])
+        ),
+        Err(ModelSelectionError::ModelNotFound { .. })
+    ));
+    Ok(())
 }

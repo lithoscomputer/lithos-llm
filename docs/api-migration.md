@@ -116,7 +116,12 @@ for route inspection, so an override of the old convenience is not a dispatch
 hook. Custom resolvers retain full control over routing policy.
 
 Existing `.model("selector")`, `request.model()` and JSON `"model": "selector"`
-inputs remain supported. New `RequestBuilder::selection` and
+inputs remain supported for model selectors. Provider-only strings such as
+`.model("gemini")` or `.model("google")` now return `ProviderInModel`; replace
+them with `.selection(ModelSelection::from_parts(None, Some("gemini")))`.
+A real catalog model id or alias remains a model even if it shares a provider
+name. This intentionally removes provider-default inference from model text,
+including under permissive unknown-model policies. New `RequestBuilder::selection` and
 `EvaluationBuilder::selection` preserve structured intent; corresponding
 `selection()` getters return it. Update middleware that compares or persists
 selection to use these getters. The legacy text getter omits structured provider
