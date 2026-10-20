@@ -126,6 +126,41 @@ stays available for inspection.
 without dispatching it, which is the same resolution `complete`, `stream`, and
 `count_input_tokens` perform.
 
+Applications with separate model/provider configuration can resolve it without
+building a conversation:
+
+```rust
+use lithos_llm::resolver::CatalogResolver;
+use lithos_llm::{Client, Request};
+
+fn request(client: &Client) -> Result<Request, Box<dyn std::error::Error>> {
+    let route = CatalogResolver.resolve_selection(
+        Some("google/gemini-3.5-flash"),
+        Some("openrouter"),
+        client.catalog(),
+        client.available_providers(),
+    )?;
+    Ok(Request::builder()
+        .model(route.handle().to_string())
+        .user("Hello")
+        .build()?)
+}
+```
+
+An explicit provider scopes the whole model string, including slashes. Known
+models use that provider's API model ID; permitted unknown IDs pass through
+unchanged. With `model = None`, the provider's catalog default applies, including
+overrides. With both fields omitted, the highest-priority available default
+applies. This method uses catalog policy; custom `ModelResolver` implementations
+remain part of the client's request-based resolution API.
+
+Bare provider names and aliases such as `model = "gemini"` or `"google"` now
+return an error suggesting the provider field. Use `model = None` and
+`provider = Some("gemini")` for its default. An actual catalog model ID or alias
+still resolves as a model even when its name also identifies a provider.
+Existing qualified model references such as `gemini/gemini-3.5-flash` retain
+their meaning.
+
 ## Call controls
 
 `Request::into_builder()` preserves settings while changing a request.

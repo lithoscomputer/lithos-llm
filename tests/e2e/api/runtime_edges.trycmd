@@ -79,8 +79,8 @@ $ lithos-llm-e2e resolve-matrix resolver.json
   "kind": "resolve_matrix",
   "cases": [
     {
-      "name": "provider_without_default",
-      "error": "provider alpha has no default model"
+      "name": "provider_used_as_model",
+      "error": "`alpha` names a provider, not a model; set provider = /"alpha/" and omit model to use its configured default"
     },
     {
       "name": "provider_unavailable",

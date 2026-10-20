@@ -195,7 +195,52 @@ impl ModelResolver for CatalogResolver {
         catalog: &Catalog,
         available: &AvailableProviders,
     ) -> Result<ResolvedRoute, ModelSelectionError> {
-        let selector = request.model();
+        self.resolve_selection(Some(request.model()), None, catalog, available)
+    }
+}
+
+impl CatalogResolver {
+    /// Resolves separate model and provider fields without constructing a
+    /// request.
+    ///
+    /// An explicit provider scopes the entire model string, including slashes.
+    /// Omitting the model selects that provider's configured default, or the
+    /// highest-priority available default when the provider is also omitted.
+    /// Without a provider, models use the same qualified references, aliases,
+    /// priority, and `default` selector as request dispatch. A bare provider
+    /// name or alias is rejected unless it also identifies a catalog model.
+    ///
+    /// This uses catalog policy, not a client's custom [`ModelResolver`].
+    /// Pass [`AvailableProviders::all`] for offline catalog resolution, or the
+    /// client's available providers to restrict selection to its adapters.
+    /// The returned [`ResolvedRoute::handle`] can be formatted as the model
+    /// selector for a subsequent request.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ModelSelectionError`] when the selection is invalid,
+    /// unavailable, or has no configured default.
+    pub fn resolve_selection(
+        &self,
+        model: Option<&str>,
+        provider: Option<&str>,
+        catalog: &Catalog,
+        available: &AvailableProviders,
+    ) -> Result<ResolvedRoute, ModelSelectionError> {
+        if let Some(provider_selector) = provider {
+            let provider = catalog.find_provider(provider_selector).ok_or_else(|| {
+                ModelSelectionError::ProviderNotFound {
+                    provider: provider_selector.to_owned(),
+                }
+            })?;
+            let provider = serving_provider(catalog, provider, available)?;
+            return match model {
+                Some(selector) => resolve_explicit(provider, selector),
+                None => resolve_provider_default(provider),
+            };
+        }
+
+        let selector = model.unwrap_or("default");
         if let Some((provider_selector, model_selector)) = selector.split_once('/') {
             let provider = catalog.find_provider(provider_selector).ok_or_else(|| {
                 ModelSelectionError::ProviderNotFound {
@@ -210,12 +255,15 @@ impl ModelResolver for CatalogResolver {
             return resolve_default(catalog, available);
         }
 
-        if let Some(provider) = catalog.find_provider(selector) {
-            let provider = serving_provider(catalog, provider, available)?;
-            return resolve_provider_default(provider);
-        }
-
         let mut matches = catalog.models_matching(selector);
+        if matches.is_empty()
+            && let Some(provider) = catalog.find_provider(selector)
+        {
+            return Err(ModelSelectionError::ProviderUsedAsModel {
+                selector: selector.to_owned(),
+                provider: provider.id().clone(),
+            });
+        }
         matches.retain(|model| {
             available.contains(model.provider_id())
                 && catalog
@@ -362,6 +410,13 @@ pub enum ModelSelectionError {
     ProviderDisabled { provider: ProviderId },
     #[error("model selector `{selector}` was not found")]
     ModelNotFound { selector: String },
+    #[error(
+        "`{selector}` names a provider, not a model; set provider = \"{provider}\" and omit model to use its configured default"
+    )]
+    ProviderUsedAsModel {
+        selector: String,
+        provider: ProviderId,
+    },
     #[error("provider {provider} has no default model")]
     ProviderHasNoDefault { provider: ProviderId },
     #[error("no available provider has a default model")]
@@ -559,6 +614,131 @@ mod tests {
         api_model = "one"
     "#;
 
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn separate_model_and_provider_fields_resolve_without_a_request()
+    -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .with_builtin()
+            .overlay_toml(
+                r#"schema_version = 1
+                [providers.gemini]
+                default_model = "gemini-3.1-pro-preview"
+                "#,
+            )?
+            .build()?;
+        let available = AvailableProviders::all(&catalog);
+        for (model, provider, expected_provider, expected_api_model) in [
+            (None, None, "anthropic", "claude-sonnet-5"),
+            (None, Some("gemini"), "gemini", "gemini-3.1-pro-preview"),
+            (None, Some("google"), "gemini", "gemini-3.1-pro-preview"),
+            (
+                Some("google/gemini-3.5-flash"),
+                None,
+                "gemini",
+                "gemini-3.5-flash",
+            ),
+            (
+                Some("gemini-3.5-flash"),
+                Some("openrouter"),
+                "openrouter",
+                "google/gemini-3.5-flash",
+            ),
+            (
+                Some("google/gemini-3.5-flash"),
+                Some("openrouter"),
+                "openrouter",
+                "google/gemini-3.5-flash",
+            ),
+            (
+                Some("some-vendor/new-model:free"),
+                Some("openrouter"),
+                "openrouter",
+                "some-vendor/new-model:free",
+            ),
+            (
+                Some("openrouter/google/gemini-3.5-flash"),
+                None,
+                "openrouter",
+                "google/gemini-3.5-flash",
+            ),
+            (
+                Some("sonnet"),
+                Some("openrouter"),
+                "openrouter",
+                "anthropic/claude-sonnet-5",
+            ),
+        ] {
+            let route = CatalogResolver.resolve_selection(model, provider, &catalog, &available)?;
+            assert_eq!(
+                route.provider().id().as_str(),
+                expected_provider,
+                "{model:?}, {provider:?}"
+            );
+            assert_eq!(
+                route.api_model(),
+                expected_api_model,
+                "{model:?}, {provider:?}"
+            );
+            assert_eq!(
+                resolve(&catalog, &available, &route.handle().to_string())?.api_model(),
+                route.api_model()
+            );
+        }
+        for available in [
+            available,
+            AvailableProviders::new([super::ProviderId::new("anthropic")]),
+        ] {
+            for selector in ["gemini", "google"] {
+                let error = CatalogResolver
+                    .resolve_selection(Some(selector), None, &catalog, &available)
+                    .expect_err("provider names require the provider field");
+                assert!(
+                    matches!(&error, super::ModelSelectionError::ProviderUsedAsModel { provider, .. }
+                    if provider.as_str() == "gemini")
+                );
+                assert!(error.to_string().contains("provider = \"gemini\""));
+                assert_eq!(
+                    resolve(&catalog, &available, selector)
+                        .expect_err("request dispatch rejects the same provider name"),
+                    error
+                );
+            }
+        }
+        // A real model ID or alias takes precedence over a provider name,
+        // even when that model's provider has no available adapter.
+        let collision = Catalog::builder()
+            .with_builtin()
+            .overlay_toml(
+                r#"schema_version = 1
+                [providers.anthropic.models.gemini]
+                display_name = "A model named Gemini"
+                aliases = ["google"]
+                api_model = "actual-model"
+                "#,
+            )?
+            .build()?;
+        for selector in ["gemini", "google"] {
+            let route = CatalogResolver.resolve_selection(
+                Some(selector),
+                None,
+                &collision,
+                &AvailableProviders::all(&collision),
+            )?;
+            assert_eq!(route.api_model(), "actual-model");
+            assert!(matches!(
+                CatalogResolver.resolve_selection(
+                    Some(selector),
+                    None,
+                    &collision,
+                    &AvailableProviders::new([super::ProviderId::new("gemini")]),
+                ),
+                Err(super::ModelSelectionError::ModelNotFound { .. })
+            ));
+        }
+        Ok(())
+    }
+
     fn stand_in_catalog() -> Result<Catalog, Box<dyn StdError>> {
         Ok(Catalog::builder().overlay_toml(STAND_IN_CATALOG)?.build()?)
     }
@@ -583,14 +763,14 @@ mod tests {
         let available =
             AvailableProviders::new(["platform", "seat", "parked"].map(super::ProviderId::new));
 
-        for selector in ["parked/one", "parked"] {
+        for model in [Some("one"), None] {
             assert!(
                 matches!(
-                    resolve(&catalog, &available, selector),
+                    CatalogResolver.resolve_selection(model, Some("parked"), &catalog, &available),
                     Err(super::ModelSelectionError::ProviderDisabled { provider })
                         if provider.as_str() == "parked"
                 ),
-                "`{selector}` should be refused"
+                "`{model:?}` should be refused"
             );
         }
         // The disabled provider's alias never wins a bare-selector match, and
@@ -618,11 +798,14 @@ mod tests {
         let catalog = stand_in_catalog()?;
         let only_seat = AvailableProviders::new([super::ProviderId::new("seat")]);
 
-        for selector in ["platform/one", "platform/uno", "platform"] {
+        for selector in ["platform/one", "platform/uno"] {
             let route = resolve(&catalog, &only_seat, selector)?;
             assert_eq!(route.provider().id().as_str(), "seat", "`{selector}`");
             assert_eq!(route.model().id().as_str(), "one");
         }
+        let default =
+            CatalogResolver.resolve_selection(None, Some("platform"), &catalog, &only_seat)?;
+        assert_eq!(default.handle().to_string(), "seat/one");
         // A passthrough-style selector the stand-in cannot serve fails on the
         // stand-in, not on the provider it stands in for.
         assert!(matches!(

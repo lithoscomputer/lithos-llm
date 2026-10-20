@@ -118,6 +118,78 @@ fn text_response() -> Value {
     })
 }
 
+#[cfg(feature = "builtin-catalog")]
+#[tokio::test]
+async fn separate_selection_rejects_provider_names_and_preserves_openrouter_scope_on_the_wire() {
+    use lithos_llm::resolver::CatalogResolver;
+
+    let server = MockServer::start_async().await;
+    let catalog = Catalog::builder()
+        .with_builtin()
+        .overlay_toml(&format!(
+            "schema_version = 1\n[providers.openrouter]\nbase_url = {:?}",
+            server.base_url()
+        ))
+        .expect("local origin overlay")
+        .build()
+        .expect("valid catalog");
+    let client = support::client_for(catalog, "openrouter", support::bearer_credentials());
+    let (mock, slot) = support::mount_capture(&server, PATH, &text_response());
+
+    for selector in ["gemini", "google"] {
+        assert!(
+            CatalogResolver
+                .resolve_selection(
+                    Some(selector),
+                    None,
+                    client.catalog(),
+                    client.available_providers(),
+                )
+                .is_err()
+        );
+        let request = Request::builder()
+            .model(selector)
+            .user("hi")
+            .build()
+            .expect("request");
+        let error = client
+            .complete(request.clone())
+            .await
+            .expect_err("invalid model");
+        assert_eq!(error.kind(), ErrorKind::ModelSelection);
+        assert!(error.message().contains("provider = \"gemini\""));
+        assert!(client.stream(request).await.is_err());
+    }
+    mock.assert_calls_async(0).await;
+
+    for (index, (selector, api_model)) in [
+        ("gemini-3.5-flash", "google/gemini-3.5-flash"),
+        ("google/gemini-3.5-flash", "google/gemini-3.5-flash"),
+        ("some-vendor/new-model:free", "some-vendor/new-model:free"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let route = CatalogResolver
+            .resolve_selection(
+                Some(selector),
+                Some("openrouter"),
+                client.catalog(),
+                client.available_providers(),
+            )
+            .expect("explicit OpenRouter selection");
+        let request = Request::builder()
+            .model(route.handle().to_string())
+            .user("hi")
+            .build()
+            .expect("request");
+        let response = client.complete(request).await.expect("local completion");
+        assert_eq!(response.model, route.handle());
+        assert_eq!(support::captured(&slot).body["model"], api_model);
+        mock.assert_calls_async(index + 1).await;
+    }
+}
+
 /// A completion that answers with one tool call.
 fn tool_call_response() -> Value {
     json!({

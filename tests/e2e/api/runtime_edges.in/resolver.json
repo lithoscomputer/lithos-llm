@@ -2,7 +2,7 @@
   "catalog": "resolve-catalog.toml",
   "cases": [
     {
-      "name": "provider_without_default",
+      "name": "provider_used_as_model",
       "request": { "model": "alpha", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
       "available": "all"
     },
@@ -18,7 +18,7 @@
     },
     {
       "name": "success",
-      "request": { "model": "beta", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
+      "request": { "model": "beta/two", "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }] },
       "available": ["beta"]
     }
   ]
