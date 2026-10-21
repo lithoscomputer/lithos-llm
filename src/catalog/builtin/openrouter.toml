@@ -281,6 +281,21 @@ profile = "gemini"
 
 # ---------- Open-weights models ----------
 
+# Added 2026-10-18 from the live /models + /endpoints listing:
+# context 1050000 (model-level), pricing 0.14/0.28 $/Mtok, cache read
+# 0.0028 $/Mtok. tool_choice is the 8-endpoint INTERSECTION — `required`
+# and `function` vary per endpoint, so neither mode is claimed (the
+# anthropic-style { required = false, named = false } row). Video/audio
+# inputs ride the Chat codec gap and stay unclaimed; images are claimable.
+# No reasoning_effort levels claimed: unlisted levels stay Unknown (never
+# sent as a refusal), matching the v2.5-pro row.
+[providers.openrouter.models."mimo-v2.6-flash"]
+display_name = "Xiaomi MiMo v2.6 Flash"
+api_model = "xiaomi/mimo-v2.6-flash"
+limits = { context_tokens = 1050000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
+pricing = { input_usd_micros_per_million = 140000, output_usd_micros_per_million = 280000, cached_input_usd_micros_per_million = 2800 }
+
 [providers.openrouter.models."mimo-v2.5-pro"]
 display_name = "Xiaomi MiMo v2.5 Pro"
 api_model = "xiaomi/mimo-v2.5-pro"
