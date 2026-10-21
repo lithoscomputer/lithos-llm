@@ -132,6 +132,7 @@ knowledge_cutoff = "Jan 2026"
 profile = "claude-5"
 
 [providers.anthropic.models."claude-opus-4.8"]
+aliases = ["claude-opus-4-8"]
 display_name = "Claude Opus 4.8"
 api_model = "claude-opus-4-8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
@@ -146,6 +147,7 @@ knowledge_cutoff = "Jan 2026"
 estimated_output_tps = 25
 
 [providers.anthropic.models."claude-opus-4.7"]
+aliases = ["claude-opus-4-7"]
 display_name = "Claude Opus 4.7"
 api_model = "claude-opus-4-7"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
@@ -190,6 +192,7 @@ knowledge_cutoff = "May 2025"
 estimated_output_tps = 50
 
 [providers.anthropic.models."claude-sonnet-4.6"]
+aliases = ["claude-sonnet-4-6"]
 display_name = "Claude Sonnet 4.6"
 api_model = "claude-sonnet-4-6"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
