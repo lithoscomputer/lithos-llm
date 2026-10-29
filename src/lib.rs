@@ -35,3 +35,23 @@ pub use client::{Client, ClientBuild, ClientBuilder, StructuredCompletion};
 pub use evaluation::{Evaluation, EvaluationBuilder, Verdict};
 #[doc(inline)]
 pub use types::{Error, Request, Response};
+
+#[cfg(all(
+    doctest,
+    feature = "builtin-catalog",
+    feature = "environment-credentials"
+))]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;
+
+#[cfg(all(
+    doctest,
+    feature = "builtin-catalog",
+    feature = "environment-credentials"
+))]
+#[doc = include_str!("../docs/library-guide.md")]
+pub struct LibraryGuideDoctests;
+
+#[cfg(all(doctest, feature = "builtin-catalog"))]
+#[doc = include_str!("../docs/catalog.md")]
+pub struct CatalogGuideDoctests;
