@@ -589,4 +589,3 @@ counting, and evaluation; Bedrock applies them before signing. Custom adapters
 can read `call.context().default_headers()` and must apply them themselves.
 Header values are redacted in Debug output and are not serialized into the
 model request. Authentication belongs in credential providers.
-
