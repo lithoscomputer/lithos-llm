@@ -1,170 +1,109 @@
 # lithos-llm
 
-`lithos-llm` is a provider-neutral Rust library for language model access. It
-separates catalog data, model resolution, credentials, middleware, provider
-adapters, wire codecs, and HTTP transport.
+A provider-neutral LLM client for Rust: one request type for OpenAI, Anthropic, Gemini, and more.
 
-The optional `cli` feature provides the stateless `lllm` command-line
-application. See the [CLI documentation](docs/cli.md) for installation and
-usage.
+[![CI](https://github.com/lithoscomputer/lithos-llm/actions/workflows/routine.yml/badge.svg)](https://github.com/lithoscomputer/lithos-llm/actions/workflows/routine.yml)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-Applications can use the built-in `http` adapter with the OpenAI Chat
-Completions, OpenAI Responses, Anthropic Messages, Gemini, Vercel
-evaluation, and TypeSafe System One codecs, and the optional `bedrock`
-adapter with the Converse codec.
-Applications can also register their own `ProviderAdapter` implementations.
-
-The library does not execute tools or own an agent loop. It carries tool calls
-and tool results between an application and a provider.
-
-## Example
-
-```rust
+```rust,no_run
 use std::error::Error;
 
 use lithos_llm::{Client, Request};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let build = Client::from_env()?;
-    for issue in &build.issues {
-        eprintln!("provider {} is unavailable: {}", issue.provider, issue.cause);
-    }
-    let client = build.client;
-
+    let client = Client::from_env()?.client;
     let request = Request::builder()
         .model("openai/gpt-5.6-luna")
         .user("Why is the sky blue?")
         .build()?;
-    let response = client.complete(request).await?;
-    assert!(!response.text().is_empty());
+    println!("{}", client.complete(request).await?.text());
     Ok(())
 }
 ```
 
-`Client::from_env()` uses the built-in catalog, the default HTTP client, and
-conventional provider environment variables such as `OPENAI_API_KEY`. The
-built-in catalog covers the first-party APIs (Anthropic, OpenAI, Gemini,
-Bedrock, and TypeSafe AI with `TYPESAFE_API_KEY`) and the routers that
-front many models behind one key: OpenRouter (`OPENROUTER_API_KEY`), Venice
-(`VENICE_API_KEY`), and Vercel AI Gateway (`AI_GATEWAY_API_KEY`).
+Part of [Lithos](#part-of-lithos), a family of Rust building blocks for AI tools.
 
-`ConventionalCredentials` is the table behind that: which named secrets each
-provider expects and how they shape into its authentication. Where a named
-secret lives is the application's decision. The default reads the process
-environment; `with_lookup` reads the same names from any other store, and
-`ChainedCredentials` tries several stores in order:
+## Why does this exist?
 
-```rust
-use lithos_llm::credentials::{ChainedCredentials, ConventionalCredentials};
+Provider APIs differ in request formats, streaming events, and model
+capabilities. `lithos-llm` pairs a shared request API with a TOML catalog of
+providers, models, capabilities, and prices. Applications can customize that
+catalog in layers while keeping control of tool execution and their agent loop.
 
-fn credentials(vault: impl Fn(&str) -> Option<String> + Send + Sync + 'static) -> ChainedCredentials {
-    ChainedCredentials::new()
-        .then(ConventionalCredentials::new().with_lookup(vault))
-        .then(ConventionalCredentials::new())
-}
+## Who is it for?
+
+**Use it if** you are building an agent, developer tool, or service that needs
+multiple LLM providers, or a model picker that needs a local catalog.
+
+**Look elsewhere if** you need a ready-made agent loop or coding agent;
+[pebble](https://github.com/lithoscomputer/pebble) adds those on top of this crate.
+
+## What does it do?
+
+- Send completions and stream text, reasoning, tool calls, and usage through one API.
+- Carry images, audio, documents, and tool results where the selected model supports them.
+- Request structured JSON output and evaluate state with typed choice, score, and boolean questions.
+- Resolve models using a built-in catalog of aliases, capabilities, limits, and prices; customize it with TOML overlays.
+- Estimate tokens locally, request native token counts where available, and probe provider connectivity.
+- Extend credentials, middleware, and provider adapters for your application.
+
+Built-in integrations cover OpenAI, Anthropic, Gemini, TypeSafe, and gateways
+such as OpenRouter, Venice, and Vercel. Amazon Bedrock support is optional.
+See [provider coverage and pending live checks](https://github.com/lithoscomputer/lithos-llm/blob/main/docs/provider-live-tests.md) for verification details.
+
+**Out of scope:** tool execution and agent loops. Your application supplies the
+Tokio runtime, credentials, tracing subscriber, and conversation storage.
+Retry and tracing middleware are opt-in.
+
+| Feature | Default | Enables |
+| --- | --- | --- |
+| `builtin-catalog` | yes | Embedded provider and model catalog |
+| `runtime` | yes | Async client, HTTP transport, and built-in HTTP wire protocols |
+| `environment-credentials` | yes | Credentials from conventional environment variables |
+| `cli` | no | The `lllm` command-line application |
+| `local-files` | no | Middleware that reads local media from allowed directories |
+| `bedrock` | no | Bedrock Converse with bearer-token authentication |
+| `bedrock-aws` | no | Bedrock with the AWS credential chain and SigV4 signing |
+
+A catalog-only build needs no Tokio, reqwest, or provider SDKs. The `bedrock`
+feature adds no AWS SDK crates; `bedrock-aws` adds them.
+
+## How do I use it?
+
+### Install
+
+The crate is not yet published on crates.io. Add it from Git:
+
+```sh
+cargo add lithos-llm --git https://github.com/lithoscomputer/lithos-llm
+cargo add tokio --features macros,rt-multi-thread
 ```
 
-`ConventionalCredentials::secret_names` lists the names a provider reads, so
-an install flow can tell an operator what to set and write under the first. A
-provider the table does not list reads a name derived from its id: a catalog
-overlay that adds `acme` with bearer auth is served by `ACME_API_KEY`.
+Set `OPENAI_API_KEY` to run the opening example. For other providers, use
+`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or the credential names in the
+[library guide](https://github.com/lithoscomputer/lithos-llm/blob/main/docs/library-guide.md#build-a-client).
+Change `.model(...)` to select a different provider and model.
 
-`catalog::builtin::ids` names every provider the built-in catalog ships, so an
-install flow or a login command refers to `ids::OPENAI` rather than a string.
+`Client::from_env()` returns a client and any provider construction issues.
+Inspect `ClientBuild::issues` to report unavailable providers. Credentials are
+resolved when a call runs; building the client does not validate your keys.
 
-The catalog also includes provisional imports for DeepSeek, Inception, MiniMax,
-Z.ai, Poolside, LiteLLM, Ollama, and Bedrock OpenAI. Their credential names,
-configuration notes, and pending live checks are in
-[provider live-test TODOs](docs/provider-live-tests.md).
+For catalog access without the runtime:
 
-Modal deployment templates live in [docs/catalogs](docs/catalogs). GPT-OSS
-models are excluded from the built-in catalog.
+```sh
+cargo add lithos-llm --git https://github.com/lithoscomputer/lithos-llm --no-default-features --features builtin-catalog
+```
 
-Building a client returns a `ClientBuild`, which carries the client together
-with one issue for every provider that could not be constructed. A provider
-that fails does not remove the providers that succeeded, so an application can
-start in a degraded state and report why. Client construction never reads
-credentials.
+### Use it as a library
 
-`ClientBuilder::build_ready` is the alternative for applications that want to
-know up front which providers they can serve: it resolves credentials once for
-every selected provider and builds adapters only for the ones that resolved.
-Providers the store holds nothing for are left out silently; providers whose
-stored material cannot be used (an expired token with no refresh token, an
-entry of the wrong type) come back in `ClientBuild::credential_issues` with an
-operator-facing reason. `credentials::readiness` answers the same question
-without building a client, for listings and diagnostics.
+Stream text as it arrives. Add `futures-util` for `StreamExt`:
 
-Applications own the Tokio runtime and tracing subscriber. Credential lookup
-runs for each provider attempt, so tokens can refresh without rebuilding the
-client. Retry and tracing middleware remain opt-in.
+```sh
+cargo add futures-util
+```
 
-`RetryMiddleware::observer` reports each retried attempt to an `Observer`
-through `on_retry`, with the failed attempt, its error, the wait before the
-next one, and a `RetryStage` naming what failed: a request that never became a
-stream, or a stream that failed before it delivered visible output. The retry
-layer retries only until a stream delivers visible output; an application that
-must replay a turn after that point can drive its own loop with
-`RetryPolicy::next_delay`, the same decision the middleware uses.
-
-An `Incomplete` response also retries while no content has reached the caller.
-Closing blocks that precede any content are held until the terminal outcome.
-When the attempt or deadline budget prevents a retry, the partial response is
-returned with its original finish reason. `Length` does not trigger a retry.
-
-`ClientBuilder::application` names the calling application to providers that
-expect a client to identify itself; the OpenAI Codex deployment reads it from
-an `originator` header. Use `ClientBuilder::http` to inject an
-application-configured `reqwest::Client`, and `ClientBuilder::enabled_providers`
-to build adapters for only the providers a deployment has configured. That selection narrows the
-catalog; a provider the catalog marks `enabled = false` builds no adapter
-either way, and a catalog overlay is what turns it on. The complete catalog
-stays available for inspection.
-
-`Client::resolve_route` reports the provider and model a request would use
-without dispatching it, which is the same resolution `complete`, `stream`, and
-`count_input_tokens` perform.
-
-## Call controls
-
-`Request::into_builder()` preserves settings while changing a request.
-Deserialization runs the same validation as the builder.
-
-`ClientBuilder::default_timeout(Duration)` sets a total call budget, including
-middleware, credentials, retries, and stream consumption. A request timeout
-replaces the default; an earlier context deadline still wins. All three
-operations have a `*_with_context` method and pass through middleware.
-
-`ClientBuilder::response_limits(ResponseLimits)` controls HTTP body, stream
-frame, and output sizes. Defaults are 32 MiB, 4 MiB, and 32 MiB. Output limits
-also bound cumulative provider-event data before decoding. Exceeding a limit
-returns a non-retryable `ErrorKind::ResourceLimit`.
-`retain_raw_response(false)` drops raw success bodies. It does not redact
-normalized content, replay metadata, or errors.
-
-Middleware reads `Call::request()`, `route()`, `operation()`, and `context()`.
-Use `map_request` to change the payload without changing its resolved model.
-`Observer::on_finish` reports one final outcome per observed invocation,
-including cancellation and dropped futures or streams.
-
-Capability queries return `Support::Supported`, `Unsupported`, or `Unknown`.
-Use `tool_choice`, `response_format`, `reasoning_effort`, and `speed` to check
-a specific setting; `closest_supported_effort` picks the nearest supported
-reasoning level when a request written for one model goes to another. Unknown
-support does not reject a request locally.
-Protocol flags live in `CatalogModel::protocol_options()`. Pricing does not
-determine capability support.
-
-See the [API migration notes](docs/api-migration.md) for breaking changes and
-canonical stored formats. Applications own conversion of historical records.
-
-## Streaming
-
-Streaming uses the same request type and model resolution as `complete`. Add
-`futures-util` to the application to use `StreamExt`.
-
-```rust
+```rust,no_run
 use std::error::Error;
 use std::io::{self, Write as _};
 
@@ -172,366 +111,29 @@ use futures_util::StreamExt as _;
 use lithos_llm::types::StreamEvent;
 use lithos_llm::{Client, Request};
 
-async fn stream_answer(client: &Client) -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let client = Client::from_env()?.client;
     let request = Request::builder()
         .model("openai/gpt-5.6-luna")
-        .user("Why is the sky blue?")
+        .user("Explain ownership in Rust.")
         .build()?;
     let mut stream = client.stream(request).await?;
-
     while let Some(event) = stream.next().await {
-        match event? {
-            StreamEvent::TextDelta { text, .. } => {
-                print!("{text}");
-                io::stdout().flush()?;
-            }
-            StreamEvent::Ended { response } => {
-                eprintln!("\n{} tokens", response.usage.total());
-            }
-            _ => {}
+        if let StreamEvent::TextDelta { text, .. } = event? {
+            print!("{text}");
+            io::stdout().flush()?;
         }
     }
     Ok(())
 }
 ```
 
-Every successful stream ends with one `StreamEvent::Ended`. It contains
-the assembled `Response`. An ended stream can carry an incomplete answer;
-inspect `response.finish_reason` before accepting the turn or executing tools.
-Streams can also carry reasoning, tool-call, usage,
-and rate-limit events. Dropping the stream cancels the operation as far as the
-provider and transport permit.
+Successful streams end with `StreamEvent::Ended`, which carries the assembled
+response. Check its `finish_reason` before accepting the turn or executing tools.
+See the [streaming guide](https://github.com/lithoscomputer/lithos-llm/blob/main/docs/library-guide.md#streaming).
 
-Use `ResponseStream::new` for custom adapter streams. Completion or an error
-releases the inner stream immediately. Ending without a terminal event is an
-error. Block-end content is provisional; the final response is authoritative.
-
-## Readable reasoning
-
-Providers return readable reasoning through unrelated channels: Anthropic and
-Gemini as `ReasoningContent` blocks, the OpenAI Responses protocol as
-`reasoning` items with a summary and sometimes a verbatim trace, and
-OpenAI-compatible gateways as `reasoning_details`. `Response::reasoning()`
-reduces whichever arrived to one `ReasoningOutput` with a `summary` and a
-`trace`, at least one of them present, without reading signatures, item ids, or
-encrypted payloads. Keep the original parts for the next request:
-`ContentPart::is_replay_material()` marks every reasoning and opaque part a
-conversation replays, and `is_opaque_openai()` marks the OpenAI items that stop
-being valid once compaction replaces the turn they belong to.
-
-## Tool calling
-
-`ToolCall::input` is either `ToolInput::Function(ToolArguments)` or
-`ToolInput::Custom(String)`. Function arguments keep their raw text and parsed
-result together. `ToolArguments::json()` returns an error for malformed JSON;
-it does not replace malformed input with an empty object.
-
-Lithos carries tool definitions, calls, and results. The application executes
-each tool and decides whether to make another model request.
-
-```rust
-use std::error::Error;
-
-use lithos_llm::types::{
-    ContentPart, Message, Role, ToolDefinition, ToolResult,
-};
-use lithos_llm::{Client, Request};
-use serde_json::json;
-
-async fn answer_with_weather(client: &Client) -> Result<String, Box<dyn Error>> {
-    let model = "openai/gpt-5.6-luna";
-    let prompt = "What is the weather in Paris?";
-    let tool = ToolDefinition::function(
-        "get_weather",
-        "Reads the current weather for a city",
-        json!({
-            "type": "object",
-            "properties": { "city": { "type": "string" } },
-            "required": ["city"],
-            "additionalProperties": false,
-        }),
-    );
-
-    let request = Request::builder()
-        .model(model)
-        .user(prompt)
-        .tool(tool.clone())
-        .build()?;
-    let response = client.complete(request).await?;
-    let Some(call) = response.tool_calls().next() else {
-        return Err("the model did not call get_weather".into());
-    };
-
-    let result = ToolResult {
-        tool_call_id: call.id.clone(),
-        name: Some(call.name.clone()),
-        content: vec![ContentPart::Text {
-            text: "18 C and clear".to_owned(),
-        }],
-        is_error: false,
-    };
-    let follow_up = Request::builder()
-        .model(model)
-        .user(prompt)
-        .tool(tool)
-        .message(response.into_message())
-        .message(Message::new(Role::Tool, [ContentPart::ToolResult(result)]))
-        .build()?;
-
-    Ok(client.complete(follow_up).await?.text())
-}
-```
-
-A turn cut short by the output limit (`Length`) or an incomplete stream
-(`Incomplete`) exposes no calls through `tool_calls()`. Withheld calls remain
-in `suppressed_tool_calls` for diagnostics, with their raw arguments and replay
-metadata. Do not execute these calls. A `truncated_tool_call` warning names each
-withheld tool. Inspect the finish reason to distinguish a finished turn.
-
-Replay the complete assistant content in the follow-up request. It can contain
-provider data that a later request needs. One response can contain more than
-one `ToolCall`; applications must return a result for each call they execute.
-
-## Structured output
-
-Use `ResponseFormat` to request a JSON object or a document that follows a JSON
-Schema.
-
-```rust
-use std::error::Error;
-
-use lithos_llm::types::ResponseFormat;
-use lithos_llm::{Client, Request};
-use serde_json::{Value, json};
-
-async fn extract_city(client: &Client) -> Result<Value, Box<dyn Error>> {
-    let request = Request::builder()
-        .model("openai/gpt-5.6-luna")
-        .user("Extract the city and country from: I live in Paris, France.")
-        .response_format(ResponseFormat::JsonSchema {
-            name: "location".to_owned(),
-            schema: json!({
-                "type": "object",
-                "properties": {
-                    "city": { "type": "string" },
-                    "country": { "type": "string" },
-                },
-                "required": ["city", "country"],
-                "additionalProperties": false,
-            }),
-        })
-        .build()?;
-    let response = client.complete(request).await?;
-    Ok(serde_json::from_str(&response.text())?)
-}
-```
-
-The built-in adapters return the JSON document as response text. The
-application parses it into `serde_json::Value` or its own type, or lets
-`Response::json_object` do it: a `Json` part is taken as is, otherwise the text
-is parsed. `Client::complete_object(request, "location", schema)` does the
-whole exchange, attaching the schema and returning a `StructuredCompletion`
-with the response and the parsed document. Lithos rejects structured-output
-requests before dispatch when the selected model does not declare that
-capability.
-
-## Evaluate
-
-An evaluation asks typed questions about one piece of state. Each answer is
-a chosen option, a position on an ordered scale, or a probability that a
-statement holds, and every answer comes back as its own type, not as prose
-to parse. `Evaluation` is to `Client::evaluate` what `Request` is to
-`complete`: the whole input, built once and checked on `build`.
-
-```rust
-use std::error::Error;
-
-use lithos_llm::{Client, Evaluation};
-
-async fn triage(client: &Client) -> Result<bool, Box<dyn Error>> {
-    let evaluation = Evaluation::builder()
-        .model("vercel/jev")
-        .state("I was charged twice. Please refund the duplicate.")
-        .choice("department", "Which team should handle this?", [
-            ("billing", Some("Charges and refunds")),
-            ("technical", Some("Bugs and outages")),
-            ("other", None),
-        ])
-        .score("severity", "How severe is the issue?", [
-            "Cosmetic",
-            "Workaround exists",
-            "Blocking; no workaround",
-        ])
-        .boolean("requests_refund", "Is the customer requesting money back?")
-        .build()?;
-
-    let verdict = client.evaluate(evaluation).await?;
-
-    let department = verdict.choice("department")?;
-    let severity = verdict.score("severity")?;
-    let refund = verdict.boolean("requests_refund")?;
-
-    Ok(department.choice == "billing" && severity.nearest_level() >= 1 && refund.is_likely())
-}
-```
-
-Two kinds of model answer the same `Evaluation`. A row that reaches an
-evaluation codec (today `vercel/jev`, TypeSafe's Jev through the
-`vercel-evaluation` codec) answers natively and returns a probability per
-option or level, a `confidence` on each choice and score answer, and the
-provider's declared rounding. `typesafe/jev-latest` evaluates natively too,
-through TypeSafe's own API on the `systemone` codec, and names the
-versioned model that answered in `Verdict::served_by`. `openrouter/jev-latest`
-and `openrouter/jev-1.13` reach the same model through OpenRouter's Decisions
-API on the `systemone` codec's OpenRouter dialect. Every other row that claims
-`response_format.json_schema` acts as a judge: the client runs one
-structured-output completion with a fixed system prompt and reads the JSON
-object back into answers. On a provider served by a built-in adapter the
-row's codec set makes that choice; on a provider served by an adapter the
-application registered, the adapter's own `evaluates_natively()` does. A
-judge returns point estimates, so `probabilities`, `confidence`, and
-`rounding` are absent on its `Verdict`. The same `Evaluation` and `Verdict`
-types serve both, so an application can run one question set against a
-native model and a judge and compare them.
-
-The client validates every verdict before it returns it: exactly the
-questions asked are answered, each with the matching kind, choices name a
-known option, scores and probabilities are in range, and distributions sum to
-one within the declared rounding. A malformed verdict is a `ResponseDecode`
-error and is never retried. The judge's system prompt is part of the crate's
-contract, because changing it changes answers; any change to it is called out
-in the changelog. See [Catalog overlays](#catalog-overlays) for the
-`evaluation` claim and how a row's codecs follow from it.
-
-## Multimodal input
-
-A message can contain text, images, audio, and documents. Media can use a
-provider-accessible URL or inline base64 data. With the `local-files` feature,
-the `InlineLocalFiles` middleware accepts a local path as well (`/…`, `./…`,
-`~/…`, or `file://`) and reads the file into inline base64 before the request
-reaches a codec, so a caller on the same machine as its files can point at
-them directly.
-
-`InlineLocalFiles::new([dir, …])` reads only files that resolve inside the
-given directories, checked both by name and after symlinks resolve. Paths in
-tool results, and in a server's user messages, are not always the
-application's own, so a path outside, a file that is not a regular file, or
-one over the size limit (32 MiB by default, set with `max_file_bytes`) fails
-the call with `InvalidRequest`. `InlineLocalFiles::unrestricted()` reads any
-path and is meant for trusted local use, such as a command-line tool run by
-the owner of the files.
-
-```rust
-use std::error::Error;
-
-use lithos_llm::types::{ContentPart, ImageContent, MediaSource, Message, Role};
-use lithos_llm::{Client, Request};
-
-async fn describe_image(client: &Client) -> Result<String, Box<dyn Error>> {
-    let request = Request::builder()
-        .model("openai/gpt-5.6-luna")
-        .message(Message::new(Role::User, [
-            ContentPart::Text {
-                text: "Describe this image.".to_owned(),
-            },
-            ContentPart::Image(ImageContent::new(MediaSource::url(
-                "https://example.com/image.png",
-            ))),
-        ]))
-        .build()?;
-
-    Ok(client.complete(request).await?.text())
-}
-```
-
-Use `MediaSource::base64(data, media_type)` for inline bytes. `AudioContent`
-and `DocumentContent` use the same source type. Provider URL rules differ.
-
-## Model probes
-
-`Client::probe` answers "can this client serve this model right now" with a
-report instead of an error:
-
-The optional CLI exposes the same diagnostic:
-
-```sh
-lllm probe --model anthropic/claude-sonnet-5
-lllm probe --model-query sonnet --tools --json
-```
-
-```rust
-use lithos_llm::Client;
-use lithos_llm::client::{ProbeOptions, ProbeOutcome};
-
-async fn check(client: &Client) {
-    let report = client
-        .probe("anthropic/claude-sonnet-5", ProbeOptions::new().tools(true))
-        .await;
-    match &report.outcome {
-        ProbeOutcome::Passed => println!("ok in {:?}", report.latency),
-        ProbeOutcome::Failed(data) => println!("{:?}: {}", data.kind, data.message),
-        ProbeOutcome::Incorrect { detail } => println!("answered, but {detail}"),
-    }
-}
-```
-
-The probe resolves the route, credentials, and middleware exactly as
-`complete` does. The default probe sends one short prompt; `tools(true)` runs
-an `add`-tool exchange and checks the model calls the tool and reaches the
-right total. A catalog rejection — a tool probe against a model that declares
-no tools — fails before any request is sent. `Failed` carries the classified
-`ErrorData`, so an unknown model, bad credentials, a missing model, and a
-timeout are told apart by its `kind`.
-
-## Error policy
-
-Every failure is an `Error` while it is being handled and an `ErrorData` once
-it is stored or sent somewhere. Both answer the questions a retry loop, a
-failover chain, or a diagnostic asks: `is_retryable` (repeating the same call
-may succeed), `is_auth_error`, `is_cancelled`, and `failover_eligible`
-(another provider is worth trying: everything retryable, plus failures local to
-this provider such as credentials, model inventory, quota, a timeout, or a
-refusal). An invalid request or a context overflow follows the request to the
-next provider, so it is not failover-eligible. `ErrorData` prints its message,
-implements `std::error::Error`, and reads like `Error`, so an application can
-keep one code path for both forms.
-
-## Token estimation
-
-`lithos_llm::estimate` sizes a request locally, before any call is made:
-
-```rust
-use lithos_llm::Request;
-use lithos_llm::estimate::{EstimateWarning, message_tokens, request_tokens};
-
-fn budget(request: &Request) -> u64 {
-    let estimate = request_tokens(request);
-    if estimate.has_warning(EstimateWarning::Media) {
-        // Media is sized from bytes or given a floor; the total is rough.
-    }
-    let largest = request
-        .messages()
-        .iter()
-        .map(|message| message_tokens(message).tokens())
-        .max()
-        .unwrap_or(0);
-    estimate.tokens().max(largest)
-}
-```
-
-Estimates are deterministic heuristics with no provider call and no feature
-flag. Each `TokenEstimate` carries typed warnings for the inputs it could only
-approximate — media, opaque provider content, and provider options — and
-estimates add together. `Client::count_input_tokens` is the authoritative path
-where a provider offers a native count; the client never substitutes an
-estimate for it.
-Lithos rejects media that the selected model does not support before it sends
-the request.
-
-## Catalog overlays
-
-Catalog documents use schema version `1`. Later overlays win. Tables merge
-recursively. Arrays and scalar values replace earlier values.
+Inspect a model's catalog entry offline, without credentials or a runtime:
 
 ```rust
 use std::error::Error;
@@ -539,183 +141,61 @@ use std::error::Error;
 use lithos_llm::catalog::Catalog;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let catalog = Catalog::builder()
-        .with_builtin()
-        .toml_layer(
-            "example_app.toml",
-            r#"
-        [providers.openai.models."gpt-5.6-luna".metadata.example_app]
-        latency_class = "fast"
-        "#,
-        )?
-        .build()?;
-    assert_eq!(catalog.schema_version(), 1);
+    let catalog = Catalog::builder().with_builtin().build()?;
+    let model = catalog.model("openai", "gpt-5.6-luna")?;
+    println!("{}", model.id());
     Ok(())
 }
 ```
 
-Name each layer with `toml_layer`. The name appears in parse and validation
-errors, which matters when a catalog is assembled from several fragments.
+See the [library guide](https://github.com/lithoscomputer/lithos-llm/blob/main/docs/library-guide.md)
+for tool calling, structured output, evaluation, media, and call controls.
+See [catalog overlays](https://github.com/lithoscomputer/lithos-llm/blob/main/docs/catalog.md)
+for model selection and custom providers.
+Build the API reference locally with `cargo doc -p lithos-llm --no-deps --open`
+from a project that depends on the crate.
 
-Unknown core provider and model fields are rejected. Application extensions
-belong under a namespaced `metadata` table, which Lithos preserves without
-interpreting.
+### Use it from the command line
 
-Provider rows carry routing facts (`adapter`, `codecs`, `codec_options`,
-`base_url`, `auth`, `priority`, `default_model`, `allow_passthrough`,
-`default_headers`, `adapter_options`, `default_options`) and offering policy:
-`enabled` (default
-`true`; a disabled provider stays in the catalog but builds no adapter and
-resolves no route), `stands_in_for` (a provider this one answers for when that
-provider has no adapter), and `api_key_url`. Model rows carry the wire id,
-limits, capabilities, protocol options, pricing, and display facts (`family`,
-`training_cutoff`, `knowledge_cutoff`, `estimated_output_tps`), plus
-`small_default` and `probe`, which name the provider's model for cheap utility
-calls and for connectivity probes. A built-in provider that needs only an API
-key ships enabled; credentials decide whether it is ready. A provider that
-needs deployment-specific setup or has no portable model roster (Bedrock,
-LiteLLM, Modal, Ollama) ships with `enabled = false`; an overlay turns one on:
-
-```toml
-[providers.ollama]
-enabled = true
-```
-
-An adapter owns transport and signing; a codec owns one wire protocol. A
-provider names one adapter and lists the codecs its host speaks. `adapter`
-defaults to `"http"`, which holds every codec the provider lists and
-dispatches each call on the codec the client selected; `"bedrock"` adds
-SigV4 signing and event-stream framing for the Converse codec; any other id
-names a factory the application registered with
-`ClientBuilder::adapter_factory`, whose adapter owns its own wire handling
-and receives no codec selection. `codecs` defaults to `["openai-chat"]`, so
-a Chat Completions host needs neither line. OpenAI lists
-`["openai-responses"]`, Anthropic `["anthropic-messages"]`, Gemini
-`["gemini-generate"]`, Bedrock `["bedrock-converse"]`, Vercel
-`["openai-chat", "vercel-evaluation"]`, and TypeSafe `["systemone"]`. `codec_options` is a table keyed by
-codec id that carries one codec's own options, such as
-`codec_options = { openai-chat = { base_url_is_api_root = true } }` for a host
-whose base URL is already versioned; `adapter_options` carries transport
-concerns such as Codex's `force_streaming_complete` and
-`identify_application`. The old `codec` field and the four protocol-named
-adapter ids (`openai-compatible`, `openai`, `anthropic`, `gemini`) are
-rejected with an error that names the replacement.
-
-Each model row reaches a subset of its provider's codecs, and the client
-picks one per call by the operation's family, in provider order. A row may
-write `codecs = [...]` to narrow the set. Without that line the set follows
-the row's own capability claims: a generation claim (`text`, `tools`,
-`images`, `audio`, `documents`, or a `response_format` field) that is not
-`false` reaches every generation codec the provider lists; an explicit
-`capabilities.evaluation` with at least one kind `true` reaches every
-evaluation codec the provider lists; a row that claims neither keeps the
-generation codecs. A passthrough model gets the generation codecs only.
-
-A model row that claims `response_format.json_schema` also answers evaluation
-questions of every kind (`choice`, `score`, `boolean`): it judges by producing
-one schema-bound JSON object, so the catalog does not repeat the claim per
-row. That derived claim never reaches an evaluation codec. A row writes
-`capabilities.evaluation = { choice = true, score = false, boolean = true }`
-to narrow the judge claim, or to claim evaluation on a model that speaks an
-evaluation protocol natively; only such a row derives its provider's
-evaluation codec, as `vercel/jev` does. `ModelCapabilities::evaluation` and
-`evaluates` answer the question a caller asks.
-
-Before it has a request, an application asks the catalog which providers are
-on and which model to pick for a job. `Catalog::enabled_providers` lists them
-in priority order and `listed_providers` drops the ones that stand in for
-another; `offerings_matching` ranks every enabled offering of a selector the
-way the resolver would; `default_offering_for` and `small_default_for` pick the
-default and the cheap utility model across the providers that are ready;
-`CatalogProvider::probe_offering` names the row to probe with and
-`closest_offering` the nearest model to one on another provider. Each returns
-an `Offering`, the borrowed provider-and-model pair, with `handle`,
-`into_route`, and `estimate_cost`.
-
-An application can supply its whole catalog and use none of the built-in
-entries. Building from external TOML never adds built-in providers implicitly;
-only `with_builtin()` does that.
-
-```rust
-use std::error::Error;
-
-use lithos_llm::catalog::Catalog;
-
-fn build(root: &str, openai: &str, anthropic: &str) -> Result<(), Box<dyn Error>> {
-    let catalog = Catalog::builder()
-        .toml_layer("catalog.toml", root)?
-        .toml_layer("providers/openai.toml", openai)?
-        .toml_layer("providers/anthropic.toml", anthropic)?
-        .build()?;
-    assert_eq!(catalog.schema_version(), 1);
-    Ok(())
-}
-```
-
-## Client-scoped HTTP headers
-
-Derive a client for a session, run, or tenant without changing the shared
-client:
-
-```rust,no_run
-# async fn example(client: lithos_llm::Client) -> Result<(), lithos_llm::types::Error> {
-let session = client.with_default_headers([("x-session-id", "session-123")])?;
-// Use `session.complete(...)`, `session.stream(...)`, etc. as usual.
-# Ok(())
-# }
-```
-
-The derived client shares adapters, middleware, and the HTTP pool. Additional
-calls to `with_default_headers` retain previous defaults and replace matching
-names case-insensitively.
-
-Client defaults never override a header Lithos sets: codec headers, provider
-`default_headers` from the catalog, and credential headers all take
-precedence. To override a protocol header deliberately, set it in the
-provider's `default_headers` in a catalog overlay.
-
-All built-in HTTP operations carry the defaults, including retries, token
-counting, and evaluation; Bedrock applies them before signing. Custom adapters
-can read `call.context().default_headers()` and must apply them themselves.
-Header values are redacted in Debug output and are not serialized into the
-model request. Authentication belongs in credential providers.
-
-## Features
-
-| Feature | Default | Purpose |
-| --- | --- | --- |
-| `builtin-catalog` | yes | Embedded provider and model catalog |
-| `runtime` | yes | Client, public runtime extension points, the `http` adapter, and the OpenAI Chat, OpenAI Responses, Anthropic, Gemini, and Vercel evaluation codecs |
-| `environment-credentials` | yes | Environment-backed credential provider |
-| `local-files` | no | Middleware that inlines local-path media as base64 |
-| `bedrock` | no | Bedrock Converse adapter with bearer-token authentication |
-| `bedrock-aws` | no | AWS credential chain and SigV4 signing for Bedrock |
-
-Bedrock uses one HTTP transport for both authentication paths. `bedrock` alone
-adds no AWS crates; `bedrock-aws` adds the AWS credential chain and SigV4.
-
-A catalog-only consumer can avoid Tokio, reqwest, and provider SDKs:
-
-```toml
-lithos-llm = { version = "0.1", default-features = false, features = ["builtin-catalog"] }
-```
-
-## Setup
-
-Install the locked tools and prepare the repository:
+Install the optional `lllm` binary from Git. It sends stateless prompts using
+the same catalog and provider credentials:
 
 ```sh
-mise trust
-mise install --locked
-mise run setup
+cargo install --git https://github.com/lithoscomputer/lithos-llm --locked --features cli lithos-llm
+lllm models --provider openai
+lllm --model openai/gpt-5.6-luna 'Explain ownership in Rust'
+lllm probe --model openai/gpt-5.6-luna
 ```
 
-Use the repository tasks for development and verification:
+See the [CLI guide](https://github.com/lithoscomputer/lithos-llm/blob/main/docs/cli.md).
 
-```sh
-mise run dev
-mise run test
-mise run check
-```
+## Status and compatibility
 
-See [DEVELOPING.md](DEVELOPING.md) for the complete development workflow.
+- **Maturity:** pre-1.0 and unreleased. The changelog records breaking API changes; review it when updating your Git dependency.
+- **MSRV:** Rust 1.88, edition 2024.
+- **CI platforms:** Linux x86_64, Linux arm64, and macOS arm64.
+- **Public API beyond Rust types:** serialized requests, responses, content, and catalog data; CLI JSON output; the evaluation judge prompt.
+- **Compatibility notes:** [API migration](https://github.com/lithoscomputer/lithos-llm/blob/main/docs/api-migration.md).
+- **Changelog:** [CHANGELOG.md](https://github.com/lithoscomputer/lithos-llm/blob/main/CHANGELOG.md).
+
+## Part of Lithos
+
+| Crate | Role |
+| --- | --- |
+| **[lithos-llm](https://github.com/lithoscomputer/lithos-llm)** | **Model access: one client and catalog across LLM providers** |
+| [pebble](https://github.com/lithoscomputer/pebble) | Agent loop, plus a coding agent and CLI built on it |
+| [sandbox-driver](https://github.com/lithoscomputer/sandbox-driver) | Sandboxes (host, Docker, cloud VMs) behind one interface |
+| [petri](https://github.com/lithoscomputer/petri) | Workflow engine that runs CI and agent workflows on the crates above |
+
+## Contributing
+
+Development setup, tests, and conventions are in
+[DEVELOPING.md](https://github.com/lithoscomputer/lithos-llm/blob/main/DEVELOPING.md).
+Read [CONTRIBUTING.md](https://github.com/lithoscomputer/lithos-llm/blob/main/CONTRIBUTING.md)
+before submitting a change. Report vulnerabilities through
+[SECURITY.md](https://github.com/lithoscomputer/lithos-llm/blob/main/SECURITY.md).
+
+## License
+
+Licensed under either [MIT](https://github.com/lithoscomputer/lithos-llm/blob/main/LICENSE-MIT)
+or [Apache-2.0](https://github.com/lithoscomputer/lithos-llm/blob/main/LICENSE-APACHE), at your option.

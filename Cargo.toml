@@ -13,6 +13,8 @@ include = [
   "/src/**",
   "/tests/**",
   "/docs/cli.md",
+  "/docs/library-guide.md",
+  "/docs/catalog.md",
   "/docs/catalogs/**",
   "/docs/provider-live-tests.md",
   "/Cargo.toml",
