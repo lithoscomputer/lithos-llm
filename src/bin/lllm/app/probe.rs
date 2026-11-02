@@ -1,36 +1,16 @@
 use std::fmt::Write as _;
 use std::io::Write;
-use std::time::Duration;
 
 use lithos_llm::Client;
 use lithos_llm::client::{ProbeOptions, ProbeOutcome, ProbeReport};
 use lithos_llm::middleware::CancellationToken;
 use lithos_llm::types::{ErrorData, TokenCounts};
-use serde::Serialize;
 
 use crate::app::args::ProbeArgs;
 use crate::app::models::select_model;
 use crate::app::output::write_text;
 use crate::app::usage::{duration, grouped};
 use crate::app::{CliEnvironment, CliError, CliResult, ExitStatus, cancellable, error_kind};
-
-#[derive(Serialize)]
-struct JsonReport<'a> {
-    version:    u32,
-    route:      Option<String>,
-    outcome:    JsonOutcome<'a>,
-    latency_ms: u64,
-    usage:      TokenCounts,
-}
-
-#[derive(Serialize)]
-#[serde(tag = "status", rename_all = "snake_case")]
-enum JsonOutcome<'a> {
-    Passed,
-    Failed { error: &'a ErrorData },
-    Incorrect { detail: &'a str },
-    Unknown,
-}
 
 pub(crate) async fn run(
     client: &Client,
@@ -108,20 +88,7 @@ fn failed_text(route: &str, error: &ErrorData) -> String {
 }
 
 fn render_json(report: &ProbeReport) -> CliResult<String> {
-    let outcome = match &report.outcome {
-        ProbeOutcome::Passed => JsonOutcome::Passed,
-        ProbeOutcome::Failed(error) => JsonOutcome::Failed { error },
-        ProbeOutcome::Incorrect { detail } => JsonOutcome::Incorrect { detail },
-        _ => JsonOutcome::Unknown,
-    };
-    serde_json::to_string_pretty(&JsonReport {
-        version: 1,
-        route: report.route.as_ref().map(ToString::to_string),
-        outcome,
-        latency_ms: milliseconds(report.latency),
-        usage: report.usage,
-    })
-    .map_err(CliError::Json)
+    serde_json::to_string_pretty(report).map_err(CliError::Json)
 }
 
 const fn input_tokens(usage: TokenCounts) -> u64 {
@@ -129,8 +96,4 @@ const fn input_tokens(usage: TokenCounts) -> u64 {
         .input
         .saturating_add(usage.cache_read)
         .saturating_add(usage.cache_write)
-}
-
-fn milliseconds(duration: Duration) -> u64 {
-    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
