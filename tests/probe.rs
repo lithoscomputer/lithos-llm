@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use lithos_llm::adapter::{ProviderAdapter, ResolvedCall};
-use lithos_llm::catalog::{AdapterId, Catalog, CatalogError};
+use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, ProviderId};
 use lithos_llm::client::{ProbeOptions, ProbeOutcome};
 use lithos_llm::middleware::CallContext;
 use lithos_llm::types::{
@@ -372,4 +372,77 @@ async fn an_outer_cancellation_ends_a_probe() -> Result<(), Box<dyn StdError>> {
     assert_eq!(data.kind, ErrorKind::Cancelled);
     assert!(requests(&log).is_empty());
     Ok(())
+}
+
+#[test]
+fn probe_report_wire_contract_preserves_findings_and_canonical_routes() {
+    use lithos_llm::client::ProbeReport;
+
+    let failure = Error::new(ErrorKind::Authentication, "key rejected")
+        .with_provider(ProviderId::new("test"))
+        .data();
+    for (route, outcome) in [
+        (json!("test/vendor/model"), json!({"status": "passed"})),
+        (json!(null), json!({"status": "failed", "error": failure})),
+        (
+            json!("test/agent"),
+            json!({"status": "incorrect", "detail": "no tool call"}),
+        ),
+    ] {
+        let wire = json!({
+            "version": 1,
+            "route": route,
+            "outcome": outcome,
+            "latency_ms": 123,
+            "usage": TokenCounts { input: 12, output: 3, ..TokenCounts::default() },
+        });
+        let report: ProbeReport = serde_json::from_value(wire.clone()).expect("valid report");
+        assert_eq!(report.latency, Duration::from_millis(123));
+        assert_eq!(report.passed(), wire["outcome"]["status"] == "passed");
+        if let Some(route) = &report.route {
+            assert_eq!(route.provider().as_str(), "test");
+            assert_eq!(
+                route.to_string(),
+                wire["route"].as_str().expect("route string")
+            );
+        }
+        assert_eq!(
+            serde_json::to_value(report).expect("serialize report"),
+            wire
+        );
+    }
+}
+
+#[test]
+fn probe_report_rejects_unsupported_versions_and_malformed_routes() {
+    use lithos_llm::client::ProbeReport;
+
+    let valid = json!({
+        "version": 1, "route": "test/chat", "outcome": {"status": "passed"},
+        "latency_ms": 0, "usage": TokenCounts::default(),
+    });
+    let mut future = valid.clone();
+    future["version"] = json!(2);
+    assert!(serde_json::from_value::<ProbeReport>(future).is_err());
+    for route in ["chat", "/chat", "test/"] {
+        let mut invalid = valid.clone();
+        invalid["route"] = json!(route);
+        assert!(serde_json::from_value::<ProbeReport>(invalid).is_err());
+    }
+}
+
+#[tokio::test]
+async fn probe_report_serializes_the_actual_probe_without_a_catalog_lookup() {
+    use lithos_llm::client::ProbeReport;
+
+    let (client, _) = client(Script::Answers).expect("test client");
+    let report = client.probe("test/chat", ProbeOptions::new()).await;
+    let encoded = serde_json::to_value(&report).expect("serialize probe");
+    assert_eq!(encoded["version"], 1);
+    assert_eq!(encoded["route"], "test/chat");
+    assert_eq!(encoded["outcome"], json!({"status": "passed"}));
+    let decoded: ProbeReport = serde_json::from_value(encoded).expect("deserialize probe");
+    assert_eq!(decoded.route, report.route);
+    assert_eq!(decoded.usage, report.usage);
+    assert_eq!(decoded.latency.as_millis(), report.latency.as_millis());
 }

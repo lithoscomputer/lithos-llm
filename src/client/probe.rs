@@ -3,11 +3,12 @@
 
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::time::Instant;
 
 use super::Client;
-use crate::catalog::ModelHandle;
+use crate::catalog::{ModelHandle, ModelId, ProviderId};
 use crate::middleware::CallContext;
 use crate::types::{
     ContentPart, Error, ErrorData, ErrorKind, Message, ReasoningEffort, Request, Response, Role,
@@ -105,7 +106,18 @@ pub enum ProbeOutcome {
 }
 
 /// The result of one probe.
-#[derive(Clone, Debug)]
+///
+/// Serializes to the version-1 probe report used by `lllm probe --json`:
+/// `version`, nullable `route` (`provider/model`), tagged `outcome`,
+/// `latency_ms`, and `usage`. Latency is truncated to whole milliseconds
+/// (saturating at `u64::MAX`). Deserialization rejects unsupported versions.
+/// The Rust route and latency remain typed; callers need no wire adapters.
+///
+/// Like [`ErrorData`], reports are not redacted. Applications must apply
+/// their disclosure policy to provider errors before returning or storing
+/// them across a trust boundary.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(into = "ProbeReportWire", try_from = "ProbeReportWire")]
 #[must_use]
 #[non_exhaustive]
 pub struct ProbeReport {
@@ -117,6 +129,73 @@ pub struct ProbeReport {
     pub latency: Duration,
     /// The usage every successful request reported, summed.
     pub usage:   TokenCounts,
+}
+
+// Keep the established CLI wire shape without changing the public Rust API.
+#[derive(Deserialize, Serialize)]
+struct ProbeReportWire {
+    version:    u32,
+    route:      Option<String>,
+    outcome:    ProbeOutcomeWire,
+    latency_ms: u64,
+    usage:      TokenCounts,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+enum ProbeOutcomeWire {
+    Passed,
+    Failed { error: Box<ErrorData> },
+    Incorrect { detail: String },
+}
+
+impl From<ProbeReport> for ProbeReportWire {
+    fn from(report: ProbeReport) -> Self {
+        Self {
+            version:    1,
+            route:      report.route.map(|route| route.to_string()),
+            outcome:    match report.outcome {
+                ProbeOutcome::Passed => ProbeOutcomeWire::Passed,
+                ProbeOutcome::Failed(error) => ProbeOutcomeWire::Failed { error },
+                ProbeOutcome::Incorrect { detail } => ProbeOutcomeWire::Incorrect { detail },
+            },
+            latency_ms: u64::try_from(report.latency.as_millis()).unwrap_or(u64::MAX),
+            usage:      report.usage,
+        }
+    }
+}
+
+impl TryFrom<ProbeReportWire> for ProbeReport {
+    type Error = &'static str;
+
+    fn try_from(wire: ProbeReportWire) -> Result<Self, Self::Error> {
+        if wire.version != 1 {
+            return Err("unsupported probe report version");
+        }
+        let route = wire
+            .route
+            .map(|route| -> Result<ModelHandle, &'static str> {
+                let (provider, model) = route
+                    .split_once('/')
+                    .filter(|(provider, model)| !provider.is_empty() && !model.is_empty())
+                    .ok_or("probe route must be provider/model")?;
+                Ok(ModelHandle::new(
+                    ProviderId::new(provider),
+                    ModelId::new(model),
+                ))
+            })
+            .transpose()?;
+        Ok(Self {
+            route,
+            outcome: match wire.outcome {
+                ProbeOutcomeWire::Passed => ProbeOutcome::Passed,
+                ProbeOutcomeWire::Failed { error } => ProbeOutcome::Failed(error),
+                ProbeOutcomeWire::Incorrect { detail } => ProbeOutcome::Incorrect { detail },
+            },
+            latency: Duration::from_millis(wire.latency_ms),
+            usage: wire.usage,
+        })
+    }
 }
 
 impl ProbeReport {
