@@ -33,3 +33,14 @@ style-guide defaults.
 ## Working documents
 
 Save plans under `.ai/plans/` and reviews under `.ai/reviews/`.
+
+## README.md
+
+Keep README.md focused on what the crate does, who it serves, installation,
+short examples, scope, status, and the Lithos family. Follow the Lithos README
+guide (`llms.md`) and `README-TEMPLATE.md` when available.
+
+- Put API details in rustdoc and longer guides in `docs/`.
+- Use absolute GitHub URLs for repository links.
+- Keep examples complete, with no hidden lines. Mark network examples `rust,no_run`.
+- README and guide examples are doctests. Run `mise run test:docs` after changing them.

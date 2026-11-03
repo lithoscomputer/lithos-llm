@@ -58,6 +58,15 @@ description = "Run the tests with the default feature set"
 env = { CARGO_TARGET_DIR = "{{config_root}}/target/default-features" }
 run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --workspace --all-targets --no-tests=pass"
 
+[tasks."test:docs"]
+quiet = true
+description = "Compile README and guide examples and run offline doctests"
+run = [
+  "cargo test -q --locked --doc",
+  "cargo test -q --locked --doc --all-features",
+  "cargo test -q --locked --doc --no-default-features --features builtin-catalog",
+]
+
 [tasks."test:anthropic"]
 quiet = true
 description = "Run offline Anthropic client contracts and fault tests against the twin"
@@ -289,7 +298,7 @@ run = [
 [tasks.check]
 quiet = true
 description = "Run the complete routine verification gate"
-depends = ["fmt:check", "lint", "test", "test:default-features", "test:e2e", "check:actions", "check:catalog-only", "check:features", "check:docs", "check:whitespace"]
+depends = ["fmt:check", "lint", "test", "test:default-features", "test:docs", "test:e2e", "check:actions", "check:catalog-only", "check:features", "check:docs", "check:whitespace"]
 
 [tasks."check:nightly"]
 quiet = true
