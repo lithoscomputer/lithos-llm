@@ -23,7 +23,9 @@ jobs:
         uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           version: 2026.6.11
-          install_args: --locked
+          # Rust toolchains share rustup-init; parallel bootstrap can replace it
+          # between chmod and execution. Serialize installs to avoid that race.
+          install_args: --locked --jobs=1
           cache: false
 
       - name: Build crate package
