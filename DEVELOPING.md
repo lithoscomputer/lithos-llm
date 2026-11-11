@@ -28,6 +28,7 @@ mise run setup
 | `mise run lint` | Run Clippy with warnings denied |
 | `mise run test` | Run the test suite with all features |
 | `mise run test:default-features` | Run the test suite with default features |
+| `mise run test:docs` | Compile README and guide examples; run offline doctests |
 | `mise run check` | Run the routine verification gate |
 | `mise run check:nightly` | Run the extended verification gate |
 | `mise run check:catalog-only` | Verify the catalog-only feature boundary |

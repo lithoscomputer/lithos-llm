@@ -6,6 +6,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Reorganize the README around installation and complete examples. Preserve
+  detailed usage in library and catalog guides, and check their examples as
+  doctests in the routine verification gate.
+
 - GPT-6 Sol (`gpt-6-sol`) and GPT-6 Luna (`gpt-6-luna`) join the built-in
   catalog on OpenAI, the OpenAI Codex seat, OpenRouter, Vercel, and Venice.
   OpenAI's rates are $2/$10 for Sol and $0.10/$0.50 for Luna, with long-context
