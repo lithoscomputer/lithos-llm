@@ -680,6 +680,33 @@ can read `call.context().default_headers()` and must apply them themselves.
 Header values are redacted in Debug output and are not serialized into the
 model request. Authentication belongs in credential providers.
 
+## Provider wire types
+
+`lithos_llm::wire` mirrors three provider APIs in their own format, for
+callers that must not normalize, such as a proxy that edits a request and
+forwards it: `anthropic_messages`, `openai_responses`, and `openai_chat`.
+Each has a `Request`, a `Response`, and a `StreamEvent` for the JSON payload
+of one SSE event.
+
+These types are lossless: serializing a parsed value gives back the same JSON
+value. Every object keeps fields its type does not name in `extra`, each
+tagged union keeps unmodeled types in an `Unknown` variant, and `Field<T>`
+keeps an absent field apart from a `null` one. Thinking signatures, encrypted
+reasoning, and cache-control markers survive untouched.
+
+```rust
+use lithos_llm::wire::openai_chat::Request;
+
+fn pin_model(body: &str) -> Result<String, serde_json::Error> {
+    let mut request: Request = serde_json::from_str(body)?;
+    request.model = "anthropic/claude-opus-5.5".to_owned();
+    serde_json::to_string(&request)
+}
+```
+
+The wire types need no feature and no runtime. The client does not use them:
+codecs still convert to and from the provider-neutral `Request`.
+
 ## Features
 
 | Feature | Default | Purpose |

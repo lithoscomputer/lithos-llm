@@ -1,0 +1,38 @@
+{
+  "model": "gpt-6-astra",
+  "instructions": "You are a coding agent working in a Rust repository.",
+  "stream": true,
+  "store": false,
+  "include": ["reasoning.encrypted_content"],
+  "reasoning": {"effort": "high", "summary": "auto"},
+  "text": {"verbosity": "low", "format": {"type": "text"}},
+  "parallel_tool_calls": true,
+  "prompt_cache_key": "T-5f2c",
+  "temperature": 1,
+  "max_output_tokens": null,
+  "tool_choice": "auto",
+  "tools": [
+    {"type": "function", "name": "read_file", "description": "Read a file.", "strict": false, "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+    {"type": "custom", "name": "apply_patch", "description": "Apply a patch.", "format": {"type": "grammar", "syntax": "lark", "definition": "start: patch"}},
+    {"type": "web_search"}
+  ],
+  "input": [
+    {"role": "developer", "content": "Prefer small, verified changes."},
+    {"type": "message", "role": "user", "content": [
+      {"type": "input_text", "text": "Why does `cargo test` fail on main?"},
+      {"type": "input_image", "image_url": "data:image/png;base64,iVBORw0KGgo=", "detail": "auto"},
+      {"type": "input_file", "file_id": "file-8Bq2", "filename": "spec.pdf"}
+    ]},
+    {"type": "reasoning", "id": "rs_68a1", "summary": [{"type": "summary_text", "text": "**Reading the test**"}], "content": null, "encrypted_content": "gAAAAABoPLACEHOLDERencryptedreasoning=="},
+    {"type": "function_call", "id": "fc_68a2", "call_id": "call_Qx1", "name": "read_file", "arguments": "{\"path\":\"tests/parse.rs\"}", "status": "completed"},
+    {"type": "function_call_output", "call_id": "call_Qx1", "output": "assert_eq!(parse(\"1.0\"), Ok(1.0));"},
+    {"type": "custom_tool_call", "id": "ctc_68a3", "call_id": "call_Qx2", "name": "apply_patch", "input": "*** Begin Patch\n*** End Patch"},
+    {"type": "custom_tool_call_output", "call_id": "call_Qx2", "output": [{"type": "input_text", "text": "Done!"}]},
+    {"type": "web_search_call", "id": "ws_68a4", "status": "completed", "action": {"type": "search", "query": "serde f64 precision"}},
+    {"type": "message", "id": "msg_68a5", "role": "assistant", "status": "completed", "phase": "commentary", "content": [
+      {"type": "output_text", "text": "The parser rounds differently.", "annotations": [{"type": "url_citation", "url": "https://example.com/serde", "title": "serde_json floats", "start_index": 0, "end_index": 10}], "logprobs": []},
+      {"type": "refusal", "refusal": "I can't run that command."}
+    ]},
+    {"type": "item_reference", "id": "msg_68a0"}
+  ]
+}
