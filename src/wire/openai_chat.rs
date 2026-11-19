@@ -7,6 +7,7 @@
 //! See the [module documentation](super) for how these types stay lossless.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Number;
 
 use super::{Extra, Field, Tagged, unknown};
 
@@ -264,6 +265,47 @@ pub struct FunctionCallDelta {
     pub arguments: Field<String>,
     #[serde(flatten)]
     pub extra:     Extra,
+}
+
+/// An error response body: `{"error": {...}}`.
+///
+/// OpenAI Responses returns the same body, so
+/// [`openai_responses`](super::openai_responses) re-exports this type.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ErrorResponse {
+    pub error: ApiError,
+    #[serde(flatten)]
+    pub extra: Extra,
+}
+
+/// The error inside an [`ErrorResponse`].
+///
+/// OpenAI sends `type`, `param`, and `code`, often as `null`. OpenRouter
+/// omits `type` and `param`, sends the HTTP status as `code`, and adds
+/// `metadata`, which is kept in `extra`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ApiError {
+    pub message: String,
+    /// The error type, such as `invalid_request_error`.
+    #[serde(rename = "type", default, skip_serializing_if = "Field::is_absent")]
+    pub kind:    Field<String>,
+    /// The request parameter the error is about.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub param:   Field<String>,
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub code:    Field<ErrorCode>,
+    #[serde(flatten)]
+    pub extra:   Extra,
+}
+
+/// [`ApiError::code`]: a string on OpenAI, a number on OpenRouter.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum ErrorCode {
+    /// A code such as `context_length_exceeded`.
+    Text(String),
+    /// A number, such as OpenRouter's HTTP status, kept exactly as sent.
+    Number(Number),
 }
 
 #[cfg(test)]

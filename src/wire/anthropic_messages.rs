@@ -334,7 +334,7 @@ pub struct DeltaUsage {
 
 /// `error`: the stream failed after it started.
 ///
-/// An error response body has the same shape, so it parses as this event.
+/// An error response body is the same object; [`ErrorResponse`] parses it.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ErrorEvent {
     pub error: ApiError,
@@ -342,7 +342,38 @@ pub struct ErrorEvent {
     pub extra: Extra,
 }
 
-/// The error inside an [`ErrorEvent`].
+/// An error response body: `{"type": "error", "error": {...}}`.
+///
+/// It writes `"type": "error"` itself, and parsing rejects any other `type`.
+/// `request_id` is kept in `extra`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(from = "TaggedError", into = "TaggedError")]
+pub struct ErrorResponse {
+    pub error: ApiError,
+    pub extra: Extra,
+}
+
+/// The wire form of an [`ErrorResponse`]. A tagged struct would neither
+/// check its `type` nor keep it out of `extra`; an enum does both.
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum TaggedError {
+    Error(ErrorEvent),
+}
+
+impl From<TaggedError> for ErrorResponse {
+    fn from(TaggedError::Error(ErrorEvent { error, extra }): TaggedError) -> Self {
+        Self { error, extra }
+    }
+}
+
+impl From<ErrorResponse> for TaggedError {
+    fn from(ErrorResponse { error, extra }: ErrorResponse) -> Self {
+        Self::Error(ErrorEvent { error, extra })
+    }
+}
+
+/// The error inside an [`ErrorEvent`] or an [`ErrorResponse`].
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ApiError {
     /// The error type, such as `overloaded_error`.

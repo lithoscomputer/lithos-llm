@@ -7,6 +7,8 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Chat Completions and Responses return the same error body.
+pub use super::openai_chat::{ApiError, ErrorCode, ErrorResponse};
 use super::{Extra, Field, Tagged, unknown};
 
 /// A request body for `POST /v1/responses`.

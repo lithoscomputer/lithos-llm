@@ -1,11 +1,12 @@
 //! Lossless provider-native wire types.
 //!
 //! Each submodule mirrors one provider API exactly, in the provider's own
-//! field names and nesting: its request body, its response body, and the JSON
-//! payload of each event in its SSE stream. Unlike [`Request`](crate::Request),
-//! which every codec converts to and from, these types never normalize. They
-//! serve callers that must stay in a provider's format, such as a proxy that
-//! reads a request, changes one field, and forwards it.
+//! field names and nesting: its request body, its response body, the JSON
+//! payload of each event in its SSE stream, and its error body. Unlike
+//! [`Request`](crate::Request), which every codec converts to and from, these
+//! types never normalize. They serve callers that must stay in a provider's
+//! format, such as a proxy that reads a request, changes one field, and
+//! forwards it, or renders its own errors the way the provider would.
 //!
 //! | Module | API | Codec |
 //! | --- | --- | --- |

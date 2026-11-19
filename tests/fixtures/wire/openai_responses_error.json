@@ -1,0 +1,8 @@
+{
+  "error": {
+    "message": "Your input exceeds the context window of this model.",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": "context_length_exceeded"
+  }
+}
