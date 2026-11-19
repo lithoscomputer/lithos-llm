@@ -8,6 +8,7 @@ pub mod catalog;
 pub mod estimate;
 pub mod resolver;
 pub mod types;
+pub mod wire;
 
 mod cost;
 mod evaluation;

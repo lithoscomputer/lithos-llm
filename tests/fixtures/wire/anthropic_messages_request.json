@@ -1,0 +1,62 @@
+{
+  "model": "claude-opus-5-5",
+  "max_tokens": 32000,
+  "stream": true,
+  "temperature": 1,
+  "metadata": {"user_id": "user-7f3a"},
+  "thinking": {"type": "enabled", "budget_tokens": 16000},
+  "context_management": {"edits": [{"type": "clear_tool_uses_20250919", "keep": {"type": "tool_uses", "value": 3}}]},
+  "system": [
+    {"type": "text", "text": "You are a coding agent working in a Rust repository."},
+    {"type": "text", "text": "Prefer small, verified changes.", "cache_control": {"type": "ephemeral", "ttl": "1h"}}
+  ],
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read a file from the workspace.",
+      "input_schema": {
+        "type": "object",
+        "properties": {"path": {"type": "string"}, "line_range": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}},
+        "required": ["path"],
+        "additionalProperties": false
+      },
+      "cache_control": {"type": "ephemeral"}
+    },
+    {"type": "web_search_20250305", "name": "web_search", "max_uses": 5}
+  ],
+  "tool_choice": {"type": "auto", "disable_parallel_tool_use": false},
+  "messages": [
+    {"role": "user", "content": "Why does `cargo test` fail on main?"},
+    {
+      "role": "assistant",
+      "content": [
+        {"type": "thinking", "thinking": "I should read the failing test first.", "signature": "EqQBCkYIBxgCKkDzX1t0aW5nLXNpZ25hdHVyZS1wbGFjZWhvbGRlcg=="},
+        {"type": "redacted_thinking", "data": "EmwKAhgBEgy3cmVkYWN0ZWQtcGxhY2Vob2xkZXI="},
+        {"type": "text", "text": "Let me look at the test."},
+        {"type": "tool_use", "id": "toolu_01A", "name": "read_file", "input": {"path": "tests/parse.rs", "line_range": [1, 40]}}
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_01A",
+          "content": [{"type": "text", "text": "assert_eq!(parse(\"1.0\"), Ok(1.0));"}],
+          "cache_control": {"type": "ephemeral"}
+        },
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="}},
+        {"type": "document", "source": {"type": "url", "url": "https://example.com/spec.pdf"}, "citations": {"enabled": true}, "title": "Spec"}
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {"type": "server_tool_use", "id": "srvtoolu_01B", "name": "web_search", "input": {"query": "serde f64 parse precision"}},
+        {"type": "web_search_tool_result", "tool_use_id": "srvtoolu_01B", "content": [{"type": "web_search_result", "url": "https://example.com/serde", "title": "serde_json floats", "encrypted_content": "EqgfCioIARgB", "page_age": null}]},
+        {"type": "text", "text": "The parser rounds differently.", "citations": [{"type": "web_search_result_location", "url": "https://example.com/serde", "title": "serde_json floats", "encrypted_index": "Eo8BCioIAhgB", "cited_text": "rounds"}]}
+      ]
+    },
+    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_01C", "is_error": true, "content": "permission denied"}, {"type": "text", "text": "Try again."}]}
+  ]
+}

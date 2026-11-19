@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The new `wire` module adds lossless provider-native types for Anthropic
+  Messages, OpenAI Responses, and OpenAI Chat Completions: a request, a
+  response, and an SSE event payload for each. Serializing a parsed value
+  gives back the same JSON value. Unknown fields stay in each object's
+  `extra` map, unmodeled block, item, and event types stay in `Unknown`
+  variants, and `Field<T>` keeps an absent field apart from a `null` one. The
+  client and codecs are unchanged.
+
 - GPT-6 Sol (`gpt-6-sol`) and GPT-6 Luna (`gpt-6-luna`) join the built-in
   catalog on OpenAI, the OpenAI Codex seat, OpenRouter, Vercel, and Venice.
   OpenAI's rates are $2/$10 for Sol and $0.10/$0.50 for Luna, with long-context

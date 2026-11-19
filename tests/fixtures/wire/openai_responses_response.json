@@ -1,0 +1,42 @@
+{
+  "id": "resp_68b0",
+  "object": "response",
+  "created_at": 1763510400,
+  "status": "completed",
+  "background": false,
+  "error": null,
+  "incomplete_details": null,
+  "instructions": "You are a coding agent working in a Rust repository.",
+  "max_output_tokens": null,
+  "max_tool_calls": null,
+  "model": "gpt-6-astra-2026-09-01",
+  "output": [
+    {"id": "rs_68b1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABoRESPONSEencryptedreasoning=="},
+    {"id": "msg_68b2", "type": "message", "status": "completed", "role": "assistant", "content": [{"type": "output_text", "annotations": [], "logprobs": [], "text": "I'll check the parser."}]},
+    {"id": "fc_68b3", "type": "function_call", "status": "completed", "arguments": "{\"path\":\"src/parse.rs\"}", "call_id": "call_Qx3", "name": "read_file"}
+  ],
+  "parallel_tool_calls": true,
+  "previous_response_id": null,
+  "prompt_cache_key": "T-5f2c",
+  "prompt_cache_retention": null,
+  "reasoning": {"effort": "high", "summary": "auto"},
+  "safety_identifier": null,
+  "service_tier": "default",
+  "store": false,
+  "temperature": 1.0,
+  "text": {"format": {"type": "text"}, "verbosity": "low"},
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 0.98,
+  "truncation": "disabled",
+  "usage": {
+    "input_tokens": 48223,
+    "input_tokens_details": {"cached_tokens": 48128, "cache_write_tokens": 0},
+    "output_tokens": 412,
+    "output_tokens_details": {"reasoning_tokens": 320},
+    "total_tokens": 48635
+  },
+  "user": null,
+  "metadata": {}
+}
