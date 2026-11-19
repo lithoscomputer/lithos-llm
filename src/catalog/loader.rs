@@ -1238,13 +1238,21 @@ mod tests {
             "the codex codec mode selects the deployment's dialect"
         );
 
-        // The platform roster minus the pro rows, under the same ids and
-        // aliases so a stand-in route resolves the same selector.
+        // The platform roster minus the pro rows and the rows whose Codex
+        // availability is not yet verified, under the same ids and aliases so
+        // a stand-in route resolves the same selector.
+        let unverified_on_codex = [
+            "gpt-6-astra",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6.2-astra",
+            "gpt-6.2-sol",
+        ];
         let platform = catalog.provider("openai")?;
         let mut expected: Vec<_> = platform
             .models()
             .map(|model| model.id().as_str())
-            .filter(|id| !id.ends_with("-pro") && *id != "gpt-6-astra")
+            .filter(|id| !id.ends_with("-pro") && !unverified_on_codex.contains(id))
             .collect();
         expected.sort_unstable();
         let mut actual: Vec<_> = codex.models().map(|model| model.id().as_str()).collect();

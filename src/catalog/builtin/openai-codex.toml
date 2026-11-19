@@ -14,7 +14,8 @@
 # rejected `stop` like the platform API, spelled error detail as `detail`
 # (handled in transport::classify), and sent a terminal `response.completed`
 # whose `output` array was empty; the streamed items were the only content.
-# Astra's Codex-deployment availability is not yet verified.
+# The Codex-deployment availability of GPT-6 Astra, GPT-6.1 Sol and Terra, and
+# GPT-6.2 Astra and Sol is not yet verified.
 #
 # Differences from the platform rows, all observed live:
 #

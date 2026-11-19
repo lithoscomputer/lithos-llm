@@ -177,7 +177,16 @@ fn the_codex_roster_is_the_verified_platform_subset() -> TestResult {
     let mut expected = ids(&builtin, "openai")?;
     assert!(expected.remove("gpt-5.5-pro"));
     assert!(expected.remove("gpt-5.4-pro"));
-    assert!(expected.remove("gpt-6-astra"));
+    // Codex-deployment availability not yet verified.
+    for unverified in [
+        "gpt-6-astra",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6.2-astra",
+        "gpt-6.2-sol",
+    ] {
+        assert!(expected.remove(unverified));
+    }
     assert_eq!(ids(&catalog("acct_preflight"), PROVIDER)?, expected);
     Ok(())
 }
