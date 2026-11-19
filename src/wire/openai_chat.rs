@@ -278,6 +278,23 @@ pub struct ErrorResponse {
     pub extra: Extra,
 }
 
+impl ErrorResponse {
+    /// An error of type `kind`, such as `invalid_request_error`, with `param`
+    /// and `code` set to `null`, as OpenAI writes an error that has neither.
+    pub fn new(kind: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            error: ApiError {
+                message: message.into(),
+                kind:    Field::Present(kind.into()),
+                param:   Field::Null,
+                code:    Field::Null,
+                extra:   Extra::new(),
+            },
+            extra: Extra::new(),
+        }
+    }
+}
+
 /// The error inside an [`ErrorResponse`].
 ///
 /// OpenAI sends `type`, `param`, and `code`, often as `null`. OpenRouter

@@ -353,6 +353,21 @@ pub struct ErrorResponse {
     pub extra: Extra,
 }
 
+impl ErrorResponse {
+    /// An error of type `kind`, such as `authentication_error`, with no
+    /// other fields.
+    pub fn new(kind: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            error: ApiError {
+                kind:    kind.into(),
+                message: message.into(),
+                extra:   Extra::new(),
+            },
+            extra: Extra::new(),
+        }
+    }
+}
+
 /// The wire form of an [`ErrorResponse`]. A tagged struct would neither
 /// check its `type` nor keep it out of `extra`; an enum does both.
 #[derive(Deserialize, Serialize)]

@@ -372,14 +372,8 @@ fn error_bodies_round_trip() -> TestResult {
 /// format, the same way the provider would.
 #[test]
 fn built_error_bodies_serialize_in_the_provider_format() -> TestResult {
-    let anthropic = anthropic_messages::ErrorResponse {
-        error: anthropic_messages::ApiError {
-            kind:    "authentication_error".to_owned(),
-            message: "invalid x-api-key".to_owned(),
-            extra:   Map::new(),
-        },
-        extra: Map::new(),
-    };
+    let anthropic =
+        anthropic_messages::ErrorResponse::new("authentication_error", "invalid x-api-key");
     assert_eq!(
         serde_json::to_value(&anthropic)?,
         json!({
@@ -388,25 +382,19 @@ fn built_error_bodies_serialize_in_the_provider_format() -> TestResult {
         })
     );
 
-    let openai = openai_chat::ErrorResponse {
-        error: openai_chat::ApiError {
-            message: "Incorrect API key provided.".to_owned(),
-            kind:    Field::Present("invalid_request_error".to_owned()),
-            param:   Field::Null,
-            code:    Field::Present(openai_chat::ErrorCode::Text("invalid_api_key".to_owned())),
-            extra:   Map::new(),
-        },
-        extra: Map::new(),
-    };
-    assert_eq!(
-        serde_json::to_value(&openai)?,
-        json!({"error": {
-            "message": "Incorrect API key provided.",
-            "type": "invalid_request_error",
-            "param": null,
-            "code": "invalid_api_key",
-        }})
-    );
+    let mut openai =
+        openai_chat::ErrorResponse::new("invalid_request_error", "Incorrect API key provided.");
+    let mut expected = json!({"error": {
+        "message": "Incorrect API key provided.",
+        "type": "invalid_request_error",
+        "param": null,
+        "code": null,
+    }});
+    assert_eq!(serde_json::to_value(&openai)?, expected);
+
+    openai.error.code = Field::Present(openai_chat::ErrorCode::Text("invalid_api_key".to_owned()));
+    expected["error"]["code"] = json!("invalid_api_key");
+    assert_eq!(serde_json::to_value(&openai)?, expected);
     Ok(())
 }
 
