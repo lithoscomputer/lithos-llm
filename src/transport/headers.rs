@@ -92,11 +92,28 @@ pub(super) fn merge_headers(
         insert_header(headers, provider, name, value)?;
     }
     if let Some(credentials) = credentials {
-        for header in credential_headers(provider, scheme, credentials)? {
-            insert_secret_header(headers, provider, &header)?;
-        }
+        headers.extend(credential_header_map(provider, scheme, credentials)?);
     }
     Ok(())
+}
+
+/// The credential headers as a [`HeaderMap`] of sensitive values, a later
+/// header with the same name replacing an earlier one.
+///
+/// # Errors
+///
+/// The errors of [`credential_headers`], and [`ErrorKind::Configuration`]
+/// when a header name or value is not valid HTTP.
+pub(crate) fn credential_header_map(
+    provider: &ProviderId,
+    scheme: &AuthScheme,
+    credentials: &Credentials,
+) -> Result<HeaderMap, Error> {
+    let mut headers = HeaderMap::new();
+    for header in credential_headers(provider, scheme, credentials)? {
+        insert_secret_header(&mut headers, provider, &header)?;
+    }
+    Ok(headers)
 }
 
 /// The credential headers the provider's scheme accepts, in send order.
