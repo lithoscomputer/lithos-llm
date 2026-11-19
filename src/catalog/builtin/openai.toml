@@ -73,6 +73,22 @@ type = "bearer"
 [providers.openai.metadata.agent]
 profile = "openai"
 
+# GPT-6.2 Astra follows the GPT-6 Astra row. The model page lists fast mode at
+# 2x and Batch but no Flex tier, so the row claims no economical speed.
+[providers.openai.models."gpt-6.2-astra"]
+display_name = "GPT-6.2 Astra"
+api_model = "gpt-6.2-astra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 10000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 60000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 20000000 }, speed = { fast = { input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 80000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 20000000 } } }
+family = "gpt-6"
+training_cutoff = "2026-05-18"
+knowledge_cutoff = "May 18, 2026"
+
+[providers.openai.models."gpt-6.2-astra".metadata.agent]
+profile = "gpt6"
+
 [providers.openai.models."gpt-6-astra"]
 display_name = "GPT-6 Astra"
 aliases = ["astra", "gpt-astra", "gpt6", "gpt-6"]
@@ -88,6 +104,54 @@ training_cutoff = "2026-04-30"
 knowledge_cutoff = "April 30, 2026"
 
 [providers.openai.models."gpt-6-astra".metadata.agent]
+profile = "gpt6"
+
+# GPT-6.2 Sol: like GPT-6.2 Astra, at $2/$10.
+[providers.openai.models."gpt-6.2-sol"]
+display_name = "GPT-6.2 Sol"
+api_model = "gpt-6.2-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 } } }
+family = "gpt-6"
+training_cutoff = "2026-06-01"
+knowledge_cutoff = "June 1, 2026"
+
+[providers.openai.models."gpt-6.2-sol".metadata.agent]
+profile = "gpt6"
+
+# GPT-6.1 Terra: like GPT-6.1 Sol, at $1/$5.
+[providers.openai.models."gpt-6.1-terra"]
+display_name = "GPT-6.1 Terra"
+api_model = "gpt-6.1-terra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 1250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }, speed = { fast = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }, economical = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 25000, cache_write_usd_micros_per_million = 625000 } } }
+family = "gpt-6"
+training_cutoff = "2026-06-01"
+knowledge_cutoff = "June 1, 2026"
+
+[providers.openai.models."gpt-6.1-terra".metadata.agent]
+profile = "gpt6"
+
+# GPT-6.1 Sol follows the GPT-6 Sol row. Rates are from the model page: fast
+# at 2x, flex at 0.5x, and 2x input / 1.5x output above 272K input tokens.
+# Ultrafast (6x) has no catalog speed. No cells until the account has API
+# credits.
+[providers.openai.models."gpt-6.1-sol"]
+display_name = "GPT-6.1 Sol"
+api_model = "gpt-6.1-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 1250000 } } }
+family = "gpt-6"
+training_cutoff = "2026-04-30"
+knowledge_cutoff = "April 30, 2026"
+
+[providers.openai.models."gpt-6.1-sol".metadata.agent]
 profile = "gpt6"
 
 # Added 2026-09-22 from the model page. The account had no API credits, so

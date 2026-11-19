@@ -97,6 +97,14 @@ limits = { context_tokens = 262144, max_output_tokens = 65536 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, sampling = true, tool_choice = { required = true, named = true } }
 protocol_options = { reasoning_effort_levels = true }
 
+# Fable 5.2 follows the Fable 5.1 row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.venice.models."claude-fable-5.2"]
+display_name = "Claude Fable 5.2"
+api_model = "claude-fable-5-2"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = false, named = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
 # The Claude rows carry `cache_breakpoints`: the first full run showed
 # Venice's Anthropic upstream caches nothing automatically (all four buckets
 # zero across a shared-prefix pair), so the codec must forward
@@ -146,6 +154,23 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
 protocol_options = { cache_breakpoints = true }
 
+# Haiku 5.5 follows the Sonnet 5 row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.venice.models."claude-haiku-5.5"]
+display_name = "Claude Haiku 5.5"
+api_model = "claude-haiku-5-5"
+limits = { context_tokens = 1000000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { cache_breakpoints = true }
+
+# Sonnet 5.5 follows the Sonnet 5 row without forced tool choice, as on
+# Anthropic. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.venice.models."claude-sonnet-5.5"]
+display_name = "Claude Sonnet 5.5"
+api_model = "claude-sonnet-5-5"
+limits = { context_tokens = 1000000, max_output_tokens = 64000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = false, named = false } }
+protocol_options = { cache_breakpoints = true }
+
 [providers.venice.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5"
 api_model = "claude-sonnet-5"
@@ -159,6 +184,38 @@ api_model = "claude-opus-4-8"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
 protocol_options = { cache_breakpoints = true }
+
+# GPT-6.2 Sol follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.venice.models."gpt-6.2-sol"]
+display_name = "GPT-6.2 Sol"
+api_model = "openai-gpt-62-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# GPT-6.2 Astra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.venice.models."gpt-6.2-astra"]
+display_name = "GPT-6.2 Astra"
+api_model = "openai-gpt-62-astra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# GPT-6.1 Terra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.venice.models."gpt-6.1-terra"]
+display_name = "GPT-6.1 Terra"
+api_model = "openai-gpt-61-terra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# GPT-6.1 Sol follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.venice.models."gpt-6.1-sol"]
+display_name = "GPT-6.1 Sol"
+api_model = "openai-gpt-61-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, sampling = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 # GPT-6 Sol and Luna, verified 2026-09-22 against the live listing and raw
 # probes: a `required` and a named tool choice both produced the call on a

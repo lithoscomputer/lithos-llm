@@ -30,6 +30,14 @@ type = "bearer"
 
 # ---------- Anthropic via OpenRouter ----------
 
+# Fable 5.2 follows the Fable 5.1 row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."claude-fable-5.2"]
+display_name = "Claude Fable 5.2 (via OpenRouter)"
+api_model = "anthropic/claude-fable-5.2"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
 # The listing omits `tool_choice` for this row (the Fable 5 row has it), so it
 # claims tools without forced_tool_choice and the forced-choice cells skip it.
 # Verified 2026-09-01 against GET /api/v1/models.
@@ -68,6 +76,24 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true } }
 protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 
+# Haiku 5.5 follows the Sonnet 5 row. The listing gives only the rates up to
+# 100,000 input tokens. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."claude-haiku-5.5"]
+display_name = "Claude Haiku 5.5 (via OpenRouter)"
+api_model = "anthropic/claude-haiku-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
+# Sonnet 5.5 follows the Sonnet 5 row without forced tool choice, as on
+# Anthropic. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."claude-sonnet-5.5"]
+display_name = "Claude Sonnet 5.5 (via OpenRouter)"
+api_model = "anthropic/claude-sonnet-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+
 [providers.openrouter.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5 (via OpenRouter)"
 aliases = ["sonnet", "claude-sonnet"]
@@ -104,6 +130,38 @@ api_model = "anthropic/claude-haiku-4.5"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true } }
 protocol_options = { cache_breakpoints = true }
+
+# GPT-6.2 Sol follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.2-sol"]
+display_name = "GPT-6.2 Sol (via OpenRouter)"
+api_model = "openai/gpt-6.2-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# GPT-6.2 Astra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.2-astra"]
+display_name = "GPT-6.2 Astra (via OpenRouter)"
+api_model = "openai/gpt-6.2-astra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# GPT-6.1 Terra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.1-terra"]
+display_name = "GPT-6.1 Terra (via OpenRouter)"
+api_model = "openai/gpt-6.1-terra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
+
+# GPT-6.1 Sol follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.1-sol"]
+display_name = "GPT-6.1 Sol (via OpenRouter)"
+api_model = "openai/gpt-6.1-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true } }
+protocol_options = { reasoning_effort_levels = true }
 
 # ---------- OpenAI via OpenRouter ----------
 # GPT-6 Sol and Luna, verified 2026-09-22 against GET /api/v1/models and raw

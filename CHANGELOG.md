@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Claude Fable 5.2 (`claude-fable-5.2`), Claude Sonnet 5.5
+  (`claude-sonnet-5.5`), and Claude Haiku 5.5 (`claude-haiku-5.5`) join the
+  built-in catalog on Anthropic, OpenRouter, and Venice, and GPT-6.1 Sol
+  (`gpt-6.1-sol`), GPT-6.1 Terra (`gpt-6.1-terra`), GPT-6.2 Astra
+  (`gpt-6.2-astra`), and GPT-6.2 Sol (`gpt-6.2-sol`) join it on OpenAI,
+  OpenRouter, and Venice. Ids, limits, and rates come from Anthropic's and
+  OpenAI's model and pricing pages and from OpenRouter's and Venice's model
+  listings. Capability claims follow the closest existing row; Sonnet 5.5,
+  like Opus 5.5, claims no forced tool choice, and Haiku 5.5 is priced higher
+  above 100,000 input tokens. Nothing was probed live, so the rows have E2E
+  catalog rows but no cells yet, and the GPT rows are not on the Codex seat
+  until its availability is verified. No alias moves.
+
 - The new `wire` module adds lossless provider-native types for Anthropic
   Messages, OpenAI Responses, and OpenAI Chat Completions: a request, a
   response, and an SSE event payload for each. Serializing a parsed value

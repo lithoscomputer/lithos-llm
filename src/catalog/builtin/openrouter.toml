@@ -48,6 +48,18 @@ profile = "openai"
 
 # ---------- Anthropic via OpenRouter ----------
 
+# Fable 5.2 follows the Fable 5.1 row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."claude-fable-5.2"]
+display_name = "Claude Fable 5.2 (via OpenRouter)"
+api_model = "anthropic/claude-fable-5.2"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 10000000 }
+
+[providers.openrouter.models."claude-fable-5.2".metadata.agent]
+profile = "claude-5"
+
 [providers.openrouter.models."claude-fable-5.1"]
 display_name = "Claude Fable 5.1 (via OpenRouter)"
 api_model = "anthropic/claude-fable-5.1"
@@ -102,6 +114,32 @@ protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
 pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
 
 [providers.openrouter.models."claude-opus-5".metadata.agent]
+profile = "claude-5"
+
+# Haiku 5.5 follows the Sonnet 5 row. The listing gives only the rates up to
+# 100,000 input tokens. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."claude-haiku-5.5"]
+display_name = "Claude Haiku 5.5 (via OpenRouter)"
+api_model = "anthropic/claude-haiku-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000 }
+
+[providers.openrouter.models."claude-haiku-5.5".metadata.agent]
+profile = "claude-5"
+
+# Sonnet 5.5 follows the Sonnet 5 row without forced tool choice, as on
+# Anthropic. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."claude-sonnet-5.5"]
+display_name = "Claude Sonnet 5.5 (via OpenRouter)"
+api_model = "anthropic/claude-sonnet-5.5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true, cache_breakpoints = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }
+
+[providers.openrouter.models."claude-sonnet-5.5".metadata.agent]
 profile = "claude-5"
 
 [providers.openrouter.models."claude-sonnet-5"]
@@ -163,6 +201,54 @@ pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_millio
 
 [providers.openrouter.models."claude-haiku-4.5".metadata.agent]
 profile = "anthropic"
+
+# GPT-6.2 Sol follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.2-sol"]
+display_name = "GPT-6.2 Sol (via OpenRouter)"
+api_model = "openai/gpt-6.2-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 } }
+
+[providers.openrouter.models."gpt-6.2-sol".metadata.agent]
+profile = "gpt6"
+
+# GPT-6.2 Astra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.2-astra"]
+display_name = "GPT-6.2 Astra (via OpenRouter)"
+api_model = "openai/gpt-6.2-astra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 10000000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 60000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 20000000 } }
+
+[providers.openrouter.models."gpt-6.2-astra".metadata.agent]
+profile = "gpt6"
+
+# GPT-6.1 Terra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.1-terra"]
+display_name = "GPT-6.1 Terra (via OpenRouter)"
+api_model = "openai/gpt-6.1-terra"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 1250000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 } }
+
+[providers.openrouter.models."gpt-6.1-terra".metadata.agent]
+profile = "gpt6"
+
+# GPT-6.1 Sol follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
+[providers.openrouter.models."gpt-6.1-sol"]
+display_name = "GPT-6.1 Sol (via OpenRouter)"
+api_model = "openai/gpt-6.1-sol"
+limits = { context_tokens = 1050000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 271999, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 } }
+
+[providers.openrouter.models."gpt-6.1-sol".metadata.agent]
+profile = "gpt6"
 
 # ---------- OpenAI via OpenRouter ----------
 # GPT-6 Sol and Luna, verified 2026-09-22 against GET /api/v1/models and raw

@@ -40,6 +40,21 @@ name = "x-api-key"
 [providers.anthropic.metadata.agent]
 profile = "anthropic"
 
+# Fable 5.2 follows the Fable 5.1 row: adaptive thinking always on, and no
+# forced tool choice claimed (unprobed). Rates are $8/$40 with cache reads at
+# $0.20/MTok (0.025x input); fast mode is $16/$80.
+[providers.anthropic.models."claude-fable-5.2"]
+display_name = "Claude Fable 5.2"
+api_model = "claude-fable-5-2"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = true, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 10000000, speed = { fast = { input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 80000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 20000000 } } }
+family = "claude-5"
+
+[providers.anthropic.models."claude-fable-5.2".metadata.agent]
+profile = "claude-5"
+
 [providers.anthropic.models."claude-fable-5.1"]
 display_name = "Claude Fable 5.1"
 api_model = "claude-fable-5-1"
@@ -111,6 +126,41 @@ training_cutoff = "2026-05-01"
 knowledge_cutoff = "May 2026"
 
 [providers.anthropic.models."claude-opus-5".metadata.agent]
+profile = "claude-5"
+
+# Haiku 5.5 follows the Sonnet 5 row (adaptive thinking, forced tool choice in
+# the tool-use table). It is priced by prompt length: $0.10/$0.50 up to
+# 100,000 input tokens and $0.50/$2.50 above.
+[providers.anthropic.models."claude-haiku-5.5"]
+display_name = "Claude Haiku 5.5"
+api_model = "claude-haiku-5-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000, long_context = { above_input_tokens = 100000, input_usd_micros_per_million = 500000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 625000 } }
+family = "claude-5"
+training_cutoff = "2026-06-01"
+knowledge_cutoff = "Jun 2026"
+
+[providers.anthropic.models."claude-haiku-5.5".metadata.agent]
+profile = "claude-5"
+
+# Sonnet 5.5 follows the Sonnet 5 row, except that the pricing page's tool-use
+# table lists no any/tool prompt for it, as for Opus 5.5, so the row claims
+# tools without forced_tool_choice. Rates are $2/$10 with cache reads at
+# $0.10/MTok (0.05x input).
+[providers.anthropic.models."claude-sonnet-5.5"]
+display_name = "Claude Sonnet 5.5"
+api_model = "claude-sonnet-5-5"
+limits = { context_tokens = 1000000, max_output_tokens = 128000 }
+capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
+protocol_options = { system_turns = true, reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }
+family = "claude-5"
+training_cutoff = "2026-06-01"
+knowledge_cutoff = "Jun 2026"
+
+[providers.anthropic.models."claude-sonnet-5.5".metadata.agent]
 profile = "claude-5"
 
 [providers.anthropic.models."claude-sonnet-5"]
