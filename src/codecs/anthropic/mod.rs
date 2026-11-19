@@ -22,9 +22,10 @@ use stream::AnthropicStreamDecoder;
 use super::claude::ThinkingPlan;
 use super::content::finish_reason;
 use super::errors::{malformed_success, refusal};
-use super::options::{endpoint, merge_options, wire_options};
+use super::options::{merge_options, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
+use crate::catalog::Endpoints;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{Error, ErrorKind, Response};
@@ -95,7 +96,7 @@ impl Codec for AnthropicMessagesCodec {
 
         let mut encoded = EncodedRequest::new(
             Method::POST,
-            endpoint(call.route().provider().base_url(), "/v1/messages"),
+            Endpoints::ANTHROPIC_MESSAGES.inference_url(call.route().provider().base_url()),
             Value::Object(body),
         )
         .with_headers(headers(&betas))

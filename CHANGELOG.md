@@ -6,6 +6,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `CatalogProvider::endpoints` returns the new `catalog::Endpoints` for
+  Anthropic Messages, OpenAI Responses, and OpenAI Chat Completions: the
+  inference path and the model listing path the codec uses on that provider,
+  with its `codec_options` applied. `inference_url` and `models_url` join
+  them to the provider's base URL or a replacement for it without repeating
+  a version segment, so OpenRouter's `https://openrouter.ai/api/v1` gives
+  `https://openrouter.ai/api/v1/chat/completions`. The codecs now take their
+  inference paths from the same values, so the URLs they send are unchanged.
+
 - `Catalog::offerings_matching`, and so `is_model_selector` and
   `canonical_model_id`, now find a model by its wire id, bare or prefixed
   with its provider, as `CatalogProvider::model` and the resolver's

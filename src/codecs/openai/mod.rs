@@ -21,6 +21,7 @@ use super::content::reject_unencodable;
 use super::options::{cache_routing_key, endpoint, merge_options, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
+use crate::catalog::Endpoints;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{Error, Response};
@@ -82,18 +83,10 @@ impl Codec for OpenAiResponsesCodec {
         }
         merge_options(&mut body, options);
 
-        // The Codex deployment hangs its Responses endpoint directly off the
-        // base path with no version segment: `<base>/responses` answers and
-        // `<base>/v1/responses` is an HTML 403 (probed against
-        // chatgpt.com/backend-api/codex on 2026-08-30).
-        let path = if self.codex {
-            "/responses"
-        } else {
-            "/v1/responses"
-        };
         let mut encoded = EncodedRequest::new(
             Method::POST,
-            endpoint(call.route().provider().base_url(), path),
+            Endpoints::openai_responses(self.codex)
+                .inference_url(call.route().provider().base_url()),
             Value::Object(body),
         )
         .with_applied_speed(call.request().speed());

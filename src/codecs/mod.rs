@@ -24,7 +24,7 @@ use serde_json::Value;
 use thiserror::Error as ThisError;
 
 use crate::adapter::{ResolvedCall, ResolvedEvaluation};
-use crate::catalog::{CodecId, codec_ids};
+use crate::catalog::{CodecId, OpenAiChatOptions, OpenAiMode, OpenAiResponsesOptions, codec_ids};
 use crate::evaluation::Verdict;
 use crate::resolver::ResolvedRoute;
 use crate::transport::{EncodedRequest, SseEvent};
@@ -225,43 +225,6 @@ fn typed_options<T: Default + DeserializeOwned>(
     reason = "serde reads an empty table into a braced struct but not into a unit struct"
 )]
 struct NoOptions {}
-
-/// The typed `codec_options.openai-chat` table.
-///
-/// Some deployments publish their own versioned API root (for example,
-/// Z.ai's /api/coding/paas/v4) and must not receive an extra /v1 segment.
-#[derive(Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-struct OpenAiChatOptions {
-    base_url_is_api_root: bool,
-}
-
-/// The typed `codec_options.openai-responses` table.
-///
-/// Unknown keys are rejected so a misspelled option is a build issue for one
-/// provider rather than a silently ignored setting.
-#[derive(Clone, Copy, Debug, Default, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "snake_case")]
-struct OpenAiResponsesOptions {
-    #[serde(default)]
-    mode: OpenAiMode,
-}
-
-/// Which OpenAI Responses deployment a provider talks to.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "snake_case")]
-enum OpenAiMode {
-    /// The public `/v1/responses` API.
-    #[default]
-    Standard,
-    /// The Codex deployment, which rejects several generation fields.
-    ///
-    /// The deployment also streams every response and reads an `originator`
-    /// header; those are adapter concerns, set in `adapter_options` as
-    /// `force_streaming_complete` and `identify_application`. A factory test
-    /// pins that the built-in row sets both.
-    Codex,
-}
 
 /// Decodes one streaming provider response.
 ///

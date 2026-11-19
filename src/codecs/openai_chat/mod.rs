@@ -32,9 +32,10 @@ use stream::ChatStreamDecoder;
 
 use super::content::{finish_reason, promote_tool_finish};
 use super::errors::refusal;
-use super::options::{cache_routing_key, endpoint, merge_options, wire_options};
+use super::options::{cache_routing_key, merge_options, wire_options};
 use super::{Codec, StreamDecoder};
 use crate::adapter::ResolvedCall;
+use crate::catalog::Endpoints;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{ContentPart, Error, ReasoningContent, Response};
@@ -95,14 +96,8 @@ impl Codec for OpenAiChatCodec {
 
         let mut encoded = EncodedRequest::new(
             Method::POST,
-            endpoint(
-                call.route().provider().base_url(),
-                if self.base_url_is_api_root {
-                    "/chat/completions"
-                } else {
-                    "/v1/chat/completions"
-                },
-            ),
+            Endpoints::openai_chat(self.base_url_is_api_root)
+                .inference_url(call.route().provider().base_url()),
             Value::Object(body),
         )
         // Every chunk is one `data:` line of JSON, and lenient compatible

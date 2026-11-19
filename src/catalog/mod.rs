@@ -2,6 +2,7 @@
 
 pub mod builtin;
 mod capabilities;
+mod endpoints;
 mod loader;
 mod model;
 mod offering;
@@ -15,6 +16,9 @@ pub use capabilities::{
     EvaluationSupport, ModelCapabilities, ModelProtocolOptions, ReasoningEffortSupport,
     ResponseFormatSupport, SpeedSupport, Support, ToolChoiceSupport,
 };
+pub use endpoints::Endpoints;
+#[cfg(feature = "runtime")]
+pub(crate) use endpoints::{OpenAiChatOptions, OpenAiMode, OpenAiResponsesOptions, endpoint};
 pub use loader::CatalogBuilder;
 pub use model::{CatalogModel, LongContextPricing, ModelLimits, Pricing, SpeedPricing, SpeedRates};
 pub use offering::Offering;
