@@ -37,6 +37,9 @@ use crate::types::{Error, ErrorKind, Response};
 const NAMESPACE: &str = "anthropic";
 
 /// The API version every request declares.
+///
+/// The built-in `anthropic` provider also carries it in `default_headers`; a
+/// test keeps the two equal.
 const API_VERSION: &str = "2023-06-01";
 
 /// The beta the `speed: "fast"` tier is gated behind.

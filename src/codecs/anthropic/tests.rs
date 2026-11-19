@@ -2,8 +2,9 @@ use std::error::Error as StdError;
 
 use serde_json::{Value, json};
 
-use super::{AnthropicMessagesCodec, Codec};
+use super::{API_VERSION, AnthropicMessagesCodec, Codec};
 use crate::codecs::test_support::{resolved, resolved_in};
+use crate::credentials::{CredentialHeader, Credentials, SecretValue};
 use crate::transport::SseEvent;
 use crate::types::{
     ContentPart, ErrorKind, FinishReason, ImageContent, MediaSource, Message, ReasoningContent,
@@ -388,6 +389,38 @@ fn encodes_output_controls_and_decodes_tool_calls() -> Result<(), Box<dyn StdErr
     ));
     assert!(response.raw.is_some());
     assert_eq!(response.cost, None);
+    Ok(())
+}
+
+#[test]
+fn the_builtin_provider_sends_the_api_version_once() -> Result<(), Box<dyn StdError>> {
+    let call = resolved(Request::builder().model(MODEL).user("Hello").build()?)?;
+    let provider = call.route().provider();
+    // Callers that skip the codec, such as a proxy, read the version from the
+    // catalog, so it must match what the codec declares.
+    assert_eq!(
+        provider
+            .default_headers()
+            .get("anthropic-version")
+            .map(String::as_str),
+        Some(API_VERSION)
+    );
+    let credentials = Credentials::header(CredentialHeader::new(
+        "x-api-key",
+        SecretValue::new("sk-test"),
+    ));
+
+    let prepared = AnthropicMessagesCodec
+        .encode(&call, false)?
+        .prepare(provider, &credentials)?;
+
+    let versions: Vec<&str> = prepared
+        .headers
+        .get_all("anthropic-version")
+        .iter()
+        .map(|value| value.to_str())
+        .collect::<Result<_, _>>()?;
+    assert_eq!(versions, [API_VERSION]);
     Ok(())
 }
 

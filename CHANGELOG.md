@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The built-in `anthropic` provider now lists `anthropic-version: 2023-06-01`
+  in its `default_headers`, so a caller that reaches the Messages API without
+  the codec, such as a proxy, reads the required protocol header from the
+  catalog instead of hard-coding it. Requests from the client are unchanged:
+  the codec still sends the header for every provider it serves, and the
+  catalog's copy replaces it, so it goes out once. No other built-in provider
+  has a protocol header that applies to every request it serves.
+
 - Claude Fable 5.2 (`claude-fable-5.2`), Claude Sonnet 5.5
   (`claude-sonnet-5.5`), and Claude Haiku 5.5 (`claude-haiku-5.5`) join the
   built-in catalog on Anthropic, OpenRouter, and Venice, and GPT-6.1 Sol

@@ -672,7 +672,9 @@ names case-insensitively.
 Client defaults never override a header Lithos sets: codec headers, provider
 `default_headers` from the catalog, and credential headers all take
 precedence. To override a protocol header deliberately, set it in the
-provider's `default_headers` in a catalog overlay.
+provider's `default_headers` in a catalog overlay. The built-in Anthropic row
+already lists the `anthropic-version` header the Messages API requires, for
+callers that send requests without the codec.
 
 All built-in HTTP operations carry the defaults, including retries, token
 counting, and evaluation; Bedrock applies them before signing. Custom adapters
