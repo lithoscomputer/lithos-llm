@@ -39,7 +39,17 @@ display_name = "OpenRouter"
 # the E2E cells were verified; Responses is listed so callers can find the
 # endpoint, and no cell exercises it yet. The endpoint is stateless and
 # rejects `store: true` and a non-null `previous_response_id` with a 400.
-codecs = ["openai-chat", "openai-responses", "systemone"]
+#
+# OpenRouter also serves Anthropic Messages at `POST /api/v1/messages`, its
+# "Anthropic Skin" (API reference and Claude Code guide, checked
+# 2026-11-20), with the same bearer key. The reference names no model limit,
+# and OpenRouter's server-tool guides use it for any model, but its Claude
+# Code guide guarantees fidelity only for Claude on Anthropic's first-party
+# upstream. So every generation row reaches the codec, and it comes after
+# Chat: provider order breaks ties, so the client still sends every call
+# through Chat Completions. No Messages exchange through OpenRouter is
+# recorded yet.
+codecs = ["openai-chat", "openai-responses", "anthropic-messages", "systemone"]
 codec_options = { systemone = { dialect = "openrouter" } }
 base_url = "https://openrouter.ai/api/v1"
 priority = 25
