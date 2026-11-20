@@ -7,7 +7,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::model::ModelRecord;
-use super::{CatalogError, CatalogModel};
+use super::{CatalogError, CatalogModel, Endpoints, endpoints};
 
 macro_rules! string_id {
     ($(#[$meta:meta])* $name:ident) => {
@@ -369,6 +369,22 @@ impl CatalogProvider {
     /// [`codecs`](Self::codecs); the loader rejects any other.
     pub fn codec_options(&self, codec: &CodecId) -> &Value {
         self.codec_options.get(codec).unwrap_or(&Value::Null)
+    }
+
+    /// The inference and model listing endpoints of `codec` on this
+    /// provider, with its [`codec_options`](Self::codec_options) applied.
+    ///
+    /// `None` when this provider does not list `codec`, when the codec has no
+    /// single inference path (Gemini and Bedrock put the model in the path,
+    /// and the evaluation codecs serve no generation), and when its options
+    /// are invalid. Join the paths to [`base_url`](Self::base_url), or to a
+    /// replacement for it, with [`Endpoints::inference_url`] and
+    /// [`Endpoints::models_url`].
+    pub fn endpoints(&self, codec: &CodecId) -> Option<Endpoints> {
+        if !self.codecs.contains(codec) {
+            return None;
+        }
+        endpoints::for_codec(codec, self.codec_options(codec))
     }
 
     /// The listed codecs that serve generation calls, in catalog order.

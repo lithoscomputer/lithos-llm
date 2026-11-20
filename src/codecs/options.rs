@@ -7,6 +7,7 @@
 use serde_json::{Map, Number, Value, json};
 
 use crate::adapter::ResolvedCall;
+pub(crate) use crate::catalog::endpoint;
 use crate::types::{CacheHint, Request};
 
 /// Raw provider option keys a codec consumes as behavior controls.
@@ -35,53 +36,6 @@ impl Default for Controls {
     fn default() -> Self {
         Self { auto_cache: true }
     }
-}
-
-/// API version segments a codec's operation path may repeat from a base URL.
-///
-/// Codecs own the version segment: they ask for `/v1/messages` or
-/// `/v1beta/models/...`. The older convention put the version in the catalog
-/// base URL instead, and gateways still publish mounts that end with one, so a
-/// base URL ending in one of these segments is common. [`endpoint`] joins the
-/// two without repeating the segment.
-const VERSION_SEGMENTS: &[&str] = &["v1", "v1beta"];
-
-/// Joins a provider base URL and a request path.
-///
-/// A base URL whose path already ends with the version segment the request
-/// path starts with keeps that segment once: base `https://api.moonshot.ai/v1`
-/// and path `/v1/chat/completions` join as
-/// `https://api.moonshot.ai/v1/chat/completions`, not `/v1/v1/...`. Only an
-/// exact repeat of the same segment is collapsed, so a `/v1` base URL still
-/// keeps a Gemini `/v1beta` path intact, and a gateway mounted at
-/// `/gateway` keeps its own prefix.
-pub(crate) fn endpoint(base_url: &str, path: &str) -> String {
-    let base = base_url.trim_end_matches('/');
-    let path = path.trim_start_matches('/');
-    let path = match repeated_version(base, path) {
-        Some(segment) => path[segment.len()..].trim_start_matches('/'),
-        None => path,
-    };
-
-    if path.is_empty() {
-        return base.to_owned();
-    }
-    format!("{base}/{path}")
-}
-
-/// The version segment `base` and `path` both carry, when they share one.
-///
-/// `base` has already lost its trailing slashes and `path` its leading ones.
-fn repeated_version<'a>(base: &str, path: &'a str) -> Option<&'a str> {
-    let host_and_path = base.split_once("://").map_or(base, |(_, rest)| rest);
-    let base_tail = host_and_path.split('/').next_back()?;
-    let path_head = path.split('/').next()?;
-
-    // A bare host has no path segment to repeat, so its final label — which
-    // could in principle read `v1` — is not a version segment.
-    let has_path = host_and_path.contains('/');
-    (has_path && path_head == base_tail && VERSION_SEGMENTS.contains(&path_head))
-        .then_some(path_head)
 }
 
 /// The raw provider options for the selected route, with controls removed.
@@ -231,7 +185,7 @@ mod tests {
 
     use serde_json::{Map, Value, json};
 
-    use super::{CONTROL_KEYS, endpoint, merge_options, wire_options};
+    use super::{CONTROL_KEYS, merge_options, wire_options};
     use crate::codecs::test_support;
     use crate::types::Request;
 
@@ -334,62 +288,5 @@ mod tests {
         assert!(wire.is_empty());
         assert!(controls.auto_cache);
         Ok(())
-    }
-
-    #[test]
-    fn a_bare_host_takes_the_whole_operation_path() {
-        assert_eq!(
-            endpoint("https://api.openai.com", "/v1/responses"),
-            "https://api.openai.com/v1/responses"
-        );
-        assert_eq!(
-            endpoint("https://api.openai.com/", "/v1/responses"),
-            "https://api.openai.com/v1/responses"
-        );
-    }
-
-    #[test]
-    fn a_base_url_ending_in_the_version_does_not_repeat_it() {
-        assert_eq!(
-            endpoint("https://api.moonshot.ai/v1", "/v1/chat/completions"),
-            "https://api.moonshot.ai/v1/chat/completions"
-        );
-        assert_eq!(
-            endpoint("https://api.moonshot.ai/v1/", "/v1/chat/completions"),
-            "https://api.moonshot.ai/v1/chat/completions"
-        );
-        assert_eq!(
-            endpoint(
-                "https://generativelanguage.googleapis.com/v1beta",
-                "/v1beta/models/gemini:generateContent"
-            ),
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini:generateContent"
-        );
-    }
-
-    #[test]
-    fn a_gateway_mount_keeps_its_own_prefix() {
-        assert_eq!(
-            endpoint("https://gw.example.com/gateway", "/v1/chat/completions"),
-            "https://gw.example.com/gateway/v1/chat/completions"
-        );
-        assert_eq!(
-            endpoint("https://gw.example.com/gateway/v1", "/v1/chat/completions"),
-            "https://gw.example.com/gateway/v1/chat/completions"
-        );
-    }
-
-    #[test]
-    fn only_the_same_version_segment_collapses() {
-        // `v1` and `v1beta` are different APIs, so neither absorbs the other.
-        assert_eq!(
-            endpoint("https://example.com/v1", "/v1beta/models/one:count"),
-            "https://example.com/v1/v1beta/models/one:count"
-        );
-        // An unversioned operation path is never shortened.
-        assert_eq!(
-            endpoint("https://bedrock.example.com/v1", "/model/one/converse"),
-            "https://bedrock.example.com/v1/model/one/converse"
-        );
     }
 }
