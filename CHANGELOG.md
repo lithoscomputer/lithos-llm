@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The built-in `openrouter` provider now lists `anthropic-messages`, so its
+  codecs are `["openai-chat", "openai-responses", "anthropic-messages",
+  "systemone"]` and every
+  generation row's `CatalogModel::codecs()` includes Messages. OpenRouter
+  documents `POST /api/v1/messages` (its "Anthropic Skin") on the same bearer
+  key, with no model restriction in the API reference. Messages comes after
+  Chat, so the client still sends every OpenRouter completion, stream, and
+  token count through Chat Completions, and the Jev rows still evaluate
+  through `systemone`. No Messages exchange through OpenRouter is recorded.
+
 - The built-in Venice and OpenRouter providers list the `openai-responses`
   codec after `openai-chat`, so the catalog says they accept the OpenAI
   Responses format, and `CatalogProvider::endpoints` gives

@@ -279,6 +279,12 @@ mod tests {
                 Some("https://openrouter.ai/api/v1/models"),
             ),
             (
+                "openrouter",
+                codec_ids::ANTHROPIC_MESSAGES,
+                "https://openrouter.ai/api/v1/messages",
+                Some("https://openrouter.ai/api/v1/models"),
+            ),
+            (
                 "venice",
                 codec_ids::OPENAI_CHAT,
                 "https://api.venice.ai/api/v1/chat/completions",
@@ -343,10 +349,12 @@ mod tests {
             openrouter.endpoints(&CodecId::new(codec_ids::SYSTEMONE)),
             None
         );
-        // OpenRouter does not speak Anthropic Messages, so it has no
-        // Messages endpoints even though the codec has fixed paths.
+        // Venice does not speak Anthropic Messages, so it has no Messages
+        // endpoints even though the codec has fixed paths.
         assert_eq!(
-            openrouter.endpoints(&CodecId::new(codec_ids::ANTHROPIC_MESSAGES)),
+            catalog
+                .provider("venice")?
+                .endpoints(&CodecId::new(codec_ids::ANTHROPIC_MESSAGES)),
             None
         );
         Ok(())

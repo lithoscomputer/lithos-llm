@@ -1072,7 +1072,9 @@ mod tests {
     use crate::adapter::{
         AdapterBuildError, AdapterContext, AdapterFactory, ProviderAdapter, ResolvedCall,
     };
-    use crate::catalog::{AdapterId, Catalog, CatalogProvider, CodecFamily, CodecId, ProviderId};
+    use crate::catalog::{
+        AdapterId, Catalog, CatalogProvider, CodecFamily, CodecId, ProviderId, codec_ids,
+    };
     use crate::credentials::{CredentialError, CredentialProvider, Credentials, StaticCredentials};
     use crate::resolver::{AvailableProviders, ModelResolver, ModelSelectionError, ResolvedRoute};
     use crate::types::{
@@ -2031,6 +2033,36 @@ mod tests {
                     model.id()
                 );
             }
+        }
+        Ok(())
+    }
+
+    /// OpenRouter lists Anthropic Messages so the catalog records that it
+    /// serves the format, but every generation call still goes through Chat
+    /// Completions and Jev still evaluates through System One.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_openrouter_lists_messages_but_selects_chat() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        let provider = catalog.provider("openrouter")?;
+        assert!(
+            catalog
+                .model("openrouter", "claude-opus-5.5")?
+                .codecs()
+                .contains(&CodecId::new(codec_ids::ANTHROPIC_MESSAGES))
+        );
+        for model in provider.models() {
+            let route = ResolvedRoute::try_new(provider.clone(), model.clone())?;
+            let selected = [
+                select_codec(&route, CodecFamily::Generation),
+                select_codec(&route, CodecFamily::Evaluation),
+            ];
+            let expected = if model.capabilities().claims_native_evaluation() {
+                [None, Some(CodecId::new(codec_ids::SYSTEMONE))]
+            } else {
+                [Some(CodecId::new(codec_ids::OPENAI_CHAT)), None]
+            };
+            assert_eq!(selected, expected, "openrouter/{}", model.id());
         }
         Ok(())
     }
