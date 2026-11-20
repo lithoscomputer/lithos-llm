@@ -13,7 +13,7 @@
 
 use std::collections::BTreeSet;
 
-use super::{Catalog, CatalogModel, CatalogProvider, ModelHandle, ModelId, ProviderId};
+use super::{Catalog, CatalogModel, CatalogProvider, CodecId, ModelHandle, ModelId, ProviderId};
 use crate::resolver::ResolvedRoute;
 use crate::types::{Cost, Speed, TokenCounts};
 
@@ -160,6 +160,33 @@ impl Catalog {
         // within each group.
         matches.sort_by_key(|offering| offering.model.id().as_str() != selector);
         matches
+    }
+
+    /// Every enabled provider's offering of the model whose canonical id is
+    /// `model`, highest provider priority first, ties broken by provider id.
+    ///
+    /// Unlike [`offerings_matching`](Self::offerings_matching), this matches
+    /// the canonical id only, so every entry is the same model and none is a
+    /// different model that happens to carry `model` as an alias. A provider
+    /// that stands in for another is included, because it routes requests.
+    pub fn offerings(&self, model: &ModelId) -> Vec<Offering<'_>> {
+        self.enabled_providers()
+            .into_iter()
+            .filter_map(|provider| {
+                provider
+                    .model_by_id(model)
+                    .map(|model| Offering { provider, model })
+            })
+            .collect()
+    }
+
+    /// The [`offerings`](Self::offerings) of `model` that a call through
+    /// `codec` reaches, in the same order: the candidates a caller tries in
+    /// turn when it fails over between providers.
+    pub fn offerings_for_codec(&self, model: &ModelId, codec: &CodecId) -> Vec<Offering<'_>> {
+        let mut offerings = self.offerings(model);
+        offerings.retain(|offering| offering.model.codecs().contains(codec));
+        offerings
     }
 
     /// Whether `selector` names a model on any enabled provider.
@@ -345,6 +372,111 @@ mod tests {
         assert_eq!(handles, ["low/shared", "high/big"]);
         assert!(catalog.is_model_selector("shared"));
         assert!(!catalog.is_model_selector("nothing"));
+        Ok(())
+    }
+
+    #[test]
+    fn offerings_list_one_model_by_priority_and_filter_by_codec() -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder()
+            .overlay_toml(
+                r#"
+                schema_version = 1
+
+                [providers.alpha]
+                display_name = "Alpha"
+                adapter = "test-adapter"
+                codecs = ["openai-chat", "anthropic-messages"]
+                base_url = "http://127.0.0.1"
+                priority = 10
+                auth = { type = "bearer" }
+
+                [providers.alpha.models.one]
+                display_name = "One, by messages only"
+                api_model = "alpha-one"
+                codecs = ["anthropic-messages"]
+
+                [providers.beta]
+                display_name = "Beta"
+                adapter = "test-adapter"
+                codecs = ["openai-chat"]
+                base_url = "http://127.0.0.1"
+                priority = 50
+                auth = { type = "bearer" }
+
+                [providers.beta.models.one]
+                display_name = "One"
+                api_model = "beta/one"
+
+                [providers.delta]
+                display_name = "Delta"
+                adapter = "test-adapter"
+                codecs = ["openai-chat"]
+                base_url = "http://127.0.0.1"
+                priority = 60
+                auth = { type = "bearer" }
+
+                [providers.delta.models.two]
+                display_name = "Two, aliased as one"
+                api_model = "two"
+                aliases = ["one"]
+
+                [providers.gamma]
+                display_name = "Gamma"
+                adapter = "test-adapter"
+                codecs = ["openai-chat"]
+                base_url = "http://127.0.0.1"
+                priority = 50
+                stands_in_for = "beta"
+                auth = { type = "bearer" }
+
+                [providers.gamma.models.one]
+                display_name = "One, by seat"
+                api_model = "one"
+
+                [providers.off]
+                display_name = "Off"
+                adapter = "test-adapter"
+                codecs = ["openai-chat"]
+                base_url = "http://127.0.0.1"
+                priority = 100
+                enabled = false
+                auth = { type = "bearer" }
+
+                [providers.off.models.one]
+                display_name = "One but off"
+                api_model = "one"
+                "#,
+            )?
+            .build()?;
+        let handles = |offerings: Vec<super::Offering<'_>>| -> Vec<String> {
+            offerings
+                .iter()
+                .map(|offering| offering.handle().to_string())
+                .collect()
+        };
+        let one = super::ModelId::new("one");
+
+        assert_eq!(
+            handles(catalog.offerings(&one)),
+            ["beta/one", "gamma/one", "alpha/one"],
+            "priority first, then id; a stand-in is included; an alias for another model and a \
+             disabled provider are not"
+        );
+        assert_eq!(
+            handles(catalog.offerings_for_codec(&one, &super::CodecId::new("openai-chat"))),
+            ["beta/one", "gamma/one"],
+            "alpha's row narrows itself to anthropic-messages"
+        );
+        assert_eq!(
+            handles(catalog.offerings_for_codec(&one, &super::CodecId::new("anthropic-messages"))),
+            ["alpha/one"]
+        );
+        assert!(
+            catalog
+                .offerings(&super::ModelId::new("beta/one"))
+                .is_empty(),
+            "a wire id is not a canonical id"
+        );
         Ok(())
     }
 

@@ -475,6 +475,11 @@ impl CatalogProvider {
         self.models.values()
     }
 
+    /// Finds a model by canonical id only.
+    pub(super) fn model_by_id(&self, id: &ModelId) -> Option<&CatalogModel> {
+        self.models.get(id)
+    }
+
     /// Finds a model by canonical id, alias, or wire id, in that order.
     ///
     /// The wire id (`api_model`) resolves so a selector copied from provider
