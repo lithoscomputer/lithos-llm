@@ -1,11 +1,11 @@
 //! Proves that the provider-native wire types are lossless.
 //!
 //! Each fixture under `tests/fixtures/wire/` is a hand-written request,
-//! response, or SSE stream in one provider's format, shaped like the traffic
-//! a coding agent produces: thinking blocks with signatures, encrypted
-//! reasoning, cache-control markers, beta parameters, `null` fields, and
-//! block, item, and event types these types do not model. Every test parses
-//! the raw text, writes it back, and compares the two JSON values.
+//! response, error body, or SSE stream in one provider's format, shaped like
+//! the traffic a coding agent produces: thinking blocks with signatures,
+//! encrypted reasoning, cache-control markers, beta parameters, `null` fields,
+//! and block, item, and event types these types do not model. Every test
+//! parses the raw text, writes it back, and compares the two JSON values.
 
 use std::error::Error as StdError;
 use std::fs;
@@ -327,6 +327,77 @@ fn chat_stream_events_round_trip() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn error_bodies_round_trip() -> TestResult {
+    use openai_chat::{ErrorCode, ErrorResponse};
+
+    let anthropic: anthropic_messages::ErrorResponse =
+        round_trip(&fixture("anthropic_messages_error.json")?)?;
+    assert_eq!(anthropic.error.kind, "overloaded_error");
+    assert_eq!(anthropic.error.message, "Overloaded");
+    assert_eq!(
+        anthropic.extra.keys().collect::<Vec<_>>(),
+        ["request_id"],
+        "`type` is the envelope's, not an unknown field"
+    );
+
+    let openai: openai_responses::ErrorResponse =
+        round_trip(&fixture("openai_responses_error.json")?)?;
+    assert_eq!(
+        openai.error.kind,
+        Field::Present("invalid_request_error".to_owned())
+    );
+    assert_eq!(openai.error.param, Field::Null);
+    assert_eq!(
+        openai.error.code,
+        Field::Present(ErrorCode::Text("context_length_exceeded".to_owned()))
+    );
+
+    let openrouter: ErrorResponse = round_trip(&fixture("openai_chat_error.json")?)?;
+    assert_eq!(openrouter.error.kind, Field::Absent);
+    assert_eq!(openrouter.error.param, Field::Absent);
+    assert_eq!(
+        openrouter.error.code,
+        Field::Present(ErrorCode::Number(429.into()))
+    );
+    assert_eq!(
+        openrouter.error.extra["metadata"]["provider_name"],
+        "Anthropic"
+    );
+    assert_eq!(openrouter.extra["user_id"], "user_fixture");
+    Ok(())
+}
+
+/// A proxy that answers a request itself writes the error in the caller's
+/// format, the same way the provider would.
+#[test]
+fn built_error_bodies_serialize_in_the_provider_format() -> TestResult {
+    let anthropic =
+        anthropic_messages::ErrorResponse::new("authentication_error", "invalid x-api-key");
+    assert_eq!(
+        serde_json::to_value(&anthropic)?,
+        json!({
+            "type": "error",
+            "error": {"type": "authentication_error", "message": "invalid x-api-key"},
+        })
+    );
+
+    let mut openai =
+        openai_chat::ErrorResponse::new("invalid_request_error", "Incorrect API key provided.");
+    let mut expected = json!({"error": {
+        "message": "Incorrect API key provided.",
+        "type": "invalid_request_error",
+        "param": null,
+        "code": null,
+    }});
+    assert_eq!(serde_json::to_value(&openai)?, expected);
+
+    openai.error.code = Field::Present(openai_chat::ErrorCode::Text("invalid_api_key".to_owned()));
+    expected["error"]["code"] = json!("invalid_api_key");
+    assert_eq!(serde_json::to_value(&openai)?, expected);
+    Ok(())
+}
+
 /// The use case the types exist for: change one thing, forward the rest.
 #[test]
 fn editing_one_field_changes_only_that_field() -> TestResult {
@@ -389,6 +460,27 @@ fn malformed_known_types_are_errors_not_unknown() {
         )
         .is_err()
     );
+    // The Anthropic envelope's `type` must be `error`.
+    let error = json!({"type": "overloaded_error", "message": "Overloaded"});
+    for body in [
+        json!({"type": "message", "error": error}),
+        json!({"error": error}),
+        json!({"type": "error"}),
+    ] {
+        assert!(
+            serde_json::from_value::<anthropic_messages::ErrorResponse>(body.clone()).is_err(),
+            "{body}"
+        );
+    }
+    for body in [
+        json!({"error": {"type": "server_error"}}),
+        json!({"error": {"message": "m", "code": true}}),
+    ] {
+        assert!(
+            serde_json::from_value::<openai_chat::ErrorResponse>(body.clone()).is_err(),
+            "{body}"
+        );
+    }
 }
 
 /// Every fixture document, paired with the type that parses it.
@@ -423,6 +515,18 @@ fn cases() -> Result<Vec<Case>, Box<dyn StdError>> {
     add(
         "openai_chat_response.json",
         reserialize::<openai_chat::Response>,
+    )?;
+    add(
+        "anthropic_messages_error.json",
+        reserialize::<anthropic_messages::ErrorResponse>,
+    )?;
+    add(
+        "openai_responses_error.json",
+        reserialize::<openai_responses::ErrorResponse>,
+    )?;
+    add(
+        "openai_chat_error.json",
+        reserialize::<openai_chat::ErrorResponse>,
     )?;
     for (name, parse) in [
         (

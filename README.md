@@ -687,8 +687,8 @@ model request. Authentication belongs in credential providers.
 `lithos_llm::wire` mirrors three provider APIs in their own format, for
 callers that must not normalize, such as a proxy that edits a request and
 forwards it: `anthropic_messages`, `openai_responses`, and `openai_chat`.
-Each has a `Request`, a `Response`, and a `StreamEvent` for the JSON payload
-of one SSE event.
+Each has a `Request`, a `Response`, a `StreamEvent` for the JSON payload
+of one SSE event, and an `ErrorResponse` for an error body.
 
 These types are lossless: serializing a parsed value gives back the same JSON
 value. Every object keeps fields its type does not name in `extra`, each

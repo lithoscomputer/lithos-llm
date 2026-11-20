@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The `wire` module adds error bodies: `anthropic_messages::ErrorResponse`
+  for `{"type": "error", "error": {...}}`, and `openai_chat::ErrorResponse`,
+  also exported from `openai_responses`, for `{"error": {...}}`. They follow
+  the module's lossless rules, and `ErrorResponse::new(kind, message)` builds
+  one, so a proxy can render its own errors in the caller's format. The OpenAI
+  `new` sets `param` and `code` to `null`, as OpenAI does, and `code` takes
+  OpenRouter's numeric status as well as OpenAI's string codes.
+
 - The built-in `anthropic` provider now lists `anthropic-version: 2023-06-01`
   in its `default_headers`, so a caller that reaches the Messages API without
   the codec, such as a proxy, reads the required protocol header from the

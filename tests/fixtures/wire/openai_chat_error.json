@@ -1,0 +1,11 @@
+{
+  "error": {
+    "message": "Provider returned error",
+    "code": 429,
+    "metadata": {
+      "provider_name": "Anthropic",
+      "raw": "rate limited upstream"
+    }
+  },
+  "user_id": "user_fixture"
+}
