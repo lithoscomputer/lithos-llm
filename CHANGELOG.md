@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The built-in Venice and OpenRouter providers list the `openai-responses`
+  codec after `openai-chat`, so the catalog says they accept the OpenAI
+  Responses format, and `CatalogProvider::endpoints` gives
+  `https://api.venice.ai/api/v1/responses` and
+  `https://openrouter.ai/api/v1/responses`. The client still sends their
+  calls through Chat Completions, the first codec listed. Both Responses
+  endpoints are stateless, and no E2E cell covers them yet.
+
 - `CatalogProvider::endpoints` returns the new `catalog::Endpoints` for
   Anthropic Messages, OpenAI Responses, and OpenAI Chat Completions: the
   inference path and the model listing path the codec uses on that provider,
