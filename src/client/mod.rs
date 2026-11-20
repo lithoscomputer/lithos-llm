@@ -2003,6 +2003,38 @@ mod tests {
         Ok(())
     }
 
+    /// Venice and OpenRouter list the Responses codec so callers can find its
+    /// endpoint, but their rows were verified on Chat Completions, so every
+    /// generation row and a passthrough model must still dispatch there.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_venice_and_openrouter_generate_through_chat_completions()
+    -> Result<(), Box<dyn StdError>> {
+        use crate::catalog::{CatalogModel, ModelId};
+
+        let catalog = Catalog::builder().with_builtin().build()?;
+        for provider in ["venice", "openrouter"] {
+            let provider = catalog.provider(provider)?;
+            let passthrough = CatalogModel::passthrough(provider, ModelId::new("unlisted"));
+            for model in provider.models().chain([&passthrough]) {
+                let route = ResolvedRoute::try_new(provider.clone(), model.clone())?;
+                // Evaluation-only rows, such as OpenRouter's Jev, generate
+                // through nothing.
+                let Some(codec) = select_codec(&route, CodecFamily::Generation) else {
+                    continue;
+                };
+                assert_eq!(
+                    codec.as_str(),
+                    "openai-chat",
+                    "{}/{}",
+                    provider.id(),
+                    model.id()
+                );
+            }
+        }
+        Ok(())
+    }
+
     /// Answers every request with a fixed JSON document as text.
     struct JsonTextAdapter;
 

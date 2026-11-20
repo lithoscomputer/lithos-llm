@@ -273,6 +273,24 @@ mod tests {
                 Some("https://openrouter.ai/api/v1/models"),
             ),
             (
+                "openrouter",
+                codec_ids::OPENAI_RESPONSES,
+                "https://openrouter.ai/api/v1/responses",
+                Some("https://openrouter.ai/api/v1/models"),
+            ),
+            (
+                "venice",
+                codec_ids::OPENAI_CHAT,
+                "https://api.venice.ai/api/v1/chat/completions",
+                Some("https://api.venice.ai/api/v1/models"),
+            ),
+            (
+                "venice",
+                codec_ids::OPENAI_RESPONSES,
+                "https://api.venice.ai/api/v1/responses",
+                Some("https://api.venice.ai/api/v1/models"),
+            ),
+            (
                 "zai",
                 codec_ids::OPENAI_CHAT,
                 "https://api.z.ai/api/coding/paas/v4/chat/completions",

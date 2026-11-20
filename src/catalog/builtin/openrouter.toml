@@ -32,7 +32,14 @@ display_name = "OpenRouter"
 # System One for Jev; each row derives which it reaches from its claims.
 # The codec drops the base URL's `/v1` Chat mount and posts to
 # `/alpha/decisions` on the API root.
-codecs = ["openai-chat", "systemone"]
+#
+# OpenRouter also serves the Responses API at `/api/v1/responses` (its API
+# reference, checked 2026-11-20). The client takes the first generation
+# codec, so its calls stay on Chat Completions, where the rows' claims and
+# the E2E cells were verified; Responses is listed so callers can find the
+# endpoint, and no cell exercises it yet. The endpoint is stateless and
+# rejects `store: true` and a non-null `previous_response_id` with a 400.
+codecs = ["openai-chat", "openai-responses", "systemone"]
 codec_options = { systemone = { dialect = "openrouter" } }
 base_url = "https://openrouter.ai/api/v1"
 priority = 25
