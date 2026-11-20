@@ -6,6 +6,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Catalog::offerings` returns every enabled provider's offering of one
+  canonical model id, highest provider priority first, ties broken by provider
+  id. It matches the canonical id only, so an alias another model carries
+  never joins the list, and it gives one place to read a model's aliases,
+  pricing, and limits across providers. `Catalog::offerings_for_codec` keeps
+  the offerings a call through one codec reaches, in the same order: the
+  ranked candidates a caller fails over between, where the resolver returns
+  only the first.
+
 - `Credentials::http_headers(&CatalogProvider)` returns the authentication
   headers the client sends to a provider, such as `authorization: Bearer
   <key>` or `x-api-key`, followed by any extra credential headers, as a
