@@ -31,6 +31,11 @@ priority = 100
 allow_passthrough = true
 default_model = "claude-sonnet-5"
 api_key_url = "https://console.anthropic.com/settings/keys"
+# The protocol version every Messages request must declare. The codec sends
+# the same value for any provider it serves; this row records it as catalog
+# data for callers that reach the API without the codec, such as a proxy. The
+# transport replaces the codec's copy with this one, so it is sent once.
+default_headers = { "anthropic-version" = "2023-06-01" }
 
 [providers.anthropic.auth]
 type = "header"
