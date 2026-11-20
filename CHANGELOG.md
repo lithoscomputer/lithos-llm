@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Credentials::http_headers(&CatalogProvider)` returns the authentication
+  headers the client sends to a provider, such as `authorization: Bearer
+  <key>` or `x-api-key`, followed by any extra credential headers, as a
+  `HeaderMap` of sensitive values. A caller that makes its own requests, such
+  as a proxy, no longer has to copy the scheme-matching rules. The client
+  builds its credential headers through the same function, so its behavior is
+  unchanged.
+
 - The `wire` module adds error bodies: `anthropic_messages::ErrorResponse`
   for `{"type": "error", "error": {...}}`, and `openai_chat::ErrorResponse`,
   also exported from `openai_responses`, for `{"error": {...}}`. They follow

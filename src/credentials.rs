@@ -13,11 +13,13 @@ use std::sync::Arc;
 use std::{env, mem};
 
 use async_trait::async_trait;
+use reqwest::header::HeaderMap;
 use thiserror::Error;
 
 #[cfg(feature = "environment-credentials")]
 use crate::catalog::AuthScheme;
 use crate::catalog::{CatalogProvider, ProviderId};
+use crate::transport::credential_header_map;
 
 /// A secret string whose debug output is always redacted.
 #[derive(Clone, Eq, PartialEq)]
@@ -172,6 +174,29 @@ impl Credentials {
             auth:          HttpAuthentication::None,
             extra_headers: headers.into_iter().collect(),
         })
+    }
+
+    /// The HTTP headers these credentials authenticate a request to
+    /// `provider` with, shaped by its catalog authentication scheme.
+    ///
+    /// This is the header set the client sends, for callers that make their
+    /// own requests to a provider, such as a proxy. A bearer scheme gives one
+    /// header carrying the scheme's prefix and the secret, such as
+    /// `authorization: Bearer <key>`; a header scheme gives its named header,
+    /// such as `x-api-key`. Extra credential headers follow, and a later header
+    /// with the same name replaces an earlier one. Every value is marked
+    /// sensitive.
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorKind::Authentication`](crate::types::ErrorKind::Authentication)
+    /// when the credentials do not match the provider's scheme.
+    /// [`ErrorKind::Configuration`](crate::types::ErrorKind::Configuration)
+    /// when a header name or value is not valid HTTP, and for AWS
+    /// default-chain credentials, which sign a request rather than add a
+    /// header.
+    pub fn http_headers(&self, provider: &CatalogProvider) -> Result<HeaderMap, crate::Error> {
+        credential_header_map(provider.id(), provider.auth(), self)
     }
 }
 

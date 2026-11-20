@@ -17,6 +17,9 @@ use lithos_llm::adapter::{
 };
 use lithos_llm::catalog::{AdapterId, Catalog, CatalogError, CatalogProvider, ModelId, ProviderId};
 use lithos_llm::client::{ClientBuildError, ProviderBuildCause};
+use lithos_llm::credentials::{
+    CredentialHeader, Credentials, HttpAuthentication, HttpCredentials, SecretValue,
+};
 use lithos_llm::middleware::{
     Call, CallContext, CallOutcome, ConcurrencyLimitMiddleware, Middleware, Next, Observer,
     ObserverMiddleware, Operation, Output, RetryEvent, RetryMiddleware, RetryPolicy, RetryStage,
@@ -30,6 +33,7 @@ use lithos_llm::types::{
     ToolChoice, ToolDefinition, ToolInput,
 };
 use lithos_llm::{Client, Evaluation, Request, Verdict};
+use reqwest::header::HeaderValue;
 use serde_json::json;
 use tokio::spawn;
 use tokio::task::yield_now;
@@ -2978,5 +2982,60 @@ fn the_vercel_catalog_derives_native_and_judge_rows_without_row_adapters()
             .collect::<Vec<_>>(),
         ["openai-chat"]
     );
+    Ok(())
+}
+
+const CREDENTIAL_CATALOG: &str = r#"
+schema_version = 1
+
+[providers.bearer]
+display_name = "Bearer"
+adapter = "test-adapter"
+codecs = ["test-codec"]
+base_url = "http://127.0.0.1"
+auth = { type = "bearer" }
+
+[providers.keyed]
+display_name = "Keyed"
+adapter = "test-adapter"
+codecs = ["test-codec"]
+base_url = "http://127.0.0.1"
+auth = { type = "header", name = "x-api-key" }
+"#;
+
+#[test]
+fn credential_http_headers_follow_the_provider_scheme() -> Result<(), Box<dyn StdError>> {
+    let catalog = Catalog::builder()
+        .overlay_toml(CREDENTIAL_CATALOG)?
+        .build()?;
+    let bearer = catalog.provider("bearer")?;
+    let keyed = catalog.provider("keyed")?;
+
+    let headers = Credentials::Http(
+        HttpCredentials::new(HttpAuthentication::Bearer(SecretValue::new("key-1"))).with_header(
+            CredentialHeader::new("openai-project", SecretValue::new("proj-1")),
+        ),
+    )
+    .http_headers(bearer)?;
+    assert_eq!(headers.len(), 2);
+    assert_eq!(headers["authorization"], "Bearer key-1");
+    assert_eq!(headers["openai-project"], "proj-1");
+    assert!(headers.values().all(HeaderValue::is_sensitive));
+
+    // The scheme's header name matches the credential's case-insensitively.
+    let headers = Credentials::header(CredentialHeader::new(
+        "X-Api-Key",
+        SecretValue::new("key-2"),
+    ))
+    .http_headers(keyed)?;
+    assert_eq!(headers.len(), 1);
+    assert_eq!(headers["x-api-key"], "key-2");
+    assert!(headers["x-api-key"].is_sensitive());
+
+    let error = Credentials::bearer(SecretValue::new("key-3"))
+        .http_headers(keyed)
+        .expect_err("a bearer secret does not fit a header scheme");
+    assert_eq!(error.kind(), ErrorKind::Authentication);
+    assert_eq!(error.provider(), Some(&ProviderId::new("keyed")));
     Ok(())
 }
