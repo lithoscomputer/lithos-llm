@@ -625,9 +625,11 @@ Before it has a request, an application asks the catalog which providers are
 on and which model to pick for a job. `Catalog::enabled_providers` lists them
 in priority order and `listed_providers` drops the ones that stand in for
 another; `offerings_matching` ranks every enabled offering of a selector the
-way the resolver would; `offerings` lists every enabled provider's entry for
-one canonical model id in priority order, and `offerings_for_codec` keeps the
-ones a codec reaches, the ordered candidates for failover;
+way the resolver would, matching a canonical id, an alias, or a provider's
+wire id, bare (`claude-opus-5-5`) or prefixed with its provider
+(`anthropic/claude-opus-5-5`); `offerings` lists every enabled provider's
+entry for one canonical model id in priority order, and `offerings_for_codec`
+keeps the ones a codec reaches, the ordered candidates for failover;
 `default_offering_for` and `small_default_for` pick the default and the cheap
 utility model across the providers that are ready;
 `CatalogProvider::probe_offering` names the row to probe with and

@@ -223,8 +223,9 @@ impl ModelResolver for CatalogResolver {
                     .is_some_and(CatalogProvider::is_enabled)
         });
         // A model actually named `selector` wins over any provider's alias for
-        // it, whatever the provider priorities are. Priority only separates
-        // matches of the same kind.
+        // it, and an alias wins over a provider's wire id, whatever the
+        // provider priorities are. Priority only separates matches of the
+        // same kind.
         matches.sort_by(|left, right| {
             let left_priority = catalog
                 .find_provider(left.provider_id().as_str())
@@ -232,10 +233,8 @@ impl ModelResolver for CatalogResolver {
             let right_priority = catalog
                 .find_provider(right.provider_id().as_str())
                 .map_or(i32::MIN, CatalogProvider::priority);
-            let left_alias = left.id().as_str() != selector;
-            let right_alias = right.id().as_str() != selector;
-            left_alias
-                .cmp(&right_alias)
+            left.selector_match(selector)
+                .cmp(&right.selector_match(selector))
                 .then_with(|| right_priority.cmp(&left_priority))
                 .then_with(|| left.provider_id().cmp(right.provider_id()))
         });

@@ -27,7 +27,13 @@ fn claude_alias_catalog_matches_prefer_anthropic_over_gateways() -> Result<(), B
                 )
             })
             .collect();
-        let expected: Vec<_> = ["anthropic", "vercel", "openrouter"]
+        let mut providers = vec!["anthropic", "vercel", "openrouter"];
+        // Venice's wire id for Opus 4.8 is the dashed form, so it matches
+        // after the aliases.
+        if alias == "claude-opus-4-8" {
+            providers.push("venice");
+        }
+        let expected: Vec<_> = providers
             .into_iter()
             .map(|provider| (provider.to_owned(), canonical.to_owned()))
             .collect();
@@ -80,5 +86,47 @@ fn claude_aliases_route_like_canonical_names_with_available_providers()
             assert_eq!(route.model().id().as_str(), canonical);
         }
     }
+    Ok(())
+}
+
+#[test]
+fn a_provider_wire_id_matches_and_routes_like_its_canonical_name() -> Result<(), Box<dyn StdError>>
+{
+    let catalog = Catalog::builder().with_builtin().build()?;
+    let matches = |selector| -> Vec<String> {
+        catalog
+            .offerings_matching(selector)
+            .into_iter()
+            .map(|offering| offering.handle().to_string())
+            .collect()
+    };
+
+    assert_eq!(matches("claude-opus-5-5"), [
+        "anthropic/claude-opus-5.5",
+        "venice/claude-opus-5.5"
+    ]);
+    // Prefixed with its provider, as Amp's Custom URL connections send it,
+    // the wire id names that provider's offering.
+    assert_eq!(matches("anthropic/claude-opus-5-5"), [
+        "anthropic/claude-opus-5.5"
+    ]);
+    // OpenRouter's and Vercel's wire id has the same shape. Its prefix names
+    // Anthropic's offering, which ranks first as the resolver would route
+    // it, and the gateways' own rows follow.
+    assert_eq!(matches("anthropic/claude-opus-5.5"), [
+        "anthropic/claude-opus-5.5",
+        "vercel/claude-opus-5.5",
+        "openrouter/claude-opus-5.5"
+    ]);
+    assert!(matches("openai/claude-opus-5-5").is_empty());
+
+    let available = AvailableProviders::new(["openrouter", "venice"].map(ProviderId::new));
+    let request = Request::builder()
+        .model("claude-opus-5-5")
+        .user("Hello")
+        .build()?;
+    let route = CatalogResolver.resolve(&request, &catalog, &available)?;
+    assert_eq!(route.provider().id().as_str(), "venice");
+    assert_eq!(route.model().id().as_str(), "claude-opus-5.5");
     Ok(())
 }

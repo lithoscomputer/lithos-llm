@@ -12,6 +12,7 @@
 //! [`Catalog::provider`], but it offers nothing here.
 
 use std::collections::BTreeSet;
+use std::ptr;
 
 use super::{Catalog, CatalogModel, CatalogProvider, CodecId, ModelHandle, ModelId, ProviderId};
 use crate::resolver::ResolvedRoute;
@@ -139,27 +140,43 @@ impl Catalog {
     }
 
     /// Every enabled offering of `selector`, ranked as the resolver ranks
-    /// them: a model whose canonical id is `selector` before any alias for
-    /// it, then higher provider priority, then provider id.
+    /// them.
+    ///
+    /// A `provider/model` selector whose prefix is an enabled provider's id
+    /// or alias names that provider's offering of `model`, by canonical id,
+    /// alias, or wire id, as it does for the resolver, and ranks first:
+    /// `anthropic/claude-opus-5-5`. Then come the offerings that `selector`
+    /// names whole: a model whose canonical id is `selector`, then one with
+    /// `selector` as an alias, then one with `selector` as its wire id
+    /// (`api_model`), such as Anthropic's `claude-opus-5-5` or OpenRouter's
+    /// `anthropic/claude-opus-5.5`. Each group is ordered by higher provider
+    /// priority, then provider id.
     pub fn offerings_matching(&self, selector: &str) -> Vec<Offering<'_>> {
-        let mut matches: Vec<Offering<'_>> = self
+        let qualified = selector
+            .split_once('/')
+            .and_then(|(provider, model)| self.enabled_provider(provider)?.offering(model));
+        let mut matches: Vec<_> = self
             .enabled_providers()
             .into_iter()
             .flat_map(CatalogProvider::offerings)
             .filter(|offering| {
-                offering.model.id().as_str() == selector
-                    || offering
-                        .model
-                        .aliases()
-                        .iter()
-                        .any(|alias| alias == selector)
+                qualified.is_none_or(|qualified| !ptr::eq(qualified.model, offering.model))
+            })
+            .filter_map(|offering| {
+                offering
+                    .model
+                    .selector_match(selector)
+                    .map(|kind| (kind, offering))
             })
             .collect();
         // `enabled_providers` already orders by priority then id, and the
-        // sort is stable, so ranking by alias-ness alone keeps that order
+        // sort is stable, so ranking by match kind alone keeps that order
         // within each group.
-        matches.sort_by_key(|offering| offering.model.id().as_str() != selector);
-        matches
+        matches.sort_by_key(|(kind, _)| *kind);
+        qualified
+            .into_iter()
+            .chain(matches.into_iter().map(|(_, offering)| offering))
+            .collect()
     }
 
     /// Every enabled provider's offering of the model whose canonical id is
@@ -476,6 +493,76 @@ mod tests {
                 .offerings(&super::ModelId::new("beta/one"))
                 .is_empty(),
             "a wire id is not a canonical id"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn offerings_matching_finds_wire_ids_bare_and_provider_prefixed()
+    -> Result<(), Box<dyn StdError>> {
+        // The provider whose wire id collides has the highest priority, so
+        // only the match kind can put it last.
+        let catalog = Catalog::builder()
+            .overlay_toml(
+                r#"
+                schema_version = 1
+
+                [providers.wire]
+                display_name = "Wire"
+                base_url = "http://127.0.0.1"
+                priority = 100
+                auth = { type = "bearer" }
+
+                [providers.wire.models."model-1.0"]
+                display_name = "Model 1.0"
+                api_model = "model-1-0"
+
+                [providers.wire.models.unrelated]
+                display_name = "Unrelated"
+                api_model = "named"
+
+                [providers.wire.models.other]
+                display_name = "Other"
+                api_model = "nickname"
+
+                [providers.wire.models.routed]
+                display_name = "Routed"
+                api_model = "low/named-v1"
+
+                [providers.low]
+                display_name = "Low"
+                base_url = "http://127.0.0.1"
+                priority = 1
+                auth = { type = "bearer" }
+
+                [providers.low.models.named]
+                display_name = "Named"
+                aliases = ["nickname"]
+                api_model = "named-v1"
+            "#,
+            )?
+            .build()?;
+        let handles = |selector| -> Vec<String> {
+            catalog
+                .offerings_matching(selector)
+                .iter()
+                .map(|offering| offering.handle().to_string())
+                .collect()
+        };
+
+        assert_eq!(handles("model-1-0"), ["wire/model-1.0"]);
+        assert_eq!(handles("named"), ["low/named", "wire/unrelated"]);
+        assert_eq!(handles("nickname"), ["low/named", "wire/other"]);
+        // A prefix that is a provider names that provider's model first,
+        // ahead of another provider's wire id that is the whole selector.
+        assert_eq!(handles("low/named-v1"), ["low/named", "wire/routed"]);
+        assert_eq!(handles("wire/model-1-0"), ["wire/model-1.0"]);
+        assert!(handles("low/model-1-0").is_empty());
+        assert_eq!(
+            catalog
+                .canonical_model_id(None, "model-1-0")
+                .map(ToString::to_string),
+            Some("model-1.0".to_owned())
         );
         Ok(())
     }
