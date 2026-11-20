@@ -157,17 +157,15 @@ impl Catalog {
         })
     }
 
-    /// Every model whose canonical identifier or alias is `selector`.
+    /// Every model whose canonical identifier, alias, or wire id is
+    /// `selector`.
     ///
-    /// Canonical and alias matches are pooled, so a caller that prefers one
-    /// kind ranks the result itself.
+    /// The kinds of match are pooled, so a caller ranks the result itself
+    /// with [`CatalogModel::selector_match`].
     pub(crate) fn models_matching(&self, selector: &str) -> Vec<&CatalogModel> {
         self.providers()
             .flat_map(CatalogProvider::models)
-            .filter(|model| {
-                model.id().as_str() == selector
-                    || model.aliases().iter().any(|alias| alias == selector)
-            })
+            .filter(|model| model.selector_match(selector).is_some())
             .collect()
     }
 }

@@ -7,6 +7,14 @@ use super::{
 };
 use crate::types::Speed;
 
+/// How a bare model selector names a catalog model, best match first.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(crate) enum SelectorMatch {
+    Id,
+    Alias,
+    WireId,
+}
+
 /// Context and output token limits.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -243,6 +251,21 @@ impl CatalogModel {
 
     pub fn api_model(&self) -> &str {
         &self.api_model
+    }
+
+    /// How `selector` names this model, if it does. A canonical id outranks
+    /// an alias, and an alias outranks a wire id, the order
+    /// [`CatalogProvider::model`] looks them up in.
+    pub(crate) fn selector_match(&self, selector: &str) -> Option<SelectorMatch> {
+        if self.id.as_str() == selector {
+            Some(SelectorMatch::Id)
+        } else if self.aliases.iter().any(|alias| alias == selector) {
+            Some(SelectorMatch::Alias)
+        } else if self.api_model == selector {
+            Some(SelectorMatch::WireId)
+        } else {
+            None
+        }
     }
 
     /// The provider codecs that reach this row, in the provider's order.

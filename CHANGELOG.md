@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Catalog::offerings_matching`, and so `is_model_selector` and
+  `canonical_model_id`, now find a model by its wire id, bare or prefixed
+  with its provider, as `CatalogProvider::model` and the resolver's
+  `provider/model` form already do. `claude-opus-5-5` matches Anthropic's and
+  Venice's `claude-opus-5.5` rows, after any model named or aliased
+  `claude-opus-5-5`, and `anthropic/claude-opus-5-5` names Anthropic's row
+  first, ahead of OpenRouter's and Vercel's rows whose wire id is the whole
+  string. `CatalogResolver` also resolves a bare wire id, ranked after
+  canonical ids and aliases, instead of failing with `ModelNotFound`.
+
 - `Catalog::offerings` returns every enabled provider's offering of one
   canonical model id, highest provider priority first, ties broken by provider
   id. It matches the canonical id only, so an alias another model carries
