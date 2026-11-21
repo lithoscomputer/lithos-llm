@@ -65,6 +65,7 @@ $ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local -
           "max": "unknown"
         },
         "speed": {
+          "ultrafast": false,
           "fast": false,
           "balanced": true,
           "economical": false
@@ -110,6 +111,7 @@ $ LLLM_MODEL=local/fixture lllm --catalog catalog.toml models --provider local -
           "max": "unknown"
         },
         "speed": {
+          "ultrafast": false,
           "fast": "unknown",
           "balanced": true,
           "economical": "unknown"

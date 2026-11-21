@@ -366,6 +366,7 @@ $ lithos-llm-e2e catalog catalog.json
               "max": "unknown"
             },
             "speed": {
+              "ultrafast": false,
               "fast": true,
               "balanced": true,
               "economical": true

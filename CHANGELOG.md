@@ -6,6 +6,21 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Speed::Ultrafast` is OpenAI's Ultrafast tier, sent as `service_tier:
+  "ultrafast"`, with `SpeedSupport::ultrafast` and `SpeedPricing::ultrafast`.
+  GPT-6.2 Astra, GPT-6.2 Sol, GPT-6 Astra, and GPT-6.1 Sol claim and price
+  it: 6x Standard, or 3x for the GPT-6.2 models through 2027-02-28. Unlike
+  the other speeds, a row that does not claim it does not support it, so a
+  request for it fails validation everywhere else; a passthrough model may
+  still ask for any speed. `Speed` was already non-exhaustive, but
+  `Speed::ALL` is now `[Speed; 4]`, and `SpeedSupport` and `SpeedPricing`
+  built with struct literals need the new field. The CLI's capability
+  output lists `ultrafast`.
+
+- The GPT-5.5 Pro and GPT-5.4 Pro rows price Flex, which OpenAI's pricing
+  page now lists for them; their speed claims are unchanged until a flex
+  request is probed.
+
 - Cache writes are priced by lifetime. `TokenCounts::long_cache_write` is
   the share of `cache_write` written with the provider's longer lifetime,
   Anthropic's 1-hour cache and OpenAI's 12-hour cache, and

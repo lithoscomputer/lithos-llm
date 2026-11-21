@@ -10,10 +10,10 @@
 //! [`Pricing::for_request`] selects it. So a
 //! long-context request at a speed is checked against the page's long-context
 //! rate for that speed, not only the stored fields. Rates the catalog schema
-//! has no place for, such as 1-hour cache writes, batch, and OpenAI's
-//! Ultrafast tier, are listed as not modelled. The exit status is 1 when a
-//! modelled rate is wrong, missing, or priced by the catalog but not by the
-//! page, and 2 when a page no longer has the tables this reads.
+//! has no place for, such as batch rates and the Ultrafast list price that
+//! replaces OpenAI's promotion, are listed as not modelled. The exit status is
+//! 1 when a modelled rate is wrong, missing, or priced by the catalog but not
+//! by the page, and 2 when a page no longer has the tables this reads.
 
 use std::collections::BTreeMap;
 use std::error::Error as StdError;
@@ -82,12 +82,15 @@ enum Page<'a> {
 /// One rate as the page and the catalog state it.
 #[derive(Debug, PartialEq, Eq)]
 struct Rate {
-    label:    String,
-    page:     Option<u64>,
-    catalog:  Option<u64>,
+    label:         String,
+    page:          Option<u64>,
+    catalog:       Option<u64>,
     /// Whether the catalog schema can hold this rate.
-    modelled: bool,
-    tokens:   bool,
+    modelled:      bool,
+    tokens:        bool,
+    /// Whether the page may leave this rate out while the catalog has one:
+    /// a speed's long-context rate where the page lists only its short one.
+    page_may_omit: bool,
 }
 
 impl Rate {
@@ -98,6 +101,7 @@ impl Rate {
             catalog,
             modelled: true,
             tokens: false,
+            page_may_omit: false,
         }
     }
 
@@ -112,8 +116,16 @@ impl Rate {
         match (self.modelled, self.page, self.catalog) {
             (false, ..) => Verdict::NotModelled,
             (true, Some(page), Some(catalog)) if page == catalog => Verdict::Match,
+            // A page that shows whole cents rounds a sub-cent rate, such as
+            // $0.125 shown as $0.13.
+            (true, Some(page), Some(catalog))
+                if page % 10_000 == 0 && (catalog + 5_000) / 10_000 * 10_000 == page =>
+            {
+                Verdict::Rounded
+            }
             (true, Some(_), Some(_)) => Verdict::Wrong,
             (true, Some(_), None) => Verdict::Missing,
+            (true, None, Some(_)) if self.page_may_omit => Verdict::NotOnPage,
             (true, None, Some(_)) => Verdict::CatalogOnly,
             (true, None, None) => Verdict::Match,
         }
@@ -131,6 +143,8 @@ impl Rate {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Verdict {
     Match,
+    Rounded,
+    NotOnPage,
     Wrong,
     Missing,
     CatalogOnly,
@@ -141,6 +155,8 @@ impl Verdict {
     fn as_str(self) -> &'static str {
         match self {
             Self::Match => "match",
+            Self::Rounded => "match (page rounds)",
+            Self::NotOnPage => "not on page",
             Self::Wrong => "**WRONG**",
             Self::Missing => "**missing**",
             Self::CatalogOnly => "**catalog only**",
@@ -392,30 +408,46 @@ enum CatalogRates {
     None,
 }
 
-/// The OpenAI pricing tables this reads, in report order.
-const OPENAI_TIERS: [(&str, &str, CatalogRates); 6] = [
-    ("Standard", "### Standard pricing data", CatalogRates::Base),
+/// The OpenAI pricing tables this reads, in report order: a label, the
+/// headings of its tables, and the catalog rates they correspond to. A later
+/// table overrides an earlier one for the models it lists, as the Ultrafast
+/// promotion overrides the Ultrafast list price while it runs.
+const OPENAI_TIERS: [(&str, &[&str], CatalogRates); 6] = [
+    (
+        "Standard",
+        &["### Standard pricing data"],
+        CatalogRates::Base,
+    ),
     (
         "Fast",
-        "### Fast pricing data",
+        &["### Fast pricing data"],
         CatalogRates::Speed(Speed::Fast),
     ),
     (
         "Flex",
-        "### Flex pricing data",
+        &["### Flex pricing data"],
         CatalogRates::Speed(Speed::Economical),
     ),
     (
         "Ultrafast",
-        "### Ultrafast pricing data",
-        CatalogRates::None,
+        &[
+            "### Ultrafast pricing data",
+            "### Ultrafast promotion pricing data",
+        ],
+        CatalogRates::Speed(Speed::Ultrafast),
     ),
     (
-        "Ultrafast (promotion)",
-        "### Ultrafast promotion pricing data",
+        "Ultrafast list price",
+        &["### Ultrafast list pricing data"],
         CatalogRates::None,
     ),
-    ("Batch", "### Batch pricing data", CatalogRates::None),
+    ("Batch", &["### Batch pricing data"], CatalogRates::None),
+];
+
+/// Tables that come and go with a promotion, so their absence is no error.
+const OPTIONAL_TABLES: [&str; 2] = [
+    "### Ultrafast promotion pricing data",
+    "### Ultrafast list pricing data",
 ];
 
 /// The ten rate columns of an OpenAI flagship table: input, output, cached
@@ -439,34 +471,50 @@ impl OpenAiPage {
             .ok_or("OpenAI's short-context threshold is gone")?
             * 1_000;
         let mut tiers = BTreeMap::new();
-        for (tier, heading, _) in OPENAI_TIERS {
-            let rows = table(markdown, heading, "| Model | Short context input |")
-                .ok_or_else(|| format!("OpenAI's {tier} table is gone"))?;
+        for (tier, headings, _) in OPENAI_TIERS {
             let mut models = BTreeMap::new();
-            for cells in rows {
-                let [name, values @ ..] = cells.as_slice() else {
-                    continue;
+            for heading in headings {
+                let Some(rows) = table(markdown, heading, "| Model | Short context input |") else {
+                    if OPTIONAL_TABLES.contains(heading) {
+                        continue;
+                    }
+                    return Err(format!("OpenAI's {tier} table is gone").into());
                 };
-                let mut row = [None; 10];
-                if values.len() != row.len() {
-                    return Err(
-                        format!("OpenAI {tier} row {name} has {} rates", values.len()).into(),
-                    );
-                }
-                for (slot, value) in row.iter_mut().zip(values) {
-                    *slot = if value.trim() == "-" {
-                        None
-                    } else {
-                        Some(price(value)?)
-                    };
-                }
-                models.insert(model_name(name), row);
+                parse_openai_rows(tier, rows, &mut models)?;
             }
             tiers.insert(tier, models);
         }
         Ok(Self { threshold, tiers })
     }
+}
 
+/// Reads one OpenAI table's rows into `models`, replacing earlier rows.
+fn parse_openai_rows(
+    tier: &str,
+    rows: Vec<Vec<&str>>,
+    models: &mut BTreeMap<String, OpenAiRow>,
+) -> Result<(), BoxError> {
+    for cells in rows {
+        let [name, values @ ..] = cells.as_slice() else {
+            continue;
+        };
+        let mut row = [None; 10];
+        if values.len() != row.len() {
+            return Err(format!("OpenAI {tier} row {name} has {} rates", values.len()).into());
+        }
+        for (slot, value) in row.iter_mut().zip(values) {
+            *slot = if value.trim() == "-" {
+                None
+            } else {
+                Some(price(value)?)
+            };
+        }
+        models.insert(model_name(name), row);
+    }
+    Ok(())
+}
+
+impl OpenAiPage {
     fn rates(&self, model: &CatalogModel) -> Vec<Rate> {
         let name = model.api_model();
         if !self.tiers.values().any(|models| models.contains_key(name)) {
@@ -547,7 +595,13 @@ fn openai_rows(
                 _ => pricing.long_cache_write_usd_micros_per_million,
             });
             rates.push(if modelled {
-                Rate::usd(label, page, rate)
+                Rate {
+                    page_may_omit: context == 1
+                        && tier != "Standard"
+                        && page.is_none()
+                        && row[column].is_some(),
+                    ..Rate::usd(label, page, rate)
+                }
             } else if page.is_some() {
                 Rate::unmodelled(label, page)
             } else {
@@ -747,9 +801,10 @@ Short context: ≤272K input tokens. Long context: >272K input tokens.
 
         assert_eq!(verdict(&rates, "Standard long input"), Some(Verdict::Match));
         assert_eq!(verdict(&rates, "Fast short input"), Some(Verdict::Match));
+        // The promotion table prices GPT-6.2 Sol's Ultrafast tier at $6.
         assert_eq!(
-            verdict(&rates, "Ultrafast (promotion) short input"),
-            Some(Verdict::NotModelled)
+            verdict(&rates, "Ultrafast short input"),
+            Some(Verdict::Match)
         );
         // The page charges $8 for fast input above 272K tokens.
         let fast_long = rates.iter().find(|rate| rate.label == "Fast long input");

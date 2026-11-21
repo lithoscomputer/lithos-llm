@@ -78,6 +78,8 @@ impl FromStr for ReasoningEffort {
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Speed {
+    /// Faster than `Fast`, at a larger premium: OpenAI's Ultrafast tier.
+    Ultrafast,
     Fast,
     Balanced,
     Economical,
@@ -85,12 +87,18 @@ pub enum Speed {
 
 impl Speed {
     /// Every tier, from fastest to cheapest.
-    pub const ALL: [Self; 3] = [Self::Fast, Self::Balanced, Self::Economical];
+    pub const ALL: [Self; 4] = [
+        Self::Ultrafast,
+        Self::Fast,
+        Self::Balanced,
+        Self::Economical,
+    ];
 
     /// The canonical spelling, matching serialization and the catalog's
     /// `capabilities.speed` and `pricing.speed` keys.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Ultrafast => "ultrafast",
             Self::Fast => "fast",
             Self::Balanced => "balanced",
             Self::Economical => "economical",

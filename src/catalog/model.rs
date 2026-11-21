@@ -97,6 +97,8 @@ fn is_false(value: &bool) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct SpeedPricing {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ultrafast:  Option<SpeedRates>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fast:       Option<SpeedRates>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub balanced:   Option<SpeedRates>,
@@ -109,6 +111,7 @@ impl SpeedPricing {
     #[must_use]
     pub fn for_speed(self, speed: Speed) -> Option<SpeedRates> {
         match speed {
+            Speed::Ultrafast => self.ultrafast,
             Speed::Fast => self.fast,
             Speed::Balanced => self.balanced,
             Speed::Economical => self.economical,

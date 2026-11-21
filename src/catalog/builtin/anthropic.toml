@@ -19,6 +19,12 @@
 #
 # Claude Opus 5.5 was added on 2026-09-22 the same way and took the `opus`
 # and `claude-opus` aliases from Opus 5 once its live cells passed.
+#
+# Cache writes have two lifetimes: 5 minutes at 1.25x input
+# (`cache_write_usd_micros_per_million`) and 1 hour at 2x input
+# (`long_cache_write_usd_micros_per_million`). Fast mode applies across the
+# whole context window, so no long-context tier scales a fast rate. Checked
+# against the pricing page on 2026-11-21 with `mise run check:prices`.
 
 schema_version = 1
 

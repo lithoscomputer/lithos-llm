@@ -115,9 +115,13 @@ impl Default for ReasoningEffortSupport {
 }
 
 /// Catalog support for individual speed choices.
+///
+/// `ultrafast` defaults to unsupported rather than unknown: few models offer
+/// it, so a row claims it before a request can ask for it.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SpeedSupport {
+    pub ultrafast:  Support,
     pub fast:       Support,
     pub balanced:   Support,
     pub economical: Support,
@@ -125,6 +129,7 @@ pub struct SpeedSupport {
 impl Default for SpeedSupport {
     fn default() -> Self {
         Self {
+            ultrafast:  Support::Unsupported,
             fast:       Support::Unknown,
             balanced:   Support::Supported,
             economical: Support::Unknown,
@@ -236,6 +241,7 @@ impl ModelCapabilities {
     }
     pub fn speed(self, speed: Speed) -> Support {
         match speed {
+            Speed::Ultrafast => self.speed.ultrafast,
             Speed::Fast => self.speed.fast,
             Speed::Balanced => self.speed.balanced,
             Speed::Economical => self.speed.economical,
@@ -384,8 +390,10 @@ impl ModelCapabilities {
             },
             reasoning_effort: ReasoningEffortSupport::default(),
             speed:            SpeedSupport {
-                balanced: Support::Unknown,
-                ..SpeedSupport::default()
+                ultrafast:  Support::Unknown,
+                fast:       Support::Unknown,
+                balanced:   Support::Unknown,
+                economical: Support::Unknown,
             },
             evaluation:       EvaluationSupport::default(),
         }

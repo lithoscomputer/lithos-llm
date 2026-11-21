@@ -195,6 +195,7 @@ fn stop_sequences_are_dropped_with_a_warning() -> Result<(), Box<dyn StdError>> 
 #[test]
 fn each_speed_selects_its_service_tier() -> Result<(), Box<dyn StdError>> {
     for (speed, tier) in [
+        (Speed::Ultrafast, "ultrafast"),
         (Speed::Fast, "priority"),
         (Speed::Balanced, "auto"),
         (Speed::Economical, "flex"),
