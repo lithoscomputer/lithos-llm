@@ -20,16 +20,16 @@ use super::{CodecId, codec_ids};
 /// two without repeating the segment.
 const VERSION_SEGMENTS: &[&str] = &["v1", "v1beta"];
 
-/// The inference and model listing endpoints of one codec's API.
+/// The inference endpoint of one codec's API.
 ///
 /// Get one for a provider with
 /// [`CatalogProvider::endpoints`](super::CatalogProvider::endpoints). The
-/// paths are what the codec asks for, and they can repeat a version segment
-/// the base URL already ends with: OpenRouter's base URL is
+/// path is what the codec asks for, and it can repeat a version segment the
+/// base URL already ends with: OpenRouter's base URL is
 /// `https://openrouter.ai/api/v1` and Chat Completions asks for
 /// `/v1/chat/completions`. Build a URL with
-/// [`inference_url`](Self::inference_url) or [`models_url`](Self::models_url),
-/// which keep that segment once, rather than appending a path to the base URL.
+/// [`inference_url`](Self::inference_url), which keeps that segment once,
+/// rather than appending the path to the base URL.
 ///
 /// ```
 /// use lithos_llm::catalog::{Catalog, CodecId, codec_ids};
@@ -44,23 +44,17 @@ const VERSION_SEGMENTS: &[&str] = &["v1", "v1beta"];
 ///     endpoints.inference_url(openrouter.base_url()),
 ///     "https://openrouter.ai/api/v1/chat/completions"
 /// );
-/// assert_eq!(
-///     endpoints.models_url(openrouter.base_url()).as_deref(),
-///     Some("https://openrouter.ai/api/v1/models")
-/// );
 /// # Ok::<(), lithos_llm::catalog::CatalogError>(())
 /// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Endpoints {
     inference: &'static str,
-    models:    Option<&'static str>,
 }
 
 impl Endpoints {
     /// Anthropic Messages.
     pub(crate) const ANTHROPIC_MESSAGES: Self = Self {
         inference: "/v1/messages",
-        models:    Some("/v1/models"),
     };
 
     /// OpenAI Chat Completions.
@@ -68,16 +62,12 @@ impl Endpoints {
     /// `at_api_root` drops the version segment for a deployment whose base URL
     /// is its own versioned API root, such as Z.ai's `/api/coding/paas/v4`.
     pub(crate) fn openai_chat(at_api_root: bool) -> Self {
-        if at_api_root {
-            Self {
-                inference: "/chat/completions",
-                models:    Some("/models"),
-            }
-        } else {
-            Self {
-                inference: "/v1/chat/completions",
-                models:    Some("/v1/models"),
-            }
+        Self {
+            inference: if at_api_root {
+                "/chat/completions"
+            } else {
+                "/v1/chat/completions"
+            },
         }
     }
 
@@ -86,41 +76,16 @@ impl Endpoints {
     /// The Codex deployment hangs its Responses endpoint directly off the
     /// base path with no version segment: `<base>/responses` answers and
     /// `<base>/v1/responses` is an HTML 403 (probed against
-    /// chatgpt.com/backend-api/codex on 2026-08-30). Its model listing has not
-    /// been verified, so it has none here.
+    /// chatgpt.com/backend-api/codex on 2026-08-30).
     pub(crate) fn openai_responses(codex: bool) -> Self {
-        if codex {
-            Self {
-                inference: "/responses",
-                models:    None,
-            }
-        } else {
-            Self {
-                inference: "/v1/responses",
-                models:    Some("/v1/models"),
-            }
+        Self {
+            inference: if codex { "/responses" } else { "/v1/responses" },
         }
-    }
-
-    /// The path a generation request posts to, relative to the base URL.
-    pub fn inference_path(&self) -> &'static str {
-        self.inference
-    }
-
-    /// The path that lists the provider's models, relative to the base URL,
-    /// or `None` when the API has no listing this crate knows.
-    pub fn models_path(&self) -> Option<&'static str> {
-        self.models
     }
 
     /// The URL a generation request posts to under `base_url`.
     pub fn inference_url(&self, base_url: &str) -> String {
         endpoint(base_url, self.inference)
-    }
-
-    /// The URL that lists the provider's models under `base_url`.
-    pub fn models_url(&self, base_url: &str) -> Option<String> {
-        self.models.map(|path| endpoint(base_url, path))
     }
 
     /// The part of [`inference_url`](Self::inference_url) that follows
@@ -149,21 +114,10 @@ impl Endpoints {
     ///     endpoints.inference_path_under(openrouter.base_url()),
     ///     "/chat/completions"
     /// );
-    /// assert_eq!(
-    ///     endpoints.models_path_under(openrouter.base_url()),
-    ///     Some("/models")
-    /// );
     /// # Ok::<(), lithos_llm::catalog::CatalogError>(())
     /// ```
     pub fn inference_path_under(&self, base_url: &str) -> &'static str {
         path_under(base_url, self.inference)
-    }
-
-    /// The part of [`models_url`](Self::models_url) that follows `base_url`,
-    /// as [`inference_path_under`](Self::inference_path_under) gives it for
-    /// the inference path.
-    pub fn models_path_under(&self, base_url: &str) -> Option<&'static str> {
-        self.models.map(|path| path_under(base_url, path))
     }
 }
 
@@ -316,71 +270,60 @@ mod tests {
                 "anthropic",
                 codec_ids::ANTHROPIC_MESSAGES,
                 "https://api.anthropic.com/v1/messages",
-                Some("https://api.anthropic.com/v1/models"),
             ),
             (
                 "openai",
                 codec_ids::OPENAI_RESPONSES,
                 "https://api.openai.com/v1/responses",
-                Some("https://api.openai.com/v1/models"),
             ),
             (
                 "openai",
                 codec_ids::OPENAI_CHAT,
                 "https://api.openai.com/v1/chat/completions",
-                Some("https://api.openai.com/v1/models"),
             ),
             (
                 "openai-codex",
                 codec_ids::OPENAI_RESPONSES,
                 "https://chatgpt.com/backend-api/codex/responses",
-                None,
             ),
             (
                 "openrouter",
                 codec_ids::OPENAI_CHAT,
                 "https://openrouter.ai/api/v1/chat/completions",
-                Some("https://openrouter.ai/api/v1/models"),
             ),
             (
                 "openrouter",
                 codec_ids::OPENAI_RESPONSES,
                 "https://openrouter.ai/api/v1/responses",
-                Some("https://openrouter.ai/api/v1/models"),
             ),
             (
                 "openrouter",
                 codec_ids::ANTHROPIC_MESSAGES,
                 "https://openrouter.ai/api/v1/messages",
-                Some("https://openrouter.ai/api/v1/models"),
             ),
             (
                 "venice",
                 codec_ids::OPENAI_CHAT,
                 "https://api.venice.ai/api/v1/chat/completions",
-                Some("https://api.venice.ai/api/v1/models"),
             ),
             (
                 "venice",
                 codec_ids::OPENAI_RESPONSES,
                 "https://api.venice.ai/api/v1/responses",
-                Some("https://api.venice.ai/api/v1/models"),
             ),
             (
                 "zai",
                 codec_ids::OPENAI_CHAT,
                 "https://api.z.ai/api/coding/paas/v4/chat/completions",
-                Some("https://api.z.ai/api/coding/paas/v4/models"),
             ),
         ];
 
-        for (provider, codec, inference, models) in cases {
+        for (provider, codec, inference) in cases {
             let provider = catalog.provider(provider)?;
             let endpoints = provider
                 .endpoints(&CodecId::new(codec))
                 .ok_or(format!("{} has no {codec} endpoints", provider.id()))?;
             assert_eq!(endpoints.inference_url(provider.base_url()), inference);
-            assert_eq!(endpoints.models_url(provider.base_url()).as_deref(), models);
         }
         Ok(())
     }
@@ -393,132 +336,27 @@ mod tests {
         // Every built-in provider and codec with endpoints, so a new one
         // fails here until its paths are written down.
         let mut cases = vec![
-            (
-                "anthropic",
-                codec_ids::ANTHROPIC_MESSAGES,
-                "/v1/messages",
-                Some("/v1/models"),
-            ),
-            (
-                "bedrock-openai",
-                codec_ids::OPENAI_RESPONSES,
-                "/responses",
-                Some("/models"),
-            ),
-            (
-                "deepseek",
-                codec_ids::OPENAI_CHAT,
-                "/v1/chat/completions",
-                Some("/v1/models"),
-            ),
-            (
-                "fireworks",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "inception",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "litellm",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "minimax",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "modal",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "moonshot",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "ollama",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "openai",
-                codec_ids::OPENAI_RESPONSES,
-                "/v1/responses",
-                Some("/v1/models"),
-            ),
-            (
-                "openai",
-                codec_ids::OPENAI_CHAT,
-                "/v1/chat/completions",
-                Some("/v1/models"),
-            ),
-            (
-                "openai-codex",
-                codec_ids::OPENAI_RESPONSES,
-                "/responses",
-                None,
-            ),
-            (
-                "openrouter",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "openrouter",
-                codec_ids::OPENAI_RESPONSES,
-                "/responses",
-                Some("/models"),
-            ),
-            (
-                "openrouter",
-                codec_ids::ANTHROPIC_MESSAGES,
-                "/messages",
-                Some("/models"),
-            ),
-            (
-                "poolside",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "venice",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "venice",
-                codec_ids::OPENAI_RESPONSES,
-                "/responses",
-                Some("/models"),
-            ),
-            (
-                "vercel",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
-            (
-                "zai",
-                codec_ids::OPENAI_CHAT,
-                "/chat/completions",
-                Some("/models"),
-            ),
+            ("anthropic", codec_ids::ANTHROPIC_MESSAGES, "/v1/messages"),
+            ("bedrock-openai", codec_ids::OPENAI_RESPONSES, "/responses"),
+            ("deepseek", codec_ids::OPENAI_CHAT, "/v1/chat/completions"),
+            ("fireworks", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("inception", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("litellm", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("minimax", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("modal", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("moonshot", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("ollama", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("openai", codec_ids::OPENAI_RESPONSES, "/v1/responses"),
+            ("openai", codec_ids::OPENAI_CHAT, "/v1/chat/completions"),
+            ("openai-codex", codec_ids::OPENAI_RESPONSES, "/responses"),
+            ("openrouter", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("openrouter", codec_ids::OPENAI_RESPONSES, "/responses"),
+            ("openrouter", codec_ids::ANTHROPIC_MESSAGES, "/messages"),
+            ("poolside", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("venice", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("venice", codec_ids::OPENAI_RESPONSES, "/responses"),
+            ("vercel", codec_ids::OPENAI_CHAT, "/chat/completions"),
+            ("zai", codec_ids::OPENAI_CHAT, "/chat/completions"),
         ];
 
         for provider in catalog.providers() {
@@ -531,18 +369,13 @@ mod tests {
                     .iter()
                     .position(|case| case.0 == provider.id().as_str() && case.1 == codec.as_str())
                     .ok_or(format!("no expected paths for {} {codec}", provider.id()))?;
-                let (_, _, inference, models) = cases.remove(position);
+                let (_, _, inference) = cases.remove(position);
 
                 assert_eq!(endpoints.inference_path_under(base), inference);
-                assert_eq!(endpoints.models_path_under(base), models);
                 // A caller that appends the path to the base URL reaches the
                 // URL the codec does.
                 let base = base.trim_end_matches('/');
                 assert_eq!(format!("{base}{inference}"), endpoints.inference_url(base));
-                assert_eq!(
-                    models.map(|models| format!("{base}{models}")),
-                    endpoints.models_url(base)
-                );
             }
         }
         assert_eq!(cases, [], "expected paths for providers without endpoints");
@@ -576,8 +409,6 @@ mod tests {
             .endpoints(&CodecId::new(codec_ids::ANTHROPIC_MESSAGES))
             .ok_or("anthropic speaks Messages")?;
 
-        assert_eq!(endpoints.inference_path(), "/v1/messages");
-        assert_eq!(endpoints.models_path(), Some("/v1/models"));
         assert_eq!(
             endpoints.inference_url("http://127.0.0.1:9/prefix/"),
             "http://127.0.0.1:9/prefix/v1/messages"

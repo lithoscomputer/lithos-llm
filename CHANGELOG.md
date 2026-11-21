@@ -60,11 +60,10 @@ This project follows [Semantic Versioning](https://semver.org/).
   headers through the same function, so its behavior is unchanged. The method
   needs the `runtime` feature.
 
-- `Endpoints::inference_path_under(base_url)` and
-  `Endpoints::models_path_under(base_url)` return the part of
-  `inference_url` and `models_url` that follows `base_url`: the codec's path
-  without the version segment `base_url` already ends with. Under each
-  provider's own `base_url`, OpenRouter's Chat Completions, Messages, and
+- `Endpoints::inference_path_under(base_url)` returns the part of
+  `inference_url` that follows `base_url`: the codec's path without the
+  version segment `base_url` already ends with. Under each provider's own
+  `base_url`, OpenRouter's Chat Completions, Messages, and
   Responses give `/chat/completions`, `/messages`, and `/responses`, Venice's
   give `/chat/completions` and `/responses`, and Anthropic and OpenAI give
   `/v1/messages` and `/v1/responses`. A caller that replaces the catalog base
@@ -72,12 +71,10 @@ This project follows [Semantic Versioning](https://semver.org/).
   instead of stripping the base URL off `inference_url`.
 
 - `Catalog::offering(&ProviderId, &ModelId)` returns one provider's offering
-  of one canonical model id, the entry `Catalog::offerings` would list for
-  that provider, without building and filtering the whole list. Like
-  `offerings`, it matches canonical ids only: a provider alias does not name
-  the provider, and a different model that carries the id as an alias is
-  never returned. A disabled provider offers nothing, so it returns `None`
-  for one; `Catalog::provider_by_id` still finds the provider.
+  of one canonical model id. It matches canonical ids only: a provider alias
+  does not name the provider, and a different model that carries the id as an
+  alias is never returned. A disabled provider offers nothing, so it returns
+  `None` for one; `Catalog::provider_by_id` still finds the provider.
 
 - `openai_chat::ErrorResponse::with_code`, also reachable through
   `openai_responses::ErrorResponse`, sets the error's `code` to a text code,
@@ -105,10 +102,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - `CatalogProvider::endpoints` returns the new `catalog::Endpoints` for
   Anthropic Messages, OpenAI Responses, and OpenAI Chat Completions: the
-  inference path and the model listing path the codec uses on that provider,
-  with its `codec_options` applied. `inference_url` and `models_url` join
-  them to the provider's base URL or a replacement for it without repeating
-  a version segment, so OpenRouter's `https://openrouter.ai/api/v1` gives
+  inference path the codec uses on that provider, with its `codec_options`
+  applied. `inference_url` joins it to the provider's base URL or a
+  replacement for it without repeating a version segment, so OpenRouter's
+  `https://openrouter.ai/api/v1` gives
   `https://openrouter.ai/api/v1/chat/completions`. The codecs now take their
   inference paths from the same values, so the URLs they send are unchanged.
 
@@ -121,15 +118,6 @@ This project follows [Semantic Versioning](https://semver.org/).
   first, ahead of OpenRouter's and Vercel's rows whose wire id is the whole
   string. `CatalogResolver` also resolves a bare wire id, ranked after
   canonical ids and aliases, instead of failing with `ModelNotFound`.
-
-- `Catalog::offerings` returns every enabled provider's offering of one
-  canonical model id, highest provider priority first, ties broken by provider
-  id. It matches the canonical id only, so an alias another model carries
-  never joins the list, and it gives one place to read a model's aliases,
-  pricing, and limits across providers. `Catalog::offerings_for_codec` keeps
-  the offerings a call through one codec reaches, in the same order: the
-  ranked candidates a caller fails over between, where the resolver returns
-  only the first.
 
 - `Credentials::http_headers(&CatalogProvider)` returns the authentication
   headers the client sends to a provider, such as `authorization: Bearer
