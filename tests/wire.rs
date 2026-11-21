@@ -382,7 +382,7 @@ fn built_error_bodies_serialize_in_the_provider_format() -> TestResult {
         })
     );
 
-    let mut openai =
+    let openai =
         openai_chat::ErrorResponse::new("invalid_request_error", "Incorrect API key provided.");
     let mut expected = json!({"error": {
         "message": "Incorrect API key provided.",
@@ -392,9 +392,9 @@ fn built_error_bodies_serialize_in_the_provider_format() -> TestResult {
     }});
     assert_eq!(serde_json::to_value(&openai)?, expected);
 
-    openai.error.code = Field::Present(openai_chat::ErrorCode::Text("invalid_api_key".to_owned()));
+    let coded = openai.with_code("invalid_api_key");
     expected["error"]["code"] = json!("invalid_api_key");
-    assert_eq!(serde_json::to_value(&openai)?, expected);
+    assert_eq!(serde_json::to_value(&coded)?, expected);
     Ok(())
 }
 
