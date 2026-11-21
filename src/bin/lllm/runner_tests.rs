@@ -193,11 +193,12 @@ fn response(text: &str) -> Response {
         },
     ]);
     response.usage = TokenCounts {
-        input:       1_000,
-        output:      150,
-        reasoning:   33,
-        cache_read:  200,
-        cache_write: 40,
+        input:            1_000,
+        output:           150,
+        reasoning:        33,
+        cache_read:       200,
+        cache_write:      40,
+        long_cache_write: 0,
     };
     response.cost = Some(Cost {
         usd_micros: 4_310,

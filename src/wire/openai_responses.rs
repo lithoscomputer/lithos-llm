@@ -268,7 +268,9 @@ impl Usage {
 /// cache writes at a premium and reports them as
 /// `input_tokens_details.cache_write_tokens` (observed live on 2026-08-30);
 /// models that bill no write omit the counter or send zero, which decodes to
-/// an empty bucket either way.
+/// an empty bucket either way. Models that offer a 12-hour cache lifetime
+/// split the writes in `cache_write_tokens_details`; its `ttl_12h_tokens` is
+/// the long-lived share.
 pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
     let count = |pointer: &str| usage.pointer(pointer).and_then(Value::as_u64).unwrap_or(0);
 
@@ -279,6 +281,9 @@ pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
         count("/input_tokens_details/cached_tokens"),
         count("/input_tokens_details/cache_write_tokens"),
     )
+    .with_long_cache_write(count(
+        "/input_tokens_details/cache_write_tokens_details/ttl_12h_tokens",
+    ))
 }
 
 /// The input token breakdown on a [`Usage`].

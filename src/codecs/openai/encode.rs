@@ -247,6 +247,7 @@ impl<'a> ResponsesBody<'a> {
 
     fn service_tier(&self) -> Option<Value> {
         let tier = match self.request().speed()? {
+            Speed::Ultrafast => "ultrafast",
             Speed::Fast => "priority",
             Speed::Balanced => "auto",
             Speed::Economical => "flex",

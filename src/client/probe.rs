@@ -429,10 +429,11 @@ fn integer(arguments: &Value, key: &str) -> i64 {
 
 fn add_usage(total: TokenCounts, usage: TokenCounts) -> TokenCounts {
     TokenCounts {
-        input:       total.input.saturating_add(usage.input),
-        output:      total.output.saturating_add(usage.output),
-        reasoning:   total.reasoning.saturating_add(usage.reasoning),
-        cache_read:  total.cache_read.saturating_add(usage.cache_read),
-        cache_write: total.cache_write.saturating_add(usage.cache_write),
+        input:            total.input.saturating_add(usage.input),
+        output:           total.output.saturating_add(usage.output),
+        reasoning:        total.reasoning.saturating_add(usage.reasoning),
+        cache_read:       total.cache_read.saturating_add(usage.cache_read),
+        cache_write:      total.cache_write.saturating_add(usage.cache_write),
+        long_cache_write: 0,
     }
 }

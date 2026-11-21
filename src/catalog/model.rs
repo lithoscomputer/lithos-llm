@@ -43,6 +43,10 @@ pub struct ModelLimits {
 /// `cached_input_usd_micros_per_million` prices cache reads and
 /// `cache_write_usd_micros_per_million` prices tokens written into a provider
 /// cache. Callers that do not find either should fall back to the input rate.
+/// `long_cache_write_usd_micros_per_million` prices the cache writes made with
+/// the provider's longer lifetime (see [`TokenCounts::long_cache_write`]).
+///
+/// [`TokenCounts::long_cache_write`]: crate::types::TokenCounts::long_cache_write
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Pricing {
@@ -50,6 +54,8 @@ pub struct Pricing {
     pub output_usd_micros_per_million: Option<u64>,
     pub cached_input_usd_micros_per_million: Option<u64>,
     pub cache_write_usd_micros_per_million: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_cache_write_usd_micros_per_million: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub long_context: Option<LongContextPricing>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -60,11 +66,28 @@ pub struct Pricing {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LongContextPricing {
-    pub above_input_tokens:                  u64,
-    pub input_usd_micros_per_million:        Option<u64>,
-    pub output_usd_micros_per_million:       Option<u64>,
+    pub above_input_tokens: u64,
+    pub input_usd_micros_per_million: Option<u64>,
+    pub output_usd_micros_per_million: Option<u64>,
     pub cached_input_usd_micros_per_million: Option<u64>,
-    pub cache_write_usd_micros_per_million:  Option<u64>,
+    pub cache_write_usd_micros_per_million: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_cache_write_usd_micros_per_million: Option<u64>,
+    /// Whether the premium also applies at a priced speed: above the
+    /// threshold, each of the speed's rates scales by the ratio of this
+    /// tier's rate to the base rate, as OpenAI prices Fast and Flex. Without
+    /// it a speed's rates apply across the whole prompt, as Anthropic's fast
+    /// mode does.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub scales_speeds: bool,
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if passes a reference"
+)]
+fn is_false(value: &bool) -> bool {
+    !value
 }
 
 /// Rate overrides for each requested speed.
@@ -73,6 +96,8 @@ pub struct LongContextPricing {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SpeedPricing {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ultrafast:  Option<SpeedRates>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fast:       Option<SpeedRates>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -86,6 +111,7 @@ impl SpeedPricing {
     #[must_use]
     pub fn for_speed(self, speed: Speed) -> Option<SpeedRates> {
         match speed {
+            Speed::Ultrafast => self.ultrafast,
             Speed::Fast => self.fast,
             Speed::Balanced => self.balanced,
             Speed::Economical => self.economical,
@@ -101,13 +127,15 @@ impl SpeedPricing {
 #[serde(deny_unknown_fields)]
 pub struct SpeedRates {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub input_usd_micros_per_million:        Option<u64>,
+    pub input_usd_micros_per_million:            Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub output_usd_micros_per_million:       Option<u64>,
+    pub output_usd_micros_per_million:           Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cached_input_usd_micros_per_million: Option<u64>,
+    pub cached_input_usd_micros_per_million:     Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cache_write_usd_micros_per_million:  Option<u64>,
+    pub cache_write_usd_micros_per_million:      Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_cache_write_usd_micros_per_million: Option<u64>,
 }
 
 impl Pricing {
@@ -136,8 +164,71 @@ impl Pricing {
             cache_write_usd_micros_per_million: long_context
                 .cache_write_usd_micros_per_million
                 .or(self.cache_write_usd_micros_per_million),
+            long_cache_write_usd_micros_per_million: long_context
+                .long_cache_write_usd_micros_per_million
+                .or(self.long_cache_write_usd_micros_per_million),
             long_context: self.long_context,
             speed: self.speed,
+        }
+    }
+
+    /// Selects the rates for a request with `input_tokens` of input at
+    /// `speed`: [`Pricing::for_input_tokens`], then [`Pricing::for_speed`].
+    ///
+    /// A speed rate wins over a long-context rate, unless the long-context
+    /// tier [scales speeds](LongContextPricing::scales_speeds): then a long
+    /// request at a priced speed pays the speed's rate times the tier's
+    /// premium for that rate.
+    #[must_use]
+    pub fn for_request(self, input_tokens: u64, speed: Option<Speed>) -> Self {
+        let long = self.for_input_tokens(input_tokens);
+        let sped = long.for_speed(speed);
+        let scales = self
+            .long_context
+            .is_some_and(|tier| tier.scales_speeds && input_tokens > tier.above_input_tokens);
+        let priced = speed
+            .zip(self.speed)
+            .and_then(|(speed, pricing)| pricing.for_speed(speed))
+            .is_some();
+        if !scales || !priced {
+            return sped;
+        }
+        let short = self.for_speed(speed);
+        let scale = |speed_rate: Option<u64>, base: Option<u64>, long: Option<u64>| match (
+            speed_rate, base, long,
+        ) {
+            (Some(rate), Some(base), Some(long)) if base > 0 => {
+                u64::try_from(u128::from(rate) * u128::from(long) / u128::from(base)).ok()
+            }
+            _ => speed_rate,
+        };
+        Self {
+            input_usd_micros_per_million: scale(
+                short.input_usd_micros_per_million,
+                self.input_usd_micros_per_million,
+                long.input_usd_micros_per_million,
+            ),
+            output_usd_micros_per_million: scale(
+                short.output_usd_micros_per_million,
+                self.output_usd_micros_per_million,
+                long.output_usd_micros_per_million,
+            ),
+            cached_input_usd_micros_per_million: scale(
+                short.cached_input_usd_micros_per_million,
+                self.cached_input_usd_micros_per_million,
+                long.cached_input_usd_micros_per_million,
+            ),
+            cache_write_usd_micros_per_million: scale(
+                short.cache_write_usd_micros_per_million,
+                self.cache_write_usd_micros_per_million,
+                long.cache_write_usd_micros_per_million,
+            ),
+            long_cache_write_usd_micros_per_million: scale(
+                short.long_cache_write_usd_micros_per_million,
+                self.long_cache_write_usd_micros_per_million,
+                long.long_cache_write_usd_micros_per_million,
+            ),
+            ..sped
         }
     }
 
@@ -146,7 +237,8 @@ impl Pricing {
     /// A request with no speed, a model with no speed rates, and a speed the
     /// model does not price all keep the rates unchanged. Speed overrides
     /// apply after [`Pricing::for_input_tokens`], so a speed rate wins over a
-    /// long-context rate.
+    /// long-context rate; [`Pricing::for_request`] applies both, including a
+    /// long-context tier that scales speeds.
     #[must_use]
     pub fn for_speed(self, speed: Option<Speed>) -> Self {
         let Some(rates) = speed
@@ -168,6 +260,9 @@ impl Pricing {
             cache_write_usd_micros_per_million: rates
                 .cache_write_usd_micros_per_million
                 .or(self.cache_write_usd_micros_per_million),
+            long_cache_write_usd_micros_per_million: rates
+                .long_cache_write_usd_micros_per_million
+                .or(self.long_cache_write_usd_micros_per_million),
             long_context: self.long_context,
             speed: self.speed,
         }
@@ -241,8 +336,10 @@ pub struct CatalogModel {
     capabilities:         ModelCapabilities,
     #[serde(default)]
     protocol_options:     ModelProtocolOptions,
+    /// Boxed because a route carries its model through every async call,
+    /// and the rates are most of a model's inline size.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pricing:              Option<Pricing>,
+    pricing:              Option<Box<Pricing>>,
     #[serde(default, skip_serializing_if = "Metadata::is_empty")]
     metadata:             Metadata,
 }
@@ -348,7 +445,7 @@ impl CatalogModel {
     }
 
     pub fn pricing(&self) -> Option<Pricing> {
-        self.pricing
+        self.pricing.as_deref().copied()
     }
 
     pub fn metadata(&self) -> &Metadata {
@@ -422,7 +519,7 @@ impl CatalogModel {
             limits: record.limits,
             capabilities: record.capabilities,
             protocol_options: record.protocol_options,
-            pricing: record.pricing,
+            pricing: record.pricing.map(Box::new),
             metadata: record.metadata,
         })
     }
@@ -486,12 +583,15 @@ mod tests {
             output_usd_micros_per_million: Some(2),
             cached_input_usd_micros_per_million: Some(3),
             cache_write_usd_micros_per_million: Some(7),
+            long_cache_write_usd_micros_per_million: None,
             long_context: Some(LongContextPricing {
-                above_input_tokens:                  200_000,
-                input_usd_micros_per_million:        Some(4),
-                output_usd_micros_per_million:       Some(5),
+                above_input_tokens: 200_000,
+                input_usd_micros_per_million: Some(4),
+                output_usd_micros_per_million: Some(5),
                 cached_input_usd_micros_per_million: Some(6),
-                cache_write_usd_micros_per_million:  Some(8),
+                cache_write_usd_micros_per_million: Some(8),
+                long_cache_write_usd_micros_per_million: None,
+                scales_speeds: false,
             }),
             speed: None,
         }
@@ -537,11 +637,13 @@ mod tests {
     fn long_context_rates_inherit_missing_rates_from_the_base() {
         let pricing = Pricing {
             long_context: Some(LongContextPricing {
-                above_input_tokens:                  200_000,
-                input_usd_micros_per_million:        Some(4),
-                output_usd_micros_per_million:       None,
+                above_input_tokens: 200_000,
+                input_usd_micros_per_million: Some(4),
+                output_usd_micros_per_million: None,
                 cached_input_usd_micros_per_million: None,
-                cache_write_usd_micros_per_million:  None,
+                cache_write_usd_micros_per_million: None,
+                long_cache_write_usd_micros_per_million: None,
+                scales_speeds: false,
             }),
             ..sample_pricing()
         };

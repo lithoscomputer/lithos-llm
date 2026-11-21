@@ -194,7 +194,9 @@ pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
 /// subtracted. Thinking tokens are billed inside `output_tokens` with no
 /// separate counter, so `reasoning` stays 0 and `billable_output` still adds
 /// up. Each field is assigned, not added, because a repeated counter is the
-/// provider restating the same cumulative total.
+/// provider restating the same cumulative total. The cache writes' 1-hour
+/// share comes from `cache_creation.ephemeral_1h_input_tokens`, which only
+/// `message_start` and a whole response carry.
 pub(crate) fn fold_usage(counts: &mut TokenCounts, usage: &Value) {
     if let Some(input) = usage.get("input_tokens").and_then(Value::as_u64) {
         counts.input = input;
@@ -211,6 +213,13 @@ pub(crate) fn fold_usage(counts: &mut TokenCounts, usage: &Value) {
     {
         counts.cache_write = write;
     }
+    if let Some(long) = usage
+        .pointer("/cache_creation/ephemeral_1h_input_tokens")
+        .and_then(Value::as_u64)
+    {
+        counts.long_cache_write = long;
+    }
+    counts.long_cache_write = counts.long_cache_write.min(counts.cache_write);
 }
 
 /// The JSON payload of one event in a streamed response.

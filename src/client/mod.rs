@@ -1545,6 +1545,7 @@ mod tests {
             panic!("streaming applies the same speed gate");
         };
         assert!(error.to_string().contains("speed 'fast'"), "{error}");
+
         Ok(())
     }
 
@@ -1562,6 +1563,20 @@ mod tests {
             .speed(Speed::Fast)
             .build()?;
         build.client.complete(request).await?;
+
+        // Few models offer Ultrafast, so even a row with a fast tier rejects
+        // it unless it claims it.
+        let request = Request::builder()
+            .model("alpha/one")
+            .user("hi")
+            .speed(Speed::Ultrafast)
+            .build()?;
+        let error = build
+            .client
+            .complete(request)
+            .await
+            .expect_err("an unclaimed ultrafast tier must be rejected");
+        assert!(error.to_string().contains("speed 'ultrafast'"), "{error}");
         Ok(())
     }
 
@@ -1592,7 +1607,7 @@ mod tests {
 
         // A passthrough model carries no pricing, so its speeds are unknown
         // rather than absent, and the provider judges the request.
-        for speed in [Speed::Fast, Speed::Balanced, Speed::Economical] {
+        for speed in Speed::ALL {
             let request = Request::builder()
                 .model("alpha/not-in-catalog")
                 .user("hi")

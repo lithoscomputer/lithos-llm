@@ -479,11 +479,12 @@ mod tests {
         let mut response =
             Response::new(ProviderId::new("test"), ModelId::new("model"), Vec::new());
         response.usage = TokenCounts {
-            input:       10,
-            output:      20,
-            reasoning:   30,
-            cache_read:  40,
-            cache_write: 50,
+            input:            10,
+            output:           20,
+            reasoning:        30,
+            cache_read:       40,
+            cache_write:      50,
+            long_cache_write: 0,
         };
         response.cost = Some(Cost {
             usd_micros: 60,

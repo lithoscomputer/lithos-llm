@@ -44,7 +44,7 @@ Field mapping:
 | `costs.input_cost_per_mtok` (USD) | `pricing.input_usd_micros_per_million` (multiply by 1,000,000) |
 | `costs.output_cost_per_mtok` | `pricing.output_usd_micros_per_million` |
 | `costs.cache_input_cost_per_mtok` | `pricing.cached_input_usd_micros_per_million` |
-| `costs.speed.<name>` sub-tables | `pricing.speed` (`fast`/`balanced`/`economical` rates) |
+| `costs.speed.<name>` sub-tables | `pricing.speed` (`ultrafast`/`fast`/`balanced`/`economical` rates) |
 | `features.cache_control_breakpoints` | `capabilities.cache_breakpoints` |
 | `auth.credentials = ["env:NAME", ...]` | `auth` scheme + a `ConventionalCredentials` mapping |
 | `extra_headers` (non-secret values only) | `default_headers` |

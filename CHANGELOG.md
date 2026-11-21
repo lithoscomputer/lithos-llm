@@ -6,6 +6,50 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Speed::Ultrafast` is OpenAI's Ultrafast tier, sent as `service_tier:
+  "ultrafast"`, with `SpeedSupport::ultrafast` and `SpeedPricing::ultrafast`.
+  GPT-6.2 Astra, GPT-6.2 Sol, GPT-6 Astra, and GPT-6.1 Sol claim and price
+  it: 6x Standard, or 3x for the GPT-6.2 models through 2027-02-28. Unlike
+  the other speeds, a row that does not claim it does not support it, so a
+  request for it fails validation everywhere else; a passthrough model may
+  still ask for any speed. `Speed` was already non-exhaustive, but
+  `Speed::ALL` is now `[Speed; 4]`, and `SpeedSupport` and `SpeedPricing`
+  built with struct literals need the new field. The CLI's capability
+  output lists `ultrafast`.
+
+- The GPT-5.5 Pro and GPT-5.4 Pro rows price Flex, which OpenAI's pricing
+  page now lists for them; their speed claims are unchanged until a flex
+  request is probed.
+
+- Cache writes are priced by lifetime. `TokenCounts::long_cache_write` is
+  the share of `cache_write` written with the provider's longer lifetime,
+  Anthropic's 1-hour cache and OpenAI's 12-hour cache, and
+  `long_cache_write_usd_micros_per_million` on `Pricing`,
+  `LongContextPricing`, and `SpeedRates` is its rate. Estimates bill those
+  tokens at it: a 1-hour write on Claude Opus 5.5 costs $8 per million
+  tokens, not the 5-minute $5. Anthropic usage reads the share from
+  `cache_creation.ephemeral_1h_input_tokens`, and Responses usage from
+  `input_tokens_details.cache_write_tokens_details.ttl_12h_tokens`; Chat
+  Completions reports no split. Anthropic and Bedrock rates without the field
+  derive it as 2x input, Anthropic's published premium. Every built-in
+  Anthropic row and every OpenAI row that prices cache writes carries it.
+  `TokenCounts::total` is unchanged, since the share is not a sixth bucket,
+  and serialized counts omit it when zero. `TokenCounts`, `Pricing`,
+  `LongContextPricing`, and `SpeedRates` built with struct literals need the
+  new field; `TokenCounts::with_long_cache_write` sets it.
+
+- `Pricing::for_request` selects the rates for a prompt length and speed,
+  and `LongContextPricing::scales_speeds` marks a long-context tier whose
+  premium also applies at a priced speed. Cost estimates use it. OpenAI
+  prices Fast and Flex above 272K input tokens at the speed's rate times the
+  standard long-context premium, so a Fast request over 272K input tokens on
+  GPT-6 Sol now costs $8 per million input tokens and $30 per million output
+  tokens, not the $4 and $20 short-context Fast rates the catalog charged.
+  Every built-in OpenAI long-context tier sets it. A tier without it keeps
+  the old behavior, in which a speed's rates apply across the whole prompt,
+  as Anthropic's fast mode does. A `LongContextPricing` built with a struct
+  literal needs the new field.
+
 - Each `wire` format's `Usage` has `token_counts()`, which returns the
   `TokenCounts` the client would report for it: five disjoint buckets that
   `Offering::estimate_cost` prices. It runs the codecs' own normalization,

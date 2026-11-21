@@ -228,6 +228,22 @@ quiet = true
 description = "Run all Rust tests in release mode"
 run = "cargo nextest run --cargo-quiet --status-level fail --show-progress none --locked --release --workspace --all-targets --all-features --no-tests=pass"
 
+# Not in `check`: it reads the providers' live pages, which change on their
+# schedule, not ours. Run it on a schedule and when touching catalog prices.
+[tasks."check:prices"]
+quiet = true
+description = "Compare Anthropic and OpenAI catalog prices with the providers' pricing pages"
+run = """
+set -e
+pages=$(mktemp -d)
+trap 'rm -rf "$pages"' EXIT
+curl -fsSL https://platform.claude.com/docs/en/about-claude/pricing.md -o "$pages/anthropic.md"
+curl -fsSL https://developers.openai.com/api/docs/pricing.md -o "$pages/openai.md"
+echo "Pages read $(date -u +%Y-%m-%dT%H:%MZ)"
+echo
+cargo run -q --locked --example check_prices -- "$pages/anthropic.md" "$pages/openai.md" "$@"
+"""
+
 [tasks."check:msrv"]
 quiet = true
 description = "Check all targets with the declared minimum Rust version"

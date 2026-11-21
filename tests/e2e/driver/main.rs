@@ -1635,11 +1635,12 @@ fn fixture_response(text: String) -> Response {
         ContentPart::Text { text },
     ]);
     response.usage = TokenCounts {
-        input:       1,
-        output:      2,
-        reasoning:   3,
-        cache_read:  4,
-        cache_write: 5,
+        input:            1,
+        output:           2,
+        reasoning:        3,
+        cache_read:       4,
+        cache_write:      5,
+        long_cache_write: 0,
     };
     response
 }

@@ -262,6 +262,9 @@ pub(super) fn message_body(
     }
     if let Some(speed) = request.speed() {
         let (key, value) = match speed {
+            // No Anthropic model claims Ultrafast, so validation rejects it
+            // before encoding; were one to, it would be a `speed` value.
+            Speed::Ultrafast => ("speed", "ultrafast"),
             Speed::Fast => ("speed", "fast"),
             Speed::Balanced => ("service_tier", "auto"),
             Speed::Economical => ("service_tier", "standard_only"),
