@@ -2067,6 +2067,38 @@ mod tests {
         Ok(())
     }
 
+    /// OpenAI lists Chat Completions so the catalog records that it serves
+    /// the format, but every generation call still goes through Responses,
+    /// and the pro rows, which OpenAI serves only on Responses, do not reach
+    /// Chat Completions at all.
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_openai_lists_chat_but_selects_responses() -> Result<(), Box<dyn StdError>> {
+        use crate::catalog::{CatalogModel, ModelId};
+
+        let catalog = Catalog::builder().with_builtin().build()?;
+        let provider = catalog.provider("openai")?;
+        let chat = CodecId::new(codec_ids::OPENAI_CHAT);
+        let passthrough = CatalogModel::passthrough(provider, ModelId::new("unlisted"));
+        for model in provider.models().chain([&passthrough]) {
+            let responses_only = ["gpt-5.5-pro", "gpt-5.4-pro"].contains(&model.id().as_str());
+            assert_eq!(
+                model.codecs().contains(&chat),
+                !responses_only,
+                "openai/{}",
+                model.id()
+            );
+            let route = ResolvedRoute::try_new(provider.clone(), model.clone())?;
+            assert_eq!(
+                select_codec(&route, CodecFamily::Generation),
+                Some(CodecId::new(codec_ids::OPENAI_RESPONSES)),
+                "openai/{}",
+                model.id()
+            );
+        }
+        Ok(())
+    }
+
     /// Answers every request with a fixed JSON document as text.
     struct JsonTextAdapter;
 
