@@ -6,6 +6,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Pricing::for_request` selects the rates for a prompt length and speed,
+  and `LongContextPricing::scales_speeds` marks a long-context tier whose
+  premium also applies at a priced speed. Cost estimates use it. OpenAI
+  prices Fast and Flex above 272K input tokens at the speed's rate times the
+  standard long-context premium, so a Fast request over 272K input tokens on
+  GPT-6 Sol now costs $8 per million input tokens and $30 per million output
+  tokens, not the $4 and $20 short-context Fast rates the catalog charged.
+  Every built-in OpenAI long-context tier sets it. A tier without it keeps
+  the old behavior, in which a speed's rates apply across the whole prompt,
+  as Anthropic's fast mode does. A `LongContextPricing` built with a struct
+  literal needs the new field.
+
 - Each `wire` format's `Usage` has `token_counts()`, which returns the
   `TokenCounts` the client would report for it: five disjoint buckets that
   `Offering::estimate_cost` prices. It runs the codecs' own normalization,

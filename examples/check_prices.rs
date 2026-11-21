@@ -7,7 +7,7 @@
 //!
 //! Each catalog rate is the rate an estimate actually charges: the row's
 //! pricing selected for the prompt length and speed, as
-//! [`Pricing::for_input_tokens`] and [`Pricing::for_speed`] select it. So a
+//! [`Pricing::for_request`] selects it. So a
 //! long-context request at a speed is checked against the page's long-context
 //! rate for that speed, not only the stored fields. Rates the catalog schema
 //! has no place for, such as 1-hour cache writes, batch, and OpenAI's
@@ -312,11 +312,10 @@ impl AnthropicPage {
                 Some(&pricing.for_input_tokens(threshold + 1)),
             );
         }
-        let catalog_fast = pricing.speed.and_then(|speed| speed.fast).map(|_| {
-            pricing
-                .for_input_tokens(short_tokens)
-                .for_speed(Some(Speed::Fast))
-        });
+        let catalog_fast = pricing
+            .speed
+            .and_then(|speed| speed.fast)
+            .map(|_| pricing.for_request(short_tokens, Some(Speed::Fast)));
         if let (Some((input, output)), Some(standard)) = (page.fast, page.standard) {
             // Caching multipliers apply on top of fast pricing.
             let scale = |rate: u64| rate * input / standard.input;
@@ -501,10 +500,8 @@ impl OpenAiPage {
             }
             let catalog = priced.then(|| {
                 [
-                    pricing.for_input_tokens(self.threshold).for_speed(speed),
-                    pricing
-                        .for_input_tokens(self.threshold + 1)
-                        .for_speed(speed),
+                    pricing.for_request(self.threshold, speed),
+                    pricing.for_request(self.threshold + 1, speed),
                 ]
             });
             openai_rows(

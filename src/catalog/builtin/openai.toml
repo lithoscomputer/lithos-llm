@@ -41,9 +41,12 @@
 # Speed tiers: `fast` maps to priority processing and `economical` to flex.
 # Flex is 0.5x standard on every row that has it. Priority is 2x standard
 # except gpt-5.5, which OpenAI prices at 2.5x. The speed rates below are
-# short-context rates; a long-context request at a priority or flex tier
-# still bills that tier's short-context rate here because the schema
-# applies speed overrides after the long-context selection.
+# short-context rates. Every long-context tier sets `scales_speeds`: the
+# pricing page's Fast and Flex tables price a request above 272K input
+# tokens at the tier's short rate times the standard long-context premium
+# (2x input, 1.5x output, 2x cache), checked on 2026-11-21 with
+# `mise run check:prices`. The page lists no long-context Fast rate for
+# gpt-5.5 or gpt-5.4, so theirs assumes the same premium.
 #
 # Access paths: this provider entry is the API-key platform
 # (`platform.openai.com`, bearer `OPENAI_API_KEY`). OpenAI also serves a
@@ -88,7 +91,7 @@ api_model = "gpt-6.2-astra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 10000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 60000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 20000000 }, speed = { fast = { input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 80000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 20000000 } } }
+pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 10000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 60000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 20000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 80000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 20000000 } } }
 family = "gpt-6"
 training_cutoff = "2026-05-18"
 knowledge_cutoff = "May 18, 2026"
@@ -105,7 +108,7 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # `temperature` and `top_p`, so this row deliberately makes no sampling claim.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 20000000, output_usd_micros_per_million = 75000000, cached_input_usd_micros_per_million = 2000000, cache_write_usd_micros_per_million = 25000000 }, speed = { fast = { input_usd_micros_per_million = 20000000, output_usd_micros_per_million = 100000000, cached_input_usd_micros_per_million = 2000000, cache_write_usd_micros_per_million = 25000000 }, economical = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 } } }
+pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 20000000, output_usd_micros_per_million = 75000000, cached_input_usd_micros_per_million = 2000000, cache_write_usd_micros_per_million = 25000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 20000000, output_usd_micros_per_million = 100000000, cached_input_usd_micros_per_million = 2000000, cache_write_usd_micros_per_million = 25000000 }, economical = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 } } }
 family = "gpt-6"
 training_cutoff = "2026-04-30"
 knowledge_cutoff = "April 30, 2026"
@@ -120,7 +123,7 @@ api_model = "gpt-6.2-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 } } }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 } } }
 family = "gpt-6"
 training_cutoff = "2026-06-01"
 knowledge_cutoff = "June 1, 2026"
@@ -135,7 +138,7 @@ api_model = "gpt-6.1-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 1250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }, speed = { fast = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }, economical = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 25000, cache_write_usd_micros_per_million = 625000 } } }
+pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 1250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }, economical = { input_usd_micros_per_million = 500000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 25000, cache_write_usd_micros_per_million = 625000 } } }
 family = "gpt-6"
 training_cutoff = "2026-06-01"
 knowledge_cutoff = "June 1, 2026"
@@ -153,7 +156,7 @@ api_model = "gpt-6.1-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 1250000 } } }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 1250000 } } }
 family = "gpt-6"
 training_cutoff = "2026-04-30"
 knowledge_cutoff = "April 30, 2026"
@@ -176,7 +179,7 @@ api_model = "gpt-6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 } } }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 } } }
 family = "gpt-6"
 training_cutoff = "2026-04-20"
 knowledge_cutoff = "April 20, 2026"
@@ -199,7 +202,7 @@ api_model = "gpt-6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 200000, output_usd_micros_per_million = 750000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000 }, speed = { fast = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1000000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000 }, economical = { input_usd_micros_per_million = 50000, output_usd_micros_per_million = 250000, cached_input_usd_micros_per_million = 5000, cache_write_usd_micros_per_million = 62500 } } }
+pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 200000, output_usd_micros_per_million = 750000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1000000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000 }, economical = { input_usd_micros_per_million = 50000, output_usd_micros_per_million = 250000, cached_input_usd_micros_per_million = 5000, cache_write_usd_micros_per_million = 62500 } } }
 family = "gpt-6"
 training_cutoff = "2026-05-18"
 knowledge_cutoff = "May 18, 2026"
@@ -214,7 +217,7 @@ api_model = "gpt-5.6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000 }, speed = { fast = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000 }, economical = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 } } }
+pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 800000, cache_write_usd_micros_per_million = 10000000 }, economical = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 } } }
 family = "gpt-5"
 training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
@@ -229,7 +232,7 @@ api_model = "gpt-5.6-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 24000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 } } }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 12000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 18000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 24000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 5000000 }, economical = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 6000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 } } }
 family = "gpt-5"
 training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
@@ -246,7 +249,7 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # claim an earlier revision of this row carried is gone.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1800000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 }, speed = { fast = { input_usd_micros_per_million = 400000, output_usd_micros_per_million = 2400000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 }, economical = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 600000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000 } } }
+pricing = { input_usd_micros_per_million = 200000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 20000, cache_write_usd_micros_per_million = 250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 400000, output_usd_micros_per_million = 1800000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 400000, output_usd_micros_per_million = 2400000, cached_input_usd_micros_per_million = 40000, cache_write_usd_micros_per_million = 500000 }, economical = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 600000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000 } } }
 family = "gpt-5"
 training_cutoff = "2026-02-16"
 knowledge_cutoff = "February 16, 2026"
@@ -264,7 +267,7 @@ protocol_options = { reasoning_effort_levels = true }
 # The flex cached-input rate renders as $0.13 on the pricing page; flex is
 # exactly half of standard everywhere else on the page, so the rate below
 # is the unrounded 0.5 x $0.25.
-pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 500000 }, speed = { fast = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 500000 }, economical = { input_usd_micros_per_million = 1250000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 125000 } } }
+pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 22500000, cached_input_usd_micros_per_million = 500000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 500000 }, economical = { input_usd_micros_per_million = 1250000, output_usd_micros_per_million = 7500000, cached_input_usd_micros_per_million = 125000 } } }
 family = "gpt-5"
 training_cutoff = "2025-08-31"
 # fabro carried "April 2025", but the developer docs date the 5.4 family's
@@ -281,7 +284,7 @@ capabilities = { text = true, images = true, documents = true, tools = true, res
 protocol_options = { reasoning_effort_levels = true }
 # Priority on this row is 2.5x standard, not the 2x every other fast tier
 # uses — the pricing page lists $12.50/$75.00 against $5.00/$30.00.
-pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 45000000, cached_input_usd_micros_per_million = 1000000 }, speed = { fast = { input_usd_micros_per_million = 12500000, output_usd_micros_per_million = 75000000, cached_input_usd_micros_per_million = 1250000 }, economical = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000 } } }
+pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 30000000, cached_input_usd_micros_per_million = 500000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 45000000, cached_input_usd_micros_per_million = 1000000, scales_speeds = true }, speed = { fast = { input_usd_micros_per_million = 12500000, output_usd_micros_per_million = 75000000, cached_input_usd_micros_per_million = 1250000 }, economical = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 250000 } } }
 family = "gpt-5"
 training_cutoff = "2025-12-01"
 knowledge_cutoff = "December 2025"
@@ -300,7 +303,7 @@ limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # observed downgrading to `default` on 2026-08-30.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000 } }
+pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000, scales_speeds = true } }
 family = "gpt-5"
 training_cutoff = "2025-12-01"
 knowledge_cutoff = "December 2025"
@@ -317,7 +320,7 @@ codecs = ["openai-responses"]
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000 } }
+pricing = { input_usd_micros_per_million = 30000000, output_usd_micros_per_million = 180000000, long_context = { above_input_tokens = 272000, input_usd_micros_per_million = 60000000, output_usd_micros_per_million = 270000000, scales_speeds = true } }
 family = "gpt-5"
 training_cutoff = "2025-08-31"
 knowledge_cutoff = "August 31, 2025"
