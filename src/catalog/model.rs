@@ -43,6 +43,10 @@ pub struct ModelLimits {
 /// `cached_input_usd_micros_per_million` prices cache reads and
 /// `cache_write_usd_micros_per_million` prices tokens written into a provider
 /// cache. Callers that do not find either should fall back to the input rate.
+/// `long_cache_write_usd_micros_per_million` prices the cache writes made with
+/// the provider's longer lifetime (see [`TokenCounts::long_cache_write`]).
+///
+/// [`TokenCounts::long_cache_write`]: crate::types::TokenCounts::long_cache_write
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Pricing {
@@ -50,6 +54,8 @@ pub struct Pricing {
     pub output_usd_micros_per_million: Option<u64>,
     pub cached_input_usd_micros_per_million: Option<u64>,
     pub cache_write_usd_micros_per_million: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_cache_write_usd_micros_per_million: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub long_context: Option<LongContextPricing>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -65,6 +71,8 @@ pub struct LongContextPricing {
     pub output_usd_micros_per_million: Option<u64>,
     pub cached_input_usd_micros_per_million: Option<u64>,
     pub cache_write_usd_micros_per_million: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_cache_write_usd_micros_per_million: Option<u64>,
     /// Whether the premium also applies at a priced speed: above the
     /// threshold, each of the speed's rates scales by the ratio of this
     /// tier's rate to the base rate, as OpenAI prices Fast and Flex. Without
@@ -116,13 +124,15 @@ impl SpeedPricing {
 #[serde(deny_unknown_fields)]
 pub struct SpeedRates {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub input_usd_micros_per_million:        Option<u64>,
+    pub input_usd_micros_per_million:            Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub output_usd_micros_per_million:       Option<u64>,
+    pub output_usd_micros_per_million:           Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cached_input_usd_micros_per_million: Option<u64>,
+    pub cached_input_usd_micros_per_million:     Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cache_write_usd_micros_per_million:  Option<u64>,
+    pub cache_write_usd_micros_per_million:      Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_cache_write_usd_micros_per_million: Option<u64>,
 }
 
 impl Pricing {
@@ -151,6 +161,9 @@ impl Pricing {
             cache_write_usd_micros_per_million: long_context
                 .cache_write_usd_micros_per_million
                 .or(self.cache_write_usd_micros_per_million),
+            long_cache_write_usd_micros_per_million: long_context
+                .long_cache_write_usd_micros_per_million
+                .or(self.long_cache_write_usd_micros_per_million),
             long_context: self.long_context,
             speed: self.speed,
         }
@@ -207,6 +220,11 @@ impl Pricing {
                 self.cache_write_usd_micros_per_million,
                 long.cache_write_usd_micros_per_million,
             ),
+            long_cache_write_usd_micros_per_million: scale(
+                short.long_cache_write_usd_micros_per_million,
+                self.long_cache_write_usd_micros_per_million,
+                long.long_cache_write_usd_micros_per_million,
+            ),
             ..sped
         }
     }
@@ -239,6 +257,9 @@ impl Pricing {
             cache_write_usd_micros_per_million: rates
                 .cache_write_usd_micros_per_million
                 .or(self.cache_write_usd_micros_per_million),
+            long_cache_write_usd_micros_per_million: rates
+                .long_cache_write_usd_micros_per_million
+                .or(self.long_cache_write_usd_micros_per_million),
             long_context: self.long_context,
             speed: self.speed,
         }
@@ -312,8 +333,10 @@ pub struct CatalogModel {
     capabilities:         ModelCapabilities,
     #[serde(default)]
     protocol_options:     ModelProtocolOptions,
+    /// Boxed because a route carries its model through every async call,
+    /// and the rates are most of a model's inline size.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pricing:              Option<Pricing>,
+    pricing:              Option<Box<Pricing>>,
     #[serde(default, skip_serializing_if = "Metadata::is_empty")]
     metadata:             Metadata,
 }
@@ -419,7 +442,7 @@ impl CatalogModel {
     }
 
     pub fn pricing(&self) -> Option<Pricing> {
-        self.pricing
+        self.pricing.as_deref().copied()
     }
 
     pub fn metadata(&self) -> &Metadata {
@@ -493,7 +516,7 @@ impl CatalogModel {
             limits: record.limits,
             capabilities: record.capabilities,
             protocol_options: record.protocol_options,
-            pricing: record.pricing,
+            pricing: record.pricing.map(Box::new),
             metadata: record.metadata,
         })
     }
@@ -557,12 +580,14 @@ mod tests {
             output_usd_micros_per_million: Some(2),
             cached_input_usd_micros_per_million: Some(3),
             cache_write_usd_micros_per_million: Some(7),
+            long_cache_write_usd_micros_per_million: None,
             long_context: Some(LongContextPricing {
                 above_input_tokens: 200_000,
                 input_usd_micros_per_million: Some(4),
                 output_usd_micros_per_million: Some(5),
                 cached_input_usd_micros_per_million: Some(6),
                 cache_write_usd_micros_per_million: Some(8),
+                long_cache_write_usd_micros_per_million: None,
                 scales_speeds: false,
             }),
             speed: None,
@@ -614,6 +639,7 @@ mod tests {
                 output_usd_micros_per_million: None,
                 cached_input_usd_micros_per_million: None,
                 cache_write_usd_micros_per_million: None,
+                long_cache_write_usd_micros_per_million: None,
                 scales_speeds: false,
             }),
             ..sample_pricing()

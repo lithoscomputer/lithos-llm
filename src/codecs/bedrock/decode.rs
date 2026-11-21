@@ -17,11 +17,12 @@ pub(super) fn token_counts(usage: Option<&Value>) -> TokenCounts {
     };
     let count = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or_default();
     TokenCounts {
-        input:       count("inputTokens"),
-        output:      count("outputTokens"),
-        reasoning:   0,
-        cache_read:  count("cacheReadInputTokens"),
-        cache_write: count("cacheWriteInputTokens"),
+        input:            count("inputTokens"),
+        output:           count("outputTokens"),
+        reasoning:        0,
+        cache_read:       count("cacheReadInputTokens"),
+        cache_write:      count("cacheWriteInputTokens"),
+        long_cache_write: 0,
     }
 }
 

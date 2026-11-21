@@ -54,7 +54,7 @@ api_model = "claude-fable-5-2"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = true, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 10000000, speed = { fast = { input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 80000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 20000000 } } }
+pricing = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 10000000, long_cache_write_usd_micros_per_million = 16000000, speed = { fast = { input_usd_micros_per_million = 16000000, output_usd_micros_per_million = 80000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 20000000, long_cache_write_usd_micros_per_million = 32000000 } } }
 family = "claude-5"
 
 [providers.anthropic.models."claude-fable-5.2".metadata.agent]
@@ -74,7 +74,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # block on this model, so hoisting would invalidate them (probed 2026-09-01).
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000 }
+pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 250000, cache_write_usd_micros_per_million = 12500000, long_cache_write_usd_micros_per_million = 20000000 }
 family = "claude-5"
 
 [providers.anthropic.models."claude-fable-5.1".metadata.agent]
@@ -89,7 +89,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Takes mid-conversation system turns (probed 2026-09-01).
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 }
+pricing = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000, long_cache_write_usd_micros_per_million = 20000000 }
 family = "claude-5"
 
 [providers.anthropic.models."claude-fable-5".metadata.agent]
@@ -109,7 +109,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # release notes, the live listing, and raw Messages API probes.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = true, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000, speed = { fast = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 10000000 } } }
+pricing = { input_usd_micros_per_million = 4000000, output_usd_micros_per_million = 20000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 5000000, long_cache_write_usd_micros_per_million = 8000000, speed = { fast = { input_usd_micros_per_million = 8000000, output_usd_micros_per_million = 40000000, cached_input_usd_micros_per_million = 400000, cache_write_usd_micros_per_million = 10000000, long_cache_write_usd_micros_per_million = 16000000 } } }
 family = "claude-5"
 training_cutoff = "2026-06-01"
 knowledge_cutoff = "Jun 2026"
@@ -125,7 +125,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Takes mid-conversation system turns (probed 2026-09-01).
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
+pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, long_cache_write_usd_micros_per_million = 10000000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000, long_cache_write_usd_micros_per_million = 20000000 } } }
 family = "claude-5"
 training_cutoff = "2026-05-01"
 knowledge_cutoff = "May 2026"
@@ -142,7 +142,7 @@ api_model = "claude-haiku-5-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000, long_context = { above_input_tokens = 100000, input_usd_micros_per_million = 500000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 625000 } }
+pricing = { input_usd_micros_per_million = 100000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 10000, cache_write_usd_micros_per_million = 125000, long_cache_write_usd_micros_per_million = 200000, long_context = { above_input_tokens = 100000, input_usd_micros_per_million = 500000, output_usd_micros_per_million = 2500000, cached_input_usd_micros_per_million = 50000, cache_write_usd_micros_per_million = 625000, long_cache_write_usd_micros_per_million = 1000000 } }
 family = "claude-5"
 training_cutoff = "2026-06-01"
 knowledge_cutoff = "Jun 2026"
@@ -160,7 +160,7 @@ api_model = "claude-sonnet-5-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000 }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 2500000, long_cache_write_usd_micros_per_million = 4000000 }
 family = "claude-5"
 training_cutoff = "2026-06-01"
 knowledge_cutoff = "Jun 2026"
@@ -178,7 +178,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # 2026-09-01).
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000 }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000, cache_write_usd_micros_per_million = 2500000, long_cache_write_usd_micros_per_million = 4000000 }
 family = "claude-5"
 training_cutoff = "2026-01-01"
 knowledge_cutoff = "Jan 2026"
@@ -195,7 +195,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Takes mid-conversation system turns (probed 2026-09-01).
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = false } }
 protocol_options = { system_turns = true, reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000 } } }
+pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, long_cache_write_usd_micros_per_million = 10000000, speed = { fast = { input_usd_micros_per_million = 10000000, output_usd_micros_per_million = 50000000, cached_input_usd_micros_per_million = 1000000, cache_write_usd_micros_per_million = 12500000, long_cache_write_usd_micros_per_million = 20000000 } } }
 family = "claude-4"
 training_cutoff = "2026-01-01"
 knowledge_cutoff = "Jan 2026"
@@ -212,7 +212,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # all hoisted.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
+pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, long_cache_write_usd_micros_per_million = 10000000 }
 family = "claude-4"
 training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
@@ -227,7 +227,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # sampling controls after a caller explicitly disables thinking.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000 }
+pricing = { input_usd_micros_per_million = 5000000, output_usd_micros_per_million = 25000000, cached_input_usd_micros_per_million = 500000, cache_write_usd_micros_per_million = 6250000, long_cache_write_usd_micros_per_million = 10000000 }
 family = "claude-4"
 training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
@@ -240,7 +240,7 @@ api_model = "claude-sonnet-4-5-20250929"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # This older model uses a manual thinking budget, not named effort levels.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
-pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000, long_cache_write_usd_micros_per_million = 6000000 }
 family = "claude-4"
 training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
@@ -256,7 +256,7 @@ limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # default route, so sampling stays unclaimed.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
-pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000 }
+pricing = { input_usd_micros_per_million = 3000000, output_usd_micros_per_million = 15000000, cached_input_usd_micros_per_million = 300000, cache_write_usd_micros_per_million = 3750000, long_cache_write_usd_micros_per_million = 6000000 }
 family = "claude-4"
 training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"
@@ -271,7 +271,7 @@ limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # Haiku takes manual thinking, so the row claims reasoning without effort
 # levels. Anthropic's current price is $1/$5, not fabro's $0.80/$4.
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
-pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000 }
+pricing = { input_usd_micros_per_million = 1000000, output_usd_micros_per_million = 5000000, cached_input_usd_micros_per_million = 100000, cache_write_usd_micros_per_million = 1250000, long_cache_write_usd_micros_per_million = 2000000 }
 family = "claude-4"
 training_cutoff = "2025-08-01"
 knowledge_cutoff = "May 2025"

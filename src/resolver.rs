@@ -436,11 +436,12 @@ mod tests {
 
         let cost = route.estimate_cost(
             TokenCounts {
-                input:       1_000,
-                output:      1_000,
-                reasoning:   1_000,
-                cache_read:  1_000,
-                cache_write: 1_000,
+                input:            1_000,
+                output:           1_000,
+                reasoning:        1_000,
+                cache_read:       1_000,
+                cache_write:      1_000,
+                long_cache_write: 0,
             },
             None,
         );

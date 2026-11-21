@@ -161,5 +161,6 @@ pub(super) fn token_counts(metadata: &Value) -> TokenCounts {
         reasoning: count("thoughtsTokenCount"),
         cache_read,
         cache_write: 0,
+        long_cache_write: 0,
     }
 }

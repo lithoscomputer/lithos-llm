@@ -285,7 +285,7 @@ impl AnthropicPage {
         let Some(page) = self.models.get(model.display_name()) else {
             return Vec::new();
         };
-        let pricing = model.pricing().unwrap_or_else(empty_pricing);
+        let pricing = model.pricing().unwrap_or_default();
         let mut rates = Vec::new();
         let short_tokens = page.long.map_or(0, |(threshold, _)| threshold);
         if let Some(row) = page.standard {
@@ -353,7 +353,7 @@ fn anthropic_rows(
     row: AnthropicRow,
     catalog: Option<&Pricing>,
 ) {
-    let catalog = catalog.copied().unwrap_or_else(empty_pricing);
+    let catalog = catalog.copied().unwrap_or_default();
     rates.extend([
         Rate::usd(
             format!("{prefix}input"),
@@ -375,7 +375,11 @@ fn anthropic_rows(
             Some(row.write_5m),
             catalog.cache_write_usd_micros_per_million,
         ),
-        Rate::unmodelled(format!("{prefix}1h cache write"), Some(row.write_1h)),
+        Rate::usd(
+            format!("{prefix}1h cache write"),
+            Some(row.write_1h),
+            catalog.long_cache_write_usd_micros_per_million,
+        ),
     ]);
 }
 
@@ -468,7 +472,7 @@ impl OpenAiPage {
         if !self.tiers.values().any(|models| models.contains_key(name)) {
             return Vec::new();
         }
-        let pricing = model.pricing().unwrap_or_else(empty_pricing);
+        let pricing = model.pricing().unwrap_or_default();
         let mut rates = vec![Rate {
             tokens: true,
             ..Rate::usd(
@@ -540,9 +544,9 @@ fn openai_rows(
                 1 => pricing.output_usd_micros_per_million,
                 2 => pricing.cached_input_usd_micros_per_million,
                 3 => pricing.cache_write_usd_micros_per_million,
-                _ => None,
+                _ => pricing.long_cache_write_usd_micros_per_million,
             });
-            rates.push(if modelled && column < 4 {
+            rates.push(if modelled {
                 Rate::usd(label, page, rate)
             } else if page.is_some() {
                 Rate::unmodelled(label, page)
@@ -550,17 +554,6 @@ fn openai_rows(
                 continue;
             });
         }
-    }
-}
-
-fn empty_pricing() -> Pricing {
-    Pricing {
-        input_usd_micros_per_million: None,
-        output_usd_micros_per_million: None,
-        cached_input_usd_micros_per_million: None,
-        cache_write_usd_micros_per_million: None,
-        long_context: None,
-        speed: None,
     }
 }
 
@@ -730,7 +723,7 @@ Short context: ≤272K input tokens. Long context: >272K input tokens.
         let opus = page.rates(anthropic.model("claude-opus-5.5").ok_or("opus 5.5")?);
         assert_eq!(verdict(&opus, "Fast cache read"), Some(Verdict::Match));
         assert_eq!(verdict(&opus, "Fast 5m cache write"), Some(Verdict::Match));
-        assert_eq!(verdict(&opus, "1h cache write"), Some(Verdict::NotModelled));
+        assert_eq!(verdict(&opus, "1h cache write"), Some(Verdict::Match));
 
         // The fixture's long-context output is $2.75, not the catalog's $2.50.
         let haiku = page.rates(anthropic.model("claude-haiku-5.5").ok_or("haiku 5.5")?);

@@ -98,19 +98,34 @@ impl Visitor<'_> for FinishReasonVisitor {
 pub struct TokenCounts {
     /// Prompt tokens that were neither read from nor written to a cache.
     #[serde(default)]
-    pub input:       u64,
+    pub input:            u64,
     /// Completion tokens that are not reasoning tokens.
     #[serde(default)]
-    pub output:      u64,
+    pub output:           u64,
     /// Completion tokens spent on reasoning, billed at the output rate.
     #[serde(default)]
-    pub reasoning:   u64,
+    pub reasoning:        u64,
     /// Prompt tokens served from a provider cache.
     #[serde(default)]
-    pub cache_read:  u64,
+    pub cache_read:       u64,
     /// Prompt tokens written into a provider cache.
     #[serde(default)]
-    pub cache_write: u64,
+    pub cache_write:      u64,
+    /// Of `cache_write`, the tokens written with the provider's longer cache
+    /// lifetime, which bills at a higher rate: Anthropic's 1-hour cache and
+    /// OpenAI's 12-hour cache. A breakdown of `cache_write`, not a sixth
+    /// bucket, so [`TokenCounts::total`] does not add it again. Zero when the
+    /// provider reports no split.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub long_cache_write: u64,
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's skip_serializing_if passes a reference"
+)]
+fn is_zero(value: &u64) -> bool {
+    *value == 0
 }
 
 impl<'de> Deserialize<'de> for TokenCounts {
@@ -133,6 +148,9 @@ impl<'de> Deserialize<'de> for TokenCounts {
                         "reasoning" => (&mut counts.reasoning, 4, "reasoning"),
                         "cache_read" => (&mut counts.cache_read, 8, "cache_read"),
                         "cache_write" => (&mut counts.cache_write, 16, "cache_write"),
+                        "long_cache_write" => {
+                            (&mut counts.long_cache_write, 32, "long_cache_write")
+                        }
                         "input_tokens" | "output_tokens" | "reasoning_tokens"
                         | "cache_read_tokens" | "cache_write_tokens" => {
                             // These are historical bucket names, not additive metadata.
@@ -151,6 +169,11 @@ impl<'de> Deserialize<'de> for TokenCounts {
                     }
                     seen |= bit;
                     *field = map.next_value()?;
+                }
+                if counts.long_cache_write > counts.cache_write {
+                    return Err(A::Error::custom(
+                        "long_cache_write is a part of cache_write and cannot exceed it",
+                    ));
                 }
                 Ok(counts)
             }
@@ -184,6 +207,17 @@ impl TokenCounts {
             reasoning,
             cache_read,
             cache_write,
+            long_cache_write: 0,
+        }
+    }
+
+    /// These counts with `tokens` of the cache writes marked as written with
+    /// the longer cache lifetime, clamped to `cache_write`.
+    #[must_use]
+    pub fn with_long_cache_write(self, tokens: u64) -> Self {
+        Self {
+            long_cache_write: tokens.min(self.cache_write),
+            ..self
         }
     }
 
@@ -205,11 +239,12 @@ impl TokenCounts {
     #[must_use]
     pub fn saturating_add(self, other: Self) -> Self {
         Self {
-            input:       self.input.saturating_add(other.input),
-            output:      self.output.saturating_add(other.output),
-            reasoning:   self.reasoning.saturating_add(other.reasoning),
-            cache_read:  self.cache_read.saturating_add(other.cache_read),
-            cache_write: self.cache_write.saturating_add(other.cache_write),
+            input:            self.input.saturating_add(other.input),
+            output:           self.output.saturating_add(other.output),
+            reasoning:        self.reasoning.saturating_add(other.reasoning),
+            cache_read:       self.cache_read.saturating_add(other.cache_read),
+            cache_write:      self.cache_write.saturating_add(other.cache_write),
+            long_cache_write: self.long_cache_write.saturating_add(other.long_cache_write),
         }
     }
 }
@@ -660,11 +695,12 @@ mod tests {
     #[test]
     fn total_counts_every_bucket_exactly_once() {
         let usage = TokenCounts {
-            input:       10,
-            output:      20,
-            reasoning:   30,
-            cache_read:  40,
-            cache_write: 50,
+            input:            10,
+            output:           20,
+            reasoning:        30,
+            cache_read:       40,
+            cache_write:      50,
+            long_cache_write: 0,
         };
 
         assert_eq!(usage.total(), 150);
@@ -723,11 +759,12 @@ mod tests {
         let usage = TokenCounts::from_inclusive(100, 60, 25, 30, 10);
 
         assert_eq!(usage, TokenCounts {
-            input:       60,
-            output:      35,
-            reasoning:   25,
-            cache_read:  30,
-            cache_write: 10,
+            input:            60,
+            output:           35,
+            reasoning:        25,
+            cache_read:       30,
+            cache_write:      10,
+            long_cache_write: 0,
         });
         assert_eq!(usage.total(), 160);
     }
@@ -739,11 +776,12 @@ mod tests {
         let usage = TokenCounts::from_inclusive(5, 3, 9, 7, 8);
 
         assert_eq!(usage, TokenCounts {
-            input:       0,
-            output:      0,
-            reasoning:   3,
-            cache_read:  5,
-            cache_write: 0,
+            input:            0,
+            output:           0,
+            reasoning:        3,
+            cache_read:       5,
+            cache_write:      0,
+            long_cache_write: 0,
         });
         assert_eq!(usage.total(), 8);
     }
@@ -751,26 +789,29 @@ mod tests {
     #[test]
     fn saturating_add_adds_every_bucket_without_wrapping() {
         let left = TokenCounts {
-            input:       1,
-            output:      2,
-            reasoning:   3,
-            cache_read:  4,
-            cache_write: u64::MAX,
+            input:            1,
+            output:           2,
+            reasoning:        3,
+            cache_read:       4,
+            cache_write:      u64::MAX,
+            long_cache_write: 0,
         };
         let right = TokenCounts {
-            input:       10,
-            output:      20,
-            reasoning:   30,
-            cache_read:  40,
-            cache_write: 1,
+            input:            10,
+            output:           20,
+            reasoning:        30,
+            cache_read:       40,
+            cache_write:      1,
+            long_cache_write: 0,
         };
 
         assert_eq!(left.saturating_add(right), TokenCounts {
-            input:       11,
-            output:      22,
-            reasoning:   33,
-            cache_read:  44,
-            cache_write: u64::MAX,
+            input:            11,
+            output:           22,
+            reasoning:        33,
+            cache_read:       44,
+            cache_write:      u64::MAX,
+            long_cache_write: 0,
         });
     }
 

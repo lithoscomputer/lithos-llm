@@ -1022,11 +1022,12 @@ mod tests {
         });
         assert_eq!(second, StreamEvent::Usage {
             usage: TokenCounts {
-                input:       60,
-                output:      35,
-                reasoning:   25,
-                cache_read:  30,
-                cache_write: 10,
+                input:            60,
+                output:           35,
+                reasoning:        25,
+                cache_read:       30,
+                cache_write:      10,
+                long_cache_write: 0,
             },
         });
 
@@ -1061,11 +1062,12 @@ mod tests {
         });
         assert_eq!(delta, StreamEvent::Usage {
             usage: TokenCounts {
-                input:       11,
-                output:      5,
-                reasoning:   0,
-                cache_read:  2,
-                cache_write: 1,
+                input:            11,
+                output:           5,
+                reasoning:        0,
+                cache_read:       2,
+                cache_write:      1,
+                long_cache_write: 0,
             },
         });
         Ok(())

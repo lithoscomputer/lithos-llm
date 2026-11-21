@@ -49,8 +49,13 @@ pub(crate) fn estimate_catalog_cost(
 /// another rate) would stamp a confidently wrong figure, and no cost is more
 /// honest than a wrong one. One exception: `anthropic_rates` derives a missing
 /// cache-write rate as 1.25x input, Anthropic's published premium for the
-/// default five-minute cache, so a migrated Anthropic or Bedrock entry
-/// without the explicit field keeps estimating what the provider charges.
+/// default five-minute cache, and a missing long cache-write rate as 2x input,
+/// its premium for the 1-hour cache, so a migrated Anthropic or Bedrock entry
+/// without the explicit fields keeps estimating what the provider charges.
+///
+/// Cache writes made with the longer lifetime, a share of the cache-write
+/// bucket, bill at the long cache-write rate and the rest at the cache-write
+/// rate.
 ///
 /// A long-context rate tier is selected on the whole prompt, which is the input
 /// bucket plus both cache buckets. A speed rate wins over a long-context rate,
@@ -84,10 +89,23 @@ fn catalog_cost(
                 .map(|rate| rate.saturating_mul(5) / 4)
         })?
     });
-    if usage.cache_write > 0 && cache_write_rate.is_none() {
+    let long_writes = usage.long_cache_write.min(usage.cache_write);
+    let short_writes = usage.cache_write - long_writes;
+    if short_writes > 0 && cache_write_rate.is_none() {
         return None;
     }
-    let cache_write = token_cost(usage.cache_write, cache_write_rate);
+    let long_write_rate = pricing.long_cache_write_usd_micros_per_million.or_else(|| {
+        anthropic_rates.then(|| {
+            pricing
+                .input_usd_micros_per_million
+                .map(|rate| rate.saturating_mul(2))
+        })?
+    });
+    if long_writes > 0 && long_write_rate.is_none() {
+        return None;
+    }
+    let cache_write = token_cost(short_writes, cache_write_rate)
+        .saturating_add(token_cost(long_writes, long_write_rate));
     if usage.billable_output() > 0 && pricing.output_usd_micros_per_million.is_none() {
         return None;
     }
@@ -125,6 +143,7 @@ mod tests {
             output_usd_micros_per_million: Some(2_000_000),
             cached_input_usd_micros_per_million: Some(100_000),
             cache_write_usd_micros_per_million: Some(500_000),
+            long_cache_write_usd_micros_per_million: None,
             long_context: None,
             speed: None,
         }
@@ -132,11 +151,12 @@ mod tests {
 
     fn usage() -> TokenCounts {
         TokenCounts {
-            input:       1_000,
-            output:      1_000,
-            reasoning:   1_000,
-            cache_read:  1_000,
-            cache_write: 1_000,
+            input:            1_000,
+            output:           1_000,
+            reasoning:        1_000,
+            cache_read:       1_000,
+            cache_write:      1_000,
+            long_cache_write: 0,
         }
     }
 
@@ -151,6 +171,32 @@ mod tests {
     }
 
     #[test]
+    fn long_lived_cache_writes_bill_at_their_own_rate() {
+        // 300 of the 1000 cache writes used the longer lifetime.
+        let usage = usage().with_long_cache_write(300);
+        let pricing = Pricing {
+            long_cache_write_usd_micros_per_million: Some(800_000),
+            ..pricing()
+        };
+
+        // 1000 input + 100 read + 700 x 0.5 + 300 x 0.8 + 4000 output.
+        assert_eq!(
+            catalog_cost(usage, Some(&pricing), None, false).map(|cost| cost.usd_micros),
+            Some(5_690)
+        );
+        // Without the rate there is no honest estimate, unless the rates are
+        // Anthropic's, whose 1-hour write is 2x input: 300 x 2.0 = 600.
+        assert_eq!(
+            catalog_cost(usage, Some(&self::pricing()), None, false),
+            None
+        );
+        assert_eq!(
+            catalog_cost(usage, Some(&self::pricing()), None, true).map(|cost| cost.usd_micros),
+            Some(6_050)
+        );
+    }
+
+    #[test]
     fn unpriced_cache_tokens_refuse_an_estimate() {
         // A non-empty cache bucket with no rate must not produce a cost:
         // billing those tokens at zero (or the input rate) stamps a
@@ -158,6 +204,7 @@ mod tests {
         let pricing = Pricing {
             cached_input_usd_micros_per_million: None,
             cache_write_usd_micros_per_million: None,
+            long_cache_write_usd_micros_per_million: None,
             ..pricing()
         };
 
@@ -216,6 +263,7 @@ mod tests {
     fn anthropic_rates_derive_the_cache_write_premium() {
         let pricing = Pricing {
             cache_write_usd_micros_per_million: None,
+            long_cache_write_usd_micros_per_million: None,
             ..pricing()
         };
 
@@ -228,6 +276,7 @@ mod tests {
         // An explicit catalog rate always wins over the derivation.
         let explicit = Pricing {
             cache_write_usd_micros_per_million: Some(500_000),
+            long_cache_write_usd_micros_per_million: None,
             ..pricing
         };
         assert_eq!(
@@ -265,6 +314,7 @@ mod tests {
                 output_usd_micros_per_million: Some(4_000_000),
                 cached_input_usd_micros_per_million: Some(200_000),
                 cache_write_usd_micros_per_million: Some(1_000_000),
+                long_cache_write_usd_micros_per_million: None,
                 scales_speeds: false,
             }),
             ..pricing()
@@ -281,10 +331,11 @@ mod tests {
         let pricing = Pricing {
             speed: Some(SpeedPricing {
                 fast: Some(SpeedRates {
-                    input_usd_micros_per_million:        Some(2_000_000),
-                    output_usd_micros_per_million:       Some(4_000_000),
-                    cached_input_usd_micros_per_million: Some(200_000),
-                    cache_write_usd_micros_per_million:  Some(1_000_000),
+                    input_usd_micros_per_million:            Some(2_000_000),
+                    output_usd_micros_per_million:           Some(4_000_000),
+                    cached_input_usd_micros_per_million:     Some(200_000),
+                    cache_write_usd_micros_per_million:      Some(1_000_000),
+                    long_cache_write_usd_micros_per_million: None,
                 }),
                 ..SpeedPricing::default()
             }),
@@ -321,14 +372,16 @@ mod tests {
                 output_usd_micros_per_million: None,
                 cached_input_usd_micros_per_million: None,
                 cache_write_usd_micros_per_million: None,
+                long_cache_write_usd_micros_per_million: None,
                 scales_speeds,
             }),
             speed: Some(SpeedPricing {
                 fast: Some(SpeedRates {
-                    input_usd_micros_per_million:        Some(2_000_000),
-                    output_usd_micros_per_million:       Some(4_000_000),
-                    cached_input_usd_micros_per_million: Some(200_000),
-                    cache_write_usd_micros_per_million:  Some(1_000_000),
+                    input_usd_micros_per_million:            Some(2_000_000),
+                    output_usd_micros_per_million:           Some(4_000_000),
+                    cached_input_usd_micros_per_million:     Some(200_000),
+                    cache_write_usd_micros_per_million:      Some(1_000_000),
+                    long_cache_write_usd_micros_per_million: None,
                 }),
                 ..SpeedPricing::default()
             }),

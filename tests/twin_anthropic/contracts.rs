@@ -59,7 +59,7 @@ pub(super) fn expected_parts() -> Vec<ContentPart> {
 }
 
 pub(super) fn expected() -> Value {
-    json!({"content":expected_parts(),"finish_reason":FinishReason::ToolCall,"usage":TokenCounts { input:11,output:19,reasoning:0,cache_write:7,cache_read:13 }})
+    json!({"content":expected_parts(),"finish_reason":FinishReason::ToolCall,"usage":TokenCounts { input:11,output:19,reasoning:0,cache_write:7, long_cache_write: 4,cache_read:13 }})
 }
 
 pub(super) fn semantic(response: &Response) -> Value {

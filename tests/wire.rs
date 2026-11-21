@@ -431,8 +431,9 @@ fn editing_one_field_changes_only_that_field() -> TestResult {
 #[test]
 fn anthropic_stream_usage_folds_its_split_counters_into_one_snapshot() -> TestResult {
     // Anthropic's input counter excludes both cache counters, so nothing is
-    // subtracted. Each `message_delta` restates the cumulative output, and a
-    // `null` input there leaves the start's input alone.
+    // subtracted. The 1-hour cache writes are a share of the cache writes. Each
+    // `message_delta` restates the cumulative output, and a `null` input there
+    // leaves the start's input alone.
     let start: anthropic_messages::StreamEvent = serde_json::from_value(json!({
         "type": "message_start",
         "message": {
@@ -441,7 +442,10 @@ fn anthropic_stream_usage_folds_its_split_counters_into_one_snapshot() -> TestRe
             "stop_reason": null, "stop_sequence": null,
             "usage": {
                 "input_tokens": 12, "output_tokens": 1,
-                "cache_creation_input_tokens": 300, "cache_read_input_tokens": 4000
+                "cache_creation_input_tokens": 300, "cache_read_input_tokens": 4000,
+                "cache_creation": {
+                    "ephemeral_5m_input_tokens": 100, "ephemeral_1h_input_tokens": 200
+                }
             }
         }
     }))?;
@@ -462,11 +466,12 @@ fn anthropic_stream_usage_folds_its_split_counters_into_one_snapshot() -> TestRe
     }
 
     assert_eq!(counts, TokenCounts {
-        input:       12,
-        output:      250,
-        reasoning:   0,
-        cache_read:  4000,
-        cache_write: 300,
+        input:            12,
+        output:           250,
+        reasoning:        0,
+        cache_read:       4000,
+        cache_write:      300,
+        long_cache_write: 200,
     });
     Ok(())
 }
@@ -482,11 +487,12 @@ fn chat_usage_takes_details_out_of_inclusive_totals_in_any_spelling() -> TestRes
         "cache_creation_input_tokens": 50
     }))?;
     assert_eq!(nested.token_counts(), TokenCounts {
-        input:       350,
-        output:      180,
-        reasoning:   120,
-        cache_read:  600,
-        cache_write: 50,
+        input:            350,
+        output:           180,
+        reasoning:        120,
+        cache_read:       600,
+        cache_write:      50,
+        long_cache_write: 0,
     });
 
     // DeepSeek's flat cache counter, with no details at all.
@@ -495,11 +501,12 @@ fn chat_usage_takes_details_out_of_inclusive_totals_in_any_spelling() -> TestRes
         "prompt_cache_hit_tokens": 700, "prompt_cache_miss_tokens": 200
     }))?;
     assert_eq!(flat.token_counts(), TokenCounts {
-        input:       200,
-        output:      40,
-        reasoning:   0,
-        cache_read:  700,
-        cache_write: 0,
+        input:            200,
+        output:           40,
+        reasoning:        0,
+        cache_read:       700,
+        cache_write:      0,
+        long_cache_write: 0,
     });
     Ok(())
 }
@@ -508,17 +515,21 @@ fn chat_usage_takes_details_out_of_inclusive_totals_in_any_spelling() -> TestRes
 fn responses_usage_takes_details_out_of_inclusive_totals() -> TestResult {
     let usage: openai_responses::Usage = serde_json::from_value(json!({
         "input_tokens": 5000,
-        "input_tokens_details": {"cached_tokens": 3000, "cache_write_tokens": 500},
+        "input_tokens_details": {
+            "cached_tokens": 3000, "cache_write_tokens": 500,
+            "cache_write_tokens_details": {"ttl_30m_tokens": 200, "ttl_12h_tokens": 300}
+        },
         "output_tokens": 800,
         "output_tokens_details": {"reasoning_tokens": 300},
         "total_tokens": 5800
     }))?;
     assert_eq!(usage.token_counts(), TokenCounts {
-        input:       1500,
-        output:      500,
-        reasoning:   300,
-        cache_read:  3000,
-        cache_write: 500,
+        input:            1500,
+        output:           500,
+        reasoning:        300,
+        cache_read:       3000,
+        cache_write:      500,
+        long_cache_write: 300,
     });
     Ok(())
 }
