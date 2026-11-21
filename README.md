@@ -590,7 +590,7 @@ names a factory the application registered with
 `ClientBuilder::adapter_factory`, whose adapter owns its own wire handling
 and receives no codec selection. `codecs` defaults to `["openai-chat"]`, so
 a Chat Completions host needs neither line. OpenAI lists
-`["openai-responses"]`, Anthropic `["anthropic-messages"]`, Gemini
+`["openai-responses", "openai-chat"]`, Anthropic `["anthropic-messages"]`, Gemini
 `["gemini-generate"]`, Bedrock `["bedrock-converse"]`, Vercel
 `["openai-chat", "vercel-evaluation"]`, and TypeSafe `["systemone"]`. `codec_options` is a table keyed by
 codec id that carries one codec's own options, such as

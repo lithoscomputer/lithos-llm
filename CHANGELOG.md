@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The built-in `openai` provider now lists `openai-chat` after
+  `openai-responses`, so `CatalogProvider::endpoints` gives
+  `https://api.openai.com/v1/chat/completions` for Chat Completions. OpenAI's
+  model pages list Chat Completions for every built-in row except
+  `gpt-5.5-pro` and `gpt-5.4-pro`, which are Responses only, so those two
+  rows narrow `codecs` to `["openai-responses"]` and every other row's
+  `CatalogModel::codecs()` includes Chat. Responses comes first, so the
+  client still sends every OpenAI call through Responses. No Chat
+  Completions exchange with OpenAI is recorded.
+
 - The built-in `openrouter` provider now lists `anthropic-messages`, so its
   codecs are `["openai-chat", "openai-responses", "anthropic-messages",
   "systemone"]` and every

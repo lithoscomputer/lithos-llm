@@ -56,7 +56,14 @@ schema_version = 1
 [providers.openai]
 display_name = "OpenAI"
 aliases = ["oa"]
-codecs = ["openai-responses"]
+# OpenAI also serves Chat Completions at `POST /v1/chat/completions` on the
+# same bearer key, and every model page's endpoint table lists it as
+# supported except the pro rows', which say Responses only (checked
+# 2026-11-21); those rows narrow their codecs below. Responses stays first:
+# provider order breaks ties, so the client still sends every call through
+# Responses, where the rows' claims and E2E cells were verified. No Chat
+# Completions exchange with OpenAI is recorded yet.
+codecs = ["openai-responses", "openai-chat"]
 base_url = "https://api.openai.com"
 # Fabro's source catalog orders anthropic (100) above openai (90); keeping
 # that gap makes the built-in `default` selector unambiguous rather than
@@ -284,6 +291,8 @@ estimated_output_tps = 70
 display_name = "GPT-5.5 Pro"
 aliases = ["gpt55-pro", "gpt-55-pro"]
 api_model = "gpt-5.5-pro"
+# The model page lists Chat Completions as not supported.
+codecs = ["openai-responses"]
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # No caching claim: the pricing page lists no cached rate and the model
 # page says prompt caching is unsupported. No speed tiers: the pro rows
@@ -301,6 +310,8 @@ estimated_output_tps = 20
 display_name = "GPT-5.4 Pro"
 aliases = ["gpt54-pro", "gpt-54-pro"]
 api_model = "gpt-5.4-pro"
+# The model page lists Chat Completions as not supported.
+codecs = ["openai-responses"]
 # fabro carried 1,047,576; the model page says 1,050,000 like the rest of
 # the family.
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
