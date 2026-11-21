@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `ConventionalCredentials` treats a secret whose value is empty or only
+  whitespace, such as `OPENROUTER_API_KEY=`, as unset, from the process
+  environment and from a `with_lookup` store alike. Such a provider now
+  fails with `CredentialError::MissingSecret`, so `is_not_configured()` is
+  true and `readiness` leaves it out, instead of resolving credentials with
+  an empty key. A blank preferred name falls through to its fallback, such
+  as `KIMI_API_KEY` for Moonshot, and Modal is not configured when either of
+  its two secrets is blank. A non-blank value is still sent exactly as
+  stored.
+
 - The built-in `openrouter` provider now lists `anthropic-messages`, so its
   codecs are `["openai-chat", "openai-responses", "anthropic-messages",
   "systemone"]` and every
