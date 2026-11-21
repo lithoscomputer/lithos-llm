@@ -6,6 +6,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Endpoints::inference_path_under(base_url)` and
+  `Endpoints::models_path_under(base_url)` return the part of
+  `inference_url` and `models_url` that follows `base_url`: the codec's path
+  without the version segment `base_url` already ends with. Under each
+  provider's own `base_url`, OpenRouter's Chat Completions, Messages, and
+  Responses give `/chat/completions`, `/messages`, and `/responses`, Venice's
+  give `/chat/completions` and `/responses`, and Anthropic and OpenAI give
+  `/v1/messages` and `/v1/responses`. A caller that replaces the catalog base
+  URL with its own in the provider's shape appends this path to it unchanged,
+  instead of stripping the base URL off `inference_url`.
+
 - `Catalog::offering(&ProviderId, &ModelId)` returns one provider's offering
   of one canonical model id, the entry `Catalog::offerings` would list for
   that provider, without building and filtering the whole list. Like
