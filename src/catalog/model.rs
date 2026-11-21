@@ -12,6 +12,7 @@ use crate::types::Speed;
 /// them: a provider-qualified selector first, then a canonical id, an alias,
 /// and a wire id.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[non_exhaustive]
 pub enum SelectorMatch {
     /// `provider/model`, prefixed with the provider's id:
     /// `anthropic/claude-opus-5-5`. The model part matches the provider's
