@@ -629,9 +629,6 @@ way the resolver would, matching a canonical id, an alias, or a provider's
 wire id, bare (`claude-opus-5-5`) or prefixed with its provider
 (`anthropic/claude-opus-5-5`), and `selector_matches` returns the same list
 with a `SelectorMatch` saying which of those forms named each offering;
-`offerings` lists every enabled provider's
-entry for one canonical model id in priority order, and `offerings_for_codec`
-keeps the ones a codec reaches, the ordered candidates for failover;
 `offering` returns one enabled provider's entry for a canonical model id;
 `default_offering_for` and `small_default_for` pick the default and the cheap
 utility model across the providers that are ready;
@@ -714,8 +711,17 @@ fn pin_model(body: &str) -> Result<String, serde_json::Error> {
 }
 ```
 
-The wire types need no feature and no runtime. The client does not use them:
-codecs still convert to and from the provider-neutral `Request`.
+Each format's `Usage` has `token_counts()`, which returns the `TokenCounts`
+an `Offering` prices with `estimate_cost`: the provider's counters in five
+disjoint buckets, normalized by the same code the codecs use, so a proxy
+counts tokens as the client does without knowing which counters include
+which. An Anthropic stream splits its usage between `message_start` and
+`message_delta`; fold each delta's `DeltaUsage` into the start's counts with
+`fold_into`.
+
+The wire types need no feature and no runtime. The client does not parse with
+them: codecs still convert to and from the provider-neutral `Request`, and
+share only the usage normalization.
 
 ## Features
 

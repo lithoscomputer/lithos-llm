@@ -15,8 +15,7 @@ use std::collections::BTreeSet;
 use std::ptr;
 
 use super::{
-    Catalog, CatalogModel, CatalogProvider, CodecId, ModelHandle, ModelId, ProviderId,
-    SelectorMatch,
+    Catalog, CatalogModel, CatalogProvider, ModelHandle, ModelId, ProviderId, SelectorMatch,
 };
 use crate::resolver::ResolvedRoute;
 use crate::types::{Cost, Speed, TokenCounts};
@@ -208,27 +207,7 @@ impl Catalog {
         qualified.into_iter().chain(matches).collect()
     }
 
-    /// Every enabled provider's offering of the model whose canonical id is
-    /// `model`, highest provider priority first, ties broken by provider id.
-    ///
-    /// Unlike [`offerings_matching`](Self::offerings_matching), this matches
-    /// the canonical id only, so every entry is the same model and none is a
-    /// different model that happens to carry `model` as an alias. A provider
-    /// that stands in for another is included, because it routes requests.
-    pub fn offerings(&self, model: &ModelId) -> Vec<Offering<'_>> {
-        self.enabled_providers()
-            .into_iter()
-            .filter_map(|provider| {
-                provider
-                    .model_by_id(model)
-                    .map(|model| Offering { provider, model })
-            })
-            .collect()
-    }
-
-    /// `provider`'s offering of the model whose canonical id is `model`: the
-    /// entry of [`offerings`](Self::offerings) for that provider, without
-    /// building the list.
+    /// `provider`'s offering of the model whose canonical id is `model`.
     ///
     /// Both ids are canonical. A provider alias does not name the provider,
     /// and a different model that carries `model` as an alias is not
@@ -243,15 +222,6 @@ impl Catalog {
         provider
             .model_by_id(model)
             .map(|model| Offering { provider, model })
-    }
-
-    /// The [`offerings`](Self::offerings) of `model` that a call through
-    /// `codec` reaches, in the same order: the candidates a caller tries in
-    /// turn when it fails over between providers.
-    pub fn offerings_for_codec(&self, model: &ModelId, codec: &CodecId) -> Vec<Offering<'_>> {
-        let mut offerings = self.offerings(model);
-        offerings.retain(|offering| offering.model.codecs().contains(codec));
-        offerings
     }
 
     /// Whether `selector` names a model on any enabled provider.
@@ -441,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    fn offerings_list_one_model_by_priority_and_filter_by_codec() -> Result<(), Box<dyn StdError>> {
+    fn offering_matches_canonical_ids_on_an_enabled_provider() -> Result<(), Box<dyn StdError>> {
         let catalog = Catalog::builder()
             .overlay_toml(
                 r#"
@@ -513,36 +483,6 @@ mod tests {
                 "#,
             )?
             .build()?;
-        let handles = |offerings: Vec<super::Offering<'_>>| -> Vec<String> {
-            offerings
-                .iter()
-                .map(|offering| offering.handle().to_string())
-                .collect()
-        };
-        let one = super::ModelId::new("one");
-
-        assert_eq!(
-            handles(catalog.offerings(&one)),
-            ["beta/one", "gamma/one", "alpha/one"],
-            "priority first, then id; a stand-in is included; an alias for another model and a \
-             disabled provider are not"
-        );
-        assert_eq!(
-            handles(catalog.offerings_for_codec(&one, &super::CodecId::new("openai-chat"))),
-            ["beta/one", "gamma/one"],
-            "alpha's row narrows itself to anthropic-messages"
-        );
-        assert_eq!(
-            handles(catalog.offerings_for_codec(&one, &super::CodecId::new("anthropic-messages"))),
-            ["alpha/one"]
-        );
-        assert!(
-            catalog
-                .offerings(&super::ModelId::new("beta/one"))
-                .is_empty(),
-            "a wire id is not a canonical id"
-        );
-
         let offering = |provider: &str, model: &str| {
             catalog
                 .offering(&ProviderId::new(provider), &super::ModelId::new(model))

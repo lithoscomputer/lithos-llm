@@ -5,7 +5,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{Extra, Field, Tagged, unknown};
+use super::{Extra, Field, Tagged, to_json, unknown};
+use crate::types::TokenCounts;
 
 /// A request body for `POST /v1/messages`.
 ///
@@ -163,6 +164,53 @@ pub struct Usage {
     pub cache_read_input_tokens: Field<u64>,
     #[serde(flatten)]
     pub extra: Extra,
+}
+
+impl Usage {
+    /// These counts in the disjoint buckets that
+    /// [`Offering::estimate_cost`](crate::catalog::Offering::estimate_cost)
+    /// prices, normalized as the client normalizes Anthropic usage.
+    ///
+    /// A stream splits its usage: `message_start` carries this object with
+    /// the input and cache counters, and each `message_delta` restates the
+    /// cumulative counters in a [`DeltaUsage`]. Start from this and fold each
+    /// delta in with [`DeltaUsage::fold_into`].
+    pub fn token_counts(&self) -> TokenCounts {
+        token_counts(&to_json(self))
+    }
+}
+
+/// Normalizes one Anthropic usage object into the five disjoint buckets.
+pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
+    let mut counts = TokenCounts::default();
+    fold_usage(&mut counts, usage);
+    counts
+}
+
+/// Folds whichever usage counters one wire object carries into a snapshot.
+///
+/// Anthropic's counters are **already disjoint**: `input_tokens` excludes both
+/// `cache_read_input_tokens` and `cache_creation_input_tokens`, so nothing is
+/// subtracted. Thinking tokens are billed inside `output_tokens` with no
+/// separate counter, so `reasoning` stays 0 and `billable_output` still adds
+/// up. Each field is assigned, not added, because a repeated counter is the
+/// provider restating the same cumulative total.
+pub(crate) fn fold_usage(counts: &mut TokenCounts, usage: &Value) {
+    if let Some(input) = usage.get("input_tokens").and_then(Value::as_u64) {
+        counts.input = input;
+    }
+    if let Some(output) = usage.get("output_tokens").and_then(Value::as_u64) {
+        counts.output = output;
+    }
+    if let Some(read) = usage.get("cache_read_input_tokens").and_then(Value::as_u64) {
+        counts.cache_read = read;
+    }
+    if let Some(write) = usage
+        .get("cache_creation_input_tokens")
+        .and_then(Value::as_u64)
+    {
+        counts.cache_write = write;
+    }
 }
 
 /// The JSON payload of one event in a streamed response.
@@ -330,6 +378,18 @@ pub struct DeltaUsage {
     pub cache_read_input_tokens: Field<u64>,
     #[serde(flatten)]
     pub extra: Extra,
+}
+
+impl DeltaUsage {
+    /// Folds the counters this event carries into `counts`, which starts as
+    /// `message_start`'s [`Usage::token_counts`].
+    ///
+    /// Each counter present here replaces the one in `counts`, because the
+    /// event restates cumulative totals; an absent or `null` counter leaves
+    /// it as it was.
+    pub fn fold_into(&self, counts: &mut TokenCounts) {
+        fold_usage(counts, &to_json(self));
+    }
 }
 
 /// `error`: the stream failed after it started.

@@ -9,9 +9,10 @@ use super::{MESSAGE_KIND, NAMESPACE, REASONING_KIND};
 use crate::codecs::errors::{malformed_success, refusal};
 use crate::resolver::ResolvedRoute;
 use crate::types::{
-    ContentBlockKind, ContentPart, Error, FinishReason, ReasoningContent, Response, TokenCounts,
-    ToolCall, ToolCallKind, ToolInput,
+    ContentBlockKind, ContentPart, Error, FinishReason, ReasoningContent, Response, ToolCall,
+    ToolCallKind, ToolInput,
 };
+use crate::wire::openai_responses::token_counts;
 
 /// Decodes one complete response document.
 ///
@@ -54,7 +55,7 @@ pub(super) fn decode_document(route: &ResolvedRoute, value: Value) -> Result<Res
         .and_then(Value::as_str)
         .map(ToOwned::to_owned);
     response.finish_reason = decode_finish_reason(&value, &response.content);
-    response.usage = token_counts(value.get("usage"));
+    response.usage = value.get("usage").map(token_counts).unwrap_or_default();
     // This protocol reports no in-band cost; the adapter prices the call from
     // the catalog instead.
     response.cost = None;
@@ -342,29 +343,6 @@ pub(super) fn decode_finish_reason(value: &Value, content: &[ContentPart]) -> Fi
         }
         _ => FinishReason::Stop,
     }
-}
-
-/// Normalizes the inclusive usage counters into disjoint buckets.
-///
-/// `input_tokens` includes the cached and cache-written tokens and
-/// `output_tokens` includes the reasoning tokens. The GPT-5.6 family bills
-/// cache writes at a premium and reports them as
-/// `input_tokens_details.cache_write_tokens` (observed live on 2026-08-30);
-/// models that bill no write omit the counter or send zero, which decodes to
-/// an empty bucket either way.
-pub(super) fn token_counts(usage: Option<&Value>) -> TokenCounts {
-    let Some(usage) = usage else {
-        return TokenCounts::default();
-    };
-    let count = |pointer: &str| usage.pointer(pointer).and_then(Value::as_u64).unwrap_or(0);
-
-    TokenCounts::from_inclusive(
-        count("/input_tokens"),
-        count("/output_tokens"),
-        count("/output_tokens_details/reasoning_tokens"),
-        count("/input_tokens_details/cached_tokens"),
-        count("/input_tokens_details/cache_write_tokens"),
-    )
 }
 
 /// The error a malformed success body produces; see `malformed_success`.

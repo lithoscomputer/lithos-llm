@@ -6,10 +6,12 @@
 //! See the [module documentation](super) for how these types stay lossless.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Chat Completions and Responses return the same error body.
 pub use super::openai_chat::{ApiError, ErrorCode, ErrorResponse};
-use super::{Extra, Field, Tagged, unknown};
+use super::{Extra, Field, Tagged, to_json, unknown};
+use crate::types::TokenCounts;
 
 /// A request body for `POST /v1/responses`.
 ///
@@ -245,6 +247,38 @@ pub struct Usage {
     pub total_tokens:          u64,
     #[serde(flatten)]
     pub extra:                 Extra,
+}
+
+impl Usage {
+    /// These counts in the disjoint buckets that
+    /// [`Offering::estimate_cost`](crate::catalog::Offering::estimate_cost)
+    /// prices, normalized as the client normalizes Responses usage.
+    ///
+    /// A stream reports usage once, on the `response` of its
+    /// `response.completed` event.
+    pub fn token_counts(&self) -> TokenCounts {
+        token_counts(&to_json(self))
+    }
+}
+
+/// Normalizes the inclusive usage counters into disjoint buckets.
+///
+/// `input_tokens` includes the cached and cache-written tokens and
+/// `output_tokens` includes the reasoning tokens. The GPT-5.6 family bills
+/// cache writes at a premium and reports them as
+/// `input_tokens_details.cache_write_tokens` (observed live on 2026-08-30);
+/// models that bill no write omit the counter or send zero, which decodes to
+/// an empty bucket either way.
+pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
+    let count = |pointer: &str| usage.pointer(pointer).and_then(Value::as_u64).unwrap_or(0);
+
+    TokenCounts::from_inclusive(
+        count("/input_tokens"),
+        count("/output_tokens"),
+        count("/output_tokens_details/reasoning_tokens"),
+        count("/input_tokens_details/cached_tokens"),
+        count("/input_tokens_details/cache_write_tokens"),
+    )
 }
 
 /// The input token breakdown on a [`Usage`].

@@ -375,15 +375,14 @@ impl CatalogProvider {
         self.codec_options.get(codec).unwrap_or(&Value::Null)
     }
 
-    /// The inference and model listing endpoints of `codec` on this
-    /// provider, with its [`codec_options`](Self::codec_options) applied.
+    /// The inference endpoint of `codec` on this provider, with its
+    /// [`codec_options`](Self::codec_options) applied.
     ///
     /// `None` when this provider does not list `codec`, when the codec has no
     /// single inference path (Gemini and Bedrock put the model in the path,
     /// and the evaluation codecs serve no generation), and when its options
-    /// are invalid. Join the paths to [`base_url`](Self::base_url), or to a
-    /// replacement for it, with [`Endpoints::inference_url`] and
-    /// [`Endpoints::models_url`].
+    /// are invalid. Join the path to [`base_url`](Self::base_url), or to a
+    /// replacement for it, with [`Endpoints::inference_url`].
     pub fn endpoints(&self, codec: &CodecId) -> Option<Endpoints> {
         if !self.codecs.contains(codec) {
             return None;
