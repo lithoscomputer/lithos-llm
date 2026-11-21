@@ -6,6 +6,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `openai_chat::ErrorResponse::with_code`, also reachable through
+  `openai_responses::ErrorResponse`, sets the error's `code` to a text code,
+  so a proxy writes `{"error": {..., "code": "model_not_found"}}` without
+  building the `Field` and `ErrorCode` itself. `ErrorResponse::new` still
+  writes `"code": null`.
+
 - The built-in `openrouter` provider now lists `anthropic-messages`, so its
   codecs are `["openai-chat", "openai-responses", "anthropic-messages",
   "systemone"]` and every

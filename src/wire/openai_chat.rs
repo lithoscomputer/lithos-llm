@@ -293,6 +293,13 @@ impl ErrorResponse {
             extra: Extra::new(),
         }
     }
+
+    /// Sets `code` to a text code, such as `model_not_found`.
+    #[must_use]
+    pub fn with_code(mut self, code: impl Into<String>) -> Self {
+        self.error.code = Field::Present(ErrorCode::Text(code.into()));
+        self
+    }
 }
 
 /// The error inside an [`ErrorResponse`].
