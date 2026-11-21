@@ -335,7 +335,8 @@ pub struct ConventionalCredentials {
     lookup: Arc<SecretStore>,
 }
 
-/// A name-to-value secret store. `None` means the store holds no such secret.
+/// A name-to-value secret store. `None` means the store holds no such secret,
+/// and an empty or whitespace-only value reads the same way.
 #[cfg(feature = "environment-credentials")]
 type SecretStore = dyn Fn(&str) -> Option<String> + Send + Sync;
 
@@ -408,8 +409,10 @@ impl ConventionalCredentials {
     ///
     /// The names stay the conventional ones, so a vault that stores a key
     /// under `OPENAI_API_KEY` serves the same table the environment would.
-    /// `None` means the store holds no such secret; a store that cannot be
-    /// read should return `None` too and report its own failure elsewhere.
+    /// `None` means the store holds no such secret, and so does an empty or
+    /// whitespace-only value, as for an environment variable that is set to
+    /// nothing. A store that cannot be read should return `None` too and
+    /// report its own failure elsewhere.
     #[must_use]
     pub fn with_lookup(
         mut self,
@@ -641,6 +644,8 @@ impl HttpSpec {
     }
 }
 
+/// Reads one named secret, treating an empty or whitespace-only value, such as
+/// `OPENAI_API_KEY=`, as unset. A non-blank value is kept exactly as stored.
 #[cfg(feature = "environment-credentials")]
 fn read_secret(
     provider: &ProviderId,
@@ -648,6 +653,7 @@ fn read_secret(
     read: SecretLookup<'_>,
 ) -> Result<SecretValue, CredentialError> {
     read(name)
+        .filter(|value| !value.trim().is_empty())
         .map(SecretValue::new)
         .ok_or_else(|| CredentialError::MissingSecret {
             provider: provider.clone(),
@@ -1408,6 +1414,90 @@ mod tests {
             message,
             "secret `OPENAI_API_KEY` for provider openai is unavailable"
         );
+    }
+
+    /// An empty or whitespace-only value, such as `OPENROUTER_API_KEY=`, is
+    /// not a key: the provider reads as not configured, and a fallback name
+    /// is tried as if the blank one were unset.
+    #[cfg(feature = "environment-credentials")]
+    #[test]
+    fn a_blank_secret_is_not_configured() -> Result<(), String> {
+        for blank in ["", " ", "\t\n"] {
+            for (provider, variable) in [
+                ("openrouter", "OPENROUTER_API_KEY"),
+                ("openai", "OPENAI_API_KEY"),
+                ("anthropic", "ANTHROPIC_API_KEY"),
+                ("venice", "VENICE_API_KEY"),
+            ] {
+                let error = table(&[(variable, blank)])
+                    .resolve(&builtin(provider))
+                    .expect_err("a blank key does not resolve");
+                assert!(
+                    matches!(&error, CredentialError::MissingSecret { name, .. } if name == variable),
+                    "{provider} with {blank:?}: {error}"
+                );
+                assert!(error.is_not_configured());
+            }
+
+            // A blank derived name for an unlisted provider is not a key either.
+            let acme = custom("acme", r#"{ type = "bearer" }"#);
+            assert!(matches!(
+                table(&[("ACME_API_KEY", blank)]).resolve(&acme),
+                Err(CredentialError::MissingSecret { .. })
+            ));
+
+            // A blank preferred name falls through to the fallback name.
+            assert_eq!(
+                resolve("moonshot", &[
+                    ("MOONSHOT_API_KEY", blank),
+                    ("KIMI_API_KEY", "kimi-key")
+                ])?,
+                Credentials::bearer(SecretValue::new("kimi-key"))
+            );
+            let gemini = resolve("gemini", &[
+                ("GEMINI_API_KEY", blank),
+                ("GOOGLE_API_KEY", "google-key"),
+            ])?;
+            assert_eq!(header_secret(&gemini), Some("google-key"));
+            assert!(matches!(
+                resolve("bedrock", &[
+                    ("AWS_BEARER_TOKEN_BEDROCK", blank),
+                    ("BEDROCK_API_KEY", "bedrock-key")
+                ])?,
+                Credentials::BedrockBearer(secret) if secret.expose_secret() == "bedrock-key"
+            ));
+
+            // With every name blank, the error names the preferred one.
+            let message = resolve("vercel", &[
+                ("AI_GATEWAY_API_KEY", blank),
+                ("VERCEL_OIDC_TOKEN", blank),
+            ])
+            .expect_err("blank keys do not resolve");
+            assert!(message.contains("AI_GATEWAY_API_KEY"), "{message}");
+
+            // A provider that needs two secrets is not configured when either
+            // one is blank.
+            for (present, missing) in [
+                ("MODAL_TOKEN_ID", "MODAL_TOKEN_SECRET"),
+                ("MODAL_TOKEN_SECRET", "MODAL_TOKEN_ID"),
+            ] {
+                let error = table(&[(present, "modal-value"), (missing, blank)])
+                    .resolve(&builtin("modal"))
+                    .expect_err("a blank Modal secret does not resolve");
+                assert!(
+                    matches!(&error, CredentialError::MissingSecret { name, .. } if name == missing),
+                    "{error}"
+                );
+            }
+        }
+
+        // Whitespace around a real key is kept as given; only a value with
+        // nothing else in it reads as unset.
+        assert_eq!(
+            resolve("openrouter", &[("OPENROUTER_API_KEY", " key ")])?,
+            Credentials::bearer(SecretValue::new(" key "))
+        );
+        Ok(())
     }
 
     #[cfg(feature = "environment-credentials")]

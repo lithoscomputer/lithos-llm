@@ -16,6 +16,26 @@ This project follows [Semantic Versioning](https://semver.org/).
   qualifiers skips `ProviderAliasQualified` entries. `offerings_matching` is
   unchanged.
 
+- The built-in `openai` provider now lists `openai-chat` after
+  `openai-responses`, so `CatalogProvider::endpoints` gives
+  `https://api.openai.com/v1/chat/completions` for Chat Completions. OpenAI's
+  model pages list Chat Completions for every built-in row except
+  `gpt-5.5-pro` and `gpt-5.4-pro`, which are Responses only, so those two
+  rows narrow `codecs` to `["openai-responses"]` and every other row's
+  `CatalogModel::codecs()` includes Chat. Responses comes first, so the
+  client still sends every OpenAI call through Responses. No Chat
+  Completions exchange with OpenAI is recorded.
+
+- `ConventionalCredentials` treats a secret whose value is empty or only
+  whitespace, such as `OPENROUTER_API_KEY=`, as unset, from the process
+  environment and from a `with_lookup` store alike. Such a provider now
+  fails with `CredentialError::MissingSecret`, so `is_not_configured()` is
+  true and `readiness` leaves it out, instead of resolving credentials with
+  an empty key. A blank preferred name falls through to its fallback, such
+  as `KIMI_API_KEY` for Moonshot, and Modal is not configured when either of
+  its two secrets is blank. A non-blank value is still sent exactly as
+  stored.
+
 - `CatalogProvider::default_http_headers()` returns the provider's catalog
   `default_headers` as a `HeaderMap`, converted the way the client converts
   them for a request. The values are not secrets, so none is marked

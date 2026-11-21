@@ -325,6 +325,12 @@ mod tests {
                 Some("https://api.openai.com/v1/models"),
             ),
             (
+                "openai",
+                codec_ids::OPENAI_CHAT,
+                "https://api.openai.com/v1/chat/completions",
+                Some("https://api.openai.com/v1/models"),
+            ),
+            (
                 "openai-codex",
                 codec_ids::OPENAI_RESPONSES,
                 "https://chatgpt.com/backend-api/codex/responses",
@@ -451,6 +457,12 @@ mod tests {
                 "openai",
                 codec_ids::OPENAI_RESPONSES,
                 "/v1/responses",
+                Some("/v1/models"),
+            ),
+            (
+                "openai",
+                codec_ids::OPENAI_CHAT,
+                "/v1/chat/completions",
                 Some("/v1/models"),
             ),
             (
