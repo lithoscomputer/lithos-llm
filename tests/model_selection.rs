@@ -3,7 +3,7 @@
 use std::error::Error as StdError;
 
 use lithos_llm::Request;
-use lithos_llm::catalog::{Catalog, ProviderId};
+use lithos_llm::catalog::{Catalog, ProviderId, SelectorMatch};
 use lithos_llm::resolver::{AvailableProviders, CatalogResolver, ModelResolver};
 
 const CLAUDE_ALIASES: [(&str, &str); 3] = [
@@ -119,6 +119,32 @@ fn a_provider_wire_id_matches_and_routes_like_its_canonical_name() -> Result<(),
         "openrouter/claude-opus-5.5"
     ]);
     assert!(matches("openai/claude-opus-5-5").is_empty());
+
+    // The kind says which form matched, so a caller can tell a provider id
+    // prefix from a provider alias (`claude` is Anthropic's) and see that
+    // the qualified reading of OpenRouter's wire id ranked first.
+    let kinds = |selector| -> Vec<SelectorMatch> {
+        catalog
+            .selector_matches(selector)
+            .into_iter()
+            .map(|(_, kind)| kind)
+            .collect()
+    };
+    assert_eq!(matches("anthropic/claude-fable-5"), [
+        "anthropic/claude-fable-5",
+        "vercel/claude-fable-5",
+        "openrouter/claude-fable-5"
+    ]);
+    assert_eq!(kinds("anthropic/claude-fable-5"), [
+        SelectorMatch::ProviderQualified,
+        SelectorMatch::WireId,
+        SelectorMatch::WireId
+    ]);
+    assert_eq!(kinds("claude/claude-opus-5-5"), [
+        SelectorMatch::ProviderAliasQualified
+    ]);
+    assert_eq!(kinds("claude-opus-5.5")[0], SelectorMatch::Id);
+    assert_eq!(kinds("opus")[0], SelectorMatch::Alias);
 
     let available = AvailableProviders::new(["openrouter", "venice"].map(ProviderId::new));
     let request = Request::builder()

@@ -627,7 +627,9 @@ in priority order and `listed_providers` drops the ones that stand in for
 another; `offerings_matching` ranks every enabled offering of a selector the
 way the resolver would, matching a canonical id, an alias, or a provider's
 wire id, bare (`claude-opus-5-5`) or prefixed with its provider
-(`anthropic/claude-opus-5-5`); `offerings` lists every enabled provider's
+(`anthropic/claude-opus-5-5`), and `selector_matches` returns the same list
+with a `SelectorMatch` saying which of those forms named each offering;
+`offerings` lists every enabled provider's
 entry for one canonical model id in priority order, and `offerings_for_codec`
 keeps the ones a codec reaches, the ordered candidates for failover;
 `offering` returns one enabled provider's entry for a canonical model id;

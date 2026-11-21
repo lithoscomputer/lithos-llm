@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Catalog::selector_matches` returns what `offerings_matching` returns, in
+  the same order, with a new `catalog::SelectorMatch` for each offering: how
+  the selector named it. The kinds are `ProviderQualified`
+  (`anthropic/claude-opus-5-5`), `ProviderAliasQualified`
+  (`claude/claude-opus-5-5`, through Anthropic's alias), `Id`, `Alias`, and
+  `WireId`, declared and ordered as the lookup ranks them, so the first
+  entry's kind is the best match. A caller that accepts only provider ids as
+  qualifiers skips `ProviderAliasQualified` entries. `offerings_matching` is
+  unchanged.
+
 - The built-in `openai` provider now lists `openai-chat` after
   `openai-responses`, so `CatalogProvider::endpoints` gives
   `https://api.openai.com/v1/chat/completions` for Chat Completions. OpenAI's
