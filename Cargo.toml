@@ -33,6 +33,13 @@ required-features = ["e2e-driver"]
 test = false
 bench = false
 
+# Run by `mise run check:prices` against the providers' live pricing pages.
+# Its parser tests run offline with the rest of the suite.
+[[example]]
+name = "check_prices"
+required-features = ["builtin-catalog"]
+test = true
+
 [workspace]
 members = ["."]
 resolver = "3"

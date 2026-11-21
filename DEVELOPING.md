@@ -32,8 +32,15 @@ mise run setup
 | `mise run check:nightly` | Run the extended verification gate |
 | `mise run check:catalog-only` | Verify the catalog-only feature boundary |
 | `mise run check:features` | Check each feature and the AWS SDK boundary |
+| `mise run check:prices` | Compare Anthropic and OpenAI catalog prices with the providers' pricing pages |
 
 Run `mise run check` before opening a pull request.
+
+`check:prices` reads the providers' live pages, so it is not part of `check`.
+Run it after changing a price and on a schedule: it exits 1 when a rate the
+catalog models differs from the page, and lists the rates the schema cannot
+hold, such as 1-hour cache writes, as not modelled. Name models after `--` to
+check only those, as in `mise run check:prices -- claude-opus-5.5`.
 
 ## Rust policy
 
