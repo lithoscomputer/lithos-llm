@@ -3001,6 +3001,7 @@ adapter = "test-adapter"
 codecs = ["test-codec"]
 base_url = "http://127.0.0.1"
 auth = { type = "header", name = "x-api-key" }
+default_headers = { "OpenAI-Beta" = "responses=v1", "x-app" = "lithos" }
 "#;
 
 #[test]
@@ -3037,5 +3038,27 @@ fn credential_http_headers_follow_the_provider_scheme() -> Result<(), Box<dyn St
         .expect_err("a bearer secret does not fit a header scheme");
     assert_eq!(error.kind(), ErrorKind::Authentication);
     assert_eq!(error.provider(), Some(&ProviderId::new("keyed")));
+    Ok(())
+}
+
+#[test]
+fn default_http_headers_convert_the_catalog_default_headers() -> Result<(), Box<dyn StdError>> {
+    let catalog = Catalog::builder()
+        .overlay_toml(CREDENTIAL_CATALOG)?
+        .build()?;
+
+    let headers = catalog.provider("keyed")?.default_http_headers()?;
+    assert_eq!(headers.len(), 2);
+    assert_eq!(headers["openai-beta"], "responses=v1");
+    assert_eq!(headers["x-app"], "lithos");
+    // Default headers are catalog data, not secrets.
+    assert!(!headers.values().any(HeaderValue::is_sensitive));
+
+    assert!(
+        catalog
+            .provider("bearer")?
+            .default_http_headers()?
+            .is_empty()
+    );
     Ok(())
 }

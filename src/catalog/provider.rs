@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+#[cfg(feature = "runtime")]
+use reqwest::header::HeaderMap;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -8,6 +10,8 @@ use thiserror::Error;
 
 use super::model::ModelRecord;
 use super::{CatalogError, CatalogModel, Endpoints, endpoints};
+#[cfg(feature = "runtime")]
+use crate::transport::default_header_map;
 
 macro_rules! string_id {
     ($(#[$meta:meta])* $name:ident) => {
@@ -450,6 +454,26 @@ impl CatalogProvider {
     /// Names and values are validated when the catalog is built.
     pub fn default_headers(&self) -> &BTreeMap<String, String> {
         &self.default_headers
+    }
+
+    /// The [`default_headers`](Self::default_headers) as a [`HeaderMap`],
+    /// converted the way the client converts them for a request.
+    ///
+    /// This is for callers that make their own requests to a provider, such
+    /// as a proxy. The values are not secret, so none is marked sensitive.
+    /// Pair it with
+    /// [`Credentials::http_headers`](crate::credentials::Credentials::http_headers)
+    /// and extend this map with the credential headers so they win a
+    /// collision, as the client does.
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorKind::Configuration`](crate::types::ErrorKind::Configuration)
+    /// when a header name or value is not valid HTTP. A built catalog has
+    /// already rejected such headers.
+    #[cfg(feature = "runtime")]
+    pub fn default_http_headers(&self) -> Result<HeaderMap, crate::Error> {
+        default_header_map(&self.id, &self.default_headers)
     }
 
     /// Raw adapter options for this provider.
