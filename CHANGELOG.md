@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Each `wire` format's `Usage` has `token_counts()`, which returns the
+  `TokenCounts` the client would report for it: five disjoint buckets that
+  `Offering::estimate_cost` prices. It runs the codecs' own normalization,
+  which now lives in the `wire` modules, so a proxy that reads usage off a
+  response or stream counts tokens as the client does. Chat Completions and
+  Responses counters include their details, so cached, cache-write, and
+  reasoning tokens come out of the totals; Chat also reads the flat spellings
+  in `extra`, such as DeepSeek's `prompt_cache_hit_tokens`. Anthropic
+  counters are already disjoint, and a stream splits them between
+  `message_start` and `message_delta`: `anthropic_messages::DeltaUsage::fold_into`
+  folds each delta into the start's counts, replacing every counter it
+  restates. The client's decoding is unchanged.
+
 - `Catalog::selector_matches` returns what `offerings_matching` returns, in
   the same order, with a new `catalog::SelectorMatch` for each offering: how
   the selector named it. The kinds are `ProviderQualified`

@@ -7,9 +7,10 @@
 //! See the [module documentation](super) for how these types stay lossless.
 
 use serde::{Deserialize, Serialize};
-use serde_json::Number;
+use serde_json::{Number, Value};
 
-use super::{Extra, Field, Tagged, unknown};
+use super::{Extra, Field, Tagged, to_json, unknown};
+use crate::types::TokenCounts;
 
 /// A request body for `POST /v1/chat/completions`.
 ///
@@ -180,6 +181,54 @@ pub struct Usage {
     pub completion_tokens_details: Field<CompletionTokensDetails>,
     #[serde(flatten)]
     pub extra:                     Extra,
+}
+
+impl Usage {
+    /// These counts in the disjoint buckets that
+    /// [`Offering::estimate_cost`](crate::catalog::Offering::estimate_cost)
+    /// prices, normalized as the client normalizes Chat Completions usage.
+    ///
+    /// The counters here include their details, so the cached and reasoning
+    /// tokens are taken out of the prompt and completion totals. Spellings
+    /// other providers use, such as DeepSeek's `prompt_cache_hit_tokens` or a
+    /// `cache_creation_input_tokens` passed through from Anthropic, are read
+    /// from `extra`.
+    pub fn token_counts(&self) -> TokenCounts {
+        token_counts(&to_json(self))
+    }
+}
+
+/// Normalizes one `usage` object into the five disjoint token buckets.
+///
+/// Every counter this protocol reports is inclusive: `prompt_tokens` contains
+/// the cache-read and cache-write details, and `completion_tokens` contains the
+/// reasoning detail. Each detail also has a flat spelling that a skin may send
+/// instead — DeepSeek's `prompt_cache_hit_tokens` and Modal's
+/// `reasoning_tokens` — and the nested detail wins when both are present.
+/// Cache writes have a third spelling: a skin fronting an Anthropic model
+/// passes through `cache_creation_input_tokens`, nested and flat (Venice
+/// sends both).
+pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
+    let count = |pointer: &str| usage.pointer(pointer).and_then(Value::as_u64);
+
+    let cache_read = count("/prompt_tokens_details/cached_tokens")
+        .or_else(|| count("/prompt_cache_hit_tokens"))
+        .unwrap_or_default();
+    let cache_write = count("/prompt_tokens_details/cache_write_tokens")
+        .or_else(|| count("/prompt_tokens_details/cache_creation_input_tokens"))
+        .or_else(|| count("/cache_creation_input_tokens"))
+        .unwrap_or_default();
+    let reasoning = count("/completion_tokens_details/reasoning_tokens")
+        .or_else(|| count("/reasoning_tokens"))
+        .unwrap_or_default();
+
+    TokenCounts::from_inclusive(
+        count("/prompt_tokens").unwrap_or_default(),
+        count("/completion_tokens").unwrap_or_default(),
+        reasoning,
+        cache_read,
+        cache_write,
+    )
 }
 
 /// The prompt token breakdown on a [`Usage`].

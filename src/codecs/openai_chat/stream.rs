@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use super::decode::{message_text, non_empty, provider_cost, reasoning_text, token_counts};
+use super::decode::{message_text, non_empty, provider_cost, reasoning_text};
 use super::reasoning_details::ReasoningDetails;
 use super::{
     REASONING_BLOCK, REASONING_DETAILS, REASONING_DETAILS_BLOCK, REASONING_DETAILS_KIND, TEXT_BLOCK,
@@ -16,6 +16,7 @@ use crate::codecs::{StreamDecoder, is_done_terminator};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
 use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
+use crate::wire::openai_chat::token_counts;
 
 /// The per-stream state for one Chat Completions response.
 ///

@@ -8,9 +8,7 @@ use serde_json::Value;
 use crate::codecs::errors::malformed_success;
 use crate::codecs::options::usd_micros;
 use crate::resolver::ResolvedRoute;
-use crate::types::{
-    ContentPart, Cost, CostSource, Error, TokenCounts, ToolCall, ToolCallKind, ToolInput,
-};
+use crate::types::{ContentPart, Cost, CostSource, Error, ToolCall, ToolCallKind, ToolInput};
 
 /// The error a 200 with no choices decodes into.
 pub(super) fn no_choices(route: &ResolvedRoute, value: Value) -> Error {
@@ -84,39 +82,6 @@ pub(super) fn non_empty<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
         .get(key)
         .and_then(Value::as_str)
         .filter(|text| !text.is_empty())
-}
-
-/// Normalizes one `usage` object into the five disjoint token buckets.
-///
-/// Every counter this protocol reports is inclusive: `prompt_tokens` contains
-/// the cache-read and cache-write details, and `completion_tokens` contains the
-/// reasoning detail. Each detail also has a flat spelling that a skin may send
-/// instead — DeepSeek's `prompt_cache_hit_tokens` and Modal's
-/// `reasoning_tokens` — and the nested detail wins when both are present.
-/// Cache writes have a third spelling: a skin fronting an Anthropic model
-/// passes through `cache_creation_input_tokens`, nested and flat (Venice
-/// sends both).
-pub(super) fn token_counts(usage: &Value) -> TokenCounts {
-    let count = |pointer: &str| usage.pointer(pointer).and_then(Value::as_u64);
-
-    let cache_read = count("/prompt_tokens_details/cached_tokens")
-        .or_else(|| count("/prompt_cache_hit_tokens"))
-        .unwrap_or_default();
-    let cache_write = count("/prompt_tokens_details/cache_write_tokens")
-        .or_else(|| count("/prompt_tokens_details/cache_creation_input_tokens"))
-        .or_else(|| count("/cache_creation_input_tokens"))
-        .unwrap_or_default();
-    let reasoning = count("/completion_tokens_details/reasoning_tokens")
-        .or_else(|| count("/reasoning_tokens"))
-        .unwrap_or_default();
-
-    TokenCounts::from_inclusive(
-        count("/prompt_tokens").unwrap_or_default(),
-        count("/completion_tokens").unwrap_or_default(),
-        reasoning,
-        cache_read,
-        cache_write,
-    )
 }
 
 /// The cost a provider reported in-band, when it reported one.

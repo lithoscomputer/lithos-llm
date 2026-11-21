@@ -11,7 +11,7 @@ mod stream;
 #[cfg(all(test, feature = "builtin-catalog"))]
 mod tests;
 
-use decode::{decode_block, missing_response_field, token_counts};
+use decode::{decode_block, missing_response_field};
 use encode::{
     beta_headers, count_tokens_request, dropped_controls, headers, message_body, preflight,
 };
@@ -29,6 +29,7 @@ use crate::catalog::Endpoints;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{Error, ErrorKind, Response};
+use crate::wire::anthropic_messages::token_counts;
 
 /// The opaque-part namespace this codec owns.
 ///
@@ -145,7 +146,7 @@ impl Codec for AnthropicMessagesCodec {
             .and_then(Value::as_str)
             .map(ToOwned::to_owned);
         response.finish_reason = finish_reason(value.get("stop_reason").and_then(Value::as_str));
-        response.usage = token_counts(value.get("usage"));
+        response.usage = value.get("usage").map(token_counts).unwrap_or_default();
         response.raw = Some(value);
         response.suppress_unfinished_tool_calls();
         Ok(response)

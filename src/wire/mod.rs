@@ -6,7 +6,10 @@
 //! [`Request`](crate::Request), which every codec converts to and from, these
 //! types never normalize. They serve callers that must stay in a provider's
 //! format, such as a proxy that reads a request, changes one field, and
-//! forwards it, or renders its own errors the way the provider would.
+//! forwards it, or renders its own errors the way the provider would. The one
+//! normalized view they offer is each format's `Usage::token_counts`, which
+//! gives the client's [`TokenCounts`](crate::types::TokenCounts) for a
+//! response's usage.
 //!
 //! | Module | API | Codec |
 //! | --- | --- | --- |
@@ -151,6 +154,12 @@ where
         Some(_) => Ok(object),
         None => Err(D::Error::custom("expected an object with a string `type`")),
     }
+}
+
+/// `value` as a JSON value, so a typed usage object is read by the same code
+/// the codecs run on a raw body, `extra` fields included.
+fn to_json<T: Serialize>(value: &T) -> Value {
+    serde_json::to_value(value).expect("a wire type serializes: every map key is a string")
 }
 
 #[cfg(test)]

@@ -6,11 +6,15 @@
 //! encrypted reasoning, cache-control markers, beta parameters, `null` fields,
 //! and block, item, and event types these types do not model. Every test
 //! parses the raw text, writes it back, and compares the two JSON values.
+//!
+//! The usage tests check that each format's token counters come out in the
+//! disjoint buckets the catalog prices, however the provider reports them.
 
 use std::error::Error as StdError;
 use std::fs;
 use std::path::Path;
 
+use lithos_llm::types::TokenCounts;
 use lithos_llm::wire::{Field, anthropic_messages, openai_chat, openai_responses};
 use proptest::prelude::*;
 use serde::Serialize;
@@ -421,6 +425,101 @@ fn editing_one_field_changes_only_that_field() -> TestResult {
     let mut expected: Value = serde_json::from_str(&text)?;
     expected.as_object_mut().ok_or("object")?.remove("stream");
     assert_eq!(serde_json::to_value(&request)?, expected);
+    Ok(())
+}
+
+#[test]
+fn anthropic_stream_usage_folds_its_split_counters_into_one_snapshot() -> TestResult {
+    // Anthropic's input counter excludes both cache counters, so nothing is
+    // subtracted. Each `message_delta` restates the cumulative output, and a
+    // `null` input there leaves the start's input alone.
+    let start: anthropic_messages::StreamEvent = serde_json::from_value(json!({
+        "type": "message_start",
+        "message": {
+            "id": "msg_01", "type": "message", "role": "assistant",
+            "model": "claude-opus-5-5", "content": [],
+            "stop_reason": null, "stop_sequence": null,
+            "usage": {
+                "input_tokens": 12, "output_tokens": 1,
+                "cache_creation_input_tokens": 300, "cache_read_input_tokens": 4000
+            }
+        }
+    }))?;
+    let anthropic_messages::StreamEvent::MessageStart(start) = start else {
+        return Err("expected message_start".into());
+    };
+    let mut counts = start.message.usage.token_counts();
+    for output in [200, 250] {
+        let delta: anthropic_messages::StreamEvent = serde_json::from_value(json!({
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn", "stop_sequence": null},
+            "usage": {"output_tokens": output, "input_tokens": null}
+        }))?;
+        let anthropic_messages::StreamEvent::MessageDelta(delta) = delta else {
+            return Err("expected message_delta".into());
+        };
+        delta.usage.fold_into(&mut counts);
+    }
+
+    assert_eq!(counts, TokenCounts {
+        input:       12,
+        output:      250,
+        reasoning:   0,
+        cache_read:  4000,
+        cache_write: 300,
+    });
+    Ok(())
+}
+
+#[test]
+fn chat_usage_takes_details_out_of_inclusive_totals_in_any_spelling() -> TestResult {
+    // OpenAI's nested details, with a cache write passed through flat from an
+    // Anthropic model, as Venice sends it.
+    let nested: openai_chat::Usage = serde_json::from_value(json!({
+        "prompt_tokens": 1000, "completion_tokens": 300, "total_tokens": 1300,
+        "prompt_tokens_details": {"cached_tokens": 600},
+        "completion_tokens_details": {"reasoning_tokens": 120},
+        "cache_creation_input_tokens": 50
+    }))?;
+    assert_eq!(nested.token_counts(), TokenCounts {
+        input:       350,
+        output:      180,
+        reasoning:   120,
+        cache_read:  600,
+        cache_write: 50,
+    });
+
+    // DeepSeek's flat cache counter, with no details at all.
+    let flat: openai_chat::Usage = serde_json::from_value(json!({
+        "prompt_tokens": 900, "completion_tokens": 40, "total_tokens": 940,
+        "prompt_cache_hit_tokens": 700, "prompt_cache_miss_tokens": 200
+    }))?;
+    assert_eq!(flat.token_counts(), TokenCounts {
+        input:       200,
+        output:      40,
+        reasoning:   0,
+        cache_read:  700,
+        cache_write: 0,
+    });
+    Ok(())
+}
+
+#[test]
+fn responses_usage_takes_details_out_of_inclusive_totals() -> TestResult {
+    let usage: openai_responses::Usage = serde_json::from_value(json!({
+        "input_tokens": 5000,
+        "input_tokens_details": {"cached_tokens": 3000, "cache_write_tokens": 500},
+        "output_tokens": 800,
+        "output_tokens_details": {"reasoning_tokens": 300},
+        "total_tokens": 5800
+    }))?;
+    assert_eq!(usage.token_counts(), TokenCounts {
+        input:       1500,
+        output:      500,
+        reasoning:   300,
+        cache_read:  3000,
+        cache_write: 500,
+    });
     Ok(())
 }
 

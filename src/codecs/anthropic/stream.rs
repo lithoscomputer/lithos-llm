@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use super::NAMESPACE;
-use super::decode::{block_id, field, fold_usage};
+use super::decode::{block_id, field};
 use crate::codecs::StreamDecoder;
 use crate::codecs::assembler::StreamAssembler;
 use crate::codecs::content::{ANTHROPIC_SIGNATURES, finish_reason};
@@ -13,6 +13,7 @@ use crate::codecs::errors::{invalid_stream_event, lost_tool_start, refusal};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
 use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
+use crate::wire::anthropic_messages::fold_usage;
 
 /// Per-stream state for one Anthropic Messages response.
 pub(super) struct AnthropicStreamDecoder {

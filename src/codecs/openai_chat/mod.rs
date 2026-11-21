@@ -22,7 +22,6 @@ mod tests;
 
 use decode::{
     decode_failure, decode_tool_call, message_text, no_choices, provider_cost, reasoning_text,
-    token_counts,
 };
 use encode::{body, dropped_controls, preflight};
 use reasoning_details::complete_details;
@@ -39,6 +38,7 @@ use crate::catalog::Endpoints;
 use crate::resolver::ResolvedRoute;
 use crate::transport::EncodedRequest;
 use crate::types::{ContentPart, Error, ReasoningContent, Response};
+use crate::wire::openai_chat::token_counts;
 
 /// The prefix of an opaque content kind this dialect claims.
 ///

@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use super::NAMESPACE;
 use crate::codecs::content::ANTHROPIC_SIGNATURES;
 use crate::types::{
-    ContentBlockId, ContentPart, ReasoningContent, TokenCounts, ToolArguments, ToolCall, ToolInput,
+    ContentBlockId, ContentPart, ReasoningContent, ToolArguments, ToolCall, ToolInput,
 };
 
 /// The first field a Messages response must carry and this body does not.
@@ -82,41 +82,6 @@ fn decode_tool_use(block: &Value) -> ToolCall {
         name:              field(block, "name").to_owned(),
         input:             ToolInput::Function(ToolArguments::from_json(arguments)),
         provider_metadata: BTreeMap::new(),
-    }
-}
-
-/// Normalizes one Anthropic usage object into the five disjoint buckets.
-pub(super) fn token_counts(usage: Option<&Value>) -> TokenCounts {
-    let mut counts = TokenCounts::default();
-    if let Some(usage) = usage {
-        fold_usage(&mut counts, usage);
-    }
-    counts
-}
-
-/// Folds whichever usage counters one wire object carries into a snapshot.
-///
-/// Anthropic's counters are **already disjoint**: `input_tokens` excludes both
-/// `cache_read_input_tokens` and `cache_creation_input_tokens`, so nothing is
-/// subtracted. Thinking tokens are billed inside `output_tokens` with no
-/// separate counter, so `reasoning` stays 0 and `billable_output` still adds
-/// up. Each field is assigned, not added, because a repeated counter is the
-/// provider restating the same cumulative total.
-pub(super) fn fold_usage(counts: &mut TokenCounts, usage: &Value) {
-    if let Some(input) = usage.get("input_tokens").and_then(Value::as_u64) {
-        counts.input = input;
-    }
-    if let Some(output) = usage.get("output_tokens").and_then(Value::as_u64) {
-        counts.output = output;
-    }
-    if let Some(read) = usage.get("cache_read_input_tokens").and_then(Value::as_u64) {
-        counts.cache_read = read;
-    }
-    if let Some(write) = usage
-        .get("cache_creation_input_tokens")
-        .and_then(Value::as_u64)
-    {
-        counts.cache_write = write;
     }
 }
 

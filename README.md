@@ -714,8 +714,17 @@ fn pin_model(body: &str) -> Result<String, serde_json::Error> {
 }
 ```
 
-The wire types need no feature and no runtime. The client does not use them:
-codecs still convert to and from the provider-neutral `Request`.
+Each format's `Usage` has `token_counts()`, which returns the `TokenCounts`
+an `Offering` prices with `estimate_cost`: the provider's counters in five
+disjoint buckets, normalized by the same code the codecs use, so a proxy
+counts tokens as the client does without knowing which counters include
+which. An Anthropic stream splits its usage between `message_start` and
+`message_delta`; fold each delta's `DeltaUsage` into the start's counts with
+`fold_into`.
+
+The wire types need no feature and no runtime. The client does not parse with
+them: codecs still convert to and from the provider-neutral `Request`, and
+share only the usage normalization.
 
 ## Features
 
