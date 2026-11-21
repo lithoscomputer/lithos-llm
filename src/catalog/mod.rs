@@ -20,7 +20,9 @@ pub use endpoints::Endpoints;
 #[cfg(feature = "runtime")]
 pub(crate) use endpoints::{OpenAiChatOptions, OpenAiMode, OpenAiResponsesOptions, endpoint};
 pub use loader::CatalogBuilder;
-pub use model::{CatalogModel, LongContextPricing, ModelLimits, Pricing, SpeedPricing, SpeedRates};
+pub use model::{
+    CatalogModel, LongContextPricing, ModelLimits, Pricing, SelectorMatch, SpeedPricing, SpeedRates,
+};
 pub use offering::Offering;
 pub use provider::{
     AdapterId, AuthScheme, CatalogProvider, CodecId, Metadata, MetadataError, ModelHandle, ModelId,

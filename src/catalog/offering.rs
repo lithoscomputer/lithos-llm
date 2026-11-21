@@ -14,7 +14,10 @@
 use std::collections::BTreeSet;
 use std::ptr;
 
-use super::{Catalog, CatalogModel, CatalogProvider, CodecId, ModelHandle, ModelId, ProviderId};
+use super::{
+    Catalog, CatalogModel, CatalogProvider, CodecId, ModelHandle, ModelId, ProviderId,
+    SelectorMatch,
+};
 use crate::resolver::ResolvedRoute;
 use crate::types::{Cost, Speed, TokenCounts};
 
@@ -151,32 +154,58 @@ impl Catalog {
     /// (`api_model`), such as Anthropic's `claude-opus-5-5` or OpenRouter's
     /// `anthropic/claude-opus-5.5`. Each group is ordered by higher provider
     /// priority, then provider id.
+    ///
+    /// [`selector_matches`](Self::selector_matches) returns the same list
+    /// with how `selector` named each offering.
     pub fn offerings_matching(&self, selector: &str) -> Vec<Offering<'_>> {
-        let qualified = selector
-            .split_once('/')
-            .and_then(|(provider, model)| self.enabled_provider(provider)?.offering(model));
+        self.selector_matches(selector)
+            .into_iter()
+            .map(|(offering, _)| offering)
+            .collect()
+    }
+
+    /// [`offerings_matching`](Self::offerings_matching), in the same order,
+    /// with how `selector` named each offering.
+    ///
+    /// The kinds come in [`SelectorMatch`] order, so the first entry's kind
+    /// is the best match. An offering appears once, under its best kind: when
+    /// `anthropic/claude-fable-5` names Anthropic's `claude-fable-5` and is
+    /// also OpenRouter's wire id for the same model, Anthropic's row is
+    /// [`ProviderQualified`](SelectorMatch::ProviderQualified) and
+    /// OpenRouter's follows as [`WireId`](SelectorMatch::WireId).
+    ///
+    /// A caller that accepts only provider ids as qualifiers skips
+    /// [`ProviderAliasQualified`](SelectorMatch::ProviderAliasQualified)
+    /// entries; the offerings the selector names whole still follow.
+    pub fn selector_matches(&self, selector: &str) -> Vec<(Offering<'_>, SelectorMatch)> {
+        let qualified = selector.split_once('/').and_then(|(prefix, model)| {
+            let provider = self.enabled_provider(prefix)?;
+            let kind = if provider.id().as_str() == prefix {
+                SelectorMatch::ProviderQualified
+            } else {
+                SelectorMatch::ProviderAliasQualified
+            };
+            provider.offering(model).map(|offering| (offering, kind))
+        });
         let mut matches: Vec<_> = self
             .enabled_providers()
             .into_iter()
             .flat_map(CatalogProvider::offerings)
             .filter(|offering| {
-                qualified.is_none_or(|qualified| !ptr::eq(qualified.model, offering.model))
+                qualified.is_none_or(|(qualified, _)| !ptr::eq(qualified.model, offering.model))
             })
             .filter_map(|offering| {
                 offering
                     .model
                     .selector_match(selector)
-                    .map(|kind| (kind, offering))
+                    .map(|kind| (offering, kind))
             })
             .collect();
         // `enabled_providers` already orders by priority then id, and the
         // sort is stable, so ranking by match kind alone keeps that order
         // within each group.
-        matches.sort_by_key(|(kind, _)| *kind);
-        qualified
-            .into_iter()
-            .chain(matches.into_iter().map(|(_, offering)| offering))
-            .collect()
+        matches.sort_by_key(|(_, kind)| *kind);
+        qualified.into_iter().chain(matches).collect()
     }
 
     /// Every enabled provider's offering of the model whose canonical id is
@@ -276,7 +305,7 @@ impl Catalog {
 mod tests {
     use std::error::Error as StdError;
 
-    use super::super::{Catalog, ProviderId};
+    use super::super::{Catalog, ProviderId, SelectorMatch};
     use crate::types::TokenCounts;
 
     const CATALOG: &str = r#"
@@ -498,8 +527,7 @@ mod tests {
     }
 
     #[test]
-    fn offerings_matching_finds_wire_ids_bare_and_provider_prefixed()
-    -> Result<(), Box<dyn StdError>> {
+    fn selector_matches_names_how_each_offering_matched() -> Result<(), Box<dyn StdError>> {
         // The provider whose wire id collides has the highest priority, so
         // only the match kind can put it last.
         let catalog = Catalog::builder()
@@ -531,6 +559,7 @@ mod tests {
 
                 [providers.low]
                 display_name = "Low"
+                aliases = ["lo"]
                 base_url = "http://127.0.0.1"
                 priority = 1
                 auth = { type = "bearer" }
@@ -542,22 +571,64 @@ mod tests {
             "#,
             )?
             .build()?;
-        let handles = |selector| -> Vec<String> {
+        let matches = |selector| -> Vec<(String, SelectorMatch)> {
             catalog
-                .offerings_matching(selector)
-                .iter()
-                .map(|offering| offering.handle().to_string())
+                .selector_matches(selector)
+                .into_iter()
+                .map(|(offering, kind)| (offering.handle().to_string(), kind))
+                .collect()
+        };
+        let expected = |rows: &[(&str, SelectorMatch)]| -> Vec<(String, SelectorMatch)> {
+            rows.iter()
+                .map(|&(handle, kind)| (handle.to_owned(), kind))
                 .collect()
         };
 
-        assert_eq!(handles("model-1-0"), ["wire/model-1.0"]);
-        assert_eq!(handles("named"), ["low/named", "wire/unrelated"]);
-        assert_eq!(handles("nickname"), ["low/named", "wire/other"]);
+        assert_eq!(
+            matches("model-1-0"),
+            expected(&[("wire/model-1.0", SelectorMatch::WireId)])
+        );
+        assert_eq!(
+            matches("named"),
+            expected(&[
+                ("low/named", SelectorMatch::Id),
+                ("wire/unrelated", SelectorMatch::WireId)
+            ])
+        );
+        assert_eq!(
+            matches("nickname"),
+            expected(&[
+                ("low/named", SelectorMatch::Alias),
+                ("wire/other", SelectorMatch::WireId)
+            ])
+        );
         // A prefix that is a provider names that provider's model first,
-        // ahead of another provider's wire id that is the whole selector.
-        assert_eq!(handles("low/named-v1"), ["low/named", "wire/routed"]);
-        assert_eq!(handles("wire/model-1-0"), ["wire/model-1.0"]);
-        assert!(handles("low/model-1-0").is_empty());
+        // ahead of another provider's wire id that is the whole selector, and
+        // the kind says whether the prefix was the provider's id or an alias.
+        assert_eq!(
+            matches("low/named-v1"),
+            expected(&[
+                ("low/named", SelectorMatch::ProviderQualified),
+                ("wire/routed", SelectorMatch::WireId)
+            ])
+        );
+        assert_eq!(
+            matches("lo/named-v1"),
+            expected(&[("low/named", SelectorMatch::ProviderAliasQualified)])
+        );
+        assert_eq!(
+            matches("wire/model-1-0"),
+            expected(&[("wire/model-1.0", SelectorMatch::ProviderQualified)])
+        );
+        assert!(matches("low/model-1-0").is_empty());
+        assert_eq!(
+            catalog
+                .offerings_matching("low/named-v1")
+                .iter()
+                .map(|offering| offering.handle().to_string())
+                .collect::<Vec<_>>(),
+            ["low/named", "wire/routed"]
+        );
         assert_eq!(
             catalog
                 .canonical_model_id(None, "model-1-0")

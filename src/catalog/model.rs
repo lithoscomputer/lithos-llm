@@ -7,11 +7,25 @@ use super::{
 };
 use crate::types::Speed;
 
-/// How a bare model selector names a catalog model, best match first.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) enum SelectorMatch {
+/// How a model selector names an offering, in the order
+/// [`Catalog::offerings_matching`](super::Catalog::offerings_matching) ranks
+/// them: a provider-qualified selector first, then a canonical id, an alias,
+/// and a wire id.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum SelectorMatch {
+    /// `provider/model`, prefixed with the provider's id:
+    /// `anthropic/claude-opus-5-5`. The model part matches the provider's
+    /// canonical id, alias, or wire id.
+    ProviderQualified,
+    /// `provider/model`, prefixed with one of the provider's aliases rather
+    /// than its id: `claude/claude-opus-5-5`.
+    ProviderAliasQualified,
+    /// The model's canonical id: `claude-opus-5.5`.
     Id,
+    /// One of the model's aliases: `opus`.
     Alias,
+    /// The model's wire id, its `api_model`, whole: Anthropic's
+    /// `claude-opus-5-5` or OpenRouter's `anthropic/claude-opus-5.5`.
     WireId,
 }
 
