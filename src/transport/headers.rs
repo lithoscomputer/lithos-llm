@@ -88,13 +88,28 @@ pub(super) fn merge_headers(
     for (name, value) in codec_headers {
         insert_header(headers, provider, name, value)?;
     }
-    for (name, value) in default_headers {
-        insert_header(headers, provider, name, value)?;
-    }
+    headers.extend(default_header_map(provider, default_headers)?);
     if let Some(credentials) = credentials {
         headers.extend(credential_header_map(provider, scheme, credentials)?);
     }
     Ok(())
+}
+
+/// The provider's catalog default headers as a [`HeaderMap`] of ordinary,
+/// non-sensitive values.
+///
+/// # Errors
+///
+/// [`ErrorKind::Configuration`] when a header name or value is not valid HTTP.
+pub(crate) fn default_header_map(
+    provider: &ProviderId,
+    default_headers: &BTreeMap<String, String>,
+) -> Result<HeaderMap, Error> {
+    let mut headers = HeaderMap::new();
+    for (name, value) in default_headers {
+        insert_header(&mut headers, provider, name, value)?;
+    }
+    Ok(headers)
 }
 
 /// The credential headers as a [`HeaderMap`] of sensitive values, a later
@@ -271,7 +286,7 @@ mod tests {
 
     use reqwest::header::{HeaderMap, HeaderValue};
 
-    use super::{credential_headers, merge_headers, rate_limits};
+    use super::{credential_headers, default_header_map, merge_headers, rate_limits};
     use crate::catalog::{AuthScheme, ProviderId};
     use crate::credentials::{
         CredentialHeader, Credentials, HttpAuthentication, HttpCredentials, SecretValue,
@@ -376,6 +391,20 @@ mod tests {
             Some("from-credentials")
         );
         assert_eq!(value(&headers, "x-codec").as_deref(), Some("from-defaults"));
+    }
+
+    #[test]
+    fn default_header_map_reports_an_invalid_header_as_configuration() {
+        let provider = ProviderId::new("openai");
+        for (name, value) in [("x api key", "value"), ("x-trace", "one\ntwo")] {
+            let defaults = BTreeMap::from([(name.to_owned(), value.to_owned())]);
+
+            let error = default_header_map(&provider, &defaults)
+                .expect_err("an invalid header should be rejected");
+
+            assert_eq!(error.kind(), ErrorKind::Configuration);
+            assert_eq!(error.provider(), Some(&provider));
+        }
     }
 
     #[test]

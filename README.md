@@ -630,6 +630,7 @@ wire id, bare (`claude-opus-5-5`) or prefixed with its provider
 (`anthropic/claude-opus-5-5`); `offerings` lists every enabled provider's
 entry for one canonical model id in priority order, and `offerings_for_codec`
 keeps the ones a codec reaches, the ordered candidates for failover;
+`offering` returns one enabled provider's entry for a canonical model id;
 `default_offering_for` and `small_default_for` pick the default and the cheap
 utility model across the providers that are ready;
 `CatalogProvider::probe_offering` names the row to probe with and

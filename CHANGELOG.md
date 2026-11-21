@@ -16,6 +16,42 @@ This project follows [Semantic Versioning](https://semver.org/).
   client still sends every OpenAI call through Responses. No Chat
   Completions exchange with OpenAI is recorded.
 
+- `CatalogProvider::default_http_headers()` returns the provider's catalog
+  `default_headers` as a `HeaderMap`, converted the way the client converts
+  them for a request. The values are not secrets, so none is marked
+  sensitive. A caller that makes its own requests, such as a proxy, no longer
+  converts the string map itself; an invalid name or value is an
+  `ErrorKind::Configuration` error, though a built catalog already rejects
+  one. Extending the map with `Credentials::http_headers` gives the client's
+  precedence, credentials winning a collision. The client builds its default
+  headers through the same function, so its behavior is unchanged. The method
+  needs the `runtime` feature.
+
+- `Endpoints::inference_path_under(base_url)` and
+  `Endpoints::models_path_under(base_url)` return the part of
+  `inference_url` and `models_url` that follows `base_url`: the codec's path
+  without the version segment `base_url` already ends with. Under each
+  provider's own `base_url`, OpenRouter's Chat Completions, Messages, and
+  Responses give `/chat/completions`, `/messages`, and `/responses`, Venice's
+  give `/chat/completions` and `/responses`, and Anthropic and OpenAI give
+  `/v1/messages` and `/v1/responses`. A caller that replaces the catalog base
+  URL with its own in the provider's shape appends this path to it unchanged,
+  instead of stripping the base URL off `inference_url`.
+
+- `Catalog::offering(&ProviderId, &ModelId)` returns one provider's offering
+  of one canonical model id, the entry `Catalog::offerings` would list for
+  that provider, without building and filtering the whole list. Like
+  `offerings`, it matches canonical ids only: a provider alias does not name
+  the provider, and a different model that carries the id as an alias is
+  never returned. A disabled provider offers nothing, so it returns `None`
+  for one; `Catalog::provider_by_id` still finds the provider.
+
+- `openai_chat::ErrorResponse::with_code`, also reachable through
+  `openai_responses::ErrorResponse`, sets the error's `code` to a text code,
+  so a proxy writes `{"error": {..., "code": "model_not_found"}}` without
+  building the `Field` and `ErrorCode` itself. `ErrorResponse::new` still
+  writes `"code": null`.
+
 - The built-in `openrouter` provider now lists `anthropic-messages`, so its
   codecs are `["openai-chat", "openai-responses", "anthropic-messages",
   "systemone"]` and every
