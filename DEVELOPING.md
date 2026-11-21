@@ -39,8 +39,8 @@ Run `mise run check` before opening a pull request.
 `check:prices` reads the providers' live pages, so it is not part of `check`.
 Run it after changing a price and on a schedule: it exits 1 when a rate the
 catalog models differs from the page, and lists the rates the schema cannot
-hold, such as 1-hour cache writes, as not modelled. Name models after `--` to
-check only those, as in `mise run check:prices -- claude-opus-5.5`.
+hold, such as batch rates, as not modelled. Name models after `--` to check
+only those, as in `mise run check:prices -- claude-opus-5.5`.
 
 ## Rust policy
 
