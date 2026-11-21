@@ -122,6 +122,49 @@ impl Endpoints {
     pub fn models_url(&self, base_url: &str) -> Option<String> {
         self.models.map(|path| endpoint(base_url, path))
     }
+
+    /// The part of [`inference_url`](Self::inference_url) that follows
+    /// `base_url`: the inference path without the version segment `base_url`
+    /// already ends with.
+    ///
+    /// Pass the provider's own [`base_url`](super::CatalogProvider::base_url)
+    /// to get the path that follows a replacement base URL written in the
+    /// provider's shape. OpenRouter's `https://openrouter.ai/api/v1` gives
+    /// `/chat/completions`, and Anthropic's `https://api.anthropic.com` gives
+    /// `/v1/messages`. Appending that path to a replacement keeps the
+    /// replacement exactly as written, where
+    /// [`inference_url`](Self::inference_url) would collapse a version
+    /// segment it ends with.
+    ///
+    /// ```
+    /// use lithos_llm::catalog::{Catalog, CodecId, codec_ids};
+    ///
+    /// let catalog = Catalog::builder().with_builtin().build()?;
+    /// let openrouter = catalog.provider("openrouter")?;
+    /// let endpoints = openrouter
+    ///     .endpoints(&CodecId::new(codec_ids::OPENAI_CHAT))
+    ///     .expect("OpenRouter speaks Chat Completions");
+    ///
+    /// assert_eq!(
+    ///     endpoints.inference_path_under(openrouter.base_url()),
+    ///     "/chat/completions"
+    /// );
+    /// assert_eq!(
+    ///     endpoints.models_path_under(openrouter.base_url()),
+    ///     Some("/models")
+    /// );
+    /// # Ok::<(), lithos_llm::catalog::CatalogError>(())
+    /// ```
+    pub fn inference_path_under(&self, base_url: &str) -> &'static str {
+        path_under(base_url, self.inference)
+    }
+
+    /// The part of [`models_url`](Self::models_url) that follows `base_url`,
+    /// as [`inference_path_under`](Self::inference_path_under) gives it for
+    /// the inference path.
+    pub fn models_path_under(&self, base_url: &str) -> Option<&'static str> {
+        self.models.map(|path| path_under(base_url, path))
+    }
 }
 
 /// The endpoints of codec `codec` configured by its raw `codec_options`.
@@ -204,16 +247,37 @@ pub(crate) enum OpenAiMode {
 /// `/gateway` keeps its own prefix.
 pub(crate) fn endpoint(base_url: &str, path: &str) -> String {
     let base = base_url.trim_end_matches('/');
-    let path = path.trim_start_matches('/');
-    let path = match repeated_version(base, path) {
-        Some(segment) => path[segment.len()..].trim_start_matches('/'),
-        None => path,
-    };
+    let path = after_base(base, path);
 
     if path.is_empty() {
         return base.to_owned();
     }
     format!("{base}/{path}")
+}
+
+/// What follows `base_url` in [`endpoint`]'s join, starting with `/`, or
+/// empty when nothing follows it.
+///
+/// `path` must start with `/`, as every [`Endpoints`] path does, so the slash
+/// before the remainder is still in it.
+fn path_under(base_url: &str, path: &'static str) -> &'static str {
+    let rest = after_base(base_url.trim_end_matches('/'), path);
+    if rest.is_empty() {
+        return rest;
+    }
+    &path[path.len() - rest.len() - 1..]
+}
+
+/// `path` without its leading slashes and without the version segment `base`
+/// already ends with.
+///
+/// `base` has already lost its trailing slashes.
+fn after_base<'a>(base: &str, path: &'a str) -> &'a str {
+    let path = path.trim_start_matches('/');
+    match repeated_version(base, path) {
+        Some(segment) => path[segment.len()..].trim_start_matches('/'),
+        None => path,
+    }
 }
 
 /// The version segment `base` and `path` both carry, when they share one.
@@ -236,7 +300,7 @@ mod tests {
     #[cfg(feature = "builtin-catalog")]
     use std::error::Error as StdError;
 
-    use super::endpoint;
+    use super::{Endpoints, endpoint};
     #[cfg(feature = "builtin-catalog")]
     use crate::catalog::{Catalog, CodecId, codec_ids};
 
@@ -313,6 +377,182 @@ mod tests {
             assert_eq!(endpoints.models_url(provider.base_url()).as_deref(), models);
         }
         Ok(())
+    }
+
+    #[cfg(feature = "builtin-catalog")]
+    #[test]
+    fn builtin_paths_under_their_base_urls_follow_them_in_their_urls()
+    -> Result<(), Box<dyn StdError>> {
+        let catalog = Catalog::builder().with_builtin().build()?;
+        // Every built-in provider and codec with endpoints, so a new one
+        // fails here until its paths are written down.
+        let mut cases = vec![
+            (
+                "anthropic",
+                codec_ids::ANTHROPIC_MESSAGES,
+                "/v1/messages",
+                Some("/v1/models"),
+            ),
+            (
+                "bedrock-openai",
+                codec_ids::OPENAI_RESPONSES,
+                "/responses",
+                Some("/models"),
+            ),
+            (
+                "deepseek",
+                codec_ids::OPENAI_CHAT,
+                "/v1/chat/completions",
+                Some("/v1/models"),
+            ),
+            (
+                "fireworks",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "inception",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "litellm",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "minimax",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "modal",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "moonshot",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "ollama",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "openai",
+                codec_ids::OPENAI_RESPONSES,
+                "/v1/responses",
+                Some("/v1/models"),
+            ),
+            (
+                "openai-codex",
+                codec_ids::OPENAI_RESPONSES,
+                "/responses",
+                None,
+            ),
+            (
+                "openrouter",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "openrouter",
+                codec_ids::OPENAI_RESPONSES,
+                "/responses",
+                Some("/models"),
+            ),
+            (
+                "openrouter",
+                codec_ids::ANTHROPIC_MESSAGES,
+                "/messages",
+                Some("/models"),
+            ),
+            (
+                "poolside",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "venice",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "venice",
+                codec_ids::OPENAI_RESPONSES,
+                "/responses",
+                Some("/models"),
+            ),
+            (
+                "vercel",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+            (
+                "zai",
+                codec_ids::OPENAI_CHAT,
+                "/chat/completions",
+                Some("/models"),
+            ),
+        ];
+
+        for provider in catalog.providers() {
+            let base = provider.base_url();
+            for codec in provider.codecs() {
+                let Some(endpoints) = provider.endpoints(codec) else {
+                    continue;
+                };
+                let position = cases
+                    .iter()
+                    .position(|case| case.0 == provider.id().as_str() && case.1 == codec.as_str())
+                    .ok_or(format!("no expected paths for {} {codec}", provider.id()))?;
+                let (_, _, inference, models) = cases.remove(position);
+
+                assert_eq!(endpoints.inference_path_under(base), inference);
+                assert_eq!(endpoints.models_path_under(base), models);
+                // A caller that appends the path to the base URL reaches the
+                // URL the codec does.
+                let base = base.trim_end_matches('/');
+                assert_eq!(format!("{base}{inference}"), endpoints.inference_url(base));
+                assert_eq!(
+                    models.map(|models| format!("{base}{models}")),
+                    endpoints.models_url(base)
+                );
+            }
+        }
+        assert_eq!(cases, [], "expected paths for providers without endpoints");
+        Ok(())
+    }
+
+    #[test]
+    fn a_path_under_a_base_url_keeps_a_segment_it_does_not_repeat() {
+        let endpoints = Endpoints::openai_chat(false);
+        // A trailing slash on the base URL still collapses its version.
+        assert_eq!(
+            endpoints.inference_path_under("https://example.com/v1/"),
+            "/chat/completions"
+        );
+        assert_eq!(
+            endpoints.inference_path_under("https://example.com/gateway"),
+            "/v1/chat/completions"
+        );
+        assert_eq!(
+            endpoints.inference_path_under("https://example.com/v1beta"),
+            "/v1/chat/completions"
+        );
     }
 
     #[cfg(feature = "builtin-catalog")]

@@ -16,6 +16,28 @@ This project follows [Semantic Versioning](https://semver.org/).
   its two secrets is blank. A non-blank value is still sent exactly as
   stored.
 
+- `CatalogProvider::default_http_headers()` returns the provider's catalog
+  `default_headers` as a `HeaderMap`, converted the way the client converts
+  them for a request. The values are not secrets, so none is marked
+  sensitive. A caller that makes its own requests, such as a proxy, no longer
+  converts the string map itself; an invalid name or value is an
+  `ErrorKind::Configuration` error, though a built catalog already rejects
+  one. Extending the map with `Credentials::http_headers` gives the client's
+  precedence, credentials winning a collision. The client builds its default
+  headers through the same function, so its behavior is unchanged. The method
+  needs the `runtime` feature.
+
+- `Endpoints::inference_path_under(base_url)` and
+  `Endpoints::models_path_under(base_url)` return the part of
+  `inference_url` and `models_url` that follows `base_url`: the codec's path
+  without the version segment `base_url` already ends with. Under each
+  provider's own `base_url`, OpenRouter's Chat Completions, Messages, and
+  Responses give `/chat/completions`, `/messages`, and `/responses`, Venice's
+  give `/chat/completions` and `/responses`, and Anthropic and OpenAI give
+  `/v1/messages` and `/v1/responses`. A caller that replaces the catalog base
+  URL with its own in the provider's shape appends this path to it unchanged,
+  instead of stripping the base URL off `inference_url`.
+
 - `Catalog::offering(&ProviderId, &ModelId)` returns one provider's offering
   of one canonical model id, the entry `Catalog::offerings` would list for
   that provider, without building and filtering the whole list. Like

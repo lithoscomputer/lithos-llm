@@ -26,8 +26,8 @@ pub(crate) use self::body::{JsonResponse, provider_error};
 use self::body::{http_error, json_response};
 #[cfg(feature = "bedrock")]
 use self::event_stream::EventStreamFramer;
-pub(crate) use self::headers::credential_header_map;
 use self::headers::rate_limits;
+pub(crate) use self::headers::{credential_header_map, default_header_map};
 pub(crate) use self::request::{EncodedRequest, PreparedRequest, StreamFraming};
 pub(crate) use self::sse::SseEvent;
 use self::sse::SseFramer;
