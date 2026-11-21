@@ -197,6 +197,25 @@ impl Catalog {
             .collect()
     }
 
+    /// `provider`'s offering of the model whose canonical id is `model`: the
+    /// entry of [`offerings`](Self::offerings) for that provider, without
+    /// building the list.
+    ///
+    /// Both ids are canonical. A provider alias does not name the provider,
+    /// and a different model that carries `model` as an alias is not
+    /// returned; use [`CatalogProvider::offering`] to match aliases and wire
+    /// ids. A disabled provider offers nothing, so this is `None` for it, as
+    /// in every other query here; [`provider_by_id`](Self::provider_by_id)
+    /// still finds its row.
+    pub fn offering(&self, provider: &ProviderId, model: &ModelId) -> Option<Offering<'_>> {
+        let provider = self
+            .provider_by_id(provider)
+            .filter(|provider| provider.is_enabled())?;
+        provider
+            .model_by_id(model)
+            .map(|model| Offering { provider, model })
+    }
+
     /// The [`offerings`](Self::offerings) of `model` that a call through
     /// `codec` reaches, in the same order: the candidates a caller tries in
     /// turn when it fails over between providers.
@@ -494,6 +513,35 @@ mod tests {
                 .is_empty(),
             "a wire id is not a canonical id"
         );
+
+        let offering = |provider: &str, model: &str| {
+            catalog
+                .offering(&ProviderId::new(provider), &super::ModelId::new(model))
+                .map(|offering| offering.handle().to_string())
+        };
+        assert_eq!(offering("beta", "one"), Some("beta/one".to_owned()));
+        assert_eq!(
+            offering("gamma", "one"),
+            Some("gamma/one".to_owned()),
+            "a stand-in offers its own row"
+        );
+        assert_eq!(
+            offering("delta", "one"),
+            None,
+            "delta's two carries one as an alias but is another model"
+        );
+        assert_eq!(offering("delta", "two"), Some("delta/two".to_owned()));
+        assert_eq!(
+            offering("off", "one"),
+            None,
+            "a disabled provider offers nothing"
+        );
+        assert_eq!(
+            offering("beta", "beta/one"),
+            None,
+            "a wire id is not a canonical id"
+        );
+        assert_eq!(offering("missing", "one"), None);
         Ok(())
     }
 

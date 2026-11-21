@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `Catalog::offering(&ProviderId, &ModelId)` returns one provider's offering
+  of one canonical model id, the entry `Catalog::offerings` would list for
+  that provider, without building and filtering the whole list. Like
+  `offerings`, it matches canonical ids only: a provider alias does not name
+  the provider, and a different model that carries the id as an alias is
+  never returned. A disabled provider offers nothing, so it returns `None`
+  for one; `Catalog::provider_by_id` still finds the provider.
+
 - `openai_chat::ErrorResponse::with_code`, also reachable through
   `openai_responses::ErrorResponse`, sets the error's `code` to a text code,
   so a proxy writes `{"error": {..., "code": "model_not_found"}}` without
