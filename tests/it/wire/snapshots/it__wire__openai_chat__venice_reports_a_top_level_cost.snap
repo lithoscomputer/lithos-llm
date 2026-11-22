@@ -11,7 +11,7 @@ expression: rendered
   ],
   "cost": {
     "source": "provider",
-    "usd_micros": 250000
+    "usd_micros": 9750000
   },
   "finish_reason": "stop",
   "id": "chatcmpl-cost",

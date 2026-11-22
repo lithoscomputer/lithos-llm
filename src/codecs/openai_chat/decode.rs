@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use crate::codecs::errors::malformed_success;
-use crate::codecs::options::usd_micros;
 use crate::resolver::ResolvedRoute;
-use crate::types::{ContentPart, Cost, CostSource, Error, ToolCall, ToolCallKind, ToolInput};
+use crate::types::{ContentPart, Cost, Error, ToolCall, ToolCallKind, ToolInput};
+use crate::wire;
 
 /// The error a 200 with no choices decodes into.
 pub(super) fn no_choices(route: &ResolvedRoute, value: Value) -> Error {
@@ -84,21 +84,12 @@ pub(super) fn non_empty<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
         .filter(|text| !text.is_empty())
 }
 
-/// The cost a provider reported in-band, when it reported one.
-///
-/// Two paths in precedence order: OpenRouter's `usage.cost` and Venice's
-/// top-level `cost.usd`. Venice's `cost.diem` sibling is a different currency
-/// and is ignored, as is `usage.cost_details.upstream_inference_cost`, which is
-/// an upstream figure rather than what this call is billed; both survive in
-/// [`Response::raw`].
+/// The cost a provider reported in-band on a body or chunk, read by
+/// [`crate::wire::provider_cost`]: OpenRouter's `usage.cost`, or Venice's
+/// top-level `cost`.
 pub(super) fn provider_cost(body: &Value) -> Option<Cost> {
-    let usd = body
-        .pointer("/usage/cost")
-        .and_then(Value::as_f64)
-        .or_else(|| body.pointer("/cost/usd").and_then(Value::as_f64))?;
-
-    Some(Cost {
-        usd_micros: usd_micros(usd),
-        source:     CostSource::Provider,
-    })
+    wire::provider_cost(
+        body.get("usage").and_then(Value::as_object),
+        body.get("cost"),
+    )
 }

@@ -6,10 +6,16 @@
 //! [`Request`](crate::Request), which every codec converts to and from, these
 //! types never normalize. They serve callers that must stay in a provider's
 //! format, such as a proxy that reads a request, changes one field, and
-//! forwards it, or renders its own errors the way the provider would. The one
-//! normalized view they offer is each format's `Usage::token_counts`, which
-//! gives the client's [`TokenCounts`](crate::types::TokenCounts) for a
-//! response's usage.
+//! forwards it, or renders its own errors the way the provider would. They
+//! offer two normalized views, each computed by the same rules the client's
+//! codecs apply: each format's `Usage::token_counts`, which gives the
+//! client's [`TokenCounts`](crate::types::TokenCounts) for a response's usage,
+//! and an [`Outcome`], which a response's `outcome()` builds and a stream's
+//! events fold into with `fold_into`: the model that served it, why it
+//! stopped, whether it was refused, the provider's own charge, and the passes
+//! it was billed for, which
+//! [`Offering::estimate_outcome_cost`](crate::catalog::Offering::estimate_outcome_cost)
+//! prices.
 //!
 //! | Module | API | Codec |
 //! | --- | --- | --- |
@@ -65,7 +71,10 @@
 pub mod anthropic_messages;
 pub mod openai_chat;
 pub mod openai_responses;
+mod outcome;
 
+pub(crate) use outcome::provider_cost;
+pub use outcome::{Fallback, InBandError, Outcome, Pass, Refusal, ServedTier};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};

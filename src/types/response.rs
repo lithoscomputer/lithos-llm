@@ -57,6 +57,50 @@ impl From<&str> for FinishReason {
     }
 }
 
+/// Maps a provider stop reason onto the normalized finish reason.
+///
+/// `stop_sequence` is a normal stop: the model ended on a sequence the caller
+/// asked it to stop at. Gemini's `RECITATION` is a content block, reported
+/// separately from `SAFETY` because the blocked material is quoted source
+/// rather than unsafe content. Converse's `model_context_window_exceeded` is
+/// its own name for a generation that ran out of context, the same outcome as
+/// `max_tokens`; its `content_filtered` and `guardrail_intervened` are both
+/// content blocks.
+pub(crate) fn finish_reason(value: Option<&str>) -> FinishReason {
+    match value {
+        None | Some("stop" | "end_turn" | "stop_sequence" | "STOP") => FinishReason::Stop,
+        Some("length" | "max_tokens" | "MAX_TOKENS" | "model_context_window_exceeded") => {
+            FinishReason::Length
+        }
+        Some("tool_calls" | "tool_use") => FinishReason::ToolCall,
+        Some(
+            "content_filter"
+            | "content_filtered"
+            | "guardrail_intervened"
+            | "SAFETY"
+            | "RECITATION"
+            | "BLOCKLIST"
+            | "PROHIBITED_CONTENT",
+        ) => FinishReason::ContentFilter,
+        Some(other) => FinishReason::Other(other.to_owned()),
+    }
+}
+
+/// Corrects a finish reason for a turn that called tools.
+///
+/// Several protocols report a plain stop even when the turn is nothing but
+/// tool calls — Gemini always, the OpenAI dialects on some skins — so a
+/// consumer that dispatches tools on [`FinishReason::ToolCall`] would never
+/// run them. Only `Stop` is corrected: a call cut off by a length limit, or a
+/// turn blocked mid-way, keeps the reason the provider gave, which is the more
+/// specific fact.
+pub(crate) fn promote_tool_finish(reason: FinishReason, has_tool_call: bool) -> FinishReason {
+    match reason {
+        FinishReason::Stop if has_tool_call => FinishReason::ToolCall,
+        other => other,
+    }
+}
+
 impl Serialize for FinishReason {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.as_str())

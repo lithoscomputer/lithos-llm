@@ -9,8 +9,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
-use super::{Extra, Field, Tagged, to_json, unknown};
-use crate::types::TokenCounts;
+use super::{Extra, Field, Outcome, Refusal, Tagged, to_json, unknown};
+use crate::types::{TokenCounts, finish_reason};
 
 /// A request body for `POST /v1/chat/completions`.
 ///
@@ -30,14 +30,17 @@ pub struct Request {
 /// A message in [`Request::messages`] or a [`Choice`].
 ///
 /// One struct covers every role, because the roles differ only in which
-/// optional fields they carry. `name`, `refusal`, `annotations`, and `audio`
-/// are kept in `extra`.
+/// optional fields they carry. `name`, `annotations`, and `audio` are kept in
+/// `extra`.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Message {
     /// `system`, `developer`, `user`, `assistant`, or `tool`.
     pub role:         String,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub content:      Field<Content>,
+    /// The model's explanation when an `assistant` message declines.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub refusal:      Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub tool_calls:   Field<Vec<ToolCall>>,
     /// The call a `tool` message answers.
@@ -231,6 +234,76 @@ pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
     )
 }
 
+impl Response {
+    /// How this completion ended, which model served it, and what it was
+    /// billed for. The first choice is the one read.
+    pub fn outcome(&self) -> Outcome {
+        let mut outcome = Outcome::default();
+        outcome.set_model(&self.model);
+        if let Some(choice) = self.choices.first() {
+            fold_finish(choice.finish_reason.as_option(), &mut outcome);
+            let message = &choice.message;
+            if let Some(text) = non_empty(&message.refusal) {
+                outcome.set_refusal(Refusal {
+                    category:    None,
+                    explanation: Some(text.to_owned()),
+                });
+            }
+            if non_empty_calls(&message.tool_calls) {
+                outcome.saw_tool_call();
+            }
+        }
+        fold_totals(self.usage.as_option(), &self.extra, &mut outcome);
+        outcome
+    }
+}
+
+impl StreamEvent {
+    /// Folds what this chunk reports into `outcome`: the model, the first
+    /// choice's finish reason and refusal text, and the usage, tier, and cost
+    /// of the final chunk. Fold every chunk of a stream, in order.
+    pub fn fold_into(&self, outcome: &mut Outcome) {
+        outcome.set_model(&self.model);
+        if let Some(choice) = self.choices.first() {
+            fold_finish(choice.finish_reason.as_option(), outcome);
+            if let Some(text) = non_empty(&choice.delta.refusal) {
+                outcome.append_refusal(text);
+            }
+            if non_empty_calls(&choice.delta.tool_calls) {
+                outcome.saw_tool_call();
+            }
+        }
+        fold_totals(self.usage.as_option(), &self.extra, outcome);
+    }
+}
+
+fn fold_finish(reason: Option<&String>, outcome: &mut Outcome) {
+    if let Some(reason) = reason {
+        outcome.set_stop(reason, finish_reason(Some(reason)));
+    }
+}
+
+/// Folds the usage, served tier, and provider cost of a completion or chunk.
+fn fold_totals(usage: Option<&Usage>, extra: &Extra, outcome: &mut Outcome) {
+    if let Some(usage) = usage {
+        outcome.set_usage(usage.token_counts());
+    }
+    outcome.set_tier(None, extra.get("service_tier"));
+    outcome.set_provider_cost(usage.map(|usage| &usage.extra), extra.get("cost"));
+}
+
+/// The text of a `refusal` field, when it has any: an empty one means no
+/// refusal.
+fn non_empty(text: &Field<String>) -> Option<&str> {
+    text.as_option()
+        .map(String::as_str)
+        .filter(|text| !text.is_empty())
+}
+
+fn non_empty_calls<T>(calls: &Field<Vec<T>>) -> bool {
+    calls.as_option().is_some_and(|calls| !calls.is_empty())
+}
+
 /// The prompt token breakdown on a [`Usage`].
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PromptTokensDetails {
@@ -277,13 +350,16 @@ pub struct ChunkChoice {
     pub extra:         Extra,
 }
 
-/// The increment inside a [`ChunkChoice`]. `refusal` is kept in `extra`.
+/// The increment inside a [`ChunkChoice`].
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Delta {
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub role:       Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub content:    Field<String>,
+    /// More of [`Message::refusal`].
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub refusal:    Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub tool_calls: Field<Vec<ToolCallDelta>>,
     #[serde(flatten)]

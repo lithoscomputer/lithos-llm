@@ -10,8 +10,8 @@ use serde_json::Value;
 
 /// Chat Completions and Responses return the same error body.
 pub use super::openai_chat::{ApiError, ErrorCode, ErrorResponse};
-use super::{Extra, Field, Tagged, to_json, unknown};
-use crate::types::TokenCounts;
+use super::{Extra, Field, Outcome, Refusal as OutcomeRefusal, Tagged, to_json, unknown};
+use crate::types::{FinishReason, TokenCounts};
 
 /// A request body for `POST /v1/responses`.
 ///
@@ -222,17 +222,52 @@ impl Tagged for SummaryPart {
 ///
 /// Most response fields echo the request, such as `instructions`, `tools`,
 /// and `reasoning`, and are kept in `extra`.
+///
+/// `model` is the model that generated the response, which OpenAI may route
+/// to another model than the one requested.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Response {
-    pub id:     String,
-    pub model:  String,
+    pub id:                 String,
+    pub model:              String,
     /// `completed`, `failed`, `in_progress`, `cancelled`, `queued`, or
     /// `incomplete`.
     #[serde(default, skip_serializing_if = "Field::is_absent")]
-    pub status: Field<String>,
-    pub output: Vec<Item>,
+    pub status:             Field<String>,
+    /// Why a `failed` response failed.
     #[serde(default, skip_serializing_if = "Field::is_absent")]
-    pub usage:  Field<Usage>,
+    pub error:              Field<ResponseError>,
+    /// Why an `incomplete` response stopped.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub incomplete_details: Field<IncompleteDetails>,
+    pub output:             Vec<Item>,
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub usage:              Field<Usage>,
+    #[serde(flatten)]
+    pub extra:              Extra,
+}
+
+/// The [`Response::error`] of a `failed` response.
+///
+/// Unlike an error body, this arrives inside a successful response or a
+/// `response.failed` event. `misalignment` is kept in `extra`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ResponseError {
+    /// Such as `server_error`, `invalid_prompt`, or a policy block such as
+    /// `bio_policy`.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub code:    Field<String>,
+    pub message: String,
+    #[serde(flatten)]
+    pub extra:   Extra,
+}
+
+/// The [`Response::incomplete_details`] of an `incomplete` response.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct IncompleteDetails {
+    /// Such as `max_output_tokens`, or `content_filter` when the output was
+    /// cut off by OpenAI's content filters.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub reason: Field<String>,
     #[serde(flatten)]
     pub extra:  Extra,
 }
@@ -284,6 +319,132 @@ pub(crate) fn token_counts(usage: &Value) -> TokenCounts {
     .with_long_cache_write(count(
         "/input_tokens_details/cache_write_tokens_details/ttl_12h_tokens",
     ))
+}
+
+impl Response {
+    /// How this response ended, which model served it, and what it was
+    /// billed for.
+    pub fn outcome(&self) -> Outcome {
+        let mut outcome = Outcome::default();
+        fold_response(self, &mut outcome);
+        outcome
+    }
+}
+
+impl StreamEvent {
+    /// Folds what this event reports into `outcome`: everything a lifecycle
+    /// event's response carries, a finished `refusal` part, and an `error`.
+    /// Fold every event of a stream, in order.
+    pub fn fold_into(&self, outcome: &mut Outcome) {
+        match self {
+            Self::Created(event)
+            | Self::Queued(event)
+            | Self::InProgress(event)
+            | Self::Completed(event)
+            | Self::Failed(event)
+            | Self::Incomplete(event) => fold_response(&event.response, outcome),
+            Self::ContentPartDone(event) => {
+                if let ContentPart::Refusal(part) = &event.part
+                    && !part.refusal.is_empty()
+                {
+                    outcome.set_refusal(OutcomeRefusal {
+                        category:    None,
+                        explanation: Some(part.refusal.clone()),
+                    });
+                }
+            }
+            Self::Error(event) => {
+                outcome.set_error(event.code.as_option().map(String::as_str), &event.message);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn fold_response(response: &Response, outcome: &mut Outcome) {
+    outcome.set_model(&response.model);
+    let reason = response
+        .incomplete_details
+        .as_option()
+        .and_then(|details| details.reason.as_option())
+        .map(String::as_str);
+    // A response still being generated has not stopped.
+    if let Some(status) = response
+        .status
+        .as_option()
+        .filter(|status| !matches!(status.as_str(), "queued" | "in_progress"))
+    {
+        let has_tool_call = response
+            .output
+            .iter()
+            .any(|item| matches!(item, Item::FunctionCall(_) | Item::CustomToolCall(_)));
+        let raw = match reason {
+            Some(reason) if status == "incomplete" => reason,
+            _ => status,
+        };
+        outcome.set_stop(raw, finish_reason(Some(status), reason, has_tool_call));
+    }
+    if let Field::Present(error) = &response.error {
+        outcome.set_error(error.code.as_option().map(String::as_str), &error.message);
+    }
+    if let Some(text) = refusal_in_output(&to_json(&response.output)) {
+        outcome.set_refusal(OutcomeRefusal {
+            category:    None,
+            explanation: Some(text.to_owned()),
+        });
+    }
+    let usage = response.usage.as_option();
+    if let Some(usage) = usage {
+        outcome.set_usage(usage.token_counts());
+    }
+    outcome.set_tier(None, response.extra.get("service_tier"));
+    outcome.set_provider_cost(usage.map(|usage| &usage.extra), response.extra.get("cost"));
+}
+
+/// Normalizes a response's `status` into a finish reason.
+///
+/// The protocol has no separate stop reason. An `incomplete` response stopped
+/// at a limit, or at a content filter when `incomplete_reason` says so. A
+/// completed response that called tools reports [`FinishReason::ToolCall`],
+/// the value every other protocol produces for one. A status this crate does
+/// not name, such as `cancelled`, keeps the provider's own spelling.
+pub(crate) fn finish_reason(
+    status: Option<&str>,
+    incomplete_reason: Option<&str>,
+    has_tool_call: bool,
+) -> FinishReason {
+    match status {
+        Some("incomplete") => match incomplete_reason {
+            Some("content_filter") => FinishReason::ContentFilter,
+            _ => FinishReason::Length,
+        },
+        Some("failed") => FinishReason::Error,
+        Some(other) if other != "completed" => FinishReason::Other(other.to_owned()),
+        _ if has_tool_call => FinishReason::ToolCall,
+        _ => FinishReason::Stop,
+    }
+}
+
+/// The refusal text carried by a response document's message items, if any.
+pub(crate) fn refusal_text(document: &Value) -> Option<&str> {
+    refusal_in_output(document.get("output")?)
+}
+
+/// The refusal text in a response's `output` items, if any.
+///
+/// A non-empty `refusal` content part means the model declined instead of
+/// answering; an empty one is treated as absent, as an empty Chat `refusal`
+/// is.
+fn refusal_in_output(output: &Value) -> Option<&str> {
+    output
+        .as_array()?
+        .iter()
+        .filter(|item| item.get("type").and_then(Value::as_str) == Some("message"))
+        .filter_map(|item| item.get("content").and_then(Value::as_array))
+        .flatten()
+        .filter(|part| part.get("type").and_then(Value::as_str) == Some("refusal"))
+        .find_map(|part| part.get("refusal").and_then(Value::as_str))
+        .filter(|text| !text.is_empty())
 }
 
 /// The input token breakdown on a [`Usage`].

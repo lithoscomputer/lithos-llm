@@ -18,7 +18,8 @@ use super::{
     Catalog, CatalogModel, CatalogProvider, ModelHandle, ModelId, ProviderId, SelectorMatch,
 };
 use crate::resolver::ResolvedRoute;
-use crate::types::{Cost, Speed, TokenCounts};
+use crate::types::{Cost, CostSource, Speed, TokenCounts};
+use crate::wire::{Outcome, ServedTier};
 
 /// One provider's offering of one model, borrowed from the catalog.
 ///
@@ -46,6 +47,41 @@ impl Offering<'_> {
     pub fn estimate_cost(&self, usage: TokenCounts, speed: Option<Speed>) -> Option<Cost> {
         self.into_route().estimate_cost(usage, speed)
     }
+
+    /// Estimates what a response to a request for this offering was billed,
+    /// from its [`Outcome`]: each billed [`Pass`](crate::wire::Pass) at the
+    /// rates of the model that ran it, on this offering's provider, and at
+    /// the tier that served it.
+    ///
+    /// A pass with no model ran on this offering. A refusal Anthropic does
+    /// not bill costs nothing. `None` when the outcome reports no usage, when
+    /// it was served at a tier the catalog cannot price, or when any billed
+    /// pass ran on a model this provider's catalog rows do not price: a
+    /// partial sum would understate the bill.
+    pub fn estimate_outcome_cost(&self, outcome: &Outcome) -> Option<Cost> {
+        let speed = match outcome.served_tier() {
+            ServedTier::Standard => None,
+            ServedTier::Speed(speed) => Some(speed),
+            ServedTier::Unpriced => return None,
+        };
+        let passes = outcome.passes();
+        if passes.is_empty() {
+            return None;
+        }
+        let mut usd_micros: u64 = 0;
+        for pass in passes.iter().filter(|pass| pass.billed) {
+            let offering = match &pass.model {
+                Some(model) => self.provider.served_offering(model)?,
+                None => *self,
+            };
+            let cost = offering.estimate_cost(pass.usage, speed)?;
+            usd_micros = usd_micros.saturating_add(cost.usd_micros);
+        }
+        Some(Cost {
+            usd_micros,
+            source: CostSource::Catalog,
+        })
+    }
 }
 
 impl CatalogProvider {
@@ -56,6 +92,15 @@ impl CatalogProvider {
             provider: self,
             model,
         })
+    }
+
+    /// The offering a response's `model` names: by canonical id, alias, or
+    /// wire id, as [`offering`](Self::offering) matches, or else as a dated
+    /// snapshot of one, such as OpenAI's `gpt-6-astra-2026-09-01` or
+    /// Anthropic's `claude-sonnet-4-20250514`.
+    pub fn served_offering(&self, model: &str) -> Option<Offering<'_>> {
+        self.offering(model)
+            .or_else(|| self.offering(undated(model)?))
     }
 
     /// Every model this provider offers, in catalog order.
@@ -288,6 +333,20 @@ impl Catalog {
             .offering(handle.model().as_str())?
             .estimate_cost(usage, speed)
     }
+}
+
+/// `model` without a trailing snapshot date: `-YYYY-MM-DD` or `-YYYYMMDD`.
+fn undated(model: &str) -> Option<&str> {
+    let digits = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+    let (base, last) = model.rsplit_once('-')?;
+    if last.len() == 8 && digits(last) {
+        return Some(base);
+    }
+    let (base, month) = base.rsplit_once('-')?;
+    let (base, year) = base.rsplit_once('-')?;
+    (year.len() == 4 && month.len() == 2 && last.len() == 2)
+        .then_some(base)
+        .filter(|_| digits(year) && digits(month) && digits(last))
 }
 
 #[cfg(test)]

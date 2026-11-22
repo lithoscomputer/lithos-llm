@@ -6,6 +6,46 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `wire::Outcome` reads how a response ended, which model served it, and what
+  it was billed for. Each format's `Response::outcome()` builds one, and
+  `StreamEvent::fold_into` folds a stream into one event by event. It
+  reports the served model, the provider's stop reason and the normalized
+  `FinishReason`, a `Refusal` with its category and explanation, each
+  server-side `Fallback`, an `InBandError` from a stream or a failed
+  response, the served tier as a `ServedTier`, the provider's own charge,
+  and each billed `Pass`. `Offering::estimate_outcome_cost` prices the
+  passes at the rates of the model that ran each, on the offering's provider
+  and at the served tier: an Anthropic fallback bills the declined attempt
+  and the answer separately, a compaction pass is billed beside the message,
+  and a refusal before any output costs nothing unless its category is
+  `bio`, `frontier_llm`, or `reasoning_extraction`, as Anthropic bills.
+  `CatalogProvider::served_offering` finds the offering a response's `model`
+  names, a dated snapshot such as `gpt-6-luna-2026-10-01` included.
+
+- Provider-reported costs follow OpenRouter's and Venice's billing. A Chat
+  Completions response from OpenRouter on the caller's own key
+  (`usage.is_byok`) now costs `usage.cost` plus
+  `usage.cost_details.upstream_inference_cost`, OpenRouter's fee plus the
+  provider's charge, and Venice's `cost.diem` is now counted at one dollar
+  beside `cost.usd`. `Response::cost` was OpenRouter's fee alone, and Venice's
+  dollars alone.
+
+- The `wire` types name the fields that report refusals, fallbacks, and the
+  passes a request was billed for, which were kept in `extra`.
+  `anthropic_messages` has `StopDetails` (`type`, `category`,
+  `explanation`, `recommended_model`) as `stop_details` on `Response` and
+  `MessageDeltaFields`; a `fallback` content block,
+  `ContentBlock::Fallback(FallbackBlock)`, which was `Unknown`; and
+  `iterations` on `Usage` and `DeltaUsage`, each an `Iteration` with its
+  `type`, optional `model`, and its own `Usage`, which server-side fallback
+  and compaction report and the top-level counters leave out.
+  `openai_responses::Response` has `error` (`ResponseError`) and
+  `incomplete_details` (`IncompleteDetails`), and `openai_chat`'s `Message`
+  and `Delta` have `refusal`. Serialized JSON is unchanged. A known field
+  that no longer matches its type, such as a `fallback` block without `to`,
+  is now an error rather than kept in `extra`. These structs built with
+  struct literals need the new fields.
+
 - `Speed::Ultrafast` is OpenAI's Ultrafast tier, sent as `service_tier:
   "ultrafast"`, with `SpeedSupport::ultrafast` and `SpeedPricing::ultrafast`.
   GPT-6.2 Astra, GPT-6.2 Sol, GPT-6 Astra, and GPT-6.1 Sol claim and price

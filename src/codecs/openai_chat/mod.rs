@@ -5,9 +5,8 @@
 //! Kimi, and MiniMax. Those skins agree on the envelope and disagree on the
 //! details, so the decoder accepts several spellings of the same counter and
 //! keeps the untouched success body in [`Response::raw`]. Fields this crate
-//! does not model — `cost_details.upstream_inference_cost`,
-//! `prompt_tokens_details.audio_tokens`, OpenRouter's top-level `provider`,
-//! and `native_finish_reason` — survive only there.
+//! does not model — `prompt_tokens_details.audio_tokens`, OpenRouter's
+//! top-level `provider`, and `native_finish_reason` — survive only there.
 //!
 //! It is the one codec that reads a provider-reported cost off the wire. Every
 //! other protocol leaves [`Response::cost`] unset for the adapter to fill in
