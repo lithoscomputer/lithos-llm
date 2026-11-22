@@ -12,7 +12,7 @@ use crate::types::{
     ContentBlockKind, ContentPart, Error, FinishReason, ReasoningContent, Response, ToolCall,
     ToolCallKind, ToolInput,
 };
-use crate::wire::openai_responses::token_counts;
+use crate::wire::openai_responses::{self, refusal_text, token_counts};
 
 /// Decodes one complete response document.
 ///
@@ -237,24 +237,6 @@ pub(super) fn is_internal_call(item: &Value) -> bool {
     }
 }
 
-/// The refusal text carried by a document's message items, if any.
-///
-/// A non-empty `refusal` content part means the model declined instead of
-/// answering; an empty one is treated as absent, as the Chat codec treats an
-/// empty `refusal` field.
-pub(super) fn refusal_text(value: &Value) -> Option<&str> {
-    value
-        .get("output")?
-        .as_array()?
-        .iter()
-        .filter(|item| item.get("type").and_then(Value::as_str) == Some("message"))
-        .filter_map(|item| item.get("content").and_then(Value::as_array))
-        .flatten()
-        .filter(|part| part.get("type").and_then(Value::as_str) == Some("refusal"))
-        .find_map(|part| part.get("refusal").and_then(Value::as_str))
-        .filter(|text| !text.is_empty())
-}
-
 /// The visible text of one `message` output item.
 pub(super) fn message_text(item: &Value) -> String {
     item.get("content")
@@ -315,34 +297,18 @@ pub(super) fn reasoning_text(item: &Value) -> Option<String> {
         .find(|text| !text.is_empty())
 }
 
-/// Normalizes the response status into a finish reason.
-///
-/// The protocol has no separate stop reason. A completed response that
-/// requested tools reports [`FinishReason::ToolCall`] so consumers can branch
-/// on the same value every other codec produces.
+/// Normalizes the response status into a finish reason, with
+/// [`openai_responses::finish_reason`].
 pub(super) fn decode_finish_reason(value: &Value, content: &[ContentPart]) -> FinishReason {
-    match value.get("status").and_then(Value::as_str) {
-        Some("incomplete") => {
-            match value
-                .pointer("/incomplete_details/reason")
-                .and_then(Value::as_str)
-            {
-                Some("content_filter") => FinishReason::ContentFilter,
-                _ => FinishReason::Length,
-            }
-        }
-        Some("failed") => FinishReason::Error,
-        // A status this crate does not name — `cancelled`, say — keeps the
-        // provider's own spelling instead of collapsing into `Stop`.
-        Some(other) if other != "completed" => FinishReason::Other(other.to_owned()),
-        _ if content
+    openai_responses::finish_reason(
+        value.get("status").and_then(Value::as_str),
+        value
+            .pointer("/incomplete_details/reason")
+            .and_then(Value::as_str),
+        content
             .iter()
-            .any(|part| matches!(part, ContentPart::ToolCall(_))) =>
-        {
-            FinishReason::ToolCall
-        }
-        _ => FinishReason::Stop,
-    }
+            .any(|part| matches!(part, ContentPart::ToolCall(_))),
+    )
 }
 
 /// The error a malformed success body produces; see `malformed_success`.

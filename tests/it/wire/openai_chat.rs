@@ -1099,14 +1099,14 @@ async fn venice_reports_a_top_level_cost() {
             "finish_reason": "stop",
         }],
         "usage": { "prompt_tokens": 4, "completion_tokens": 2 },
-        // `diem` is Venice's own currency and is deliberately not read.
+        // Venice values a diem at one dollar.
         "cost": { "usd": 0.25, "diem": 9.5 },
     });
 
     let (_, response) = exchange(support::base_request(&selector()), &body).await;
 
     let cost = response.cost.expect("a provider-reported cost");
-    assert_eq!(cost.usd_micros, 250_000);
+    assert_eq!(cost.usd_micros, 9_750_000);
     assert_eq!(cost.source, CostSource::Provider);
     crate::json_snapshot!(response);
 }
@@ -1435,8 +1435,8 @@ async fn a_stream_cut_off_before_content_completes_as_incomplete() {
 #[tokio::test]
 async fn venice_reports_a_top_level_cost_in_a_stream() {
     // Venice puts its cost beside `usage` in the trailing chunk, not inside
-    // it, and prices in both dollars and its own currency. Only the dollars
-    // are read, and they are provider-reported.
+    // it, and prices in both dollars and its own currency, which it values
+    // at one dollar each. Both are read, and they are provider-reported.
     let (_, events) = stream(
         support::base_request(&selector()),
         &[
@@ -1451,7 +1451,7 @@ async fn venice_reports_a_top_level_cost_in_a_stream() {
     let response = completed(&events);
     assert_eq!(
         response["cost"],
-        json!({ "usd_micros": 250_000, "source": "provider" })
+        json!({ "usd_micros": 9_750_000, "source": "provider" })
     );
     assert_eq!(response["usage"]["input"], 4);
     crate::json_snapshot!(events);

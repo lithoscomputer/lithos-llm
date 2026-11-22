@@ -63,8 +63,9 @@ use super::evaluation_common::{
     MAX_LEVELS, QuestionLimits, answer_object, decode_choice, decode_failure, decode_score,
     encode_description, encode_question, encode_state,
 };
-use super::options::{endpoint, usd_micros};
+use super::options::endpoint;
 use crate::adapter::ResolvedEvaluation;
+use crate::cost::usd_micros;
 use crate::evaluation::{
     Answer, BooleanAnswer, Evaluation, Question, QuestionId, Rounding, State, Verdict,
 };

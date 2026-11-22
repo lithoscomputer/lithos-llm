@@ -248,8 +248,9 @@ fn venice_top_level_cost_is_provider_reported() -> Result<(), Box<dyn StdError>>
         "cost": { "usd": 0.25, "diem": 9.5 },
     }))?;
 
+    // Venice values a diem at one dollar.
     let cost = response.cost.ok_or("expected a provider cost")?;
-    assert_eq!(cost.usd_micros, 250_000);
+    assert_eq!(cost.usd_micros, 9_750_000);
     assert_eq!(cost.source, CostSource::Provider);
     Ok(())
 }

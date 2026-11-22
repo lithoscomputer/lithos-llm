@@ -5,8 +5,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{Extra, Field, Tagged, to_json, unknown};
-use crate::types::TokenCounts;
+use super::{Extra, Fallback, Field, Outcome, Refusal, Tagged, to_json, unknown};
+use crate::types::{TokenCounts, finish_reason};
 
 /// A request body for `POST /v1/messages`.
 ///
@@ -499,6 +499,107 @@ impl DeltaUsage {
     /// it as it was.
     pub fn fold_into(&self, counts: &mut TokenCounts) {
         fold_usage(counts, &to_json(self));
+    }
+}
+
+impl Response {
+    /// How this response ended, which model served it, and what it was
+    /// billed for.
+    pub fn outcome(&self) -> Outcome {
+        let mut outcome = Outcome::default();
+        fold_message(self, outcome.anthropic());
+        outcome
+    }
+}
+
+impl StreamEvent {
+    /// Folds what this event reports into `outcome`: the serving model from
+    /// `message_start` and each `fallback` block, the stop reason, refusal,
+    /// cumulative usage, and iterations from `message_delta`, and an `error`.
+    /// Fold every event of a stream, in order.
+    pub fn fold_into(&self, outcome: &mut Outcome) {
+        let outcome = outcome.anthropic();
+        match self {
+            Self::MessageStart(start) => fold_message(&start.message, outcome),
+            Self::ContentBlockStart(start) => {
+                if let ContentBlock::Fallback(block) = &start.content_block {
+                    outcome.push_fallback(fallback(block));
+                }
+            }
+            Self::MessageDelta(delta) => {
+                fold_stop(
+                    delta.delta.stop_reason.as_option(),
+                    &delta.delta.stop_details,
+                    outcome,
+                );
+                delta.usage.fold_into(outcome.usage_mut());
+                fold_iterations(&delta.usage.iterations, outcome);
+                let extra = &delta.usage.extra;
+                outcome.set_tier(extra.get("speed"), extra.get("service_tier"));
+                outcome.set_provider_cost(Some(extra), None);
+            }
+            Self::Error(event) => outcome.set_error(Some(&event.error.kind), &event.error.message),
+            _ => {}
+        }
+    }
+}
+
+/// Folds a whole response, or the start of a stream, into `outcome`.
+fn fold_message(message: &Response, outcome: &mut Outcome) {
+    for block in &message.content {
+        if let ContentBlock::Fallback(block) = block {
+            outcome.push_fallback(fallback(block));
+        }
+    }
+    outcome.set_model(&message.model);
+    fold_stop(
+        message.stop_reason.as_option(),
+        &message.stop_details,
+        outcome,
+    );
+    outcome.set_usage(message.usage.token_counts());
+    fold_iterations(&message.usage.iterations, outcome);
+    let extra = &message.usage.extra;
+    outcome.set_tier(
+        extra.get("speed"),
+        extra
+            .get("service_tier")
+            .or_else(|| message.extra.get("service_tier")),
+    );
+    outcome.set_provider_cost(Some(extra), message.extra.get("cost"));
+}
+
+fn fold_stop(reason: Option<&String>, details: &Field<StopDetails>, outcome: &mut Outcome) {
+    let Some(reason) = reason else {
+        return;
+    };
+    outcome.set_stop(reason, finish_reason(Some(reason)));
+    if reason == "refusal" {
+        let details = details.as_option();
+        outcome.set_refusal(Refusal {
+            category:    details.and_then(|details| details.category.as_option().cloned()),
+            explanation: details.and_then(|details| details.explanation.as_option().cloned()),
+        });
+    }
+}
+
+fn fold_iterations(iterations: &Field<Vec<Iteration>>, outcome: &mut Outcome) {
+    if let Field::Present(iterations) = iterations {
+        outcome.set_iterations(iterations.iter().map(|iteration| {
+            (
+                iteration.kind.clone(),
+                iteration.model.as_option().cloned(),
+                iteration.usage.token_counts(),
+            )
+        }));
+    }
+}
+
+fn fallback(block: &FallbackBlock) -> Fallback {
+    Fallback {
+        from:     block.from.model.clone(),
+        to:       block.to.model.clone(),
+        category: block.trigger.category.as_option().cloned(),
     }
 }
 

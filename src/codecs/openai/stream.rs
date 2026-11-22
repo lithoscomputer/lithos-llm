@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::decode::{
     CallIdentity, ItemKind, decode_document, decode_finish_reason, is_internal_call, message_text,
-    reasoning_text, refusal_text,
+    reasoning_text,
 };
 use super::{MESSAGE_KIND, NAMESPACE, REASONING_KIND};
 use crate::codecs::assembler::StreamAssembler;
@@ -16,7 +16,7 @@ use crate::codecs::{StreamDecoder, is_done_terminator};
 use crate::resolver::ResolvedRoute;
 use crate::transport::{SseEvent, provider_error};
 use crate::types::{ContentBlockId, ContentBlockKind, Error, StreamEvent, ToolCallKind};
-use crate::wire::openai_responses::token_counts;
+use crate::wire::openai_responses::{refusal_text, token_counts};
 
 /// Decodes one `/v1/responses` stream.
 pub(super) struct ResponsesStream {

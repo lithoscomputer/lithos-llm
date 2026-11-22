@@ -36,6 +36,7 @@ pub use request::{
 pub use response::{
     Cost, CostSource, FinishReason, RateLimits, Response, TokenCounts, Usage, Warning,
 };
+pub(crate) use response::{finish_reason, promote_tool_finish};
 #[cfg(test)]
 pub(crate) use stream::contract;
 #[cfg(feature = "runtime")]

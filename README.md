@@ -729,6 +729,32 @@ Refusals and fallbacks are typed where each API reports them: Anthropic's
 model that produced it, which after a fallback or a provider's reroute is not
 the one requested.
 
+Each format's `Response::outcome()` reads all of that into one
+provider-neutral `wire::Outcome`, and each `StreamEvent::fold_into` folds a
+stream into one event by event, so a stream the client abandons still reports
+what it reached. An outcome names the model that served the response, its
+stop reason and normalized `FinishReason`, a refusal with its category, an
+error reported mid-stream, the served tier, the provider's own charge
+(OpenRouter's `usage.cost`, adding the upstream charge for a request on the
+caller's own key, or Venice's `cost`, a diem counted as one dollar), and the
+passes it was billed for. `Offering::estimate_outcome_cost` prices those
+passes, each at the rates of the model that ran it, and bills nothing for a
+refusal Anthropic does not bill.
+
+```rust
+use lithos_llm::catalog::Catalog;
+use lithos_llm::wire::{Outcome, anthropic_messages::StreamEvent};
+
+fn stream_cost(catalog: &Catalog, events: &[&str]) -> Option<u64> {
+    let mut outcome = Outcome::default();
+    for data in events {
+        serde_json::from_str::<StreamEvent>(data).ok()?.fold_into(&mut outcome);
+    }
+    let offering = catalog.provider("anthropic").ok()?.offering("claude-opus-5-5")?;
+    Some(offering.estimate_outcome_cost(&outcome)?.usd_micros)
+}
+```
+
 The wire types need no feature and no runtime. The client does not parse with
 them: codecs still convert to and from the provider-neutral `Request`, and
 share only the usage normalization.
