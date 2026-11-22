@@ -15,7 +15,8 @@ This project follows [Semantic Versioning](https://semver.org/).
   response, the served tier as a `ServedTier`, the provider's own charge,
   and each billed `Pass`. `Offering::estimate_outcome_cost` prices the
   passes at the rates of the model that ran each, on the offering's provider
-  and at the served tier: an Anthropic fallback bills the declined attempt
+  and at the served tier, and prices nothing when a pass's model has no rates
+  for the served speed: an Anthropic fallback bills the declined attempt
   and the answer separately, a compaction pass is billed beside the message,
   and a refusal before any output costs nothing unless its category is
   `bio`, `frontier_llm`, or `reasoning_extraction`, as Anthropic bills.

@@ -56,8 +56,9 @@ impl Offering<'_> {
     /// A pass with no model ran on this offering. A refusal Anthropic does
     /// not bill costs nothing. `None` when the outcome reports no usage, when
     /// it was served at a tier the catalog cannot price, or when any billed
-    /// pass ran on a model this provider's catalog rows do not price: a
-    /// partial sum would understate the bill.
+    /// pass ran on a model this provider's catalog rows do not price, or do
+    /// not price at the served speed: a partial sum or the base rates would
+    /// understate the bill.
     pub fn estimate_outcome_cost(&self, outcome: &Outcome) -> Option<Cost> {
         let speed = match outcome.served_tier() {
             ServedTier::Standard => None,
@@ -74,6 +75,11 @@ impl Offering<'_> {
                 Some(model) => self.provider.served_offering(model)?,
                 None => *self,
             };
+            // The base rates would understate a speed the catalog has no
+            // rates for.
+            if let Some(speed) = speed {
+                offering.model.pricing()?.speed?.for_speed(speed)?;
+            }
             let cost = offering.estimate_cost(pass.usage, speed)?;
             usd_micros = usd_micros.saturating_add(cost.usd_micros);
         }
