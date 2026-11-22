@@ -717,7 +717,17 @@ disjoint buckets, normalized by the same code the codecs use, so a proxy
 counts tokens as the client does without knowing which counters include
 which. An Anthropic stream splits its usage between `message_start` and
 `message_delta`; fold each delta's `DeltaUsage` into the start's counts with
-`fold_into`.
+`fold_into`. Anthropic usage may also list `iterations`, one per sampling
+pass, such as a model that declined before server-side fallback or a
+compaction pass. The counters beside it leave those passes out, so a
+request's cost is each iteration's `token_counts()` at its own `model`'s
+rates.
+
+Refusals and fallbacks are typed where each API reports them: Anthropic's
+`stop_details` and `fallback` content block, the Responses `error` and
+`incomplete_details`, and Chat's `refusal`. Each response's `model` names the
+model that produced it, which after a fallback or a provider's reroute is not
+the one requested.
 
 The wire types need no feature and no runtime. The client does not parse with
 them: codecs still convert to and from the provider-neutral `Request`, and

@@ -56,6 +56,7 @@ pub enum ContentBlock {
     Thinking(ThinkingBlock),
     RedactedThinking(RedactedThinkingBlock),
     ServerToolUse(ToolUseBlock),
+    Fallback(FallbackBlock),
     /// A block type not modeled here, kept as its full JSON object.
     #[serde(untagged, deserialize_with = "unknown::<ContentBlock, _>")]
     Unknown(Extra),
@@ -71,7 +72,44 @@ impl Tagged for ContentBlock {
         "thinking",
         "redacted_thinking",
         "server_tool_use",
+        "fallback",
     ];
+}
+
+/// A `fallback` block: where server-side fallback handed the turn from a
+/// model that declined to the next one. A request that set `fallbacks` gets
+/// one at each handoff, and must send it back in place on the next turn.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct FallbackBlock {
+    /// The model that declined: the requested model as the request spelled
+    /// it, or an earlier fallback.
+    pub from:    FallbackModel,
+    /// The model that continues, by its resolved id.
+    pub to:      FallbackModel,
+    pub trigger: FallbackTrigger,
+    #[serde(flatten)]
+    pub extra:   Extra,
+}
+
+/// One side of a [`FallbackBlock`].
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct FallbackModel {
+    pub model: String,
+    #[serde(flatten)]
+    pub extra: Extra,
+}
+
+/// Why the model in [`FallbackBlock::from`] declined.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct FallbackTrigger {
+    /// `refusal`.
+    #[serde(rename = "type")]
+    pub kind:     String,
+    /// The refusal's [`StopDetails::category`].
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub category: Field<String>,
+    #[serde(flatten)]
+    pub extra:    Extra,
 }
 
 /// A `text` block. `cache_control` and `citations` are kept in `extra`.
@@ -135,7 +173,11 @@ pub struct RedactedThinkingBlock {
 /// A response body from `POST /v1/messages`, also carried by
 /// [`StreamEvent::MessageStart`].
 ///
-/// `type`, `role`, `container`, and `stop_details` are kept in `extra`.
+/// `type`, `role`, and `container` are kept in `extra`.
+///
+/// `model` is the model that produced the message. After server-side
+/// fallback, or a later turn that fallback's sticky routing sent straight to
+/// the fallback model, that is not the model the request named.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Response {
     pub id:            String,
@@ -145,9 +187,36 @@ pub struct Response {
     pub stop_reason:   Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub stop_sequence: Field<String>,
+    /// Present on a `refusal`, and `null` for every other stop reason.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub stop_details:  Field<StopDetails>,
     pub usage:         Usage,
     #[serde(flatten)]
     pub extra:         Extra,
+}
+
+/// Why a response stopped, on a [`Response`] or a [`MessageDeltaFields`].
+/// A `refusal` from Anthropic's safety classifiers carries one; a model that
+/// declines in its own words does not.
+///
+/// `explanation` is human-readable text whose wording is not stable.
+/// `fallback_credit_token` is kept in `extra`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct StopDetails {
+    /// `refusal`.
+    #[serde(rename = "type")]
+    pub kind:              String,
+    /// The policy area, such as `cyber` or `bio`; `null` when the refusal
+    /// maps to no named category.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub category:          Field<String>,
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub explanation:       Field<String>,
+    /// A model to retry on, present only when the request set `fallbacks`.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub recommended_model: Field<String>,
+    #[serde(flatten)]
+    pub extra:             Extra,
 }
 
 /// Token counts on a [`Response`].
@@ -162,8 +231,33 @@ pub struct Usage {
     pub cache_creation_input_tokens: Field<u64>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub cache_read_input_tokens: Field<u64>,
+    /// Each sampling pass the request ran. Requests that set `fallbacks` or
+    /// use the compaction beta get them.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub iterations: Field<Vec<Iteration>>,
     #[serde(flatten)]
     pub extra: Extra,
+}
+
+/// One sampling pass in [`Usage::iterations`], each billed on its own.
+///
+/// Server-side fallback lists a model that declined as `message` and the one
+/// that served the turn as `fallback_message`, each with its `model`.
+/// Compaction lists its summary pass as `compaction`, without a `model`. The
+/// counters beside `iterations` leave passes out: compaction passes always,
+/// and after a fallback every pass but the one that produced the message. A
+/// request's whole cost is the sum over its iterations, each at its own
+/// model's rates.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Iteration {
+    /// `message`, `fallback_message`, or `compaction`.
+    #[serde(rename = "type")]
+    pub kind:  String,
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub model: Field<String>,
+    /// This pass's counters; [`Usage::token_counts`] normalizes them.
+    #[serde(flatten)]
+    pub usage: Usage,
 }
 
 impl Usage {
@@ -369,6 +463,9 @@ pub struct MessageDeltaFields {
     pub stop_reason:   Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub stop_sequence: Field<String>,
+    /// Present with a `refusal` stop reason.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub stop_details:  Field<StopDetails>,
     #[serde(flatten)]
     pub extra:         Extra,
 }
@@ -385,6 +482,10 @@ pub struct DeltaUsage {
     pub cache_creation_input_tokens: Field<u64>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub cache_read_input_tokens: Field<u64>,
+    /// As [`Usage::iterations`]; a stream reports them on its final
+    /// `message_delta`.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub iterations: Field<Vec<Iteration>>,
     #[serde(flatten)]
     pub extra: Extra,
 }
@@ -486,6 +587,7 @@ mod tests {
             json!({"type": "thinking", "thinking": ""}),
             json!({"type": "redacted_thinking", "data": "ZW5j"}),
             json!({"type": "server_tool_use", "id": "srvtoolu_1", "name": "web_search", "input": {}}),
+            json!({"type": "fallback", "from": {"model": "a"}, "to": {"model": "b"}, "trigger": {"type": "refusal", "category": null}}),
         ]);
         assert_types_are_modeled::<StreamEvent>(&[
             json!({"type": "message_start", "message": {

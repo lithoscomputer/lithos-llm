@@ -535,12 +535,236 @@ fn responses_usage_takes_details_out_of_inclusive_totals() -> TestResult {
 }
 
 #[test]
+fn anthropic_refusals_fallbacks_and_iterations_are_typed() -> TestResult {
+    use anthropic_messages::{ContentBlock, Response, StreamEvent};
+
+    // A classifier refusal, before any output.
+    let refused: Response = round_trip(
+        &json!({
+            "id": "msg_01", "type": "message", "role": "assistant",
+            "model": "claude-fable-5", "content": [],
+            "stop_reason": "refusal",
+            "stop_details": {
+                "type": "refusal", "category": "cyber",
+                "explanation": "This request was declined because it could enable cyber harm."
+            },
+            "usage": {"input_tokens": 412, "output_tokens": 0}
+        })
+        .to_string(),
+    )?;
+    let Field::Present(details) = &refused.stop_details else {
+        return Err("expected stop_details".into());
+    };
+    assert_eq!(details.kind, "refusal");
+    assert_eq!(details.category, Field::Present("cyber".to_owned()));
+    assert_eq!(details.recommended_model, Field::Absent);
+
+    // A refusal in no named category keeps its `null`s.
+    let uncategorized: Response = round_trip(
+        &json!({
+            "id": "msg_02", "model": "claude-opus-5-5", "content": [],
+            "stop_reason": "refusal",
+            "stop_details": {"type": "refusal", "category": null, "explanation": null},
+            "usage": {"input_tokens": 9, "output_tokens": 0}
+        })
+        .to_string(),
+    )?;
+    let Field::Present(details) = &uncategorized.stop_details else {
+        return Err("expected stop_details".into());
+    };
+    assert_eq!(details.category, Field::Null);
+    assert_eq!(details.explanation, Field::Null);
+
+    // Server-side fallback: the response names the model that served it, a
+    // `fallback` block marks the handoff, and each attempt has its own usage.
+    let served: Response = round_trip(
+        &json!({
+            "id": "msg_03", "type": "message", "role": "assistant",
+            "model": "claude-opus-4-8",
+            "content": [
+                {
+                    "type": "fallback",
+                    "from": {"model": "claude-fable-5"},
+                    "to": {"model": "claude-opus-4-8"},
+                    "trigger": {"type": "refusal", "category": "cyber"}
+                },
+                {"type": "text", "text": "Hi! How can I help you today?"}
+            ],
+            "stop_reason": "end_turn", "stop_details": null,
+            "usage": {
+                "input_tokens": 412, "output_tokens": 264,
+                "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
+                "iterations": [
+                    {
+                        "type": "message", "model": "claude-fable-5",
+                        "input_tokens": 535, "output_tokens": 0,
+                        "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0
+                    },
+                    {
+                        "type": "fallback_message", "model": "claude-opus-4-8",
+                        "input_tokens": 412, "output_tokens": 264,
+                        "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0
+                    }
+                ]
+            }
+        })
+        .to_string(),
+    )?;
+    assert_eq!(served.stop_details, Field::Null);
+    let ContentBlock::Fallback(fallback) = &served.content[0] else {
+        return Err(format!("expected a fallback block: {:?}", served.content[0]).into());
+    };
+    assert_eq!(fallback.from.model, "claude-fable-5");
+    assert_eq!(fallback.to.model, "claude-opus-4-8");
+    assert_eq!(fallback.trigger.kind, "refusal");
+    assert_eq!(
+        fallback.trigger.category,
+        Field::Present("cyber".to_owned())
+    );
+    let Field::Present(iterations) = &served.usage.iterations else {
+        return Err("expected iterations".into());
+    };
+    let attempts: Vec<(&str, Option<&String>, TokenCounts)> = iterations
+        .iter()
+        .map(|iteration| {
+            (
+                iteration.kind.as_str(),
+                iteration.model.as_option(),
+                iteration.usage.token_counts(),
+            )
+        })
+        .collect();
+    let declined = TokenCounts {
+        input: 535,
+        ..TokenCounts::default()
+    };
+    let answered = TokenCounts {
+        input: 412,
+        output: 264,
+        ..TokenCounts::default()
+    };
+    assert_eq!(attempts, [
+        ("message", Some(&"claude-fable-5".to_owned()), declined),
+        (
+            "fallback_message",
+            Some(&"claude-opus-4-8".to_owned()),
+            answered
+        ),
+    ]);
+
+    // A stream reports the refusal and the iterations on `message_delta`; a
+    // compaction pass has no model.
+    let delta: StreamEvent = round_trip(
+        &json!({
+            "type": "message_delta",
+            "delta": {
+                "stop_reason": "refusal", "stop_sequence": null,
+                "stop_details": {"type": "refusal", "category": "bio", "explanation": null}
+            },
+            "usage": {
+                "output_tokens": 37,
+                "iterations": [
+                    {"type": "compaction", "input_tokens": 180_000, "output_tokens": 3500},
+                    {"type": "message", "input_tokens": 23_000, "output_tokens": 37}
+                ]
+            }
+        })
+        .to_string(),
+    )?;
+    let StreamEvent::MessageDelta(delta) = delta else {
+        return Err("expected message_delta".into());
+    };
+    let Field::Present(details) = &delta.delta.stop_details else {
+        return Err("expected stop_details".into());
+    };
+    assert_eq!(details.category, Field::Present("bio".to_owned()));
+    let Field::Present(iterations) = &delta.usage.iterations else {
+        return Err("expected iterations".into());
+    };
+    assert_eq!(iterations[0].kind, "compaction");
+    assert_eq!(iterations[0].model, Field::Absent);
+    assert_eq!(iterations[0].usage.token_counts().input, 180_000);
+    Ok(())
+}
+
+#[test]
+fn responses_failure_and_incomplete_reasons_are_typed() -> TestResult {
+    let failed: openai_responses::StreamEvent = round_trip(
+        &json!({
+            "type": "response.failed", "sequence_number": 1,
+            "response": {
+                "id": "resp_1", "object": "response", "status": "failed",
+                "model": "gpt-6-sol",
+                "error": {"code": "bio_policy", "message": "Blocked by policy."},
+                "incomplete_details": null, "output": [], "usage": null
+            }
+        })
+        .to_string(),
+    )?;
+    let openai_responses::StreamEvent::Failed(failed) = failed else {
+        return Err("expected response.failed".into());
+    };
+    let Field::Present(error) = &failed.response.error else {
+        return Err("expected error".into());
+    };
+    assert_eq!(error.code, Field::Present("bio_policy".to_owned()));
+    assert_eq!(failed.response.incomplete_details, Field::Null);
+
+    let filtered: openai_responses::Response = round_trip(
+        &json!({
+            "id": "resp_2", "object": "response", "status": "incomplete",
+            "model": "gpt-6-luna", "error": null,
+            "incomplete_details": {"reason": "content_filter"},
+            "output": []
+        })
+        .to_string(),
+    )?;
+    assert_eq!(filtered.error, Field::Null);
+    let Field::Present(details) = &filtered.incomplete_details else {
+        return Err("expected incomplete_details".into());
+    };
+    assert_eq!(details.reason, Field::Present("content_filter".to_owned()));
+    Ok(())
+}
+
+#[test]
+fn chat_refusals_are_typed() -> TestResult {
+    let response: openai_chat::Response = round_trip(
+        &json!({
+            "id": "chatcmpl-1", "object": "chat.completion", "model": "gpt-6-sol",
+            "choices": [{
+                "index": 0, "finish_reason": "stop",
+                "message": {"role": "assistant", "content": null, "refusal": "I can't help."}
+            }]
+        })
+        .to_string(),
+    )?;
+    let message = &response.choices[0].message;
+    assert_eq!(message.refusal, Field::Present("I can't help.".to_owned()));
+    assert_eq!(message.content, Field::Null);
+
+    let chunk: openai_chat::StreamEvent = round_trip(
+        &json!({
+            "id": "chatcmpl-1", "object": "chat.completion.chunk", "model": "gpt-6-sol",
+            "choices": [{"index": 0, "delta": {"refusal": "I can't"}, "finish_reason": null}]
+        })
+        .to_string(),
+    )?;
+    assert_eq!(
+        chunk.choices[0].delta.refusal,
+        Field::Present("I can't".to_owned())
+    );
+    Ok(())
+}
+
+#[test]
 fn malformed_known_types_are_errors_not_unknown() {
     use anthropic_messages::{ContentBlock, Request, StreamEvent};
 
     for block in [
         json!({"type": "text", "text": 5}),
         json!({"type": "thinking", "signature": "c2ln"}),
+        json!({"type": "fallback", "from": {"model": "claude-fable-5"}, "trigger": {"type": "refusal"}}),
         json!({"text": "no type"}),
         json!({"type": 7}),
     ] {

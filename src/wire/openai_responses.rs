@@ -222,17 +222,52 @@ impl Tagged for SummaryPart {
 ///
 /// Most response fields echo the request, such as `instructions`, `tools`,
 /// and `reasoning`, and are kept in `extra`.
+///
+/// `model` is the model that generated the response, which OpenAI may route
+/// to another model than the one requested.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Response {
-    pub id:     String,
-    pub model:  String,
+    pub id:                 String,
+    pub model:              String,
     /// `completed`, `failed`, `in_progress`, `cancelled`, `queued`, or
     /// `incomplete`.
     #[serde(default, skip_serializing_if = "Field::is_absent")]
-    pub status: Field<String>,
-    pub output: Vec<Item>,
+    pub status:             Field<String>,
+    /// Why a `failed` response failed.
     #[serde(default, skip_serializing_if = "Field::is_absent")]
-    pub usage:  Field<Usage>,
+    pub error:              Field<ResponseError>,
+    /// Why an `incomplete` response stopped.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub incomplete_details: Field<IncompleteDetails>,
+    pub output:             Vec<Item>,
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub usage:              Field<Usage>,
+    #[serde(flatten)]
+    pub extra:              Extra,
+}
+
+/// The [`Response::error`] of a `failed` response.
+///
+/// Unlike an error body, this arrives inside a successful response or a
+/// `response.failed` event. `misalignment` is kept in `extra`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ResponseError {
+    /// Such as `server_error`, `invalid_prompt`, or a policy block such as
+    /// `bio_policy`.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub code:    Field<String>,
+    pub message: String,
+    #[serde(flatten)]
+    pub extra:   Extra,
+}
+
+/// The [`Response::incomplete_details`] of an `incomplete` response.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct IncompleteDetails {
+    /// Such as `max_output_tokens`, or `content_filter` when the output was
+    /// cut off by OpenAI's content filters.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub reason: Field<String>,
     #[serde(flatten)]
     pub extra:  Extra,
 }

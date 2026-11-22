@@ -6,6 +6,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The `wire` types name the fields that report refusals, fallbacks, and the
+  passes a request was billed for, which were kept in `extra`.
+  `anthropic_messages` has `StopDetails` (`type`, `category`,
+  `explanation`, `recommended_model`) as `stop_details` on `Response` and
+  `MessageDeltaFields`; a `fallback` content block,
+  `ContentBlock::Fallback(FallbackBlock)`, which was `Unknown`; and
+  `iterations` on `Usage` and `DeltaUsage`, each an `Iteration` with its
+  `type`, optional `model`, and its own `Usage`, which server-side fallback
+  and compaction report and the top-level counters leave out.
+  `openai_responses::Response` has `error` (`ResponseError`) and
+  `incomplete_details` (`IncompleteDetails`), and `openai_chat`'s `Message`
+  and `Delta` have `refusal`. Serialized JSON is unchanged. A known field
+  that no longer matches its type, such as a `fallback` block without `to`,
+  is now an error rather than kept in `extra`. These structs built with
+  struct literals need the new fields.
+
 - `Speed::Ultrafast` is OpenAI's Ultrafast tier, sent as `service_tier:
   "ultrafast"`, with `SpeedSupport::ultrafast` and `SpeedPricing::ultrafast`.
   GPT-6.2 Astra, GPT-6.2 Sol, GPT-6 Astra, and GPT-6.1 Sol claim and price

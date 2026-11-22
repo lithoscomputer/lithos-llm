@@ -30,14 +30,17 @@ pub struct Request {
 /// A message in [`Request::messages`] or a [`Choice`].
 ///
 /// One struct covers every role, because the roles differ only in which
-/// optional fields they carry. `name`, `refusal`, `annotations`, and `audio`
-/// are kept in `extra`.
+/// optional fields they carry. `name`, `annotations`, and `audio` are kept in
+/// `extra`.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Message {
     /// `system`, `developer`, `user`, `assistant`, or `tool`.
     pub role:         String,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub content:      Field<Content>,
+    /// The model's explanation when an `assistant` message declines.
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub refusal:      Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub tool_calls:   Field<Vec<ToolCall>>,
     /// The call a `tool` message answers.
@@ -277,13 +280,16 @@ pub struct ChunkChoice {
     pub extra:         Extra,
 }
 
-/// The increment inside a [`ChunkChoice`]. `refusal` is kept in `extra`.
+/// The increment inside a [`ChunkChoice`].
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Delta {
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub role:       Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub content:    Field<String>,
+    /// More of [`Message::refusal`].
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub refusal:    Field<String>,
     #[serde(default, skip_serializing_if = "Field::is_absent")]
     pub tool_calls: Field<Vec<ToolCallDelta>>,
     #[serde(flatten)]
