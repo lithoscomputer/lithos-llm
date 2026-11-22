@@ -229,6 +229,22 @@ fn the_served_tier_selects_the_rates_or_none() -> TestResult {
 
     let fast = anthropic(json!({"input_tokens": 10, "output_tokens": 10, "speed": "fast"}))?;
     assert_eq!(fast.served_tier(), ServedTier::Speed(Speed::Fast));
+    // Fast mode doubles Opus 5.5's rates: 10 input at $8 plus 10 output at $40.
+    assert_eq!(
+        cost(&catalog, "anthropic", "claude-opus-5.5", &fast),
+        Some(480)
+    );
+    // Fable 5 has no fast rates, so its base rates would understate the bill.
+    let fast_fable = parse::<anthropic_messages::Response>(json!({
+        "id": "msg_06", "model": "claude-fable-5", "content": [],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 10, "speed": "fast"}
+    }))?
+    .outcome();
+    assert_eq!(
+        cost(&catalog, "anthropic", "claude-fable-5", &fast_fable),
+        None
+    );
     // Priority Tier is billed under a commitment the catalog cannot price.
     let priority = anthropic(json!({
         "input_tokens": 10, "output_tokens": 10, "service_tier": "priority"
