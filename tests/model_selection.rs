@@ -89,6 +89,49 @@ fn claude_aliases_route_like_canonical_names_with_available_providers()
     Ok(())
 }
 
+/// Each line's unversioned aliases with the newest generally available model
+/// of the line, from Anthropic's models overview and OpenAI's models page,
+/// and versioned aliases that must stay on their version.
+const LINE_ALIASES: [(&str, &str); 19] = [
+    ("fable", "claude-fable-5.2"),
+    ("claude-fable", "claude-fable-5.2"),
+    ("opus", "claude-opus-5.5"),
+    ("claude-opus", "claude-opus-5.5"),
+    ("sonnet", "claude-sonnet-5.5"),
+    ("claude-sonnet", "claude-sonnet-5.5"),
+    ("haiku", "claude-haiku-5.5"),
+    ("claude-haiku", "claude-haiku-5.5"),
+    ("astra", "gpt-6.2-astra"),
+    ("gpt-astra", "gpt-6.2-astra"),
+    ("sol", "gpt-6.2-sol"),
+    ("gpt-sol", "gpt-6.2-sol"),
+    ("terra", "gpt-6.1-terra"),
+    ("gpt-terra", "gpt-6.1-terra"),
+    ("luna", "gpt-6-luna"),
+    ("gpt-luna", "gpt-6-luna"),
+    ("claude-haiku-4-5", "claude-haiku-4.5"),
+    ("gpt-5.6", "gpt-5.6-sol"),
+    ("gpt-6", "gpt-6-astra"),
+];
+
+#[test]
+fn a_line_alias_names_the_same_model_on_every_provider() -> Result<(), Box<dyn StdError>> {
+    let catalog = Catalog::builder().with_builtin().build()?;
+    for (alias, canonical) in LINE_ALIASES {
+        let matches = catalog.selector_matches(alias);
+        assert!(!matches.is_empty(), "{alias} matches no offering");
+        for (offering, _) in matches {
+            assert_eq!(
+                offering.model.id().as_str(),
+                canonical,
+                "{alias} on {}",
+                offering.provider.id()
+            );
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn a_provider_wire_id_matches_and_routes_like_its_canonical_name() -> Result<(), Box<dyn StdError>>
 {

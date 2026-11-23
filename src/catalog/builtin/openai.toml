@@ -58,6 +58,12 @@
 # which the Responses API offers at 2x the 30-minute rate. The 12-hour rate
 # is `long_cache_write_usd_micros_per_million`.
 #
+# A line's unversioned aliases, such as `sol` and `gpt-sol`, name the newest
+# generally available model of that line on the models page. On 2026-11-23
+# they moved to GPT-6.2 Astra, GPT-6.2 Sol, GPT-6.1 Terra, and GPT-6 Luna.
+# Versioned aliases never move: `gpt-5.6` is OpenAI's own alias for GPT-5.6
+# Sol, and `gpt-6` names GPT-6 Astra, the flagship of that version.
+#
 # Access paths: this provider entry is the API-key platform
 # (`platform.openai.com`, bearer `OPENAI_API_KEY`). OpenAI also serves a
 # ChatGPT-subscription path through the Codex deployment, which is the
@@ -97,6 +103,7 @@ profile = "openai"
 # 2x and Batch but no Flex tier, so the row claims no economical speed.
 [providers.openai.models."gpt-6.2-astra"]
 display_name = "GPT-6.2 Astra"
+aliases = ["astra", "gpt-astra"]
 api_model = "gpt-6.2-astra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { ultrafast = true, fast = true, economical = false } }
@@ -111,7 +118,7 @@ profile = "gpt6"
 
 [providers.openai.models."gpt-6-astra"]
 display_name = "GPT-6 Astra"
-aliases = ["astra", "gpt-astra", "gpt6", "gpt-6"]
+aliases = ["gpt6", "gpt-6"]
 api_model = "gpt-6-astra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # The model guide says Astra keeps the GPT-5.6 API capabilities, but rejects
@@ -129,6 +136,7 @@ profile = "gpt6"
 # GPT-6.2 Sol: like GPT-6.2 Astra, at $2/$10.
 [providers.openai.models."gpt-6.2-sol"]
 display_name = "GPT-6.2 Sol"
+aliases = ["sol", "gpt-sol"]
 api_model = "gpt-6.2-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { ultrafast = true, fast = true, economical = false } }
@@ -144,6 +152,7 @@ profile = "gpt6"
 # GPT-6.1 Terra: like GPT-6.1 Sol, at $1/$5.
 [providers.openai.models."gpt-6.1-terra"]
 display_name = "GPT-6.1 Terra"
+aliases = ["terra", "gpt-terra"]
 api_model = "gpt-6.1-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
@@ -207,6 +216,7 @@ profile = "gpt6"
 # 272K input tokens.
 [providers.openai.models."gpt-6-luna"]
 display_name = "GPT-6 Luna"
+aliases = ["luna", "gpt-luna"]
 api_model = "gpt-6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
@@ -221,7 +231,7 @@ profile = "gpt6"
 
 [providers.openai.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"
-aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
+aliases = ["gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
 api_model = "gpt-5.6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
@@ -236,7 +246,7 @@ profile = "gpt56"
 
 [providers.openai.models."gpt-5.6-terra"]
 display_name = "GPT-5.6 Terra"
-aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
+aliases = ["gpt56-terra", "gpt-56-terra"]
 api_model = "gpt-5.6-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = true, economical = true } }
@@ -251,7 +261,7 @@ profile = "gpt56"
 
 [providers.openai.models."gpt-5.6-luna"]
 display_name = "GPT-5.6 Luna"
-aliases = ["luna", "gpt-luna", "gpt56-luna", "gpt-56-luna"]
+aliases = ["gpt56-luna", "gpt-56-luna"]
 api_model = "gpt-5.6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 # Luna rejected `temperature` with a 400 on 2026-08-30, so the sampling

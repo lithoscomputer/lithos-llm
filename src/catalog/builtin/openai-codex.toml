@@ -66,6 +66,10 @@ type = "bearer"
 [providers.openai-codex.metadata.agent]
 profile = "openai"
 
+# A row carries its platform twin's aliases, so a line alias names the same
+# model here as on the platform or is absent: `sol` and `terra` name GPT-6.2
+# Sol and GPT-6.1 Terra, which the seat has no rows for yet.
+#
 # GPT-6 Sol and Luna were added on 2026-09-22 after the seat served both and
 # honored a forced tool choice on each. Their 17 roster, effort (low and
 # max), and round-trip cells passed live through the twin that day but could
@@ -88,6 +92,7 @@ profile = "gpt6"
 
 [providers.openai-codex.models."gpt-6-luna"]
 display_name = "GPT-6 Luna"
+aliases = ["luna", "gpt-luna"]
 api_model = "gpt-6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -101,7 +106,7 @@ profile = "gpt6"
 
 [providers.openai-codex.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol"
-aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
+aliases = ["gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
 api_model = "gpt-5.6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -115,7 +120,7 @@ profile = "gpt56"
 
 [providers.openai-codex.models."gpt-5.6-terra"]
 display_name = "GPT-5.6 Terra"
-aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
+aliases = ["gpt56-terra", "gpt-56-terra"]
 api_model = "gpt-5.6-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -129,7 +134,7 @@ profile = "gpt56"
 
 [providers.openai-codex.models."gpt-5.6-luna"]
 display_name = "GPT-5.6 Luna"
-aliases = ["luna", "gpt-luna", "gpt56-luna", "gpt-56-luna"]
+aliases = ["gpt56-luna", "gpt-56-luna"]
 api_model = "gpt-5.6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
