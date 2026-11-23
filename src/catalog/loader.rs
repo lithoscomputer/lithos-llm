@@ -803,7 +803,7 @@ mod tests {
             .build()?;
 
         let metadata = catalog
-            .model("openai", "luna")?
+            .model("openai", "gpt56-luna")?
             .metadata()
             .namespace::<AppMetadata>("app")?
             .ok_or("app metadata should be present")?;
@@ -1279,7 +1279,7 @@ mod tests {
             );
         }
         assert_eq!(
-            catalog.model("openai-codex", "sol")?.api_model(),
+            catalog.model("openai-codex", "gpt-5.6")?.api_model(),
             "gpt-5.6-sol"
         );
         assert!(catalog.model("openai-codex", "gpt-5.4-mini")?.is_probe());

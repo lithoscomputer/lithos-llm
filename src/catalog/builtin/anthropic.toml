@@ -15,10 +15,15 @@
 # launch price to a permanent $2/$10 per million tokens.
 #
 # Claude Fable 5.1 was added on 2026-09-01 from its release notes and the live
-# listing. The `fable` and `claude-fable` aliases stay on Fable 5 for now.
+# listing. The `fable` and `claude-fable` aliases stayed on Fable 5 then.
 #
 # Claude Opus 5.5 was added on 2026-09-22 the same way and took the `opus`
 # and `claude-opus` aliases from Opus 5 once its live cells passed.
+#
+# A line's unversioned aliases, such as `fable` and `claude-fable`, name the
+# newest generally available model of that line on the models overview. On
+# 2026-11-23 they moved to Fable 5.2, Sonnet 5.5, and Haiku 5.5, whose rows
+# have no live cells yet. A versioned or dated id never moves.
 #
 # Cache writes have two lifetimes: 5 minutes at 1.25x input
 # (`cache_write_usd_micros_per_million`) and 1 hour at 2x input
@@ -56,6 +61,7 @@ profile = "anthropic"
 # $0.20/MTok (0.025x input); fast mode is $16/$80.
 [providers.anthropic.models."claude-fable-5.2"]
 display_name = "Claude Fable 5.2"
+aliases = ["fable", "claude-fable"]
 api_model = "claude-fable-5-2"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = true, economical = false } }
@@ -88,7 +94,6 @@ profile = "claude-5"
 
 [providers.anthropic.models."claude-fable-5"]
 display_name = "Claude Fable 5"
-aliases = ["fable", "claude-fable"]
 api_model = "claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Fable always uses adaptive thinking and rejects non-default sampling values.
@@ -144,6 +149,7 @@ profile = "claude-5"
 # 100,000 input tokens and $0.50/$2.50 above.
 [providers.anthropic.models."claude-haiku-5.5"]
 display_name = "Claude Haiku 5.5"
+aliases = ["haiku", "claude-haiku"]
 api_model = "claude-haiku-5-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -162,6 +168,7 @@ profile = "claude-5"
 # $0.10/MTok (0.05x input).
 [providers.anthropic.models."claude-sonnet-5.5"]
 display_name = "Claude Sonnet 5.5"
+aliases = ["sonnet", "claude-sonnet"]
 api_model = "claude-sonnet-5-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, documents = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
@@ -176,7 +183,6 @@ profile = "claude-5"
 
 [providers.anthropic.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5"
-aliases = ["sonnet", "claude-sonnet"]
 api_model = "claude-sonnet-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 # Sonnet 5 takes all five effort levels and rejects non-default sampling values.
@@ -270,7 +276,7 @@ estimated_output_tps = 50
 
 [providers.anthropic.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5"
-aliases = ["haiku", "claude-haiku", "claude-haiku-4-5"]
+aliases = ["claude-haiku-4-5"]
 api_model = "claude-haiku-4-5-20251001"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 # The live listing corrects fabro's stale 8,192-token output limit and says

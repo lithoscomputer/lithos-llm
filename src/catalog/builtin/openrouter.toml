@@ -16,13 +16,18 @@
 # which OpenRouter documents for its Chat Completions endpoint.
 #
 # Claude Fable 5.1 was added on 2026-09-01 from the live listing. The `fable`
-# and `claude-fable` aliases stay on Fable 5 for now.
+# and `claude-fable` aliases stayed on Fable 5 then.
 #
 # GPT-6 Sol and Luna were added on 2026-09-22 from the live listing and raw
 # probes; see the comment above their rows.
 #
 # Claude Opus 5.5 was added on 2026-09-22 from the live listing and raw
 # probes, and took the `opus` and `claude-opus` aliases from Opus 5.
+#
+# Each line's unversioned aliases follow the Anthropic and OpenAI rows to the
+# newest generally available model of the line: on 2026-11-23, Fable 5.2,
+# Sonnet 5.5, Haiku 5.5, GPT-6.2 Astra, GPT-6.2 Sol, GPT-6.1 Terra, and GPT-6
+# Luna.
 
 schema_version = 1
 
@@ -68,6 +73,7 @@ profile = "openai"
 # Fable 5.2 follows the Fable 5.1 row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
 [providers.openrouter.models."claude-fable-5.2"]
 display_name = "Claude Fable 5.2 (via OpenRouter)"
+aliases = ["fable", "claude-fable"]
 api_model = "anthropic/claude-fable-5.2"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
@@ -95,7 +101,6 @@ profile = "claude-5"
 
 [providers.openrouter.models."claude-fable-5"]
 display_name = "Claude Fable 5 (via OpenRouter)"
-aliases = ["fable", "claude-fable"]
 api_model = "anthropic/claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -137,6 +142,7 @@ profile = "claude-5"
 # 100,000 input tokens. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
 [providers.openrouter.models."claude-haiku-5.5"]
 display_name = "Claude Haiku 5.5 (via OpenRouter)"
+aliases = ["haiku", "claude-haiku"]
 api_model = "anthropic/claude-haiku-5.5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -150,6 +156,7 @@ profile = "claude-5"
 # Anthropic. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
 [providers.openrouter.models."claude-sonnet-5.5"]
 display_name = "Claude Sonnet 5.5 (via OpenRouter)"
+aliases = ["sonnet", "claude-sonnet"]
 api_model = "anthropic/claude-sonnet-5.5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = false, named = false }, speed = { fast = false, economical = false } }
@@ -161,7 +168,6 @@ profile = "claude-5"
 
 [providers.openrouter.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5 (via OpenRouter)"
-aliases = ["sonnet", "claude-sonnet"]
 api_model = "anthropic/claude-sonnet-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -209,7 +215,7 @@ profile = "anthropic"
 
 [providers.openrouter.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5 (via OpenRouter)"
-aliases = ["haiku", "claude-haiku", "claude-haiku-4-5"]
+aliases = ["claude-haiku-4-5"]
 api_model = "anthropic/claude-haiku-4.5"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -222,6 +228,7 @@ profile = "anthropic"
 # GPT-6.2 Sol follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
 [providers.openrouter.models."gpt-6.2-sol"]
 display_name = "GPT-6.2 Sol (via OpenRouter)"
+aliases = ["sol", "gpt-sol"]
 api_model = "openai/gpt-6.2-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -234,6 +241,7 @@ profile = "gpt6"
 # GPT-6.2 Astra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
 [providers.openrouter.models."gpt-6.2-astra"]
 display_name = "GPT-6.2 Astra (via OpenRouter)"
+aliases = ["astra", "gpt-astra"]
 api_model = "openai/gpt-6.2-astra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -246,6 +254,7 @@ profile = "gpt6"
 # GPT-6.1 Terra follows the GPT-6 Sol row. Prices from GET /api/v1/models on 2026-11-19; no cells yet.
 [providers.openrouter.models."gpt-6.1-terra"]
 display_name = "GPT-6.1 Terra (via OpenRouter)"
+aliases = ["terra", "gpt-terra"]
 api_model = "openai/gpt-6.1-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -288,6 +297,7 @@ profile = "gpt6"
 
 [providers.openrouter.models."gpt-6-luna"]
 display_name = "GPT-6 Luna (via OpenRouter)"
+aliases = ["luna", "gpt-luna"]
 api_model = "openai/gpt-6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -303,7 +313,7 @@ profile = "gpt6"
 
 [providers.openrouter.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol (via OpenRouter)"
-aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
+aliases = ["gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
 api_model = "openai/gpt-5.6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -315,7 +325,7 @@ profile = "gpt56"
 
 [providers.openrouter.models."gpt-5.6-terra"]
 display_name = "GPT-5.6 Terra (via OpenRouter)"
-aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
+aliases = ["gpt56-terra", "gpt-56-terra"]
 api_model = "openai/gpt-5.6-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -327,7 +337,7 @@ profile = "gpt56"
 
 [providers.openrouter.models."gpt-5.6-luna"]
 display_name = "GPT-5.6 Luna (via OpenRouter)"
-aliases = ["luna", "gpt-luna", "gpt56-luna", "gpt-56-luna"]
+aliases = ["gpt56-luna", "gpt-56-luna"]
 api_model = "openai/gpt-5.6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }

@@ -4,7 +4,10 @@
 # row the gateway lists is here under the same catalog id, aliases, and
 # profile, with the gateway's own wire id, limits, and prices. Three
 # OpenRouter rows are absent because the gateway does not list them:
-# laguna-xs-2.1, qwen3.6-flash, and devstral-2512.
+# laguna-xs-2.1, qwen3.6-flash, and devstral-2512. A line alias such as
+# `fable` names the newest model of its line, so where this roster lacks that
+# model, as for Fable 5.2, Sonnet 5.5, Haiku 5.5, GPT-6.2 Sol, and GPT-6.1
+# Terra, the alias is absent here rather than naming an older model.
 # One row is outside that roster: TypeSafe's Jev evaluation model, in its
 # own section at the end.
 #
@@ -133,7 +136,6 @@ profile = "claude-5"
 # wrote 8,316 tokens and read them all back five seconds later.
 [providers.vercel.models."claude-fable-5"]
 display_name = "Claude Fable 5 (via Vercel)"
-aliases = ["fable", "claude-fable"]
 api_model = "anthropic/claude-fable-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
@@ -196,7 +198,6 @@ profile = "claude-5"
 # vision, a cache write-then-read pair, and stop sequences all verified.
 [providers.vercel.models."claude-sonnet-5"]
 display_name = "Claude Sonnet 5 (via Vercel)"
-aliases = ["sonnet", "claude-sonnet"]
 api_model = "anthropic/claude-sonnet-5"
 limits = { context_tokens = 1000000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
@@ -245,7 +246,7 @@ profile = "anthropic"
 # The listing offers a reasoning toggle but no named effort levels.
 [providers.vercel.models."claude-haiku-4.5"]
 display_name = "Claude Haiku 4.5 (via Vercel)"
-aliases = ["haiku", "claude-haiku", "claude-haiku-4-5"]
+aliases = ["claude-haiku-4-5"]
 api_model = "anthropic/claude-haiku-4.5"
 limits = { context_tokens = 200000, max_output_tokens = 64000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
@@ -281,6 +282,7 @@ profile = "gpt6"
 
 [providers.vercel.models."gpt-6-luna"]
 display_name = "GPT-6 Luna (via Vercel)"
+aliases = ["luna", "gpt-luna"]
 api_model = "openai/gpt-6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
@@ -292,7 +294,7 @@ profile = "gpt6"
 
 [providers.vercel.models."gpt-5.6-sol"]
 display_name = "GPT-5.6 Sol (via Vercel)"
-aliases = ["sol", "gpt-sol", "gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
+aliases = ["gpt56-sol", "gpt-56-sol", "gpt-5.6", "gpt56", "gpt-56"]
 api_model = "openai/gpt-5.6-sol"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
@@ -304,7 +306,7 @@ profile = "gpt56"
 
 [providers.vercel.models."gpt-5.6-terra"]
 display_name = "GPT-5.6 Terra (via Vercel)"
-aliases = ["terra", "gpt-terra", "gpt56-terra", "gpt-56-terra"]
+aliases = ["gpt56-terra", "gpt-56-terra"]
 api_model = "openai/gpt-5.6-terra"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }
@@ -316,7 +318,7 @@ profile = "gpt56"
 
 [providers.vercel.models."gpt-5.6-luna"]
 display_name = "GPT-5.6 Luna (via Vercel)"
-aliases = ["luna", "gpt-luna", "gpt56-luna", "gpt-56-luna"]
+aliases = ["gpt56-luna", "gpt-56-luna"]
 api_model = "openai/gpt-5.6-luna"
 limits = { context_tokens = 1050000, max_output_tokens = 128000 }
 capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, sampling = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = true } }

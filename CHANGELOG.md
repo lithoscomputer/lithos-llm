@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- A line's unversioned aliases now name the newest generally available model
+  of that line in the built-in catalog: `fable` and `claude-fable` name
+  Claude Fable 5.2 (was Fable 5), `sonnet` and `claude-sonnet` Sonnet 5.5
+  (was Sonnet 5), `haiku` and `claude-haiku` Haiku 5.5 (was Haiku 4.5),
+  `astra` and `gpt-astra` GPT-6.2 Astra (was GPT-6 Astra), `sol` and
+  `gpt-sol` GPT-6.2 Sol (was GPT-5.6 Sol), `terra` and `gpt-terra` GPT-6.1
+  Terra (was GPT-5.6 Terra), and `luna` and `gpt-luna` GPT-6 Luna (was
+  GPT-5.6 Luna). An alias names one model on every provider: a provider
+  without the newest model, such as `vercel` for Fable 5.2 or `openai-codex`
+  for GPT-6.2 Sol, no longer carries the alias. Versioned ids and aliases,
+  such as `claude-fable-5`, `claude-haiku-4-5`, `gpt-5.6`, and `gpt-6`, are
+  unchanged.
+
 - `wire::Outcome` reads how a response ended, which model served it, and what
   it was billed for. Each format's `Response::outcome()` builds one, and
   `StreamEvent::fold_into` folds a stream into one event by event. It

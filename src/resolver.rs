@@ -502,7 +502,7 @@ mod tests {
         let request = Request::builder().model("oa/luna").user("Hello").build()?;
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
         assert_eq!(route.provider().id().as_str(), "openai");
-        assert_eq!(route.model().id().as_str(), "gpt-5.6-luna");
+        assert_eq!(route.model().id().as_str(), "gpt-6-luna");
 
         let request = Request::builder().model("default").user("Hello").build()?;
         let route = CatalogResolver.resolve(&request, &catalog, &available)?;
