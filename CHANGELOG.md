@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `wire::openai_responses` reads Venice's Responses bodies for models it
+  serves by translating Chat Completions, which failed to parse before, so
+  their outcome had no usage or cost. `SummaryPart::Plain` holds a reasoning
+  summary written as a bare string, and `Usage::input_tokens_details` and
+  `Usage::output_tokens_details` are now `Field`s, because Venice omits the
+  first. Read them with `as_option()`.
+
 - A line's unversioned aliases now name the newest generally available model
   of that line in the built-in catalog: `fable` and `claude-fable` name
   Claude Fable 5.2 (was Fable 5), `sonnet` and `claude-sonnet` Sonnet 5.5

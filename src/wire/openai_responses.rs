@@ -208,6 +208,10 @@ pub struct Reasoning {
 #[non_exhaustive]
 pub enum SummaryPart {
     SummaryText(Text),
+    /// A bare string, as Venice writes the summary of a model it serves by
+    /// translating Chat Completions.
+    #[serde(untagged)]
+    Plain(String),
     /// A part type not modeled here, kept as its full JSON object.
     #[serde(untagged, deserialize_with = "unknown::<SummaryPart, _>")]
     Unknown(Extra),
@@ -273,12 +277,18 @@ pub struct IncompleteDetails {
 }
 
 /// Token counts on a [`Response`].
+///
+/// OpenAI always sends both details objects. Venice omits
+/// `input_tokens_details` for a model it serves by translating Chat
+/// Completions, so either may be absent.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Usage {
     pub input_tokens:          u64,
-    pub input_tokens_details:  InputTokensDetails,
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub input_tokens_details:  Field<InputTokensDetails>,
     pub output_tokens:         u64,
-    pub output_tokens_details: OutputTokensDetails,
+    #[serde(default, skip_serializing_if = "Field::is_absent")]
+    pub output_tokens_details: Field<OutputTokensDetails>,
     pub total_tokens:          u64,
     #[serde(flatten)]
     pub extra:                 Extra,
@@ -657,8 +667,48 @@ pub struct ErrorEvent {
 mod tests {
     use serde_json::{Value, json};
 
-    use super::{ContentPart, Item, StreamEvent, SummaryPart};
+    use super::{ContentPart, Item, Response, StreamEvent, SummaryPart};
     use crate::wire::assert_types_are_modeled;
+
+    /// Venice's Responses body for a model it serves by translating Chat
+    /// Completions, as returned for GLM 5.3 Flash on 2026-11-26: string
+    /// summaries and no `input_tokens_details`.
+    fn venice_translated() -> Value {
+        json!({
+            "id": "resp_chatcmpl-1",
+            "object": "response",
+            "created_at": 1,
+            "model": "z-ai-glm-5-3-flash",
+            "status": "completed",
+            "output": [
+                {"type": "reasoning", "id": "rs_1", "summary": ["Simple request."]},
+                {"type": "message", "id": "msg_1", "status": "completed", "role": "assistant",
+                 "content": [{"type": "output_text", "text": "ok.", "annotations": []}]}
+            ],
+            "usage": {"input_tokens": 21, "output_tokens": 12,
+                      "output_tokens_details": {"reasoning_tokens": 8}, "total_tokens": 33}
+        })
+    }
+
+    #[test]
+    fn reads_venices_translated_responses_without_loss() {
+        let body = venice_translated();
+        let response: Response = serde_json::from_value(body.clone()).unwrap();
+
+        assert_eq!(serde_json::to_value(&response).unwrap(), body);
+        let counts = response.outcome().usage().unwrap();
+        assert_eq!(
+            counts,
+            crate::types::TokenCounts::from_inclusive(21, 12, 8, 0, 0)
+        );
+
+        // The same response completes a stream.
+        let event = json!({"type": "response.completed", "response": body, "sequence_number": 11});
+        let event: StreamEvent = serde_json::from_value(event).unwrap();
+        let mut outcome = crate::wire::Outcome::default();
+        event.fold_into(&mut outcome);
+        assert_eq!(outcome.usage(), Some(counts));
+    }
 
     #[test]
     fn every_listed_type_has_a_variant() {
