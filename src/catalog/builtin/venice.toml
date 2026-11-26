@@ -82,6 +82,23 @@ pricing = { input_usd_micros_per_million = 4500000, output_usd_micros_per_millio
 [providers.venice.models."kimi-k3-fast".metadata.agent]
 profile = "kimi"
 
+# Kimi K3.1 Pro, DeepSeek V4.1 Flash, and GLM 5.3 Flash were added on
+# 2026-11-26 from GET /api/v1/models: ids, limits, vision, response schema,
+# reasoning effort options, and prices. No cells yet. DeepSeek V4.1 Flash is
+# Venice's dated `-1017` API id, the newest snapshot, as the V4 Flash row
+# uses `-0731`. Venice's own label for all three is `private`.
+[providers.venice.models."kimi-k3.1-pro"]
+display_name = "Kimi K3.1 Pro"
+aliases = ["kimi-pro"]
+api_model = "kimi-k3-1-pro"
+limits = { context_tokens = 1000000, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2000000, output_usd_micros_per_million = 10000000, cached_input_usd_micros_per_million = 200000 }
+
+[providers.venice.models."kimi-k3.1-pro".metadata.agent]
+profile = "kimi"
+
 [providers.venice.models."grok-4.6"]
 display_name = "Grok 4.6"
 aliases = ["grok", "grok46", "grok-46"]
@@ -106,6 +123,19 @@ pricing = { input_usd_micros_per_million = 1750000, output_usd_micros_per_millio
 [providers.venice.models."glm-5.3".metadata.agent]
 reasoning_by_default = true
 
+[providers.venice.models."glm-5.3-flash"]
+display_name = "GLM 5.3 Flash"
+aliases = ["glm-flash", "glm5.3-flash", "glm-5-3-flash"]
+api_model = "z-ai-glm-5-3-flash"
+limits = { context_tokens = 1048576, max_output_tokens = 131072 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
+pricing = { input_usd_micros_per_million = 150000, output_usd_micros_per_million = 500000, cached_input_usd_micros_per_million = 30000 }
+
+# GLM 5.3 Flash, like GLM 5.3, takes no named effort level and reasons on
+# every call.
+[providers.venice.models."glm-5.3-flash".metadata.agent]
+reasoning_by_default = true
+
 [providers.venice.models."deepseek-v4-flash"]
 display_name = "DeepSeek V4 Flash"
 aliases = ["deepseek-v4", "deepseek", "deepseek-flash"]
@@ -114,6 +144,15 @@ limits = { context_tokens = 1000000, max_output_tokens = 32768 }
 capabilities = { text = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false } }
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 175000, output_usd_micros_per_million = 350000, cached_input_usd_micros_per_million = 35000 }
+
+[providers.venice.models."deepseek-v4.1-flash"]
+display_name = "DeepSeek V4.1 Flash"
+aliases = ["deepseek-v4.1", "deepseek-v4-1-flash"]
+api_model = "deepseek-v4-1-flash-1017"
+limits = { context_tokens = 1000000, max_output_tokens = 262144 }
+capabilities = { text = true, images = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, cache_routing = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = false, high = true, xhigh = false, max = true } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 7500 }
 
 [providers.venice.models."deepseek-v4-pro"]
 display_name = "DeepSeek V4 Pro"
