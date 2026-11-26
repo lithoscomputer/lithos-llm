@@ -156,11 +156,11 @@ pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million
 
 # Gemini 4 Carbon, Argon, Neon, and Hydrogen were added on 2026-11-26 from
 # GET /api/v1/models (ids, limits, image and audio input, effort options,
-# prices) and one live call
-# each with text, a named effort level, a required tool call, and a strict
-# JSON schema. Venice labels them `anonymized`: it serves them through
-# OpenRouter, not on hosts it labels `private`. Carbon and Argon take
-# low, medium, and high effort; Neon and Hydrogen also take xhigh.
+# prices) and one live call each with text, a named effort level, a required
+# tool call, and a strict JSON schema. Venice labels them `anonymized`: it
+# serves them through OpenRouter, not on hosts it labels `private`. Carbon
+# and Argon take low, medium, and high effort; Neon and Hydrogen also take
+# xhigh.
 [providers.venice.models."gemini-4-carbon"]
 display_name = "Gemini 4 Carbon"
 api_model = "gemini-4-carbon"
