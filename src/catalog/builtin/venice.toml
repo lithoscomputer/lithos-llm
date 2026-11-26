@@ -154,6 +154,57 @@ capabilities = { text = true, images = true, tools = true, response_format = { j
 protocol_options = { reasoning_effort_levels = true }
 pricing = { input_usd_micros_per_million = 300000, output_usd_micros_per_million = 1200000, cached_input_usd_micros_per_million = 7500 }
 
+# Gemini 4 Carbon, Argon, Neon, and Hydrogen were added on 2026-11-26 from
+# GET /api/v1/models (ids, limits, image and audio input, effort options,
+# prices) and one live call
+# each with text, a named effort level, a required tool call, and a strict
+# JSON schema. Venice labels them `anonymized`: it serves them through
+# OpenRouter, not on hosts it labels `private`. Carbon and Argon take
+# low, medium, and high effort; Neon and Hydrogen also take xhigh.
+[providers.venice.models."gemini-4-carbon"]
+display_name = "Gemini 4 Carbon"
+api_model = "gemini-4-carbon"
+limits = { context_tokens = 1000000, max_output_tokens = 65536 }
+capabilities = { text = true, images = true, audio = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = false, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 12500000, cached_input_usd_micros_per_million = 125000 }
+
+[providers.venice.models."gemini-4-carbon".metadata.agent]
+profile = "gemini"
+
+[providers.venice.models."gemini-4-argon"]
+display_name = "Gemini 4 Argon"
+api_model = "gemini-4-argon"
+limits = { context_tokens = 1000000, max_output_tokens = 65536 }
+capabilities = { text = true, images = true, audio = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = false, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 2500000, output_usd_micros_per_million = 12500000, cached_input_usd_micros_per_million = 125000 }
+
+[providers.venice.models."gemini-4-argon".metadata.agent]
+profile = "gemini"
+
+[providers.venice.models."gemini-4-neon"]
+display_name = "Gemini 4 Neon"
+api_model = "gemini-4-neon"
+limits = { context_tokens = 1000000, max_output_tokens = 65536 }
+capabilities = { text = true, images = true, audio = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 3750000, output_usd_micros_per_million = 18750000, cached_input_usd_micros_per_million = 187500 }
+
+[providers.venice.models."gemini-4-neon".metadata.agent]
+profile = "gemini"
+
+[providers.venice.models."gemini-4-hydrogen"]
+display_name = "Gemini 4 Hydrogen"
+api_model = "gemini-4-hydrogen"
+limits = { context_tokens = 1000000, max_output_tokens = 65536 }
+capabilities = { text = true, images = true, audio = true, tools = true, response_format = { json_object = true, json_schema = true }, reasoning = true, caching = true, tool_choice = { required = true, named = true }, speed = { fast = false, economical = false }, reasoning_effort = { minimal = false, low = true, medium = true, high = true, xhigh = true, max = false } }
+protocol_options = { reasoning_effort_levels = true }
+pricing = { input_usd_micros_per_million = 1875000, output_usd_micros_per_million = 9375000, cached_input_usd_micros_per_million = 93750 }
+
+[providers.venice.models."gemini-4-hydrogen".metadata.agent]
+profile = "gemini"
+
 [providers.venice.models."deepseek-v4-pro"]
 display_name = "DeepSeek V4 Pro"
 aliases = ["deepseek-pro"]

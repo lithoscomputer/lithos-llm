@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The built-in catalog adds Gemini 4 Carbon, Argon, Neon, and Hydrogen
+  (`gemini-4-carbon`, `gemini-4-argon`, `gemini-4-neon`,
+  `gemini-4-hydrogen`) to Venice, from Venice's live model listing and one
+  live call each on 2026-11-26. Venice labels them `anonymized`.
+
 - `wire::openai_responses` reads Venice's Responses bodies for models it
   serves by translating Chat Completions, which failed to parse before, so
   their outcome had no usage or cost. `SummaryPart::Plain` holds a reasoning
