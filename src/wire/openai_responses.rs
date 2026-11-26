@@ -668,7 +668,8 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::{ContentPart, Item, Response, StreamEvent, SummaryPart};
-    use crate::wire::assert_types_are_modeled;
+    use crate::types::TokenCounts;
+    use crate::wire::{Outcome, assert_types_are_modeled};
 
     /// Venice's Responses body for a model it serves by translating Chat
     /// Completions, as returned for GLM 5.3 Flash on 2026-11-26: string
@@ -697,15 +698,12 @@ mod tests {
 
         assert_eq!(serde_json::to_value(&response).unwrap(), body);
         let counts = response.outcome().usage().unwrap();
-        assert_eq!(
-            counts,
-            crate::types::TokenCounts::from_inclusive(21, 12, 8, 0, 0)
-        );
+        assert_eq!(counts, TokenCounts::from_inclusive(21, 12, 8, 0, 0));
 
         // The same response completes a stream.
         let event = json!({"type": "response.completed", "response": body, "sequence_number": 11});
         let event: StreamEvent = serde_json::from_value(event).unwrap();
-        let mut outcome = crate::wire::Outcome::default();
+        let mut outcome = Outcome::default();
         event.fold_into(&mut outcome);
         assert_eq!(outcome.usage(), Some(counts));
     }
