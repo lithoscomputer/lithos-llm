@@ -227,8 +227,22 @@ fn responses_response_round_trips() -> TestResult {
     let Field::Present(usage) = &response.usage else {
         panic!("usage")
     };
-    assert_eq!(usage.input_tokens_details.cached_tokens, 48128);
-    assert_eq!(usage.output_tokens_details.reasoning_tokens, 320);
+    assert_eq!(
+        usage
+            .input_tokens_details
+            .as_option()
+            .unwrap()
+            .cached_tokens,
+        48128
+    );
+    assert_eq!(
+        usage
+            .output_tokens_details
+            .as_option()
+            .unwrap()
+            .reasoning_tokens,
+        320
+    );
     Ok(())
 }
 

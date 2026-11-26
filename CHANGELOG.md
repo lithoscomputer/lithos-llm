@@ -6,6 +6,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- `wire::openai_responses` reads Venice's Responses bodies for models it
+  serves by translating Chat Completions, which failed to parse before, so
+  their outcome had no usage or cost. `SummaryPart::Plain` holds a reasoning
+  summary written as a bare string, and `Usage::input_tokens_details` and
+  `Usage::output_tokens_details` are now `Field`s, because Venice omits the
+  first. Read them with `as_option()`.
+
 - The built-in catalog adds Kimi K3.1 Pro (`kimi-k3.1-pro`), DeepSeek V4.1
   Flash (`deepseek-v4.1-flash`, Venice's `deepseek-v4-1-flash-1017`), and
   GLM 5.3 Flash (`glm-5.3-flash`) to Venice, from Venice's live model listing
