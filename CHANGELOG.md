@@ -6,6 +6,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- The built-in catalog adds Kimi K3.1 Pro (`kimi-k3.1-pro`), DeepSeek V4.1
+  Flash (`deepseek-v4.1-flash`, Venice's `deepseek-v4-1-flash-1017`), and
+  GLM 5.3 Flash (`glm-5.3-flash`) to Venice, from Venice's live model listing
+  on 2026-11-26. Existing aliases, such as `kimi` and `deepseek`, do not move.
+
 - A line's unversioned aliases now name the newest generally available model
   of that line in the built-in catalog: `fable` and `claude-fable` name
   Claude Fable 5.2 (was Fable 5), `sonnet` and `claude-sonnet` Sonnet 5.5
